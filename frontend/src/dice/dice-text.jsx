@@ -65,7 +65,8 @@ export function renderDiceSpans(text, { lang = 'pt', onRoll } = {}) {
           onClick={(e) => {
             e.stopPropagation();
             if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(35);
-            const payload = { formula, label, isAttack: true, sheet: true };
+            const adv = e.currentTarget.getAttribute('data-roll-adv') || undefined;
+            const payload = { formula, label, isAttack: true, sheet: true, ...(adv ? { adv, advMode: adv } : {}) };
             if (onRoll) onRoll(payload);
             else executeDiceRoll(payload);
           }}
@@ -91,7 +92,8 @@ export function renderDiceSpans(text, { lang = 'pt', onRoll } = {}) {
           onClick={(e) => {
             e.stopPropagation();
             if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(35);
-            const payload = { formula, label, isSave: true, sheet: true };
+            const adv = e.currentTarget.getAttribute('data-roll-adv') || undefined;
+            const payload = { formula, label, isSave: true, sheet: true, ...(adv ? { adv, advMode: adv } : {}) };
             if (onRoll) onRoll(payload);
             else executeDiceRoll(payload);
           }}
@@ -117,7 +119,8 @@ export function renderDiceSpans(text, { lang = 'pt', onRoll } = {}) {
           onClick={(e) => {
             e.stopPropagation();
             if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(35);
-            const payload = { formula, label, isCheck: true, sheet: true };
+            const adv = e.currentTarget.getAttribute('data-roll-adv') || undefined;
+            const payload = { formula, label, isCheck: true, sheet: true, ...(adv ? { adv, advMode: adv } : {}) };
             if (onRoll) onRoll(payload);
             else executeDiceRoll(payload);
           }}
@@ -141,10 +144,12 @@ export function renderDiceSpans(text, { lang = 'pt', onRoll } = {}) {
         onClick={(e) => {
           e.stopPropagation();
           if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(35);
+          const adv = e.currentTarget.getAttribute('data-roll-adv') || undefined;
+          const payload = { formula, label: `Rolagem: ${formula}`, sheet: true, ...(adv ? { adv, advMode: adv } : {}) };
           if (onRoll) {
-            onRoll(formula);
+            onRoll(payload);
           } else {
-            executeDiceRoll(formula);
+            executeDiceRoll(payload);
           }
         }}
         aria-label={isPt ? `Rolar ${part.raw}` : `Roll ${part.raw}`}

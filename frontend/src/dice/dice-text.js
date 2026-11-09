@@ -14,6 +14,10 @@
  * 2. Universal global document event delegation intercepting taps on raw text nodes.
  */
 
+import { setupGlobalDiceSwipeListener, getElementAdvState } from './dice-gestures.js';
+
+export { setupGlobalDiceSwipeListener, getElementAdvState };
+
 /**
  * Matches canonical D&D dice notation:
  * [count]d[sides][+-mod] where sides in {4, 6, 8, 10, 12, 20, 100}
@@ -286,6 +290,8 @@ export function getClickedDiceFormula(e) {
 export function setupGlobalDiceClickListener(performRoll) {
   if (typeof document === 'undefined') return () => {};
 
+  const cleanupSwipe = setupGlobalDiceSwipeListener();
+
   const handlePointerOrClick = (e) => {
     // Ignore non-primary clicks (right click, middle click)
     if (e.button != null && e.button !== 0) return;
@@ -301,33 +307,36 @@ export function setupGlobalDiceClickListener(performRoll) {
       const saveFormula = token.getAttribute('data-roll-save');
       const checkFormula = token.getAttribute('data-roll-check');
       const rollLabel = token.getAttribute('data-roll-label');
+      const advState = token.getAttribute('data-roll-adv') || null;
 
       e.preventDefault();
       e.stopPropagation();
       if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(35);
 
+      const advProps = advState ? { adv: advState, advMode: advState } : {};
+
       if (attackFormula) {
-        const payload = { formula: attackFormula, label: rollLabel || `Ataque (${attackFormula})`, isAttack: true, sheet: true };
+        const payload = { formula: attackFormula, label: rollLabel || `Ataque (${attackFormula})`, isAttack: true, sheet: true, ...advProps };
         if (performRoll) performRoll(payload);
         else executeDiceRoll(payload);
         return;
       }
       if (saveFormula) {
-        const payload = { formula: saveFormula, label: rollLabel || 'Teste de Resistência', isSave: true, sheet: true };
+        const payload = { formula: saveFormula, label: rollLabel || 'Teste de Resistência', isSave: true, sheet: true, ...advProps };
         if (performRoll) performRoll(payload);
         else executeDiceRoll(payload);
         return;
       }
       if (checkFormula) {
-        const payload = { formula: checkFormula, label: rollLabel || 'Teste de Atributo', isCheck: true, sheet: true };
+        const payload = { formula: checkFormula, label: rollLabel || 'Teste de Atributo', isCheck: true, sheet: true, ...advProps };
         if (performRoll) performRoll(payload);
         else executeDiceRoll(payload);
         return;
       }
       if (formula) {
-        const payload = { formula, label: rollLabel || `Rolagem: ${formula}`, sheet: true };
+        const payload = { formula, label: rollLabel || `Rolagem: ${formula}`, sheet: true, ...advProps };
         if (performRoll) performRoll(payload);
-        else executeDiceRoll(formula);
+        else executeDiceRoll(payload);
         return;
       }
     }
@@ -362,6 +371,7 @@ export function setupGlobalDiceClickListener(performRoll) {
   document.addEventListener('keydown', handleKeyDown, true);
 
   return () => {
+    cleanupSwipe();
     document.removeEventListener('click', handlePointerOrClick, true);
     document.removeEventListener('keydown', handleKeyDown, true);
   };

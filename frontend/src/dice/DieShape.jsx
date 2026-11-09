@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { DICE_FACES } from './dice-tessellation.js';
 import {
   FADEIN_DURATION_MS,
@@ -55,6 +56,7 @@ export default function DieShape({
   });
   const [animPhase, setAnimPhase] = useState(() => (shouldAnimateRoll ? 'rollup' : 'idle'));
   const [tickPulse, setTickPulse] = useState(false);
+  const [critFlashed, setCritFlashed] = useState(false);
 
   // Synchronized 3-Phase Juicy Roll Choreography (50% speed-up, unified climax at 750ms):
   // - Phase 1 (0 -> 750ms): Zero initial wobble, then increasing shake frequency (6Hz -> 56Hz),
@@ -86,6 +88,19 @@ export default function DieShape({
       el.style.setProperty('--sparks-emit', `${profile.sparksEmit || 0}`);
       el.style.setProperty('--sparks-blown', '0');
       el.style.setProperty('--sparks-opacity', `${profile.sparksEmit || 0}`);
+
+      if (isHero && typeof document !== 'undefined' && document.body) {
+        const p = localP != null ? localP : 0;
+        const bgStrength = Math.pow(p, 2.4);
+        const bgPhase = 2 * Math.PI * 0.75 * (3.5 * p + 4.5 * Math.pow(p, 2));
+        const bgShakeX = (Math.sin(bgPhase) * 4.5 * bgStrength).toFixed(2);
+        const bgShakeY = (Math.cos(bgPhase * 1.25) * 3.2 * bgStrength).toFixed(2);
+        const bgShakeRot = (Math.sin(bgPhase * 0.75) * 0.75 * bgStrength).toFixed(2);
+        document.body.classList.add('dice-rolling-shake');
+        document.body.style.setProperty('--bg-shake-x', `${bgShakeX}px`);
+        document.body.style.setProperty('--bg-shake-y', `${bgShakeY}px`);
+        document.body.style.setProperty('--bg-shake-rot', `${bgShakeRot}deg`);
+      }
     };
 
     const resetAnticipationVars = () => {
@@ -102,6 +117,12 @@ export default function DieShape({
       el.style.setProperty('--num-blur', '0px');
       el.style.setProperty('--num-trail', '0px');
       el.style.setProperty('--num-stretch', '1');
+      if (isHero && typeof document !== 'undefined' && document.body) {
+        document.body.classList.remove('dice-rolling-shake');
+        document.body.style.removeProperty('--bg-shake-x');
+        document.body.style.removeProperty('--bg-shake-y');
+        document.body.style.removeProperty('--bg-shake-rot');
+      }
     };
 
     const applyFalloffVars = (falloffProfile) => {
@@ -209,7 +230,7 @@ export default function DieShape({
         }
 
         const profile = computeAnticipationProfile(localP);
-        applyAnticipationVars(profile);
+        applyAnticipationVars(profile, localP);
 
         const frame = computeRollupFrame(finalVal, localP, die, stepOffset);
         if (frame.stepIndex !== lastStepIndex) {
@@ -233,6 +254,9 @@ export default function DieShape({
         resetAnticipationVars();
         setTickPulse(false);
         setDisplayVal(finalVal);
+        if (isHero && isCrit) {
+          setCritFlashed(true);
+        }
         if (!isHero) {
           currentPhase = 'petal-locked';
           setAnimPhase('petal-locked');
@@ -445,6 +469,12 @@ export default function DieShape({
             ))}
           </span>
         </div>
+      )}
+      {isHero && isCrit && critFlashed && typeof document !== 'undefined' && (
+        createPortal(
+          <div className="dice-crit-flash-screen" aria-hidden="true" />,
+          document.body
+        )
       )}
     </div>
   );

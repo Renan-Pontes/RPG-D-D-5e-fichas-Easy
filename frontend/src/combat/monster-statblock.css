@@ -304,3 +304,151 @@
     font-size: 0.8rem;
   }
 }
+
+
+/* ==========================================================================
+   Foldable 4-Action Skills Grid (D&D 5e 2024 Layout)
+   Search (Busca), Study (Estudo), Influence (Influência), Hide (Furtividade)
+   ========================================================================== */
+
+.statblock-actions-skills {
+  margin: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.statblock-action-details {
+  background: rgba(18, 12, 8, 0.65);
+  border: 1px solid rgba(214, 176, 100, 0.25);
+  border-radius: var(--radius-sm, 3px);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.statblock-action-details[open] {
+  background: rgba(22, 15, 10, 0.92);
+  border-color: rgba(214, 176, 100, 0.45);
+}
+
+.statblock-action-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  font-size: 0.82rem;
+  gap: 6px;
+}
+
+.statblock-action-summary::-webkit-details-marker {
+  display: none;
+}
+
+.statblock-action-header-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--display, "Cinzel", Georgia, serif);
+  font-weight: 700;
+  color: var(--gold-bright, #edcb7a);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.statblock-action-notation {
+  font-family: var(--mono, monospace);
+  font-size: 0.76rem;
+  color: var(--ink-secondary, #d9c9a6);
+  flex: 1;
+  text-align: right;
+  margin-right: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statblock-action-chevron {
+  font-size: 0.7rem;
+  color: var(--gold, #d6b064);
+  transition: transform 0.2s ease;
+}
+
+.statblock-action-details[open] .statblock-action-chevron {
+  transform: rotate(180deg);
+}
+
+/* 2-Column Compact Grid for Action Skills */
+.statblock-action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px 8px;
+  padding: 6px 8px 8px;
+  border-top: 1px solid rgba(214, 176, 100, 0.15);
+  background: rgba(10, 7, 5, 0.45);
+}
+
+@media (max-width: 480px) {
+  .statblock-action-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.statblock-action-skill-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-size: 0.78rem;
+}
+
+.statblock-action-skill-row:hover {
+  background: rgba(214, 176, 100, 0.08);
+}
+
+.statblock-action-skill-row.is-trained .statblock-action-skill-name {
+  color: #fff9ee;
+  font-weight: 600;
+}
+
+.statblock-action-skill-name {
+  color: var(--ink-primary, #f3e6cb);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.76rem;
+}
+
+.statblock-action-skill-name abbr {
+  color: var(--ink-secondary, #bda882);
+  margin-left: 2px;
+  font-size: 0.9em;
+  text-decoration: none;
+}
+
+.statblock-action-skill-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.statblock-action-skill-pass {
+  font-family: var(--mono, monospace);
+  font-size: 0.74rem;
+  color: var(--ink-secondary, #a8987b);
+  padding: 0 4px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.statblock-action-skill-btn {
+  min-width: 36px;
+  padding: 1px 5px;
+  font-weight: 700;
+  font-size: 0.76rem;
+  font-family: var(--mono, monospace);
+}

@@ -1489,3 +1489,120 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   box-shadow: 0 0 8px rgba(254, 217, 122, 0.5), 0 1px 3px rgba(0, 0, 0, 0.5);
   color: #fff;
 }
+
+
+/* ==========================================================================
+   Critical Hit (Nat 20) Screen Flash & Background UI Shake
+   ========================================================================== */
+
+/* Full-Screen Flash: golden-to-white flash that fades away in 0.3s */
+.dice-crit-flash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 10005;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 235, 140, 0.88) 32%,
+    rgba(230, 180, 50, 0.55) 62%,
+    rgba(180, 110, 20, 0.2) 85%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
+  animation: crit-screen-flash 0.3s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+@keyframes crit-screen-flash {
+  0% {
+    opacity: 0.95;
+    transform: scale(0.98);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+}
+
+/* Exaggerated Background UI Shake during Roll-Up Anticipation */
+body.dice-rolling-shake .fh-shell,
+body.dice-rolling-shake #root,
+body.dice-rolling-shake .main-layout,
+body.dice-rolling-shake .camp-shell,
+body.dice-rolling-shake .page-shell,
+body.dice-rolling-shake .mesa-container,
+body.dice-rolling-shake .statblock-card,
+body.dice-rolling-shake .ficha {
+  transform: translate3d(var(--bg-shake-x, 0px), var(--bg-shake-y, 0px), 0) rotate(var(--bg-shake-rot, 0deg));
+  transition: none !important;
+  will-change: transform;
+}
+
+/* ==========================================================================
+   Swipe-Up (Advantage) / Swipe-Down (Disadvantage) 3-State Visual Styling
+   Consistent across text roll chips, statblock buttons, ability scores & sheets
+   ========================================================================== */
+
+/* Advantage (Green) Visual State */
+[data-roll-adv="adv"],
+.has-adv,
+.preview-adv {
+  background: rgba(46, 204, 113, 0.28) !important;
+  border-color: #2ecc71 !important;
+  color: #a3f7bf !important;
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.55), inset 0 0 6px rgba(46, 204, 113, 0.2) !important;
+}
+
+.fh-dice-inline-token[data-roll-adv="adv"]::after,
+.fh-dice-inline-token.has-adv::after,
+.fh-dice-inline-token.preview-adv::after,
+.statblock-roll-btn[data-roll-adv="adv"]::after,
+.statblock-roll-btn.has-adv::after,
+.statblock-skill-chip[data-roll-adv="adv"]::after,
+.statblock-skill-chip.has-adv::after,
+.statblock-action-skill-btn[data-roll-adv="adv"]::after,
+.statblock-action-skill-btn.has-adv::after {
+  content: " ▲";
+  font-size: 0.72em;
+  font-weight: 900;
+  color: #2ecc71;
+  margin-left: 3px;
+  vertical-align: baseline;
+}
+
+/* Disadvantage (Red) Visual State */
+[data-roll-adv="dis"],
+.has-dis,
+.preview-dis {
+  background: rgba(231, 76, 60, 0.28) !important;
+  border-color: #e74c3c !important;
+  color: #ffccd3 !important;
+  box-shadow: 0 0 10px rgba(231, 76, 60, 0.55), inset 0 0 6px rgba(231, 76, 60, 0.2) !important;
+}
+
+.fh-dice-inline-token[data-roll-adv="dis"]::after,
+.fh-dice-inline-token.has-dis::after,
+.fh-dice-inline-token.preview-dis::after,
+.statblock-roll-btn[data-roll-adv="dis"]::after,
+.statblock-roll-btn.has-dis::after,
+.statblock-skill-chip[data-roll-adv="dis"]::after,
+.statblock-skill-chip.has-dis::after,
+.statblock-action-skill-btn[data-roll-adv="dis"]::after,
+.statblock-action-skill-btn.has-dis::after {
+  content: " ▼";
+  font-size: 0.72em;
+  font-weight: 900;
+  color: #e74c3c;
+  margin-left: 3px;
+  vertical-align: baseline;
+}
+
+/* Gesture dragging cursor */
+.is-swiping {
+  cursor: ns-resize !important;
+  user-select: none !important;
+}

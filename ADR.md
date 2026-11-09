@@ -932,3 +932,75 @@ Accepted & Implemented (2026-11-08)
 ### Consequences
 - **Positive:** 100% resilient monster statblock ingestion regardless of backend deployment status, CORS restrictions, or external website technology; seamless fallback to direct paste in both search bar and import modal; 1,578 frontend unit tests passing green with 0 errors.
 - **Verification:** 14/14 tests in `frontend/tests/url-monster-importer.test.js` pass; 10/10 tests in `frontend/tests/import-5emm.test.js` pass; 1,578 / 1,578 total frontend unit tests green across 20 suites; clean Vite production build in 9.43s.
+
+
+---
+
+## ADR-0027: User-Character-Campaign Multi-Assignment Architecture, Action-Grouped Skills (D&D 5e 2024), Juicy Roll-Up Visuals & 3-State Swipe Engine
+
+### Status
+Accepted & Implemented (2026-11-08)
+
+### Context
+1. **User / Character / Campaign Multi-Assignment Speculation & Root-Cause Analysis**:
+   - The user observed that a user cannot have more than one character assigned to a campaign, and a single character cannot be assigned to multiple campaigns simultaneously.
+   - The expected domain relationship is full $N:N$:
+     - A user can have $N$ characters.
+     - A character can be in $N$ campaigns (e.g. West Marches tables, one-shots, living world conventions).
+     - A user can have $N$ characters assigned to $N$ campaigns (e.g. playing both a main PC and a familiar/sidekick/minion in the same campaign).
+   - An architectural investigation was requested into why the current schema prevents this, and what constraints exist across models, views, and billing plans.
+2. **D&D 5e 2024 Monster Statblock Action-Grouped Skills**:
+   - D&D 5e 2024 standardizes all skill checks into 4 core action categories: **Search**, **Study**, **Influence**, and **Hide**.
+   - Rather than listing only explicitly trained skills in an unstructured chip cloud, every monster needs all 18 skills calculated and exposed under their respective action group, displaying both passive score and active bonus.
+   - To prevent vertical bloat, each group requires a foldable accordion row displaying a smartly consolidated notation that exposes exceptions (e.g. `Search: 15/+5 (20/+5 Perception)`).
+   - Unfolded panels require a compact 2-column grid layout to conserve horizontal and vertical viewport space.
+3. **Critical Hit (Nat 20) Screen Flash & Background UI Shake Juiciness**:
+   - Critical hits (Natural 20) needed an intense, impactful visual punctuation: at the exact moment the climax ripples explode, the entire screen must briefly flash with a golden-to-white radial bloom fading away over 0.3 seconds.
+   - Foreground roll-up anticipation needed exaggerated kinetic weight: while the foreground die shakes rapidly (6Hz to 56Hz), the background UI must shake simultaneously along a slower harmonic curve.
+4. **Universal 3-State Vertical Swipe Gesture Engine for Advantage & Disadvantage**:
+   - Any d20 roll, ability check, saving throw, attack roll, or statblock button must support gesture control:
+     - Swiping UP on the rollable element sets **Advantage** (green visual glow, `▲` indicator).
+     - Swiping DOWN sets **Disadvantage** (red visual glow, `▼` indicator).
+     - Swiping back to center resets to **Normal**.
+     - Tapping or clicking executes the roll immediately with the active advantage or disadvantage modifier applied.
+
+### Decision Outcome
+1. **Architectural Analysis: Multi-Assignment Constraints in Current Backend**:
+   - **Database Level (`backend/api/models.py`)**:
+     - `Membership.Meta.unique_together = [('campaign', 'user')]`: Strictly limits each `(campaign, user)` pair to exactly one database record. Because `Membership` holds a single foreign key `character = ForeignKey(Character, null=True)`, a user can physically only occupy one character seat per campaign.
+   - **Business Logic Level (`backend/api/views_campaigns.py`)**:
+     - `_other_seats(char)` checks whether a character is already referenced in any active `Membership`. If found, the server rejects the request with HTTP 409 `character_in_other_campaign`.
+   - **Monetization & Plan Coupling (`backend/api/plans.py`)**:
+     - The DM subscription tier model (`table_slots`) sponsors player seats (`Membership.sponsored = True`). The slot allocation assumes 1 seat = 1 player = 1 sponsored character.
+   - **Live Combat State & Approval Sandboxing**:
+     - Live combat HP, conditions, death saves, spell slots, and DM approval queues (`Approval`) mutate `Character.data` directly. Without campaign-scoped state sandboxing or character forking/branching, playing the same character across multiple live campaigns simultaneously would cause state bleed across different DMs.
+   - **Target Migration Path**:
+     - Change `unique_together` on `Membership` to `[('campaign', 'character')]`.
+     - Update `CampaignSerializer.myMembership` to return an array of seats or the active seat.
+     - Implement Campaign-Scoped Sheet Snapshots (or ephemeral branches) so cross-campaign progression can be reconciled safely.
+2. **Action-Grouped Skills (D&D 5e 2024 Taxonomy) (`monster-action-skills.js`, `MonsterStatblock.jsx`, `monster-statblock.css`)**:
+   - Canonical 18-skill mapping:
+     - **Search (Busca)**: Survival (Wis), Insight (Wis), Medicine (Wis), Perception (Wis).
+     - **Study (Estudo)**: Arcana (Int), Religion (Int), Nature (Int), Investigation (Int), History (Int).
+     - **Influence (Influência)**: Animal Handling (Wis), Deception (Cha), Intimidation (Cha), Performance (Cha), Persuasion (Cha).
+     - **Hide (Furtividade)**: Acrobatics (Dex), Athletics (Str), Sleight of Hand (Dex), Stealth (Dex).
+   - Consolidated algorithm (`computeActionGroupData`):
+     - Computes passive score (`10 + bonus`) and active modifier for all skills.
+     - Identifies dominant baseline pair (`${passive}/${bonusStr}`).
+     - Filters deviating skills as exceptions, rendering e.g. `Search: 15/+5 (20/+5 Perception)`.
+   - Responsive `<details className="statblock-action-details">` with a 2-column grid (`.statblock-action-grid`), passive score badges, and interactive roll buttons.
+3. **Critical Hit (Nat 20) Golden-to-White Screen Flash (`DieShape.jsx` & `dice-styles.css`)**:
+   - Rendered via `createPortal` to `document.body` as `.dice-crit-flash-screen`.
+   - Keyframes `crit-screen-flash` (0.3s duration, `mix-blend-mode: screen`, radiant golden-white gradient fading to 0 opacity).
+4. **Exaggerated Background UI Shake (`DieShape.jsx` & `dice-styles.css`)**:
+   - During Phase 1 roll-up anticipation (0 -> 750ms), computes slower harmonic background shake offsets `--bg-shake-x`, `--bg-shake-y`, `--bg-shake-rot` and toggles `body.dice-rolling-shake`.
+   - Transitions smoothly and removes all body classes and CSS variables upon roll climax or cleanup.
+5. **Universal 3-State Swipe-Up / Swipe-Down Gesture Engine (`dice-gestures.js`, `dice-text.js`, `dice-styles.css`)**:
+   - `setupGlobalDiceSwipeListener()` attaches pointer-tracking across all roll tokens (`[data-roll-attack]`, `[data-roll-save]`, `[data-roll-check]`, `[data-dice-roll]`, `.statblock-roll-btn`, `.statblock-action-skill-btn`).
+   - Dragging up $> 24\text{px}$ sets `has-adv` (emerald green glow `#2ecc71`, `▲` suffix).
+   - Dragging down $> 24\text{px}$ sets `has-dis` (crimson red glow `#e74c3c`, `▼` suffix).
+   - Tapping/clicking extracts `data-roll-adv` and dispatches `{ adv: advState, advMode: advState }` to the roll engine.
+
+### Consequences
+- **Positive:** Full coverage of all D&D 2024 action groups with zero UI bloat; tactile, juicy critical hit celebration and screen rumble; intuitive vertical swipe gesture control for advantage/disadvantage; thorough architectural roadmap for $N:N$ multi-assignment.
+- **Verification:** 4/4 tests in `frontend/tests/action-skills-gestures.test.js` pass; 1,582 / 1,582 frontend unit tests green across 20 suites; clean Vite production build in 13.96s.

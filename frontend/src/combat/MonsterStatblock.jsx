@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import DiceText, { executeDiceRoll } from '../dice/dice-text.jsx';
 import './monster-statblock.css';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
+
+import { ACTION_SKILL_GROUPS, computeActionGroupData } from './monster-action-skills.js';
+export { ACTION_SKILL_GROUPS, computeActionGroupData };
+
 
 const mod = (score) => {
   const n = Number(score) || 10;
@@ -51,6 +55,31 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
   const saveText = m.saveText || Object.entries(m.saves || {})
     .map(([k, v]) => `${k.toUpperCase()} ${Number(v) >= 0 ? '+' : ''}${v}`)
     .join(', ');
+
+  const explicitSkillMap = useMemo(() => {
+    const map = new Map();
+    if (m.skills && typeof m.skills === 'object') {
+      for (const [k, v] of Object.entries(m.skills)) {
+        map.set(k.toLowerCase().replace(/[\s_\-]/g, ''), Number(v) || 0);
+      }
+    }
+    if (m.skillText && typeof m.skillText === 'string') {
+      for (const part of m.skillText.split(',')) {
+        const match = part.trim().match(/^([A-Za-z\s]+)\s*([+-]\s*\d+)$/);
+        if (match) {
+          map.set(match[1].trim().toLowerCase().replace(/[\s_\-]/g, ''), parseInt(match[2].replace(/\s+/g, ''), 10));
+        }
+      }
+    }
+    return map;
+  }, [m.skills, m.skillText]);
+
+  const actionSkillData = useMemo(() => {
+    return ACTION_SKILL_GROUPS.map((grp) => ({
+      ...grp,
+      ...computeActionGroupData(grp, abils, explicitSkillMap, lang),
+    }));
+  }, [abils, explicitSkillMap, lang]);
 
   // Skills parsing for interactive chips
   const skillsObj = m.skills || {};
@@ -215,6 +244,55 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
       </div>
 
       <hr className="statblock-taper" />
+
+      {/* Ações de Perícias D&D 5e 2024: Busca, Estudo, Influência, Furtividade */}
+      <div className="statblock-actions-skills" aria-label={t(lang, 'Ações e Perícias (D&D 2024)', 'Action & Skill Groups (D&D 2024)')}>
+        <div className="statblock-prop-label" style={{ marginBottom: 4 }}>
+          {t(lang, 'Ações de Perícias & Pontuações Passivas (D&D 2024)', 'Action Skills & Passive Scores (D&D 2024)')}:
+        </div>
+        {actionSkillData.map((grp) => (
+          <details key={grp.key} className="statblock-action-details">
+            <summary className="statblock-action-summary">
+              <span className="statblock-action-header-left">
+                <span className="statblock-action-icon" aria-hidden="true">{grp.icon}</span>
+                <span className="statblock-action-title">{grp.groupTitle}</span>
+              </span>
+              <span className="statblock-action-notation">{grp.consolidatedText.replace(`${grp.groupTitle}: `, '')}</span>
+              <span className="statblock-action-chevron" aria-hidden="true">▾</span>
+            </summary>
+            <div className="statblock-action-grid">
+              {grp.skills.map((sk) => (
+                <div key={sk.id} className={`statblock-action-skill-row${sk.isTrained ? ' is-trained' : ''}`}>
+                  <span className="statblock-action-skill-name" title={`${sk.name} (${sk.abilUpper})`}>
+                    {sk.name} <abbr>({sk.abilUpper})</abbr>
+                  </span>
+                  <div className="statblock-action-skill-controls">
+                    <span className="statblock-action-skill-pass" title={t(lang, 'Passiva', 'Passive')}>
+                      {sk.passive}
+                    </span>
+                    <button
+                      type="button"
+                      className="statblock-roll-btn statblock-action-skill-btn"
+                      data-roll-check={`1d20${sk.bonusStr}`}
+                      data-roll-label={`${name}: ${sk.name} (${sk.bonusStr})`}
+                      onClick={() => handleRoll({
+                        formula: `1d20${sk.bonusStr}`,
+                        label: `${name}: ${t(lang, 'Perícia', 'Skill')} ${sk.name} (${sk.bonusStr})`,
+                        isCheck: true,
+                        sheet: true,
+                      })}
+                      title={t(lang, `Toque para rolar ${sk.name} (1d20${sk.bonusStr}). Deslize ↑ para Vantagem ou ↓ para Desvantagem.`, `Tap to roll ${sk.name} (1d20${sk.bonusStr}). Swipe ↑ for Advantage or ↓ for Disadvantage.`)}
+                      aria-label={t(lang, `Rolar ${sk.name} ${sk.bonusStr}`, `Roll ${sk.name} ${sk.bonusStr}`)}
+                    >
+                      {sk.bonusStr}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+        ))}
+      </div>
 
       {/* Métricas Secundárias */}
       {skillsList.length > 0 ? (
