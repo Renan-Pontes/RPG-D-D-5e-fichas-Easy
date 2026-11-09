@@ -32,6 +32,11 @@
 - [ADR-0022: Auto-Magic Monster Statblock Ingestion via Direct Resource Links in Battle Picker](#adr-0022-auto-magic-monster-statblock-ingestion-via-direct-resource-links-in-battle-picker)
 - [ADR-0023: 1:1 D&D 5e Monster Statblock Fidelity & Ingestion Architecture](#adr-0023-11-dd-5e-monster-statblock-fidelity--ingestion-architecture)
 - [ADR-0024: Advanced In-Text Roll Parsing (Attacks, Saves, Checks), Universal Multi-Tool Web Ingestion, and D&D 5e 2024 Statblock Anatomy](#adr-0024-advanced-in-text-roll-parsing-attacks-saves-checks-universal-multi-tool-web-ingestion-and-dd-5e-2024-statblock-anatomy)
+- [ADR-0025: Browser CORS Remediation, Dual-Tier First-Party Proxy & Robust External Monster Ingestion](#adr-0025-browser-cors-remediation-dual-tier-first-party-proxy--robust-external-monster-ingestion)
+- [ADR-0026: Universal Multi-Tier CORS Proxy Cascade, Edge Serverless Ingestion & Arbitrary Link / Plaintext Heuristics](#adr-0026-universal-multi-tier-cors-proxy-cascade-edge-serverless-ingestion--arbitrary-link--plaintext-heuristics)
+- [ADR-0027: User-Character-Campaign Multi-Assignment Architecture, Action-Grouped Skills (D&D 5e 2024), Juicy Roll-Up Visuals & 3-State Swipe Engine](#adr-0027-user-character-campaign-multi-assignment-architecture-action-grouped-skills-dd-5e-2024-juicy-roll-up-visuals--3-state-swipe-engine)
+- [ADR-0028: Roll Screen Blackout Remediation, Overlay Stacking Isolation & Resilient DandWiki Ingestion with Auto-Decoding](#adr-0028-roll-screen-blackout-remediation-overlay-stacking-isolation--resilient-dandwiki-ingestion-with-auto-decoding)
+- [ADR-0029: Universal Advantage Engine, Action Header Direct Rolls, Keen Senses Auto-Advantage, Staggered Concurrent Proxy Race & Dramatic Vignette Blackout](#adr-0029-universal-advantage-engine-action-header-direct-rolls-keen-senses-auto-advantage-staggered-concurrent-proxy-race--dramatic-vignette-blackout)
 
 ---
 
@@ -1042,3 +1047,48 @@ Accepted & Implemented (2026-11-08)
 ### Consequences
 - **Positive:** Roll screen functions with 100% fluid 60fps animations; zero black screens or freezing; perfect overlay positioning independent of background rumble; DandWiki and arbitrary homebrew compendia import flawlessly through multi-gateway cascades with automatic base64 decoding.
 - **Verification:** 1,582 / 1,582 frontend unit tests pass (100% green); 14/14 url-monster-importer tests pass; Vite production build clean in 14.82s.
+
+---
+
+## ADR-0029: Universal Advantage Engine, Action Header Direct Rolls, Keen Senses Auto-Advantage, Staggered Concurrent Proxy Race & Dramatic Vignette Blackout
+
+### Status
+Accepted & Implemented (2026-11-08)
+
+### Context
+1. **Advantage & Disadvantage Modifier Disconnect**:
+   - In monster statblocks and battle views, interactive ability check and saving throw buttons were always performing normal rolls regardless of whether the user had swiped or configured Advantage/Disadvantage.
+   - Diagnostic analysis showed `DiceRoller.jsx` only destructured `advMode: am` from roll options, ignoring `adv: optAdv` sent by gesture engines and statblock action buttons. Furthermore, React click handlers on statblock buttons were omitting the event target, preventing gesture-assigned `data-roll-adv` DOM attributes from being forwarded to the roller.
+2. **Action Group Accordion vs Direct Header Roll UX**:
+   - The D&D 5e 2024 action groups (`Search`, `Study`, `Influence`, `Hide`) displayed a consolidated baseline score in their folded `<summary>` row. However, users needed both the ability to toggle the accordion open/closed to view individual skill breakdowns AND to execute direct d20 ability checks straight from the summary header without toggling the accordion.
+3. **Keen Senses Auto-Advantage**:
+   - Creatures possessing traits such as "Keen Senses", "Keen Smell", "Keen Hearing", or "Keen Sight" (e.g., Dire Wolf, Bloodhound, Owl, Barnaclops) explicitly grant Advantage on Wisdom (Perception) checks. The system required automatic recognition of these traits across English and Portuguese naming conventions, pre-configuring Perception rolls with default Advantage (`data-roll-adv="adv"` with visual green glow and `▲` badge).
+4. **Dramatic & Juicy Roll-Up Vignette Blackout**:
+   - To maximize cinematic tension and anticipation during polyhedral tumbling, the background vignette needed to dynamically contract and darken towards the focal center, reaching 100% pitch black at the precise moment of the unravelling ripple explosion (750ms). Once the ripple expands into falloff, the vignette must smoothly ease back to ambient resting values over 350ms.
+5. **Staggered Concurrent Proxy Race & Web Ingestion Hardening**:
+   - In live browser environments, sequential proxy fallback chains suffered from cumulative network timeouts (up to 24s on unresponsive public proxies like AllOrigins/CodeTabs). Furthermore, SPA routing rewrites on Vercel could return the application's own `index.html` as a false-positive response. A staggered concurrent race with SPA-payload filtering was needed to guarantee sub-1.5s resolution across arbitrary web links and compendiums.
+
+### Decision Outcome
+1. **Universal Advantage/Disadvantage Propagation (`DiceRoller.jsx`, `dice-gestures.js`, `dice-text.js`)**:
+   - Updated `performRoll` in `DiceRoller.jsx` to resolve effective advantage via `const effectiveAdv = optAdv || am || (advMode !== 'normal' ? advMode : 'normal')`.
+   - Updated `handleRoll(opts, e)` in `MonsterStatblock.jsx` to extract `e?.currentTarget?.getAttribute('data-roll-adv')` or active element state, injecting `{ adv, advMode: adv }` into every ability check, saving throw, and action roll.
+   - Expanded gesture target matcher in `dice-gestures.js` to recognize `.statblock-action-header-roll-btn`, `.statblock-action-exception-btn`, `.abil-btn`, `.save-btn`, and `.statblock-init-btn`.
+2. **Dual-Function Action Summary Header (`MonsterStatblock.jsx`, `monster-statblock.css`)**:
+   - Structured `<summary className="statblock-action-summary">` with distinct interactive hit targets:
+     - Chevron `▾` + group icon and title toggles the `<details>` accordion open/closed.
+     - `.statblock-action-header-roll-btn` executes a direct `1d20+grp.baselineBonusStr` roll, calling `e.stopPropagation()` and `e.preventDefault()` to prevent unwanted accordion toggling.
+     - Exception chips (`.statblock-action-exception-btn`) roll the specific divergent skill directly from the folded summary.
+3. **Automated Keen Senses Detection (`monster-action-skills.js`)**:
+   - Implemented `hasKeenSenses(monster)` checking English and Portuguese traits (`keen smell`, `hearing`, `sight`, `senses`, `faro aguçado`, `olfato apurado`, `sentidos aguçados`, or advantage on perception checks).
+   - In `computeActionGroupData`, sets `isKeen: true`, `defaultAdv: 'adv'`, and notation badge `▲` on Perception, automatically activating Advantage on both summary exception chips and unfolded skill rows.
+4. **Exponential Focal Vignette Blackout (`DieShape.jsx`, `dice-styles.css`)**:
+   - In `applyAnticipationVars`: dynamically drives `--overlay-tunnel-inner` from 48% to 0%, `--overlay-tunnel-outer` from 88% to 0%, and `--overlay-blackout` from 0 to 1.0, plunging the surrounding screen into 100% pitch black at $t = 750\text{ms}$.
+   - In `applyFalloffVars`: smoothly eases `--overlay-blackout` back to 0.0 and re-expands the focal aperture to 48%/88% as ripples disperse over 350ms.
+5. **Staggered Concurrent Proxy Race (`url-monster-importer.js`, `api/proxy.js`)**:
+   - Implemented staggered parallel racing across first-party `/api/proxy`, Edge Worker (`cors-get-proxy.sirjosh.workers.dev`), and AllOrigins base64 data-uri auto-decoding (launching at 0ms, 800ms, 1600ms intervals).
+   - First valid upstream response (>30 bytes, non-challenge, non-SPA-index.html) resolves immediately and aborts pending candidates.
+   - Reduced direct upstream timeout in `api/proxy.js` to 2.5s to prevent Cloudflare challenge hangs.
+
+### Consequences
+- **Positive:** Ability checks and saves in monster statblocks reliably honor Advantage/Disadvantage; Keen Senses creatures automatically roll Perception with Advantage; roll-up animation features dramatic focal blackout with golden critical flash; action group summaries offer both accordion exploration and instant 1-click rolling; external creature links (DandWiki Barnaclops and arbitrary URLs) resolve in < 1.5s with zero CORS or timeout errors.
+- **Verification:** 1,584 / 1,584 frontend unit tests pass (100% green); 14/14 url-monster-importer tests pass; 6/6 action-skills-gestures tests pass; Vite production build clean in 15.68s.

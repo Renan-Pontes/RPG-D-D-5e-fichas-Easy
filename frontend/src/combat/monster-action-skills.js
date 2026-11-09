@@ -65,14 +65,38 @@ export const ACTION_SKILL_GROUPS = [
 ];
 
 /**
+ * Detects if a monster has the Keen Senses / Keen Smell / Keen Hearing / Keen Sight trait.
+ * @param {object} monster
+ * @returns {boolean}
+ */
+export function hasKeenSenses(monster) {
+  if (!monster) return false;
+  const traits = [
+    ...(monster.traits || []),
+    ...(monster.special_abilities || []),
+    ...(monster.features || []),
+    ...(monster.actions || []).filter(a => a.kind === 'trait')
+  ];
+  return traits.some(t => {
+    const name = (typeof t === 'string' ? t : (t?.name?.en || t?.name?.pt || t?.name || '')).toLowerCase();
+    const desc = (typeof t === 'string' ? '' : (t?.desc?.en || t?.desc?.pt || t?.desc || t?.entries || '')).toLowerCase();
+    const isKeenName = /keen\s*(?:smell|hearing|sight|senses?)|olfato\s*(?:apurado|aguçado)|sentidos?\s*(?:apurados?|aguçados?)|visão\s*(?:apurada|aguçada)|audição\s*(?:apurada|aguçada)/i.test(name);
+    const hasPerceptionAdvDesc = /advantage on (?:wisdom\s*)?\(?perception\)?|vantagem em (?:testes de\s*)?(?:sabedoria\s*)?\(?percepção\)?/i.test(desc);
+    return isKeenName || hasPerceptionAdvDesc;
+  });
+}
+
+/**
  * Computes consolidated notation and skill metrics for an action group.
  * @param {object} group
  * @param {object} abils
  * @param {Map} explicitMap
  * @param {string} lang
- * @returns {{ groupTitle: string, consolidatedText: string, baseline: string, exceptions: Array, skills: Array }}
+ * @param {object} [options]
+ * @param {boolean} [options.hasKeen=false]
+ * @returns {{ groupTitle: string, consolidatedText: string, baseline: string, baselinePassive: number, baselineBonus: number, baselineBonusStr: string, exceptions: Array, skills: Array }}
  */
-export function computeActionGroupData(group, abils, explicitMap, lang = 'pt') {
+export function computeActionGroupData(group, abils, explicitMap, lang = 'pt', { hasKeen = false } = {}) {
   const isPt = lang === 'pt';
   const groupTitle = isPt ? group.namePt : group.nameEn;
 
@@ -100,6 +124,10 @@ export function computeActionGroupData(group, abils, explicitMap, lang = 'pt') {
     const name = isPt ? s.namePt : s.nameEn;
     const abilUpper = s.abil.toUpperCase();
 
+    const isKeenPerception = hasKeen && s.id === 'perception';
+    const defaultAdv = isKeenPerception ? 'adv' : undefined;
+    const notationPair = `${passive}/${bonusStr}${isKeenPerception ? ' ▲' : ''}`;
+
     return {
       ...s,
       name,
@@ -108,7 +136,9 @@ export function computeActionGroupData(group, abils, explicitMap, lang = 'pt') {
       passive,
       isTrained,
       abilUpper,
-      notationPair: `${passive}/${bonusStr}`,
+      isKeen: isKeenPerception,
+      defaultAdv,
+      notationPair,
     };
   });
 
@@ -134,10 +164,18 @@ export function computeActionGroupData(group, abils, explicitMap, lang = 'pt') {
     consolidatedText += ` (${excStr})`;
   }
 
+  const [rawPassiveStr, rawBonusStr] = baseline.replace(' ▲', '').split('/');
+  const baselinePassive = parseInt(rawPassiveStr, 10) || 10;
+  const baselineBonus = parseInt(rawBonusStr, 10) || 0;
+  const baselineBonusStr = Number.isFinite(baselineBonus) && baselineBonus >= 0 ? `+${baselineBonus}` : `${baselineBonus}`;
+
   return {
     groupTitle,
     consolidatedText,
     baseline,
+    baselinePassive,
+    baselineBonus,
+    baselineBonusStr,
     exceptions,
     skills: groupSkills,
   };

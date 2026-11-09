@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   ACTION_SKILL_GROUPS,
   computeActionGroupData,
+  hasKeenSenses,
 } from '../src/combat/monster-action-skills.js';
 import {
   setElementAdvState,
@@ -102,4 +103,59 @@ test('Dice Gestures - 3-state toggle (adv, dis, neutral)', () => {
   assert.equal(getElementAdvState(el), null);
   assert.ok(!el.classList.contains('has-adv'));
   assert.ok(!el.classList.contains('has-dis'));
+});
+
+test('Keen Senses - Detection across English and Portuguese traits', () => {
+  assert.equal(hasKeenSenses(null), false);
+  assert.equal(hasKeenSenses({}), false);
+
+  // English Keen Smell
+  const wolf = {
+    traits: [{ name: 'Keen Hearing and Smell', desc: 'The wolf has advantage on Wisdom (Perception) checks that rely on hearing or smell.' }]
+  };
+  assert.equal(hasKeenSenses(wolf), true);
+
+  // Portuguese Sentidos Aguçados
+  const coruja = {
+    features: [{ name: 'Visão e Audição Aguçadas', desc: 'A coruja tem vantagem em testes de Sabedoria (Percepção).' }]
+  };
+  assert.equal(hasKeenSenses(coruja), true);
+
+  // Trait with perception advantage description
+  const hound = {
+    special_abilities: [{ name: 'Bloodhound Instinct', desc: 'The hound has advantage on Wisdom (Perception) checks.' }]
+  };
+  assert.equal(hasKeenSenses(hound), true);
+
+  // Normal creature without keen senses
+  const goblin = {
+    traits: [{ name: 'Nimble Escape', desc: 'The goblin can take the Disengage or Hide action as a bonus action.' }]
+  };
+  assert.equal(hasKeenSenses(goblin), false);
+});
+
+test('Keen Senses - Automatically sets Perception default advantage and notation', () => {
+  const abils = { str: 12, dex: 15, con: 12, int: 3, wis: 12, cha: 6 }; // WIS mod +1
+  const searchGroup = ACTION_SKILL_GROUPS.find(g => g.key === 'search');
+
+  // Without Keen Senses
+  const normalData = computeActionGroupData(searchGroup, abils, new Map(), 'en', { hasKeen: false });
+  const normalPercep = normalData.skills.find(s => s.id === 'perception');
+  assert.equal(normalPercep.isKeen, false);
+  assert.equal(normalPercep.defaultAdv, undefined);
+  assert.equal(normalPercep.notationPair, '11/+1');
+
+  // With Keen Senses
+  const keenData = computeActionGroupData(searchGroup, abils, new Map(), 'en', { hasKeen: true });
+  const keenPercep = keenData.skills.find(s => s.id === 'perception');
+  assert.equal(keenPercep.isKeen, true);
+  assert.equal(keenPercep.defaultAdv, 'adv');
+  assert.equal(keenPercep.notationPair, '11/+1 ▲');
+  assert.equal(keenData.baselineBonus, 1);
+  assert.equal(keenData.baselineBonusStr, '+1');
+  assert.equal(keenData.baselinePassive, 11);
+
+  // Exception list includes Perception with notation badge
+  assert.ok(keenData.exceptions.some(e => e.id === 'perception'));
+  assert.ok(keenData.consolidatedText.includes('11/+1 ▲ Perception'));
 });

@@ -358,16 +358,67 @@
   white-space: nowrap;
 }
 
-.statblock-action-notation {
-  font-family: var(--mono, monospace);
-  font-size: 0.76rem;
-  color: var(--ink-secondary, #d9c9a6);
-  flex: 1;
-  text-align: right;
+.statblock-action-summary-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-left: auto;
   margin-right: 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.statblock-action-header-roll-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  font-family: var(--mono, monospace);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--gold-bright, #edcb7a);
+  background: rgba(26, 18, 12, 0.95);
+  border: 1px solid rgba(214, 176, 100, 0.35);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.statblock-action-header-roll-btn:hover {
+  background: rgba(45, 30, 20, 0.98);
+  border-color: var(--gold, #d6b064);
+  box-shadow: 0 0 8px rgba(214, 176, 100, 0.4);
+}
+
+.statblock-action-roll-dice {
+  font-size: 0.76rem;
+}
+
+.statblock-action-exception-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  font-family: var(--mono, monospace);
+  font-size: 0.7rem;
+  color: var(--ink-secondary, #d9c9a6);
+  background: rgba(18, 12, 8, 0.9);
+  border: 1px dashed rgba(214, 176, 100, 0.3);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.statblock-action-exception-btn:hover {
+  border-color: var(--gold, #d6b064);
+  color: var(--gold-bright, #edcb7a);
+  box-shadow: 0 0 6px rgba(214, 176, 100, 0.35);
+}
+
+.statblock-adv-badge {
+  color: #2ecc71;
+  font-size: 0.65rem;
+  font-weight: 800;
 }
 
 .statblock-action-chevron {

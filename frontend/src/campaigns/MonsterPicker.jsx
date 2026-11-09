@@ -167,7 +167,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
       .catch((err) => {
         if (!alive) return;
         const rawMsg = err?.message || '';
-        const isCorsOrNet = rawMsg === 'Failed to fetch' || rawMsg.includes('NetworkError') || rawMsg.includes('CORS') || rawMsg.includes('bloqueio CORS');
+        const isCorsOrNet = rawMsg === 'Failed to fetch' || rawMsg.includes('NetworkError') || rawMsg.includes('CORS') || rawMsg.includes('bloqueio CORS') || rawMsg.includes('Falha ao acessar');
         const text = isCorsOrNet
           ? t(lang, 'Falha ao acessar o link (bloqueio CORS ou serviço inacessível). Você também pode copiar o texto da criatura e colar diretamente na busca ou no importador!', 'Failed to access link (browser CORS restriction or unreachable host). You can also copy the creature text and paste it directly into the search bar or importer!')
           : rawMsg || t(lang, 'Erro ao importar monstro da URL.', 'Error importing monster from URL.');

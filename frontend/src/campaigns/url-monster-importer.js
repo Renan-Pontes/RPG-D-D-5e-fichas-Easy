@@ -1020,6 +1020,26 @@ export async function fetchTextWithCorsBypass(url) {
   const apiBase = (typeof window !== 'undefined' && window.__API_BASE__) || 
                   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '';
 
+  const isChallenge = (text) => {
+    if (!text || typeof text !== 'string') return true;
+    return (
+      text.includes('<title>Just a moment...</title>') ||
+      text.includes('cf-browser-verification') ||
+      text.includes('Attention Required! | Cloudflare') ||
+      text.includes('Checking your browser before accessing')
+    );
+  };
+
+  const isSpaFallback = (text) => {
+    if (!text || typeof text !== 'string') return true;
+    return (
+      text.includes('<div id="root">') ||
+      text.includes('<div id="app">') ||
+      (text.includes('<!DOCTYPE html>') && text.includes('/src/main.jsx')) ||
+      (text.includes('<title>Forja de Heróis') && text.includes('module'))
+    );
+  };
+
   const candidates = [];
 
   // 1. Proxies próprios da Forja (se no navegador)
@@ -1027,20 +1047,20 @@ export async function fetchTextWithCorsBypass(url) {
     if (apiBase) {
       candidates.push({
         name: 'apiBase-proxy',
-        fn: () => fetch(`${apiBase}/api/proxy?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(4000) })
+        fn: (sig) => fetch(`${apiBase}/api/proxy?url=${encodeURIComponent(url)}`, { signal: sig })
       });
     }
     candidates.push({
       name: 'relative-proxy',
-      fn: () => fetch(`/api/proxy?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(4000) })
+      fn: (sig) => fetch(`/api/proxy?url=${encodeURIComponent(url)}`, { signal: sig })
     });
   }
 
   // 2. Gateway Edge Cloudflare ultrarrápido (sirjosh.workers.dev)
   candidates.push({
     name: 'edge-worker-sirjosh',
-    fn: async () => {
-      const res = await fetch(`https://cors-get-proxy.sirjosh.workers.dev/?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(6000) });
+    fn: async (sig) => {
+      const res = await fetch(`https://cors-get-proxy.sirjosh.workers.dev/?url=${encodeURIComponent(url)}`, { signal: sig });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
       if (!text || text.trim().length < 30) throw new Error('Resposta vazia');
@@ -1051,8 +1071,8 @@ export async function fetchTextWithCorsBypass(url) {
   // 3. AllOrigins GET wrapper
   candidates.push({
     name: 'allorigins-get',
-    fn: async () => {
-      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(5000) });
+    fn: async (sig) => {
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal: sig });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const j = await res.json();
       if (!j?.contents || j.contents.trim().length < 30) throw new Error('Conteúdo vazio');
@@ -1076,38 +1096,68 @@ export async function fetchTextWithCorsBypass(url) {
   // 4. CodeTabs Proxy
   candidates.push({
     name: 'codetabs',
-    fn: () => fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(5000) })
+    fn: (sig) => fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, { signal: sig })
   });
 
   // 5. Requisição direta
   candidates.push({
     name: 'direct',
-    fn: () => fetch(url, {
+    fn: (sig) => fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/plain,text/html,*/*'
       },
-      signal: AbortSignal.timeout(5000)
+      signal: sig
     })
   });
 
-  const errors = [];
-  for (const c of candidates) {
-    try {
-      const res = await c.fn();
-      if (res && res.ok) {
-        const text = await res.text();
-        const isChallenge = text.includes('<title>Just a moment...</title>') || text.includes('cf-browser-verification');
-        if (text && text.trim().length > 30 && !isChallenge) {
-          return text;
-        }
-      }
-    } catch (err) {
-      errors.push(`${c.name}: ${err?.message || String(err)}`);
-    }
-  }
+  // Staggered Concurrent Race:
+  // Dispara o primeiro imediatamente; a cada 800ms se não resolvido, dispara o próximo em paralelo.
+  // Assim que um resolver com payload válido (não desafio, não index.html SPA), cancela os restantes e retorna!
+  return new Promise((resolve, reject) => {
+    let resolved = false;
+    let pendingCount = candidates.length;
+    const errors = [];
+    const controllers = [];
 
-  throw new Error(`Falha ao acessar ${url} após tentar múltiplos gateways e conexões diretas.`);
+    const settleWinner = (text) => {
+      if (resolved) return;
+      resolved = true;
+      controllers.forEach(c => { try { c.abort(); } catch {} });
+      resolve(text);
+    };
+
+    candidates.forEach((c, idx) => {
+      const delay = idx * 800; // 0ms, 800ms, 1600ms, 2400ms...
+      setTimeout(async () => {
+        if (resolved) return;
+        const ctrl = new AbortController();
+        controllers.push(ctrl);
+        const tId = setTimeout(() => { try { ctrl.abort(); } catch {} }, 6000);
+
+        try {
+          const res = await c.fn(ctrl.signal);
+          clearTimeout(tId);
+          if (res && res.ok) {
+            const text = await res.text();
+            if (text && text.trim().length > 30 && !isChallenge(text) && !isSpaFallback(text)) {
+              settleWinner(text);
+              return;
+            }
+          }
+          errors.push(`${c.name}: Resposta inválida ou vazia`);
+        } catch (err) {
+          clearTimeout(tId);
+          errors.push(`${c.name}: ${err?.message || String(err)}`);
+        } finally {
+          pendingCount--;
+          if (pendingCount <= 0 && !resolved) {
+            reject(new Error(`Falha ao acessar ${url} após tentar múltiplos gateways e conexões diretas: ${errors.join(', ')}`));
+          }
+        }
+      }, delay);
+    });
+  });
 }
 
 /**

@@ -10,11 +10,13 @@ async function fetchWithFallback(url, timeoutMs = 8000) {
     'Accept': 'text/plain,text/html,*/*',
   };
 
-  // 1. Tentar busca direta
+  // 1. Tentar busca direta (com timeout rápido de 2.5s para evitar travamento em Cloudflare)
   try {
-    const upstream = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
+    const upstream = await fetch(url, { headers, signal: AbortSignal.timeout(Math.min(timeoutMs, 2500)) });
     const text = await upstream.text();
-    const isCloudflareChallenge = text.includes('<title>Just a moment...</title>') || text.includes('cf-browser-verification');
+    const isCloudflareChallenge = text.includes('<title>Just a moment...</title>') ||
+                                  text.includes('cf-browser-verification') ||
+                                  text.includes('Attention Required! | Cloudflare');
     if (upstream.ok && !isCloudflareChallenge && text.trim().length > 30) {
       return { status: upstream.status, text };
     }

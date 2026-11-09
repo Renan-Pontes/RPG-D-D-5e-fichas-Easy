@@ -211,7 +211,9 @@ export function executeDiceRoll(options, label) {
       const cleanLabel = label || cleanFormula;
       return window.__diceRoll({ formula: cleanFormula, label: cleanLabel, sheet: true });
     }
-    return window.__diceRoll({ sheet: true, ...options });
+    const adv = options?.adv || options?.advMode;
+    const advProps = adv ? { adv, advMode: adv } : {};
+    return window.__diceRoll({ sheet: true, ...advProps, ...options });
   }
   return null;
 }
@@ -300,7 +302,14 @@ export function setupGlobalDiceClickListener(performRoll) {
     if (e.target.closest?.('input, textarea, select, [contenteditable="true"]')) return;
 
     // Check if clicking a dedicated interactive token
-    const token = e.target.closest?.('[data-dice-roll], [data-roll-attack], [data-roll-save], [data-roll-check]');
+    const token = e.target.closest?.([
+      '[data-dice-roll]',
+      '[data-roll-attack]',
+      '[data-roll-save]',
+      '[data-roll-check]',
+      '[data-d20-interactive]',
+      '[data-roll-adv]',
+    ].join(', '));
     if (token) {
       const formula = token.getAttribute('data-dice-roll');
       const attackFormula = token.getAttribute('data-roll-attack');
@@ -309,35 +318,37 @@ export function setupGlobalDiceClickListener(performRoll) {
       const rollLabel = token.getAttribute('data-roll-label');
       const advState = token.getAttribute('data-roll-adv') || null;
 
-      e.preventDefault();
-      e.stopPropagation();
-      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(35);
+      if (formula || attackFormula || saveFormula || checkFormula) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(35);
 
-      const advProps = advState ? { adv: advState, advMode: advState } : {};
+        const advProps = advState ? { adv: advState, advMode: advState } : {};
 
-      if (attackFormula) {
-        const payload = { formula: attackFormula, label: rollLabel || `Ataque (${attackFormula})`, isAttack: true, sheet: true, ...advProps };
-        if (performRoll) performRoll(payload);
-        else executeDiceRoll(payload);
-        return;
-      }
-      if (saveFormula) {
-        const payload = { formula: saveFormula, label: rollLabel || 'Teste de Resistência', isSave: true, sheet: true, ...advProps };
-        if (performRoll) performRoll(payload);
-        else executeDiceRoll(payload);
-        return;
-      }
-      if (checkFormula) {
-        const payload = { formula: checkFormula, label: rollLabel || 'Teste de Atributo', isCheck: true, sheet: true, ...advProps };
-        if (performRoll) performRoll(payload);
-        else executeDiceRoll(payload);
-        return;
-      }
-      if (formula) {
-        const payload = { formula, label: rollLabel || `Rolagem: ${formula}`, sheet: true, ...advProps };
-        if (performRoll) performRoll(payload);
-        else executeDiceRoll(payload);
-        return;
+        if (attackFormula) {
+          const payload = { formula: attackFormula, label: rollLabel || `Ataque (${attackFormula})`, isAttack: true, sheet: true, ...advProps };
+          if (performRoll) performRoll(payload);
+          else executeDiceRoll(payload);
+          return;
+        }
+        if (saveFormula) {
+          const payload = { formula: saveFormula, label: rollLabel || 'Teste de Resistência', isSave: true, sheet: true, ...advProps };
+          if (performRoll) performRoll(payload);
+          else executeDiceRoll(payload);
+          return;
+        }
+        if (checkFormula) {
+          const payload = { formula: checkFormula, label: rollLabel || 'Teste de Atributo', isCheck: true, sheet: true, ...advProps };
+          if (performRoll) performRoll(payload);
+          else executeDiceRoll(payload);
+          return;
+        }
+        if (formula) {
+          const payload = { formula, label: rollLabel || `Rolagem: ${formula}`, sheet: true, ...advProps };
+          if (performRoll) performRoll(payload);
+          else executeDiceRoll(payload);
+          return;
+        }
       }
     }
 

@@ -189,17 +189,18 @@ const DiceRoller = ({ lang }) => {
     });
   }, [present]);
 
-  // Compatível com a ficha: { die, count, mod, label, advMode }. `sheet`: é um botão da
+  // Compatível com a ficha: { die, count, mod, label, advMode, adv }. `sheet`: é um botão da
   // ficha (perícia, salvaguarda, ataque, dano, iniciativa) e vai à Tela (V15).
   const performRoll = useCallback((arg = {}) => {
     const opts = typeof arg === 'string' ? { formula: arg } : (arg || {});
-    const { die = 20, count: cnt = 1, mod: m = 0, label = '', advMode: am, sheet: fromSheet, isSave, isCheck, isAttack, formula: rawFormula } = opts;
+    const { die = 20, count: cnt = 1, mod: m = 0, label = '', advMode: am, adv: optAdv, sheet: fromSheet, isSave, isCheck, isAttack, formula: rawFormula } = opts;
     const parsed = rawFormula ? parseFormula(rawFormula) : parseFormula(`${cnt}d${die}${formatMod(m)}`);
     if (!parsed) return null;
     const isSaveRoll = isSave ?? /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b|morte|death/i.test(label || '');
     const isCheckRoll = isCheck ?? (!isSaveRoll && (/teste de (atributo|per[ií]cia)|ability check|skill check|\bcheck\b|perícia|atributo/i.test(label || '') || (cnt === 1 && die === 20 && !rawFormula && !/ataque|attack|dano|damage/i.test(label))));
     const isAttackRoll = isAttack ?? (!isSaveRoll && !isCheckRoll && /ataque|attack|to hit|com ataques/i.test(label || ''));
-    const entry = rollParsed(parsed, { label: label || parsed.text, adv: am ?? advMode, isSave: isSaveRoll, isCheck: isCheckRoll, isAttack: isAttackRoll });
+    const effectiveAdv = optAdv || am || (advMode !== 'normal' ? advMode : 'normal');
+    const entry = rollParsed(parsed, { label: label || parsed.text, adv: effectiveAdv, isSave: isSaveRoll, isCheck: isCheckRoll, isAttack: isAttackRoll });
     if (fromSheet && entry) toTable(entry);
     return entry;
   }, [rollParsed, advMode, toTable]);

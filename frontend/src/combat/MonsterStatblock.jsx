@@ -4,8 +4,8 @@ import './monster-statblock.css';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 
-import { ACTION_SKILL_GROUPS, computeActionGroupData } from './monster-action-skills.js';
-export { ACTION_SKILL_GROUPS, computeActionGroupData };
+import { ACTION_SKILL_GROUPS, computeActionGroupData, hasKeenSenses } from './monster-action-skills.js';
+export { ACTION_SKILL_GROUPS, computeActionGroupData, hasKeenSenses };
 
 
 const mod = (score) => {
@@ -24,12 +24,18 @@ const getLocalizedText = (val, lang) => {
 export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, className = '' }) {
   if (!m) return null;
 
-  const handleRoll = (opts) => {
+  const keen = useMemo(() => hasKeenSenses(m), [m]);
+
+  const handleRoll = (opts, e) => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(35);
+    const targetEl = e?.currentTarget || (e?.target?.closest ? e.target.closest('[data-roll-adv], .statblock-roll-btn') : null);
+    const elementAdv = targetEl?.getAttribute?.('data-roll-adv');
+    const adv = opts?.adv || opts?.advMode || elementAdv || undefined;
+    const finalOpts = adv ? { ...opts, adv, advMode: adv } : opts;
     if (onRoll) {
-      onRoll(opts);
+      onRoll(finalOpts);
     } else {
-      executeDiceRoll(opts);
+      executeDiceRoll(finalOpts);
     }
   };
 
@@ -77,9 +83,9 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
   const actionSkillData = useMemo(() => {
     return ACTION_SKILL_GROUPS.map((grp) => ({
       ...grp,
-      ...computeActionGroupData(grp, abils, explicitSkillMap, lang),
+      ...computeActionGroupData(grp, abils, explicitSkillMap, lang, { hasKeen: keen }),
     }));
-  }, [abils, explicitSkillMap, lang]);
+  }, [abils, explicitSkillMap, lang, keen]);
 
   // Skills parsing for interactive chips
   const skillsObj = m.skills || {};
@@ -167,14 +173,16 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
         <span className="statblock-prop-label">{t(lang, 'Iniciativa', 'Initiative')}:</span>
         <button
           type="button"
-          className="statblock-roll-btn init-btn"
-          onClick={() => handleRoll({
+          className="statblock-roll-btn init-btn statblock-init-btn"
+          data-roll-check={`1d20${initBonus >= 0 ? '+' : ''}${initBonus}`}
+          data-roll-label={`${name}: ${t(lang, 'Iniciativa', 'Initiative')} (${initBonus >= 0 ? '+' : ''}${initBonus})`}
+          onClick={(e) => handleRoll({
             formula: `1d20${initBonus >= 0 ? '+' : ''}${initBonus}`,
             label: `${name}: ${t(lang, 'Iniciativa', 'Initiative')} (${initBonus >= 0 ? '+' : ''}${initBonus})`,
             isCheck: true,
             sheet: true,
-          })}
-          title={t(lang, 'Toque para rolar iniciativa', 'Tap to roll initiative')}
+          }, e)}
+          title={t(lang, `Toque para rolar iniciativa (1d20${initBonus >= 0 ? '+' : ''}${initBonus}). Deslize ↑ para Vantagem ou ↓ para Desvantagem.`, `Tap to roll initiative (1d20${initBonus >= 0 ? '+' : ''}${initBonus}). Swipe ↑ for Advantage or ↓ for Disadvantage.`)}
           aria-label={t(lang, `Rolar Iniciativa ${initText}`, `Roll Initiative ${initText}`)}
         >
           <span className="statblock-roll-glyph" aria-hidden="true">⚡</span>
@@ -209,13 +217,15 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
               <button
                 type="button"
                 className="statblock-roll-btn abil-btn"
-                onClick={() => handleRoll({
+                data-roll-check={`1d20${mStr}`}
+                data-roll-label={`${name}: ${t(lang, 'Teste de', 'Check')} ${full} (${mStr})`}
+                onClick={(e) => handleRoll({
                   formula: `1d20${mStr}`,
                   label: `${name}: ${t(lang, 'Teste de', 'Check')} ${full} (${mStr})`,
                   isCheck: true,
                   sheet: true,
-                })}
-                title={t(lang, `Toque para Teste de ${full} (1d20${mStr})`, `Tap for ${full} Check (1d20${mStr})`)}
+                }, e)}
+                title={t(lang, `Toque para Teste de ${full} (1d20${mStr}). Deslize ↑ para Vantagem ou ↓ para Desvantagem.`, `Tap for ${full} Check (1d20${mStr}). Swipe ↑ for Advantage or ↓ for Disadvantage.`)}
                 aria-label={t(lang, `Teste de ${full} ${score} (${mStr})`, `${full} Check ${score} (${mStr})`)}
               >
                 <span className="statblock-abil-score">{score}</span>
@@ -226,13 +236,15 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
               <button
                 type="button"
                 className={`statblock-roll-btn save-btn ${explicitSave != null ? 'is-proficient' : ''}`}
-                onClick={() => handleRoll({
+                data-roll-save={`1d20${saveStr}`}
+                data-roll-label={`${name}: ${t(lang, 'Salvaguarda de', 'Save')} ${full} (${saveStr})`}
+                onClick={(e) => handleRoll({
                   formula: `1d20${saveStr}`,
                   label: `${name}: ${t(lang, 'Salvaguarda de', 'Save')} ${full} (${saveStr})`,
                   isSave: true,
                   sheet: true,
-                })}
-                title={t(lang, `Toque para Salvaguarda de ${full} (1d20${saveStr})`, `Tap for ${full} Saving Throw (1d20${saveStr})`)}
+                }, e)}
+                title={t(lang, `Toque para Salvaguarda de ${full} (1d20${saveStr}). Deslize ↑ para Vantagem ou ↓ para Desvantagem.`, `Tap for ${full} Saving Throw (1d20${saveStr}). Swipe ↑ for Advantage or ↓ for Disadvantage.`)}
                 aria-label={t(lang, `Salvaguarda de ${full} ${saveStr}`, `${full} Save ${saveStr}`)}
               >
                 <span className="statblock-save-tag">{t(lang, 'Salva', 'Save')}</span>
@@ -257,7 +269,60 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
                 <span className="statblock-action-icon" aria-hidden="true">{grp.icon}</span>
                 <span className="statblock-action-title">{grp.groupTitle}</span>
               </span>
-              <span className="statblock-action-notation">{grp.consolidatedText.replace(`${grp.groupTitle}: `, '')}</span>
+
+              <div className="statblock-action-summary-actions">
+                {/* Botão de rolagem direta da ação pelo bônus base consolidado */}
+                <button
+                  type="button"
+                  className="statblock-roll-btn statblock-action-header-roll-btn"
+                  data-roll-check={`1d20${grp.baselineBonusStr}`}
+                  data-roll-label={`${name}: ${grp.groupTitle} (${grp.baselineBonusStr})`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    handleRoll({
+                      formula: `1d20${grp.baselineBonusStr}`,
+                      label: `${name}: ${grp.groupTitle} (${grp.baselineBonusStr})`,
+                      isCheck: true,
+                      sheet: true,
+                    }, e);
+                  }}
+                  title={t(lang, `Toque para rolar ${grp.groupTitle} (1d20${grp.baselineBonusStr}). Deslize ↑ para Vantagem ou ↓ para Desvantagem.`, `Tap to roll ${grp.groupTitle} (1d20${grp.baselineBonusStr}). Swipe ↑ for Advantage or ↓ for Disadvantage.`)}
+                  aria-label={t(lang, `Rolar ${grp.groupTitle} ${grp.baselineBonusStr}`, `Roll ${grp.groupTitle} ${grp.baselineBonusStr}`)}
+                >
+                  <span className="statblock-action-roll-dice" aria-hidden="true">🎲</span>
+                  <span className="statblock-action-roll-score">{grp.baselinePassive}/{grp.baselineBonusStr}</span>
+                </button>
+
+                {/* Exceções expostas com botão interativo (ex: Percepção com Vantagem em Sentidos Aguçados) */}
+                {grp.exceptions?.map((exc) => (
+                  <button
+                    key={exc.id}
+                    type="button"
+                    className={`statblock-roll-btn statblock-action-exception-btn${exc.defaultAdv ? ' has-adv' : ''}`}
+                    data-roll-check={`1d20${exc.bonusStr}`}
+                    data-roll-label={`${name}: ${exc.name} (${exc.bonusStr})`}
+                    data-roll-adv={exc.defaultAdv}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      handleRoll({
+                        formula: `1d20${exc.bonusStr}`,
+                        label: `${name}: ${exc.name} (${exc.bonusStr})`,
+                        isCheck: true,
+                        sheet: true,
+                        ...(exc.defaultAdv ? { adv: exc.defaultAdv, advMode: exc.defaultAdv } : {}),
+                      }, e);
+                    }}
+                    title={t(lang, `Toque para rolar ${exc.name} (1d20${exc.bonusStr})${exc.isKeen ? ' [Vantagem automática por Sentidos Aguçados]' : ''}. Deslize ↑ para Vantagem ou ↓ para Desvantagem.`, `Tap to roll ${exc.name} (1d20${exc.bonusStr})${exc.isKeen ? ' [Automatic Advantage from Keen Senses]' : ''}. Swipe ↑ for Advantage or ↓ for Disadvantage.`)}
+                    aria-label={t(lang, `Rolar ${exc.name} ${exc.bonusStr}`, `Roll ${exc.name} ${exc.bonusStr}`)}
+                  >
+                    <span className="statblock-exception-text">{exc.passive}/{exc.bonusStr} {exc.name}</span>
+                    {exc.defaultAdv && <span className="statblock-adv-badge" aria-label="Vantagem">▲</span>}
+                  </button>
+                ))}
+              </div>
+
               <span className="statblock-action-chevron" aria-hidden="true">▾</span>
             </summary>
             <div className="statblock-action-grid">
@@ -272,19 +337,22 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
                     </span>
                     <button
                       type="button"
-                      className="statblock-roll-btn statblock-action-skill-btn"
+                      className={`statblock-roll-btn statblock-action-skill-btn${sk.defaultAdv ? ' has-adv' : ''}`}
                       data-roll-check={`1d20${sk.bonusStr}`}
                       data-roll-label={`${name}: ${sk.name} (${sk.bonusStr})`}
-                      onClick={() => handleRoll({
+                      data-roll-adv={sk.defaultAdv}
+                      onClick={(e) => handleRoll({
                         formula: `1d20${sk.bonusStr}`,
                         label: `${name}: ${t(lang, 'Perícia', 'Skill')} ${sk.name} (${sk.bonusStr})`,
                         isCheck: true,
                         sheet: true,
-                      })}
-                      title={t(lang, `Toque para rolar ${sk.name} (1d20${sk.bonusStr}). Deslize ↑ para Vantagem ou ↓ para Desvantagem.`, `Tap to roll ${sk.name} (1d20${sk.bonusStr}). Swipe ↑ for Advantage or ↓ for Disadvantage.`)}
+                        ...(sk.defaultAdv ? { adv: sk.defaultAdv, advMode: sk.defaultAdv } : {}),
+                      }, e)}
+                      title={t(lang, `Toque para rolar ${sk.name} (1d20${sk.bonusStr})${sk.isKeen ? ' [Vantagem automática por Sentidos Aguçados]' : ''}. Deslize ↑ para Vantagem ou ↓ para Desvantagem.`, `Tap to roll ${sk.name} (1d20${sk.bonusStr})${sk.isKeen ? ' [Automatic Advantage from Keen Senses]' : ''}. Swipe ↑ for Advantage or ↓ for Disadvantage.`)}
                       aria-label={t(lang, `Rolar ${sk.name} ${sk.bonusStr}`, `Roll ${sk.name} ${sk.bonusStr}`)}
                     >
-                      {sk.bonusStr}
+                      <span>{sk.bonusStr}</span>
+                      {sk.defaultAdv && <span className="statblock-adv-badge" aria-label="Vantagem">▲</span>}
                     </button>
                   </div>
                 </div>
@@ -299,25 +367,34 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
         <div className="statblock-prop">
           <span className="statblock-prop-label">{t(lang, 'Perícias', 'Skills')}:</span>
           <span className="statblock-prop-val statblock-skills-wrap">
-            {skillsList.map(({ name: skName, bonusStr }, idx) => (
-              <button
-                key={idx}
-                type="button"
-                className="statblock-skill-chip"
-                onClick={() => handleRoll({
-                  formula: `1d20${bonusStr}`,
-                  label: `${name}: ${t(lang, 'Perícia', 'Skill')} ${skName} (${bonusStr})`,
-                  isCheck: true,
-                  sheet: true,
-                })}
-                title={t(lang, `Toque para rolar ${skName} (1d20${bonusStr})`, `Tap to roll ${skName} (1d20${bonusStr})`)}
-                aria-label={t(lang, `Rolar Perícia ${skName} ${bonusStr}`, `Roll Skill ${skName} ${bonusStr}`)}
-              >
-                <span className="statblock-skill-glyph" aria-hidden="true">🎯</span>
-                <span className="statblock-skill-name">{skName}</span>
-                <span className="statblock-skill-bonus">{bonusStr}</span>
-              </button>
-            ))}
+            {skillsList.map(({ name: skName, bonusStr }, idx) => {
+              const isKeenPercep = skName.toLowerCase().includes('percep') && keen;
+              const defaultAdv = isKeenPercep ? 'adv' : undefined;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  className={`statblock-roll-btn statblock-skill-chip${defaultAdv ? ' has-adv' : ''}`}
+                  data-roll-check={`1d20${bonusStr}`}
+                  data-roll-label={`${name}: ${t(lang, 'Perícia', 'Skill')} ${skName} (${bonusStr})`}
+                  data-roll-adv={defaultAdv}
+                  onClick={(e) => handleRoll({
+                    formula: `1d20${bonusStr}`,
+                    label: `${name}: ${t(lang, 'Perícia', 'Skill')} ${skName} (${bonusStr})`,
+                    isCheck: true,
+                    sheet: true,
+                    ...(defaultAdv ? { adv: defaultAdv, advMode: defaultAdv } : {}),
+                  }, e)}
+                  title={t(lang, `Toque para rolar ${skName} (1d20${bonusStr})${isKeenPercep ? ' [Vantagem automática por Sentidos Aguçados]' : ''}. Deslize ↑ para Vantagem ou ↓ para Desvantagem.`, `Tap to roll ${skName} (1d20${bonusStr})${isKeenPercep ? ' [Automatic Advantage from Keen Senses]' : ''}. Swipe ↑ for Advantage or ↓ for Disadvantage.`)}
+                  aria-label={t(lang, `Rolar Perícia ${skName} ${bonusStr}`, `Roll Skill ${skName} ${bonusStr}`)}
+                >
+                  <span className="statblock-skill-glyph" aria-hidden="true">🎯</span>
+                  <span className="statblock-skill-name">{skName}</span>
+                  <span className="statblock-skill-bonus">{bonusStr}</span>
+                  {defaultAdv && <span className="statblock-adv-badge" aria-label="Vantagem">▲</span>}
+                </button>
+              );
+            })}
           </span>
         </div>
       ) : null}

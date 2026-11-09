@@ -74,10 +74,19 @@ export function findRollableElement(target) {
     '[data-roll-check]',
     '[data-dice-roll]',
     '[data-d20-interactive]',
+    '[data-roll-adv]',
     '.statblock-roll-btn',
+    '.statblock-action-header-roll-btn',
+    '.statblock-action-exception-btn',
     '.statblock-skill-chip',
     '.init-btn',
+    '.statblock-init-btn',
+    '.abil-btn',
+    '.save-btn',
     '.statblock-action-skill-btn',
+    '.fh-stat',
+    '.fh-save',
+    '.fh-skill',
   ].join(', '));
 }
 
@@ -104,11 +113,19 @@ export function setupGlobalDiceSwipeListener() {
                   el.hasAttribute('data-roll-attack') ||
                   el.hasAttribute('data-roll-save') ||
                   el.hasAttribute('data-roll-check') ||
+                  el.hasAttribute('data-roll-adv') ||
                   el.classList.contains('init-btn') ||
+                  el.classList.contains('statblock-init-btn') ||
                   el.classList.contains('abil-btn') ||
                   el.classList.contains('save-btn') ||
+                  el.classList.contains('statblock-action-header-roll-btn') ||
+                  el.classList.contains('statblock-action-exception-btn') ||
+                  el.classList.contains('statblock-roll-btn') ||
                   el.classList.contains('statblock-skill-chip') ||
-                  el.classList.contains('statblock-action-skill-btn');
+                  el.classList.contains('statblock-action-skill-btn') ||
+                  el.classList.contains('fh-stat') ||
+                  el.classList.contains('fh-save') ||
+                  el.classList.contains('fh-skill');
 
     if (!isD20) return;
 

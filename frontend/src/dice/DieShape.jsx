@@ -100,6 +100,16 @@ export default function DieShape({
         document.body.style.setProperty('--bg-shake-x', `${bgShakeX}px`);
         document.body.style.setProperty('--bg-shake-y', `${bgShakeY}px`);
         document.body.style.setProperty('--bg-shake-rot', `${bgShakeRot}deg`);
+
+        // Dramatic Focal Vignette Contraction & Pitch-Black Climax:
+        // As p approaches 1.0 (750ms climax), the focal tunnel shrinks
+        // and everything plunges into 100% pitch black at the unravelling ripples explosion
+        const blackout = Math.pow(p, 1.8);
+        const innerRadius = Math.max(0, 48 * (1 - Math.pow(p, 1.2)));
+        const outerRadius = Math.max(0, 88 * (1 - Math.pow(p, 1.6)));
+        document.body.style.setProperty('--overlay-blackout', blackout.toFixed(3));
+        document.body.style.setProperty('--overlay-tunnel-inner', `${innerRadius.toFixed(1)}%`);
+        document.body.style.setProperty('--overlay-tunnel-outer', `${outerRadius.toFixed(1)}%`);
       }
     };
 
@@ -125,7 +135,7 @@ export default function DieShape({
       }
     };
 
-    const applyFalloffVars = (falloffProfile) => {
+    const applyFalloffVars = (falloffProfile, falloffP = 0) => {
       if (!el) return;
       el.style.setProperty('--falloff-roll-scale', `${falloffProfile.rollScale}`);
       el.style.setProperty('--falloff-num-scale', `${falloffProfile.numberScale}`);
@@ -137,6 +147,17 @@ export default function DieShape({
       el.style.setProperty('--sparks-opacity', `${falloffProfile.sparksOpacity || 0}`);
       if (stageWrap) {
         stageWrap.style.setProperty('--falloff-roll-scale', `${falloffProfile.rollScale}`);
+      }
+      if (isHero && typeof document !== 'undefined' && document.body) {
+        // As the unravelling ripples expand outward, the blackout smoothly recedes
+        // and the focal vignette returns to its normal open backdrop variables
+        const p = Math.min(1, Math.max(0, falloffP));
+        const recede = Math.pow(1 - p, 2.0); // 1.0 -> 0.0
+        const innerRadius = 48 * (1 - recede);
+        const outerRadius = 15 + 73 * (1 - recede);
+        document.body.style.setProperty('--overlay-blackout', recede.toFixed(3));
+        document.body.style.setProperty('--overlay-tunnel-inner', `${innerRadius.toFixed(1)}%`);
+        document.body.style.setProperty('--overlay-tunnel-outer', `${outerRadius.toFixed(1)}%`);
       }
     };
 
@@ -152,6 +173,11 @@ export default function DieShape({
       el.style.setProperty('--sparks-opacity', '0');
       if (stageWrap) {
         stageWrap.style.setProperty('--falloff-roll-scale', '1');
+      }
+      if (isHero && typeof document !== 'undefined' && document.body) {
+        document.body.style.removeProperty('--overlay-blackout');
+        document.body.style.removeProperty('--overlay-tunnel-inner');
+        document.body.style.removeProperty('--overlay-tunnel-outer');
       }
     };
 
@@ -276,7 +302,7 @@ export default function DieShape({
       // Drive the Single Powerful & Glowing Ripple (glowing ring + glowing pulse + ease-out roll upscale)
       // starting at afterClimax = 0 (exact moment of the punch & number reveal)
       const falloffP = Math.min(1, afterClimax / FALLOFF_DURATION_MS);
-      applyFalloffVars(computeFalloffProfile(falloffP));
+      applyFalloffVars(computeFalloffProfile(falloffP), falloffP);
 
       if (afterClimax < PUMP_DURATION_MS) {
         if (currentPhase !== punchPhaseName) {
@@ -297,7 +323,7 @@ export default function DieShape({
       }
 
       // Final settled state at full ease-out ripple completion
-      applyFalloffVars(computeFalloffProfile(1));
+      applyFalloffVars(computeFalloffProfile(1), 1);
       setAnimPhase('settled');
     };
 
@@ -311,6 +337,9 @@ export default function DieShape({
         document.body.style.removeProperty('--bg-shake-x');
         document.body.style.removeProperty('--bg-shake-y');
         document.body.style.removeProperty('--bg-shake-rot');
+        document.body.style.removeProperty('--overlay-blackout');
+        document.body.style.removeProperty('--overlay-tunnel-inner');
+        document.body.style.removeProperty('--overlay-tunnel-outer');
       }
     };
   }, [shouldAnimateRoll, naturalVal, finalVal, isHero, dimmed, die, value, targetValue, petalIndex, petalCount, seed, stepOffset]);
