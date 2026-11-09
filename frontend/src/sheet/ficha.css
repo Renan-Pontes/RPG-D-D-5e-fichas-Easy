@@ -6218,19 +6218,30 @@
 .ficha .fh-belt-pb-wedge.is-left { left: calc(50% - (var(--belt-w) + var(--belt-gap)) / 2); }
 .ficha .fh-belt-pb-wedge.is-right { left: calc(50% + (var(--belt-w) + var(--belt-gap)) / 2); }
 .ficha .fh-belt-pb-wedge svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.ficha .fh-belt-pb-wedge polygon {
-  fill: #1a120a; stroke: rgba(237, 203, 122, .55); stroke-width: 2; stroke-linejoin: round;
-  transition: fill .2s, stroke .2s, filter .2s;
-}
+.ficha .fh-belt-pb-wedge svg * { vector-effect: non-scaling-stroke; }
+.ficha .fh-belt-pb-wedge .pbw-slit { fill: #040201; }
+.ficha .fh-belt-pb-wedge .pbw-body { filter: drop-shadow(0 1.5px 1px rgba(0,0,0,.8)); }
+.ficha .fh-belt-pb-wedge .pbw-bevel-hi { fill: none; stroke: rgba(255, 236, 190, .55); stroke-width: 1.4; stroke-linejoin: round; }
+.ficha .fh-belt-pb-wedge .pbw-bevel-mid { fill: none; stroke: rgba(255, 220, 160, .22); stroke-width: 1.2; }
+.ficha .fh-belt-pb-wedge .pbw-bevel-lo { fill: none; stroke: rgba(0, 0, 0, .65); stroke-width: 1.4; stroke-linejoin: round; }
+.ficha .fh-belt-pb-wedge .pbw-face { opacity: .55; stroke: rgba(0,0,0,.35); stroke-width: .8; }
+/* desligada: bronze escuro e fosco */
+.ficha .fh-belt-pb-wedge .pbw-face-a { stop-color: #5a4426; }
+.ficha .fh-belt-pb-wedge .pbw-face-b { stop-color: #33240f; }
+.ficha .fh-belt-pb-wedge .pbw-face-c { stop-color: #1c1308; }
+/* ligada: ouro polido */
+.ficha .fh-belt-pb-wedge.is-on .pbw-face-a { stop-color: #fff0bf; }
+.ficha .fh-belt-pb-wedge.is-on .pbw-face-b { stop-color: #e2b65d; }
+.ficha .fh-belt-pb-wedge.is-on .pbw-face-c { stop-color: #8e6425; }
+.ficha .fh-belt-pb-wedge.is-on .pbw-bevel-hi { stroke: rgba(255, 255, 255, .9); }
+.ficha .fh-belt-pb-wedge.is-on { filter: drop-shadow(0 0 4px rgba(255, 214, 120, .55)); }
+/* "BP" gravado fundo: sombra escura em cima (parede do sulco) e luz embaixo (borda que reflete) */
 .ficha .fh-belt-pb-wedge span {
-  position: relative; margin-top: 4%; font-family: var(--fh-display, serif); font-weight: 800;
-  font-size: clamp(.5rem, 1.9vw, .66rem); letter-spacing: .06em; color: rgba(237, 203, 122, .6);
-  pointer-events: none; transition: color .2s;
+  position: relative; margin-top: 7%; font-family: var(--fh-display, serif); font-weight: 900;
+  font-size: clamp(.62rem, 2.4vw, .8rem); letter-spacing: .1em; pointer-events: none;
+  color: #120b04; text-shadow: 0 -1px 0 rgba(0,0,0,.9), 0 1px 0 rgba(255, 226, 160, .35);
 }
-.ficha .fh-belt-pb-wedge.is-on polygon {
-  fill: radial-gradient(#000, #000); fill: #c9a24e; stroke: #fff1c4;
-  }
-.ficha .fh-belt-pb-wedge.is-on span { color: #1a0f05; }
+.ficha .fh-belt-pb-wedge.is-on span { color: #4a3110; text-shadow: 0 -1px 0 rgba(60, 35, 5, .95), 0 1px 0 rgba(255, 250, 225, .85); }
 .ficha .fh-belt-pb-wedge:active { filter: brightness(1.25); }
 
 .ficha .fh-belt-pb-contour {

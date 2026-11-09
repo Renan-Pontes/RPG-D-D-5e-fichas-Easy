@@ -3284,7 +3284,29 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
               : `PB +${effectiveProfB} on the die below (${slots[si]?.pb ? 'on' : 'off'})`}
             onClick={(e) => { e.stopPropagation(); togglePb(si); }}
           >
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polygon points="3,1.5 97,1.5 50,96" vectorEffect="non-scaling-stroke" /></svg>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id={`pbw-face-${si}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" className="pbw-face-a" />
+                  <stop offset=".55" className="pbw-face-b" />
+                  <stop offset="1" className="pbw-face-c" />
+                </linearGradient>
+                <radialGradient id={`pbw-sheen-${si}`} cx=".5" cy=".18" r=".55">
+                  <stop offset="0" stopColor="#fff" stopOpacity=".38" />
+                  <stop offset="1" stopColor="#fff" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              {/* fresta: o vão sombreado em volta da peça */}
+              <polygon className="pbw-slit" points="0,0 100,0 50,100" />
+              {/* corpo chanfrado (cantos cortados) */}
+              <polygon className="pbw-body" fill={`url(#pbw-face-${si})`} points="9,3 91,3 95.5,7.5 53,91 47,91 4.5,7.5" />
+              {/* biséis: luz em cima e à esquerda, sombra à direita e no fundo */}
+              <polyline className="pbw-bevel-hi" points="4.5,7.5 9,3 91,3 95.5,7.5" />
+              <polyline className="pbw-bevel-lo" points="95.5,7.5 53,91 47,91" />
+              <polyline className="pbw-bevel-mid" points="47,91 4.5,7.5" />
+              <polygon className="pbw-face" fill={`url(#pbw-face-${si})`} points="14,9 86,9 50,79" />
+              <polygon points="14,9 86,9 50,79" fill={`url(#pbw-sheen-${si})`} />
+            </svg>
             <span>BP</span>
           </button>
         ))}
