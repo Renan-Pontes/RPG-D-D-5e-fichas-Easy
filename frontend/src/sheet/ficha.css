@@ -5339,6 +5339,52 @@
   box-shadow: 0 0 0 2px #140e0b, 0 0 8px rgba(237, 203, 122, 0.6);
 }
 
+/* Inspiration Seal Button (Matching Portrait, Level, and Campaign seals) */
+.ficha .fh-seal.hero-insp {
+  cursor: pointer;
+}
+
+.ficha .fh-seal.hero-insp .hero-insp-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #785a22;
+  line-height: 1;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.ficha .fh-seal.hero-insp.is-inspired .hero-insp-icon {
+  color: #1a1005;
+  filter: drop-shadow(0 0 4px rgba(255, 230, 150, 0.8));
+}
+
+.ficha .fh-seal.hero-insp:hover .fh-seal-core {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), 0 0 16px rgba(240, 190, 90, 0.6);
+}
+
+.ficha .fh-seal.hero-insp.is-inspired .fh-seal-core {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), 0 0 22px rgba(240, 190, 90, 0.85);
+  background: radial-gradient(circle at 35% 30%, #fffbf0, #fae08c 45%, #b38536 100%);
+}
+
+.ficha .fh-seal.hero-insp .hero-insp-pip {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-family: var(--display, serif);
+  font-size: 0.72rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #140e0b;
+  background: var(--gold-bright, #edcb7a);
+  box-shadow: 0 0 0 2px #140e0b, 0 0 8px rgba(237, 203, 122, 0.8);
+}
+
 /* Minimalist Campaign Badge with Notification Count (Fallback / Legacy) */
 .ficha .fh-hero-camp-badge {
   display: inline-flex;
@@ -5577,14 +5623,16 @@
 }
 
 /* Minimalist & Discrete Hero Panel Corner Actions (Bottom Right) */
+.ficha .fh-hero .fh-hero-corner-actions,
 .ficha .fh-hero-corner-actions {
-  position: absolute;
-  bottom: 10px;
-  right: 14px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  z-index: 10;
+  position: absolute !important;
+  bottom: 12px !important;
+  right: 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin: 0 !important;
+  z-index: 25 !important;
 }
 
 .ficha .fh-corner-chip {
@@ -5636,10 +5684,12 @@
 }
 
 @media (max-width: 600px) {
+  .ficha .fh-hero .fh-hero-corner-actions,
   .ficha .fh-hero-corner-actions {
-    position: static;
-    grid-column: 1 / -1;
-    justify-content: flex-end;
-    margin-top: 6px;
+    position: absolute !important;
+    bottom: 8px !important;
+    right: 10px !important;
+    margin: 0 !important;
+    z-index: 25 !important;
   }
 }

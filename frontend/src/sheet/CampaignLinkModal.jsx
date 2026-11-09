@@ -98,10 +98,12 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
     const seat = seatState(table, char.id);
     const attach = () => run(async () => {
       let res;
-      if (table.myMembership?.characterId && String(table.myMembership.characterId) !== String(char.id)) {
-        res = await api.joinCampaign({ campaignId: table.id, characterId: char.id });
+      const memberships = table.myMemberships || (table.myMembership ? [table.myMembership] : []);
+      const emptySeat = memberships.find(m => m.characterId == null && m.role !== 'dm');
+      if (emptySeat) {
+        res = await api.updateMembership(table.id, emptySeat.id, { characterId: char.id });
       } else {
-        res = await putSeat(table, false);
+        res = await api.joinCampaign({ campaignId: table.id, characterId: char.id });
       }
       return linkToast('attach', { charName, table: table.name, lang }) + seatNote(res, '');
     });

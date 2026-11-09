@@ -16,31 +16,33 @@ export const isAccountSheet = (char) => typeof char?.id === 'number';
 const nameOf = (s, lang) => String(s || '').trim() || L(lang, 'Sem nome', 'Unnamed');
 
 /**
- * Mesas em que a ficha pode entrar: ATIVAS e em que a pessoa é JOGADORA (as que
- * ela mestra ficam de fora: o mestre não joga com ficha na própria mesa).
+ * Mesas em que a ficha pode entrar: ATIVAS (jogando ou mestrando).
  * `exclude`: ids que não entram (a campanha atual, na troca). Em ordem de nome.
  */
 export function playerTables(campaigns, exclude = []) {
   const skip = new Set((exclude || []).map(String));
   return (Array.isArray(campaigns) ? campaigns : [])
-    .filter(c => c && c.role === 'player' && c.status !== 'closed' && !skip.has(String(c.id)))
+    .filter(c => c && c.status !== 'closed' && !skip.has(String(c.id)))
     .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt', { sensitivity: 'base' }));
 }
 
-/** Quantas campanhas a pessoa mestra (para explicar por que elas não aparecem). */
+/** Quantas campanhas a pessoa mestra (para contexto ou filtros). */
 export const dmTableCount = (campaigns) => (Array.isArray(campaigns) ? campaigns : []).filter(c => c?.role === 'dm').length;
 
 /**
- * A vaga da pessoa naquela mesa (GET /campaigns → myMembership):
+ * A vaga da pessoa naquela mesa (GET /campaigns → myMemberships / myMembership):
  * 'free' (sem personagem) · 'this' (esta ficha) · 'other' (outra ficha, `name`) ·
  * 'unknown' (servidor antigo, sem o campo).
  */
 export function seatState(campaign, charId) {
-  const m = campaign?.myMembership;
-  if (!m || m.id == null) return { kind: 'unknown', name: '' };
-  if (m.characterId == null) return { kind: 'free', name: '' };
-  if (String(m.characterId) === String(charId)) return { kind: 'this', name: '' };
-  return { kind: 'other', name: String(m.characterName || '') };
+  const memberships = campaign?.myMemberships || (campaign?.myMembership ? [campaign.myMembership] : []);
+  if (!memberships.length && campaign?.role == null) return { kind: 'unknown', name: '' };
+  if (memberships.some(m => String(m.characterId) === String(charId))) return { kind: 'this', name: '' };
+  const empty = memberships.find(m => m.characterId == null && m.role !== 'dm');
+  if (empty) return { kind: 'free', name: '' };
+  const otherNames = memberships.filter(m => m.characterName).map(m => m.characterName).join(', ');
+  if (otherNames) return { kind: 'other', name: otherNames };
+  return { kind: 'free', name: '' };
 }
 
 export function seatLabel(seat, lang = 'pt') {

@@ -490,9 +490,6 @@ def campaign_join(request):
         char = Character.objects.filter(pk=character_id).first()
         if not char or char.owner_id != request.user.id:
             return Response({'error': 'character_forbidden'}, status=403)
-        # O mestre não joga com ficha na própria mesa.
-        if campaign.dm_id == request.user.id:
-            return Response(DM_CANNOT_PLAY, status=400)
         # Suporte N:N: Um personagem pode estar em N campanhas concorrentemente,
         # mas nunca duas vezes na MESMA campanha.
         same_camp_seat = Membership.objects.filter(campaign=campaign, character=char).first()
@@ -504,20 +501,20 @@ def campaign_join(request):
         # Jogador no limite de personagens entra ocupando uma vaga do mestre (se houver).
         sponsored = P.decide_sponsored(request.user, campaign, char, None)
         if char:
-            # Se o usuário já tiver uma membership nesta campanha sem personagem atrelado, reaproveita
-            existing_empty = Membership.objects.filter(campaign=campaign, user=request.user, character__isnull=True).first()
+            # Se o usuário já tiver uma membership nesta campanha sem personagem atrelado (exceto vaga mestre pura), reaproveita
+            existing_empty = Membership.objects.filter(campaign=campaign, user=request.user, character__isnull=True).exclude(role='dm').first()
             if existing_empty:
                 existing_empty.character = char
                 existing_empty.sponsored = sponsored
                 existing_empty.save()
                 m = existing_empty
             else:
-                # O usuário pode ter N personagens na mesma campanha! Cria nova vaga de membership.
+                # O usuário pode ter N personagens na mesma campanha (incluindo o mestre com NPCs/fichas)!
                 m = Membership.objects.create(
                     campaign=campaign,
                     user=request.user,
                     character=char,
-                    role='dm' if campaign.dm_id == request.user.id else 'player',
+                    role='player',
                     sponsored=sponsored,
                 )
         else:
@@ -617,9 +614,6 @@ def campaign_member(request, id_or_slug, membership_id):
         # garante que o personagem é do dono da membership
         if char.owner_id != m.user_id:
             raise PermissionDenied('character_not_owned')
-        # a vaga do mestre não recebe ficha: ele não joga na própria mesa
-        if m.user_id == campaign.dm_id:
-            return Response(DM_CANNOT_PLAY, status=400)
         # Suporte N:N: A ficha pode estar em N mesas, mas nunca 2 vezes na mesma mesa
         if m.character_id != char.id:
             same_camp_seat = Membership.objects.filter(campaign=campaign, character=char).exclude(pk=m.id).first()

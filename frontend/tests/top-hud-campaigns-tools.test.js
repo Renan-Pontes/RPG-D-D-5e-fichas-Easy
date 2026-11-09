@@ -100,30 +100,34 @@ test('Aba Perícias e Características: paridade de ações, remoção de redund
   assert.match(css, /\.ficha \.fh-skill-categories-grid \{[^}]*gap:\s*4px;/);
 });
 
-test('Hero Header e Escopo de Progressão: medalha de campanhas 48px, idiomas no subtítulo, ações no canto inferior direito e progressão apenas em Play', () => {
+test('Hero Header e Escopo de Progressão: medalha de campanhas 48px, inspiração unificada, idiomas no subtítulo, ações no canto inferior direito e progressão apenas em Play', () => {
   const sheetSrc = read('../components/Sheet.jsx');
   const css = read('../src/sheet/ficha.css');
 
-  // Cluster superior esquerdo: Medalha do Retrato -> Nível -> Campanhas
+  // Cluster superior esquerdo: Medalha do Retrato -> Nível -> Campanhas -> Inspiração
   assert.match(sheetSrc, /fh-hero-top-left-cluster/);
   assert.match(sheetSrc, /fh-hero-portrait-medal/);
   assert.match(sheetSrc, /CampaignSealButton/);
   assert.match(sheetSrc, /hero-camp fh-seal/);
+  assert.match(sheetSrc, /InspirationSealButton/);
+  assert.match(sheetSrc, /hero-insp fh-seal/);
 
   // Subtítulo do Herói expõe idiomas falados
   assert.match(sheetSrc, /langsText/);
   assert.match(sheetSrc, /Fala /);
   assert.match(sheetSrc, /Speaks /);
 
-  // Ações Exportar, Editar e Trapaça no canto inferior direito
+  // Ações Exportar, Editar e Trapaça ancoradas no canto inferior direito
   assert.match(sheetSrc, /fh-hero-corner-actions/);
   assert.match(sheetSrc, /fh-corner-chip/);
-  assert.match(css, /\.ficha \.fh-hero-corner-actions \{[^}]*position:\s*absolute;[^}]*bottom:\s*10px;[^}]*right:\s*14px;/);
+  assert.match(css, /\.ficha \.fh-hero-corner-actions \{[^}]*position:\s*absolute !important;[^}]*bottom:\s*12px !important;[^}]*right:\s*16px !important;/);
 
-  // Trinity de Selos Circulares de 48px
+  // Quadrilátero de Selos Circulares de 48px
   assert.match(css, /\.ficha \.fh-hero-top-left-cluster \.fh-seal \{[^}]*width:\s*48px;\s*height:\s*48px;/);
   assert.match(css, /\.ficha \.fh-seal\.hero-camp/);
   assert.match(css, /\.hero-camp-pip/);
+  assert.match(css, /\.ficha \.fh-seal\.hero-insp/);
+  assert.match(css, /\.hero-insp-pip/);
 
   // Progressão da Ficha (children) restrita estritamente à aba 'play'
   assert.match(sheetSrc, /\{tab === 'play' && \([\s\S]*?\{children && <div className="fh-after no-print">\{children\}<\/div>\}/);

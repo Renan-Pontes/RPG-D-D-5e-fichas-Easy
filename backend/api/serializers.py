@@ -298,8 +298,8 @@ class CampaignListSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = _lifecycle(super().to_representation(instance), instance)
-        # Vagas de JOGADOR de quem vê (suporte a N personagens do mesmo usuário)
-        m_list = None if _viewer_is_dm(self, instance) else self._mine_list(instance)
+        # Vagas de quem vê nesta campanha (suporte a N personagens do mesmo usuário, inclusive mestre)
+        m_list = self._mine_list(instance)
         if m_list:
             data['myMemberships'] = [
                 {'id': m['id'], 'characterId': m['character_id'],
@@ -307,10 +307,10 @@ class CampaignListSerializer(serializers.ModelSerializer):
                  'isNpc': m.get('is_npc', False), 'charType': m.get('char_type', 'player')}
                 for m in m_list
             ]
-            m = m_list[0]
-            data['myMembership'] = {'id': m['id'], 'characterId': m['character_id'],
-                                    'characterName': m['character__name'], 'sponsored': m['sponsored'],
-                                    'isNpc': m.get('is_npc', False), 'charType': m.get('char_type', 'player')}
+            m_primary = next((m for m in m_list if m['character_id']), m_list[0])
+            data['myMembership'] = {'id': m_primary['id'], 'characterId': m_primary['character_id'],
+                                    'characterName': m_primary['character__name'], 'sponsored': m_primary['sponsored'],
+                                    'isNpc': m_primary.get('is_npc', False), 'charType': m_primary.get('char_type', 'player')}
         return data
 
     def get_coverUrl(self, obj):

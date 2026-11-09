@@ -9,8 +9,8 @@ test('Item 1: Texto de ficha pessoal e modo campanha encapsulados dentro do pain
   const sheetSrc = read('../components/Sheet.jsx');
   // campaignBanner é passado ao SheetHero
   assert.match(sheetSrc, /campaignBanner=\{/);
-  // Dentro de SheetHero, campaignBanner é renderizado abaixo das ações
-  assert.match(sheetSrc, /\{campaignBanner\}\s*<\/div>\s*\{\/\* Estrela e foto/);
+  // Dentro de SheetHero, campaignBanner é renderizado dentro do corpo do painel do herói
+  assert.match(sheetSrc, /\{campaignBanner\}\s*<\/div>/);
   // Não há mais CampaignModeBanner solto entre as abas e os banners
   assert.ok(!sheetSrc.includes('<CampaignModeBanner char={char} lang={lang} onChange={onUpdate} rev={campRev}'));
 });

@@ -34,14 +34,15 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
   const [editing, setEditing] = useState(null);
   const [giving, setGiving] = useState(null);
   const [assigning, setAssigning] = useState(null);
+  const [addingChar, setAddingChar] = useState(false);
   const gridRef = useRef(null);
   // fichas que saíram desta mesa agora: a lista do app (`characters`) ainda diz "em campanha"
   // até recarregar, e a folha de troca não pode deixá-las apagadas
   const released = useRef(new Set());
   const xpMode = campaign.state?.levelingMode === 'xp';
   const members = campaign.members || [];
-  const dm = members.find(m => m.role === 'dm');
-  const players = members.filter(m => m.role !== 'dm');
+  const dm = members.find(m => m.role === 'dm' && !m.character);
+  const players = members.filter(m => m.character != null || m.role !== 'dm');
   const meId = typeof window !== 'undefined' ? window.__currentUserId__ : null;
   const { goTo } = useArea();
   const roles = usePartyRoles(campaign, isDM, lang);
@@ -70,6 +71,11 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
     if (id != null) released.current.delete(id);
     setAssigning(null);
   }, t(lang, 'Personagem da mesa atualizado.', 'Table character updated.'));
+
+  const addCharacter = (charId) => run(async () => {
+    await api.joinCampaign({ campaignId: campaign.id, characterId: charId });
+    setAddingChar(false);
+  }, t(lang, 'Personagem adicionado à mesa.', 'Character added to the table.'));
 
   const removeMember = async (m) => {
     const who = m.character?.name || m.user?.displayName || '';
@@ -112,12 +118,24 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
 
   return (
     <div className="grp-players">
-      {dm && (
-        <p className="grp-dm-line muted small">
-          👑 {t(lang, 'Mestre', 'DM')}: <strong>{dm.user?.displayName}</strong>
-          {' · '}{players.length === 1 ? t(lang, '1 jogador', '1 player') : t(lang, `${players.length} jogadores`, `${players.length} players`)}
-        </p>
-      )}
+      <div className="grp-party-top-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, margin: '0 0 12px' }}>
+        {dm && (
+          <p className="grp-dm-line muted small" style={{ margin: 0 }}>
+            👑 {t(lang, 'Mestre', 'DM')}: <strong>{dm.user?.displayName}</strong>
+            {' · '}{players.length === 1 ? t(lang, '1 personagem', '1 character') : t(lang, `${players.length} personagens`, `${players.length} characters`)}
+          </p>
+        )}
+        {campaign.status !== 'closed' && (
+          <button
+            type="button"
+            className="mesa-btn btn-sm grp-add-char-btn"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', fontSize: '0.82rem', fontWeight: 700 }}
+            onClick={() => setAddingChar(true)}
+          >
+            + {t(lang, 'Adicionar Personagem', 'Add Character')}
+          </button>
+        )}
+      </div>
 
       {players.length === 0 && (
         <div className="grp-empty">
@@ -158,6 +176,10 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
       {assigningMember && (
         <AssignSheet lang={lang} member={assigningMember} members={players} characters={characters}
           released={released.current} onPick={(id) => assign(assigningMember, id)} onClose={() => setAssigning(null)} />
+      )}
+      {addingChar && (
+        <AddCharacterSheet lang={lang} members={members} characters={characters}
+          onPick={addCharacter} onClose={() => setAddingChar(false)} />
       )}
       {editing && (
         <DMCharacterEditor character={editing} lang={lang} initialSection={editing.section} onClose={() => setEditing(null)}
@@ -343,6 +365,41 @@ function AssignSheet({ lang, member, members = [], characters, released, onPick,
             <span className="mesa-row-sub">{t(lang, 'Fico na mesa sem ficha por enquanto', 'Stay at the table without a sheet for now')}</span>
           </span>
         </button>
+      </div>
+    </MesaSheet>
+  );
+}
+
+function AddCharacterSheet({ lang, members = [], characters = [], onPick, onClose }) {
+  const available = (Array.isArray(characters) ? characters : []).filter(
+    ch => ch && typeof ch.id === 'number' && !members.some(m => m.character?.id === ch.id)
+  );
+  return (
+    <MesaSheet lang={lang} size="auto" width="sm" icon="🛡"
+      title={t(lang, 'Adicionar personagem à mesa', 'Add character to table')}
+      onClose={onClose}
+      footer={<div className="mesa-actions"><button type="button" className="mesa-btn" onClick={onClose}>{t(lang, 'Cancelar', 'Cancel')}</button></div>}>
+      <p className="mesa-sheet-text">{t(lang, 'Escolha uma ficha da sua conta para colocar nesta campanha:', 'Choose a sheet from your account to add to this campaign:')}</p>
+      <div className="grp-assign-list mesa-panel is-sunk" role="radiogroup" aria-label={t(lang, 'Adicionar personagem à mesa', 'Add character to table')}>
+        {available.length === 0 ? (
+          <p className="muted small" style={{ padding: '16px 12px', margin: 0, textAlign: 'center' }}>
+            {t(lang, 'Todas as suas fichas já estão nesta mesa ou você não tem outras fichas na conta.', 'All your characters are already at this table or you have no other characters in your account.')}
+          </p>
+        ) : (
+          available.map(ch => {
+            let cls = '';
+            try { cls = Utils.classLabel(ch, lang, tName); } catch { cls = ''; }
+            return (
+              <button key={ch.id} type="button" className="mesa-row grp-assign-row" onClick={() => onPick(ch.id)}>
+                <span className="grp-assign-mark" aria-hidden="true">+</span>
+                <span className="mesa-row-main">
+                  <span className="mesa-row-title">{ch.name || t(lang, 'Sem nome', 'Unnamed')}</span>
+                  {cls && <span className="mesa-row-sub">{cls}</span>}
+                </span>
+              </button>
+            );
+          })
+        )}
       </div>
     </MesaSheet>
   );

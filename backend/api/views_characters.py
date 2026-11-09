@@ -40,8 +40,6 @@ def character_list(request):
         if not campaign:
             return Response({'error': 'invite_invalid'}, status=404)
         P.require_open(campaign)
-        if campaign.dm_id == request.user.id:  # o mestre não joga com ficha na própria mesa
-            return Response({'error': 'dm_cannot_be_player'}, status=400)
     sponsored = P.check_character_create(request.user, campaign)
     P.check_images(request.user, P.image_bytes(data.get('avatar') if isinstance(data, dict) else None))
     with transaction.atomic():
@@ -49,7 +47,7 @@ def character_list(request):
         out = {'character': None}
         if campaign is not None:
             from .views_campaigns import join_payload
-            existing_empty = Membership.objects.filter(campaign=campaign, user=request.user, character__isnull=True).first()
+            existing_empty = Membership.objects.filter(campaign=campaign, user=request.user, character__isnull=True).exclude(role='dm').first()
             if existing_empty:
                 existing_empty.character = obj
                 existing_empty.sponsored = sponsored
@@ -58,7 +56,7 @@ def character_list(request):
             else:
                 m = Membership.objects.create(
                     campaign=campaign, user=request.user, character=obj, sponsored=sponsored,
-                    role='dm' if campaign.dm_id == request.user.id else 'player')
+                    role='player')
             out['join'] = join_payload(campaign, m)
     out['character'] = CharacterSerializer(obj).data
     return Response(out)

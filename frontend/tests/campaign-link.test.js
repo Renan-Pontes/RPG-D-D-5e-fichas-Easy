@@ -18,10 +18,10 @@ test('só fichas da conta (id numérico) entram em campanha', () => {
   assert.equal(isAccountSheet(null), false);
 });
 
-test('playerTables: ativas em que a pessoa é jogadora, por nome; exclui a atual', () => {
-  assert.deepEqual(playerTables(CAMPS).map(c => c.id), [4, 1]);
-  assert.deepEqual(playerTables(CAMPS, [4]).map(c => c.id), [1]);
-  assert.deepEqual(playerTables(CAMPS, ['1']).map(c => c.id), [4]);
+test('playerTables: ativas em que a pessoa joga ou mestra, por nome; exclui a atual', () => {
+  assert.deepEqual(playerTables(CAMPS).map(c => c.id), [4, 2, 1]);
+  assert.deepEqual(playerTables(CAMPS, [4]).map(c => c.id), [2, 1]);
+  assert.deepEqual(playerTables(CAMPS, ['1']).map(c => c.id), [4, 2]);
   assert.deepEqual(playerTables(null), []);
   assert.equal(dmTableCount(CAMPS), 1);
 });

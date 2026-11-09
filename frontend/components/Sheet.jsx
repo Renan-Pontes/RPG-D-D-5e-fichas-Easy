@@ -113,6 +113,30 @@ const CampaignSealButton = ({ count, campFoldOpen, onToggle, lang }) => {
   );
 };
 
+const InspirationSealButton = ({ inspired, onToggle, lang }) => {
+  const pt = lang === 'pt';
+  return (
+    <button
+      type="button"
+      className={`hero-insp fh-seal no-print ${inspired ? 'is-inspired' : ''}`}
+      onClick={onToggle}
+      aria-pressed={!!inspired}
+      title={pt ? (inspired ? 'Inspirado! Clique para gastar a Inspiração.' : 'Sem Inspiração. Clique para ativar.') : (inspired ? 'Inspired! Click to spend Inspiration.' : 'No Inspiration. Click to grant.')}
+    >
+      <svg className="fh-seal-ring" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="30" fill="none" stroke="#e0b55e" strokeWidth="1.2" strokeDasharray="2 4"/>
+        <circle cx="32" cy="32" r="27" fill="none" stroke="#9a7231" strokeWidth="0.8"/>
+      </svg>
+      <span className="fh-seal-core">
+        <span className="hero-insp-icon" aria-hidden="true">
+          <Icon name={inspired ? 'star-fill' : 'star'} size={20} />
+        </span>
+      </span>
+      {inspired && <span className="hero-level-up hero-insp-pip">✦</span>}
+    </button>
+  );
+};
+
 const hideBrokenImg = (e) => { e.currentTarget.style.display = 'none'; };
 
 // Topo da ficha (visual "Ficha Forjada", src/sheet/ficha.css: .fh-hero).
@@ -195,6 +219,7 @@ const SheetHero = ({
             </div>
             <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
             <CampaignSealButton count={campaignsList.length} campFoldOpen={campFoldOpen} onToggle={() => setCampFoldOpen?.(v => !v)} lang={lang} />
+            <InspirationSealButton inspired={!!char.inspiration} onToggle={onInspiration} lang={lang} />
           </div>
 
           <div className={char.name ? 'hero-name' : 'hero-name is-unnamed'}>
@@ -239,33 +264,27 @@ const SheetHero = ({
             {char.cheatMode && <span className="tag fh-tag-cheat">🎲 {pt ? 'Trapaça' : 'Cheat'}</span>}
           </div>
 
-          {/* Ações minimalistas e discretas no canto inferior direito do painel */}
-          <div className="action-bar fh-actions fh-hero-corner-actions no-print">
-            <button ref={exportBtnRef} type="button" className="fh-corner-chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
-              <Icon name="download" size={13} className="chip-icon"/> {t('export', lang)}
-            </button>
-            {!char.inCampaign && (
-              <button className="fh-corner-chip" onClick={onEdit}><Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}</button>
-            )}
-            {char.inCampaign && (
-              <span className="fh-corner-chip is-locked" title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
-                🔒 <Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}
-              </span>
-            )}
-            <button className={`fh-corner-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
-              🎲 {lang === 'pt' ? (char.cheatMode ? 'Trapaça' : 'Trapaça') : (char.cheatMode ? 'Cheat' : 'Cheat')}
-            </button>
-          </div>
-
-          {/* Status/faixa da campanha contidos no painel do personagem, abaixo das ações */}
+          {/* Status/faixa da campanha contidos no painel do personagem */}
           {campaignBanner}
         </div>
-        {/* Estrela e foto vêm depois do corpo: pintam (e recebem o toque) por cima dele,
-            sem z-index. Ficam no lado direito do retrato. */}
-        <button type="button" className="fh-insp no-print" aria-pressed={!!char.inspiration} onClick={onInspiration}>
-          <span className="fh-insp-gem"><Icon name={char.inspiration ? 'star-fill' : 'star'} size={22}/></span>
-          <span className="fh-insp-label">{t('inspiration', lang)}</span>
-        </button>
+
+        {/* Ações minimalistas e discretas no canto inferior direito do painel */}
+        <div className="action-bar fh-actions fh-hero-corner-actions no-print">
+          <button ref={exportBtnRef} type="button" className="fh-corner-chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
+            <Icon name="download" size={13} className="chip-icon"/> {t('export', lang)}
+          </button>
+          {!char.inCampaign && (
+            <button className="fh-corner-chip" onClick={onEdit}><Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}</button>
+          )}
+          {char.inCampaign && (
+            <span className="fh-corner-chip is-locked" title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
+              🔒 <Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}
+            </span>
+          )}
+          <button className={`fh-corner-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
+            🎲 {lang === 'pt' ? (char.cheatMode ? 'Trapaça' : 'Trapaça') : (char.cheatMode ? 'Cheat' : 'Cheat')}
+          </button>
+        </div>
       </div>
     </>
   );
@@ -3380,13 +3399,13 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
   const pt = lang === 'pt';
   const profText = (level) => level === 2 ? (pt ? 'Especialista' : 'Expertise') : level ? (pt ? 'Treinado' : 'Proficient') : (pt ? 'Sem treino' : 'Not proficient');
 
-  // Estado recolhível/dobrável para cada uma das categorias de ações
+  // Estado recolhível/dobrável para cada uma das categorias de ações (padrão parcialmente recolhido)
   const [collapsed, setCollapsed] = useState({
-    search: false,
-    hide: false,
-    influence: false,
-    study: false,
-    tools: false,
+    search: true,
+    hide: true,
+    influence: true,
+    study: true,
+    tools: true,
   });
 
   const toggleGroup = (groupId) => {
@@ -3509,7 +3528,12 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
         <div className="fh-skill-categories-grid">
           {actionSkillData.map(grp => {
             const isFolded = !!collapsed[grp.key];
-            const trainedSkills = (grp.skills || []).filter(sk => Utils.hasSkillProf(char, sk.id) || Utils.hasExpertise?.(char, sk.id));
+            const trainedSkills = (grp.skills || []).filter(sk => {
+              const isTrained = Utils.hasSkillProf(char, sk.id) || Utils.hasExpertise?.(char, sk.id);
+              if (!isTrained) return false;
+              const isDisclosedOnConsolidatedPanel = (sk.passive === grp.baselinePassive && sk.bonusStr === grp.baselineBonusStr);
+              return !isDisclosedOnConsolidatedPanel;
+            });
             return (
               <div key={grp.key} className={`fh-skill-group-card card statblock-action-details fh-skills-action-details ${isFolded ? 'is-collapsed' : 'open'}`}>
                 <div
@@ -3647,6 +3671,25 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
                   <span className="statblock-action-roll-dice" aria-hidden="true">🎲</span>
                   <span className="statblock-action-roll-score">{toolBaselinePassive}/{toolBaselineBonusStr}</span>
                 </button>
+
+                {toolItems.slice(1).filter(t => t.isTrained && !(t.passive === toolBaselinePassive && t.bonusStr === toolBaselineBonusStr)).map(exc => (
+                  <button
+                    key={exc.id}
+                    type="button"
+                    className="statblock-roll-btn statblock-action-exception-btn"
+                    data-roll-check={exc.formula}
+                    data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${exc.name} (${exc.bonusStr})`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      handleSkillRoll(exc.formula, `${exc.name} (${exc.bonusStr})`, undefined, e);
+                    }}
+                    title={pt ? `Rolar ferramenta treinada ${exc.name} (${exc.bonusStr})` : `Roll proficient tool ${exc.name} (${exc.bonusStr})`}
+                  >
+                    <span className="statblock-action-exception-score">{exc.passive}/{exc.bonusStr}</span>
+                    <span className="statblock-action-exception-name">{exc.name}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
