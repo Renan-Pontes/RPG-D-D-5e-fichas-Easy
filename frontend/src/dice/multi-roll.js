@@ -124,3 +124,111 @@ export function modsFromChar(char, Utils) {
   try { out.pb = Utils.profBonus(char); } catch { out.pb = 0; }
   return out;
 }
+
+// ── Acoplar, travar e ler por grupos ──────────────────────────────────────────
+// Emblemas acoplados compartilham `group` (ex.: FOR solto sobre 2d6 → o dano dos 2d6
+// soma a FOR). Com a linha travada (row.locked), o que entra depois ganha `temp: true`
+// e some depois da rolagem.
+const gid = () => `g${Date.now().toString(36)}${(seq++).toString(36)}`;
+const stackKey = (b) => `${badgeKey(b)}|${b.group || ''}|${b.temp ? 't' : ''}`;
+
+/** Acrescenta respeitando trava (temporário) e grupo; iguais do mesmo grupo empilham. */
+export function addBadgeTo(row, badge, { group = null } = {}) {
+  const b = badge.kind === 'flat' ? { kind: 'flat', value: Number(badge.value) || 0 } : { count: 1, sign: 1, ...badge };
+  if (b.kind === 'flat' && !b.value) return row;
+  if (row.locked) b.temp = true;
+  if (group) b.group = group;
+  const i = row.badges.findIndex(x => stackKey(x) === stackKey(b));
+  if (i >= 0) {
+    const badges = row.badges.map((x, j) => (j !== i ? x : x.kind === 'flat' ? { ...x, value: x.value + b.value } : { ...x, count: x.count + (b.count || 1) }));
+    return { ...row, badges: badges.filter(x => x.kind !== 'flat' || x.value) };
+  }
+  const badges = [...row.badges];
+  // entra logo depois do último membro do grupo (fica junto, visualmente)
+  const last = group ? badges.map(x => x.group).lastIndexOf(group) : -1;
+  if (last >= 0) badges.splice(last + 1, 0, b); else badges.push(b);
+  return { ...row, badges };
+}
+
+/** Solta `badge` sobre o emblema `toIdx` da linha: acopla os dois. */
+export function dropOnBadge(row, toIdx, badge) {
+  const target = row.badges[toIdx];
+  if (!target) return addBadgeTo(row, badge);
+  const group = target.group || gid();
+  const withGroup = { ...row, badges: row.badges.map((x, j) => (j === toIdx ? { ...x, group } : x)) };
+  return addBadgeTo(withGroup, badge, { group });
+}
+
+/** Acopla dois emblemas que já estão na linha (arrasta `fromIdx` sobre `toIdx`). */
+export function coupleBadges(row, fromIdx, toIdx) {
+  if (fromIdx === toIdx || !row.badges[fromIdx] || !row.badges[toIdx]) return row;
+  const group = row.badges[toIdx].group || gid();
+  const moving = { ...row.badges[fromIdx], group };
+  const rest = row.badges.filter((_, j) => j !== fromIdx).map(x => (x === row.badges[toIdx] ? { ...x, group } : x));
+  const last = rest.map(x => x.group).lastIndexOf(group);
+  rest.splice(last + 1, 0, moving);
+  return { ...row, badges: rest };
+}
+
+export const uncouple = (row, idx) => ({ ...row, badges: row.badges.map((x, j) => (j === idx ? { ...x, group: undefined } : x)) });
+
+export const toggleLock = (row) => (row.locked ? { ...row, locked: false } : { ...row, locked: true });
+
+/** Depois de rolar: os temporários somem. */
+export const dropTemps = (row) => ({ ...row, badges: row.badges.filter(b => !b.temp) });
+
+/**
+ * Unidades de leitura da linha rolada (na ordem dos emblemas):
+ *   check  → o d20 (+ seu grupo + estáticos soltos)
+ *   damage → cada dado (ou grupo com dados) fora do d20 + estáticos acoplados; o 1º
+ *            sem acoplados recebe atributo/fixo soltos (BP só vai ao teste)
+ *   sum    → linha sem d20: cada grupo de dados; estáticos soltos vão no 1º
+ * → [{ kind, value, die, idxs: [..], nat? }]
+ */
+export function evalUnits(row, mods = {}, rolls = {}, extra = {}) {
+  const bs = row.badges;
+  const d20 = bs.findIndex(b => b.kind === 'die' && b.die === 20 && b.sign > 0);
+  const units = [];
+  const byGroup = new Map();
+  bs.forEach((b, i) => {
+    const key = b.group || `#${i}`;
+    if (!byGroup.has(key)) { byGroup.set(key, []); units.push(key); }
+    byGroup.get(key).push(i);
+  });
+  const dieVal = (i) => {
+    const b = bs[i];
+    const r = rolls[i] || [];
+    if (i === d20) {
+      if (row.adv === 'adv') return Math.max(...r);
+      if (row.adv === 'dis') return Math.min(...r);
+      return sum(r);
+    }
+    return (sum(r) + sum(extra[i])) * b.sign;
+  };
+  const loose = [];
+  const out = [];
+  for (const key of units) {
+    const idxs = byGroup.get(key);
+    const dice = idxs.filter(i => bs[i].kind === 'die');
+    if (!dice.length) { loose.push(...idxs); continue; }
+    const value = idxs.reduce((s, i) => s + (bs[i].kind === 'die' ? dieVal(i) : staticValue(bs[i], mods)), 0);
+    const hasCoupledStatic = idxs.some(i => bs[i].kind !== 'die');
+    const kind = d20 >= 0 ? (idxs.includes(d20) ? 'check' : 'damage') : 'sum';
+    const nat = idxs.includes(d20) ? dieVal(d20) : null;
+    out.push({ kind, value, die: bs[dice[0]].die, idxs, nat, hasCoupledStatic });
+  }
+  const looseAll = loose.reduce((s, i) => s + staticValue(bs[i], mods), 0);
+  const looseDmg = loose.filter(i => bs[i].kind !== 'pb').reduce((s, i) => s + staticValue(bs[i], mods), 0);
+  if (d20 >= 0) {
+    const chk = out.find(u => u.kind === 'check');
+    if (chk) { chk.value += looseAll; chk.idxs = [...chk.idxs, ...loose]; }
+    const firstDmg = out.find(u => u.kind === 'damage' && !u.hasCoupledStatic);
+    if (firstDmg) firstDmg.value += looseDmg;
+    out.forEach(u => { if (u.kind === 'damage') u.value = Math.max(0, u.value); });
+  } else if (out.length) {
+    out[0].value += looseAll; out[0].idxs = [...out[0].idxs, ...loose];
+  } else if (loose.length) {
+    out.push({ kind: 'sum', value: looseAll, die: null, idxs: loose, nat: null });
+  }
+  return out;
+}
