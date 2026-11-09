@@ -8,6 +8,7 @@ import { subclassesFor } from '../src/progression/subclasses.js';
 import { subclassLock, guardSealedPatch, sealHint } from '../src/progression/subclass-lock.js';
 import { featSummary } from '../src/progression/FeatPicker.jsx';
 import ResourcesCard from '../src/progression/ResourcesCard.jsx';
+import { setActiveChar } from '../src/dice/active-char.js';
 import { computeResources } from '../src/progression/resources.js';
 import { SpeciesChoicesModal } from '../src/progression/SpeciesChoices.jsx';
 import { t, tName } from '../data/i18n.js';
@@ -303,6 +304,9 @@ const SheetHero = ({
 // leva à entrada na conta (sem ele, o servidor está fora e a dica não aparece).
 // backLabel: o texto do "voltar" quando a ficha foi aberta de outro lugar (a Mesa, V13).
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, backLabel, onLevelUp, onCampaignChange, onLogin, children }) => {
+  // o rolador global (múltipla por linhas) vincula atributo/proficiência à ficha aberta
+  useEffect(() => { setActiveChar(char); }, [char]);
+  useEffect(() => () => setActiveChar(null), []);
   const [tab, setTab] = useState('play');
   const touchStartRef = useRef(null);
 

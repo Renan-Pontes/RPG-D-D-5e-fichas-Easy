@@ -32,6 +32,7 @@
  *   fechar o resultado; sem animação, na hora) — a TV, que agora mostra a rolagem do
  *   jogador num cartão grande, nunca entrega o número antes do aparelho dele.
  */
+import MultiRoll from '../src/dice/MultiRoll.jsx';
 import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from 'react';
 import Icon from './Icons.jsx';
 import { t } from '../data/i18n.js';
@@ -146,6 +147,8 @@ const renderTopHudBanner = (overlay, lang) => {
 
 const DiceRoller = ({ lang }) => {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState(() => { try { return localStorage.getItem('fh-dice-mode') || 'quick'; } catch { return 'quick'; } });
+  const pickMode = (m) => { setMode(m); try { localStorage.setItem('fh-dice-mode', m); } catch { /* sem armazenamento */ } };
   const [count, setCount] = useState(1);
   const [mod, setMod] = useState(0);
   const [advMode, setAdvMode] = useState('normal');
@@ -558,6 +561,12 @@ const DiceRoller = ({ lang }) => {
           </header>
 
           <div className="dice-sheet-body">
+            <div className="dice-mode" role="tablist" aria-label={L(lang, 'Modo do rolador', 'Roller mode')}>
+              {[['quick', L(lang, 'Rápido', 'Quick')], ['multi', L(lang, 'Múltipla (linhas)', 'Multi-roll (rows)')]].map(([m, lbl]) => (
+                <button key={m} type="button" role="tab" aria-selected={mode === m} className={`dice-mode-btn${mode === m ? ' is-on' : ''}`} onClick={() => pickMode(m)}>{lbl}</button>
+              ))}
+            </div>
+            {mode === 'multi' && <MultiRoll lang={lang} />}
             {table && (
               <div className="dice-table">
                 <div className="dice-target" role="radiogroup" aria-label={L(lang, 'Quem vê a rolagem', 'Who sees the roll')}>
@@ -586,6 +595,7 @@ const DiceRoller = ({ lang }) => {
                 </div>
               </div>
             )}
+            {mode === 'quick' && (<>
             {last && (
               <button type="button" className={`dice-last ${last.isCrit ? 'crit' : ''} ${last.isFumble ? 'fumble' : ''}`}
                 onClick={() => repeat(last)} disabled={!last.formula}
@@ -707,6 +717,7 @@ const DiceRoller = ({ lang }) => {
                 </>
               )}
             </div>
+            </>)}
           </div>
         </section>
       )}
