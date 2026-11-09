@@ -297,7 +297,7 @@ export default function MultiRoll({ lang }) {
   };
 
   const palette = [
-    ...DICE.map(d => ({ key: `d${d}`, kind: 'die', die: d, sign: 1, count: 1 })),
+    ...[...DICE].sort((x, y) => y - x).map(d => ({ key: `d${d}`, kind: 'die', die: d, sign: 1, count: 1 })),
     ...ABILS.map(k => ({ key: `a${k}`, kind: 'abil', abil: k, sign: 1, count: 1 })),
     { key: 'pb', kind: 'pb', sign: 1, count: 1 },
     { key: 'flat', kind: 'flat' },
@@ -479,9 +479,9 @@ export default function MultiRoll({ lang }) {
                 e.currentTarget.setPointerCapture?.(e.pointerId);
                 drag.current = { swipeRow: row.id, x0: e.clientX, y0: e.clientY };
               }}>
-              <div className="mr2-row-top">
-                <button type="button" className={`mr2-sel${isSel ? ' is-on' : ''}`} aria-pressed={isSel} aria-label={L(lang, 'Selecionar linha', 'Select row')}
+              <button type="button" className={`mr2-sel${isSel ? ' is-on' : ''}`} aria-pressed={isSel} aria-label={L(lang, 'Selecionar linha', 'Select row')}
                   onClick={(e) => { e.stopPropagation(); setSel(s => { const n = new Set(s); n.has(row.id) ? n.delete(row.id) : n.add(row.id); return n; }); }} />
+              <div className="mr2-row-top">
                 <input className="mr2-name" value={row.name} placeholder={L(lang, `Linha ${ri + 1}`, `Row ${ri + 1}`)}
                   onFocus={() => setActive(row.id)} onChange={e => setRow(row.id, r => ({ ...r, name: e.target.value }))} />
                 {ev?.crit && <em className="mr2-flag">{L(lang, 'CRÍTICO', 'CRIT')}</em>}
@@ -513,7 +513,10 @@ export default function MultiRoll({ lang }) {
           <span className="mr2-hint">{L(lang,
             'Toque: linha ativa · ↑↓ antes de arrastar: soma/subtrai · solte sobre um emblema: acopla · 🔒: o resto é temporário',
             'Tap: active row · ↑↓ before dragging: add/subtract · drop on a badge: couple · 🔒: the rest is temporary')}</span>
-          <button type="button" className="btn btn-primary mr2-roll" onClick={roll} disabled={spinning}>🎲 {L(lang, 'Rolar', 'Roll')}{sel.size ? ` (${sel.size})` : ''}</button>
+          <button type="button" className="mr2-roll" onClick={roll} disabled={spinning} aria-label={L(lang, 'Rolar', 'Roll') + (sel.size ? ` (${sel.size})` : '')} title={L(lang, 'Rolar as linhas marcadas', 'Roll the selected rows')}>
+            <svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,3 93,27 93,73 50,97 7,73 7,27" /><polygon points="50,22 76,66 24,66" className="facet" /></svg>
+            {sel.size > 0 && <span className="mr2-roll-n">{sel.size}</span>}
+          </button>
         </div>
         <div className="mr2-palette">
           {palette.map(b => {

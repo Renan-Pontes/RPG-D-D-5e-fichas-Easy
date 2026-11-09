@@ -1949,7 +1949,8 @@ html.dice-lock, body.dice-lock { overflow: hidden !important; overscroll-behavio
 .mr-dshape .die-falloff-ring-poly { stroke-width: 4.6; stroke-opacity: .95; }
 
 /* sem ícones nos emblemas da paleta: só o rótulo curto (d6, FOR, PB, +1) */
-.mr-b.is-src .mr-b-die { display: none; }
+.mr-b.is-src.is-die .mr-b-k { display: none; } /* paleta de dados: só a silhueta */
+.mr-b.is-src:not(.is-die) .mr-b-die { display: none; }
 /* dados acoplados ao d20: empilhados atrás dele, deslocados, e somem quando ele bombeia até a soma */
 .mr-dshape.has-stack { position: relative; }
 .mr-stack { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
@@ -1958,3 +1959,24 @@ html.dice-lock, body.dice-lock { overflow: hidden !important; overscroll-behavio
   opacity: .9; transition: opacity .3s ease, transform .3s ease; }
 .mr-dshape.has-stack:has(> .die-shape.is-phase-pump-up, > .die-shape.is-phase-pump-down, > .die-shape.is-phase-snap-shake, > .die-shape.is-phase-falloff, > .die-shape.is-phase-settled) .mr-stack-die {
   opacity: 0; transform: translate(-50%, -50%) scale(.5); }
+
+/* Seletor de linha à esquerda do cadeado, numa coluna única; Rolar é um botão redondo com o
+   centro no mesmo eixo, e um fio dourado liga todos os seletores até ele (dica de uso). */
+.mr2-row { position: relative; padding-left: 34px;
+  background-image: linear-gradient(90deg, transparent 15px, rgba(237,203,122,.10) 15px, rgba(237,203,122,.55) 16.5px, rgba(237,203,122,.10) 18px, transparent 18px); }
+.mr2-row > .mr2-sel { position: absolute; left: 6px; top: 50%; transform: translateY(-50%); z-index: 2; background-color: #120c07; box-shadow: 0 0 6px rgba(237,203,122,.35); }
+.mr2-row > .mr2-sel.is-on { background: radial-gradient(circle, #edcb7a 45%, #120c07 50%); }
+.mr2-rows { background-image: linear-gradient(90deg, transparent 17px, rgba(237,203,122,.12) 17px, rgba(237,203,122,.5) 19.5px, rgba(237,203,122,.12) 22px, transparent 22px); }
+.mr2-bar { position: relative; }
+.mr2-bar::before { content: ""; position: absolute; left: 18px; width: 3px; top: 0; height: 30px; pointer-events: none;
+  background: linear-gradient(180deg, rgba(237,203,122,.55), rgba(237,203,122,.85)); box-shadow: 0 0 8px rgba(237,203,122,.5); border-radius: 2px; }
+.mr2-roll { position: relative; z-index: 1; flex: none; min-width: 0; width: 44px; height: 44px; margin-left: -4px; padding: 0; border-radius: 50%;
+  border: 2px solid #edcb7a; background: radial-gradient(circle at 40% 35%, #3a2a14, #140d07 70%); color: #edcb7a; cursor: pointer;
+  display: grid; place-items: center; box-shadow: 0 0 0 3px rgba(237,203,122,.12), 0 0 14px rgba(237,203,122,.45); }
+.mr2-roll svg { width: 26px; height: 26px; fill: rgba(237,203,122,.18); stroke: #edcb7a; stroke-width: 6; stroke-linejoin: round; }
+.mr2-roll svg .facet { fill: none; stroke-width: 4; opacity: .8; }
+.mr2-roll:active { transform: scale(.94); }
+.mr2-roll:disabled { opacity: .5; }
+.mr2-roll-n { position: absolute; right: -4px; top: -4px; min-width: 16px; height: 16px; border-radius: 8px; background: #edcb7a; color: #140d07; font-size: .62rem; font-weight: 800; display: grid; place-items: center; padding: 0 3px; }
+.mr2.is-focus .mr2-row > .mr2-sel { opacity: 0; pointer-events: none; }
+.mr2.is-focus .mr2-row, .mr2.is-focus .mr2-rows { background-image: none; padding-left: 0; }
