@@ -25,34 +25,38 @@ function DragBar({ className, pct, label, valueText, read, commit, disabled, chi
   const start = useRef(null);
   const [dx, setDx] = useState(0);
   const [drag, setDrag] = useState(false);
+  // o botão nunca sai da barra: o arrasto é preso entre as duas pontas
+  const w = Math.max(40, (ref.current?.clientWidth || 322) - 22);   // trilho = largura − padding (11px de cada lado)
+  const home = (pct / 100) * w;
+  const clamp = (v) => Math.max(-home, Math.min(w - home, v));
   const info = dx ? read(dx) : null;
-  // perto das bordas a lente encosta para dentro (não some cortada pelo painel)
-  const w = ref.current?.clientWidth || 300;
-  const at = (pct / 100) * w + dx;
-  const edge = at > w - 70 ? 'right' : at < 70 ? 'left' : '';
+  const edge = home + dx > w - 70 ? 'right' : home + dx < 70 ? 'left' : '';
   const end = (apply) => {
     if (apply && dx) commit(dx);
     start.current = null; setDrag(false); setDx(0);
   };
   return (
-    <div ref={ref} className={`fh-dragbar ${className}${drag ? ' is-dragging' : ''}${info?.tone ? ` is-${info.tone}` : ''}`}
-      onPointerDown={e => {
-        if (disabled) return;
-        e.currentTarget.setPointerCapture?.(e.pointerId);
-        start.current = e.clientX; setDrag(true); setDx(0);
-      }}
-      onPointerMove={e => { if (start.current != null) setDx(e.clientX - start.current); }}
-      onPointerUp={() => end(true)}
-      onPointerCancel={() => end(false)}>
+    <div ref={ref} className={`fh-dragbar ${className}${drag ? ' is-dragging' : ''}${info?.tone ? ` is-${info.tone}` : ''}`}>
       {children}
+      {/* só o botão pega o arrasto (a barra em volta não) */}
       <span className="fh-knob" role="slider" tabIndex={disabled ? -1 : 0} aria-label={label}
         aria-valuetext={info ? info.label : valueText} aria-disabled={disabled || undefined}
-        style={{ left: `${pct}%`, transform: `translateX(calc(-50% + ${dx}px))` }}
+        style={{ left: `calc(11px + (100% - 22px) * ${Math.max(0, Math.min(100, pct)) / 100})`, transform: `translateX(calc(-50% + ${dx}px))` }}
+        onPointerDown={e => {
+          if (disabled) return;
+          e.preventDefault(); e.stopPropagation();
+          e.currentTarget.setPointerCapture?.(e.pointerId);
+          start.current = e.clientX; setDrag(true); setDx(0);
+        }}
+        onPointerMove={e => { if (start.current != null) setDx(clamp(e.clientX - start.current)); }}
+        onPointerUp={() => end(true)}
+        onPointerCancel={() => end(false)}
+        onLostPointerCapture={() => { if (start.current != null) end(true); }}
         onKeyDown={e => {
           if (disabled) return;
           const step = e.shiftKey ? 40 : 14;
-          if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); setDx(v => v + step); }
-          else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); setDx(v => v - step); }
+          if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); setDx(v => clamp(v + step)); }
+          else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); setDx(v => clamp(v - step)); }
           else if (e.key === 'Enter') { e.preventDefault(); end(true); }
           else if (e.key === 'Escape') end(false);
         }}
@@ -64,9 +68,9 @@ function DragBar({ className, pct, label, valueText, read, commit, disabled, chi
 }
 
 /** Fileira de fatias clicáveis. `reverse`: acende da direita para a esquerda (falhas). */
-function Pips({ n, on, kind, label, onPick, reverse }) {
+function Pips({ n, on, kind, label, onPick, reverse, inside }) {
   return (
-    <span className={`fh-pips is-${kind}${reverse ? ' is-reverse' : ''}`} role="group" aria-label={label}>
+    <span className={`fh-pips is-${kind}${reverse ? ' is-reverse' : ''}`} role="group" aria-label={label} data-label={inside || undefined}>
       {Array.from({ length: n }, (_, i) => (
         <button key={i} type="button" className={`fh-pip${i < on ? ' is-on' : ''}`}
           aria-pressed={i < on} aria-label={`${label}: ${i + 1}`} onClick={() => onPick(toggleTo(on, i))} />
@@ -119,17 +123,33 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
   };
   const commitTemp = (dx) => { const v = dragAmount(dx, { min: -temp, max: max * 2 }); if (v) update({ tempHp: temp + v }); };
 
+  // Teste contra a morte: o d20 do rolador da ficha (com a animação de sempre); o
+  // resultado entra quando o dado termina de girar.
+  const [rolling, setRolling] = useState(false);
   const deathRoll = () => {
-    if (!down) return;
-    const n = d(20);
-    const r = deathSaveResult(char, n);
-    update(r.patch);
-    const say = {
-      crit: L(lang, '20! Volta com 1 PV', '20! Back with 1 HP'), stable: L(lang, 'estável', 'stable'),
-      dead: L(lang, 'morto', 'dead'), fumble: L(lang, '1: duas falhas', '1: two failures'),
-      success: L(lang, 'sucesso', 'success'), fail: L(lang, 'falha', 'failure'),
-    }[r.kind];
-    setNote({ key: Date.now(), text: `d20: ${n} · ${say}`, death: r.kind });
+    if (!down || rolling) return;
+    const entry = typeof window !== 'undefined' && window.__diceRoll
+      ? window.__diceRoll({ die: 20, label: L(lang, 'Teste contra a morte', 'Death save'), sheet: true, isSave: true, adv: 'normal' })
+      : null;
+    const n = entry?.total ?? d(20);   // d20 sem modificador: o total é o número do dado
+    setRolling(true);
+    setTimeout(() => {
+      setRolling(false);
+      const r = deathSaveResult(char, n);
+      update(r.patch);
+      let text;
+      if (r.kind === 'stable') {
+        const h = d(4);   // estável: recupera 1 PV depois de 1d4 horas
+        text = L(lang, `Estável · 1d4 = ${h} h para recuperar 1 PV`, `Stable · 1d4 = ${h} h to regain 1 HP`);
+      } else {
+        const say = {
+          crit: L(lang, 'volta com 1 PV', 'back with 1 HP'), dead: L(lang, 'morto', 'dead'),
+          fumble: L(lang, 'duas falhas', 'two failures'), success: L(lang, 'sucesso', 'success'), fail: L(lang, 'falha', 'failure'),
+        }[r.kind];
+        text = `d20: ${n} · ${say}`;
+      }
+      setNote({ key: Date.now(), text, death: r.kind });
+    }, entry ? 1900 : 0);
   };
 
   return (
@@ -165,18 +185,20 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
       )}
 
       <div className="fh-hpt-row is-exh">
-        <span className="fh-hpt-cap">{L(lang, 'Exaustão', 'Exhaustion')}{hints.exhaustion}</span>
-        <Pips n={EXHAUSTION_MAX} on={exh} kind="exh" label={L(lang, 'Exaustão', 'Exhaustion')} onPick={lv => update(setExhaustion(char, lv))} />
+        <Pips n={EXHAUSTION_MAX} on={exh} kind="exh" label={L(lang, 'Exaustão', 'Exhaustion')}
+          inside={exh ? `${L(lang, 'Exaustão', 'Exhaustion')} ${exh}` : L(lang, 'Exaustão', 'Exhaustion')}
+          onPick={lv => update(setExhaustion(char, lv))} />
+        {hints.exhaustion}
       </div>
 
       <div className={`fh-hpt-row is-death${down ? ' is-down' : ''}`}>
         <span className="fh-ds-mark is-ko" aria-hidden="true">✗</span>
-        <Pips n={3} on={ds.fail} kind="ko" reverse label={L(lang, 'Falhas', 'Failures')} onPick={n => update({ deathSaves: { ...ds, fail: n } })} />
-        <button type="button" className="fh-death-die" disabled={!down} onClick={deathRoll}
+        <Pips n={3} on={ds.fail} kind="ko" reverse label={L(lang, 'Falhas', 'Failures')} inside={L(lang, 'Falhas', 'Failures')} onPick={n => update({ deathSaves: { ...ds, fail: n } })} />
+        <button type="button" className={`fh-death-die${rolling ? ' is-rolling' : ''}`} disabled={!down || rolling} onClick={deathRoll}
           aria-label={down ? L(lang, 'Rolar teste contra a morte', 'Roll death save') : L(lang, 'Teste contra a morte (só a 0 PV)', 'Death save (only at 0 HP)')}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 7v10l-9 5-9-5V7z" /><path d="M12 2v20M3 7l9 5 9-5" /></svg>
         </button>
-        <Pips n={3} on={ds.success} kind="ok" label={L(lang, 'Sucessos', 'Successes')} onPick={n => update({ deathSaves: { ...ds, success: n } })} />
+        <Pips n={3} on={ds.success} kind="ok" label={L(lang, 'Sucessos', 'Successes')} inside={L(lang, 'Sucessos', 'Successes')} onPick={n => update({ deathSaves: { ...ds, success: n } })} />
         <span className="fh-ds-mark is-ok" aria-hidden="true">✓</span>
         {hints.death}
       </div>

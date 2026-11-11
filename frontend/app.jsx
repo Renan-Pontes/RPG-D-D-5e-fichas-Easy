@@ -380,6 +380,8 @@ const App = () => {
 
   const handleUpdate = async (char) => {
     const withAutos = applyAutosToCharacter(char);
+    // otimista: a tela muda já; o servidor confirma (ou a lista recarregada corrige) depois
+    setCharacters(cs => cs.map(c => (c.id === withAutos.id ? { ...c, ...withAutos } : c)));
     await storage.save(withAutos);
     await refreshCharacters();
   };

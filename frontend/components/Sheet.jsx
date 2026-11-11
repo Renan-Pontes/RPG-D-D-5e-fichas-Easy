@@ -485,7 +485,11 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   }, [inCombat, combatPanel.isMyTurn]);
   const turnOnTop = inCombat && panelSpot === 'top';
 
-  const update = (patch) => onUpdate({ ...char, ...patch });
+  // Voltar de 0 PV (cura, 20 natural, Dados de Vida) zera os Testes contra a Morte.
+  const update = (patch) => {
+    const revived = (char.currentHp || 0) === 0 && (patch.currentHp || 0) > 0;
+    onUpdate({ ...char, ...patch, ...(revived && !patch.deathSaves ? { deathSaves: { success: 0, fail: 0 } } : {}) });
+  };
   const updateRef = useRef(update);
   updateRef.current = update;
   useEffect(() => {
