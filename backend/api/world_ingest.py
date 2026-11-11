@@ -26,17 +26,43 @@ import json
 import re
 import socket
 from html.parser import HTMLParser
-from urllib.parse import quote, unquote, urljoin, urlsplit
+from urllib.parse import parse_qs, quote, unquote, urljoin, urlsplit
 
 MAX_HTML = 2_000_000
 MAX_JSON = 2_000_000
-MAX_IMAGE = 4_000_000
-MAX_REDIRECTS = 3
-TIMEOUT = 8
+MAX_IMAGE = 20_000_000
+MAX_REDIRECTS = 4
+TIMEOUT = 12
 MAX_BODY_CHARS = 6000
 MAX_PARAGRAPHS = 12
-UA = 'ForjaDeHerois-WorldIngest/1.0 (+tabletop campaign tool)'
+UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 IMAGE_TYPES = ('image/png', 'image/jpeg', 'image/webp', 'image/gif')
+
+
+def normalize_image_url(url):
+    """Normaliza links de imagem (desembrulha visualizadores HTML como reddit /media, limpa imgur e wikia)."""
+    if not isinstance(url, str):
+        return ''
+    u = url.strip()
+    if not u.startswith(('http://', 'https://')):
+        return u
+    p = urlsplit(u)
+    # Reddit Media viewer: https://www.reddit.com/media?url=https%3A%2F%2Fi.redd.it%2F3i72n2xxwsdb1.jpg
+    if 'reddit.com' in (p.hostname or '') and p.path.rstrip('/') in ('/media', '/gallery'):
+        qs = parse_qs(p.query)
+        if 'url' in qs and qs['url']:
+            return unquote(qs['url'][0]).replace('&amp;', '&')
+    # Imgur gallery/page direct image resolution: https://imgur.com/Hdoikoc -> https://i.imgur.com/Hdoikoc.jpeg
+    if p.hostname in ('imgur.com', 'www.imgur.com') and p.path and not p.path.startswith(('/a/', '/gallery/')):
+        img_id = p.path.strip('/').split('/')[-1]
+        if img_id and '.' not in img_id and len(img_id) in (5, 7):
+            return f'https://i.imgur.com/{img_id}.jpeg'
+    # Google Images direct result: https://www.google.com/imgres?imgurl=...
+    if 'google.' in (p.hostname or '') and p.path == '/imgres':
+        qs = parse_qs(p.query)
+        if 'imgurl' in qs and qs['imgurl']:
+            return unquote(qs['imgurl'][0])
+    return u
 
 
 class IngestError(ValueError):
@@ -96,12 +122,23 @@ def fetch(url, opener=None, resolver=None):
             return None
 
     op = opener or urllib.request.build_opener(_NoRedirect)
-    cur = url
+    cur = normalize_image_url(url)
     for _ in range(MAX_REDIRECTS + 1):
         check_url(cur, resolver)
-        req = urllib.request.Request(cur, headers={
-            'User-Agent': UA, 'Accept': 'text/html,application/json,image/*;q=0.9,*/*;q=0.5',
-            'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8'})
+        headers = {
+            'User-Agent': UA,
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        }
+        host = (urlsplit(cur).hostname or '').lower()
+        if 'wikia.nocookie.net' in host or 'fandom.com' in host:
+            headers['Referer'] = 'https://www.fandom.com/'
+        elif 'redd.it' in host or 'reddit.com' in host:
+            headers['Referer'] = 'https://www.reddit.com/'
+        elif 'imgur.com' in host:
+            headers['Referer'] = 'https://imgur.com/'
+
+        req = urllib.request.Request(cur, headers=headers)
         try:
             resp = op.open(req, timeout=TIMEOUT)
         except urllib.error.HTTPError as e:
@@ -430,6 +467,7 @@ def sniff_image_type(data):
 # ------------------------------------------------------------------ orquestra
 def ingest(url, fetcher=None, with_image=True):
     """URL → {draft, source}. `fetcher(url) -> (final_url, ctype, bytes)`."""
+    url = normalize_image_url(url)
     get = fetcher or fetch
     api = mediawiki_api_url(url)
     draft = None
@@ -444,9 +482,9 @@ def ingest(url, fetcher=None, with_image=True):
         final, ctype, raw = get(url)
         sniff = sniff_image_type(raw[:16]) if raw else ''
         if ctype.startswith('image/') or sniff:
-            ct = ctype if ctype in IMAGE_TYPES else sniff
+            norm_final = normalize_image_url(final)
             return {'draft': {'name': _name_from_url(final), 'summary': '', 'body': '', 'kind': 'place',
-                              'tags': [], 'imageUrl': final, 'image': image_data_url(ct, raw)},
+                              'tags': [], 'imageUrl': norm_final, 'image': norm_final},
                     'source': {'url': url, 'type': 'image'}}
         if 'json' in ctype or raw[:1] in (b'{', b'['):
             try:
@@ -457,13 +495,9 @@ def ingest(url, fetcher=None, with_image=True):
             draft = digest_html(raw, final)
     draft['image'] = ''
     if with_image and draft.get('imageUrl'):
-        try:
-            _f, ict, idata = get(draft['imageUrl'])
-            ct = ict if ict in IMAGE_TYPES else sniff_image_type(idata[:16])
-            if ct:
-                draft['image'] = image_data_url(ct, idata)
-        except IngestError:
-            pass
-    if not (draft.get('name') or draft.get('body') or draft.get('image')):
+        norm_img = normalize_image_url(draft['imageUrl'])
+        draft['imageUrl'] = norm_img
+        draft['image'] = norm_img
+    if not (draft.get('name') or draft.get('body') or draft.get('image') or draft.get('imageUrl')):
         raise IngestError('nothing_found')
     return {'draft': draft, 'source': {'url': url, 'type': 'wiki' if api else 'page'}}

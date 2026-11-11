@@ -312,16 +312,22 @@ class WorldImageTests(WorldBase):
 
     def test_image_too_large(self):
         e = self.create()
-        big = 'data:image/jpeg;base64,' + 'A' * 450_001
+        big = 'data:image/jpeg;base64,' + 'A' * 5_000_001
         r = self.c_dm.put(f'/api/world/{e["id"]}/image', {'image': big}, format='json')
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.json()['error'], 'image_too_large')
 
     def test_image_invalid(self):
         e = self.create()
-        for bad in ('data:image/svg+xml;base64,PHN2Zz4=', 'http://x/y.png', 'data:image/png;base64,<script>'):
+        for bad in ('data:image/svg+xml;base64,PHN2Zz4=', 'ftp://x/y.png', 'http://x/y z.png',
+                    'javascript:alert(1)', 'data:image/png;base64,<script>'):
             r = self.c_dm.put(f'/api/world/{e["id"]}/image', {'image': bad}, format='json')
             self.assertEqual(r.status_code, 400, bad)
+
+    def test_image_external_link_accepted(self):
+        e = self.create()
+        r = self.c_dm.put(f'/api/world/{e["id"]}/image', {'image': 'https://example.com/map.png'}, format='json')
+        self.assertEqual(r.status_code, 200)
 
     def test_player_cannot_upload(self):
         e = self.create(visibility='revealed')
