@@ -54,6 +54,7 @@
 .cl-seat { font-size: 0.84rem; color: var(--ink-secondary); }
 .cl-seat.is-free { color: var(--moss-bright); }
 .cl-seat.is-other { color: var(--amber, #e3a445); }
+.cl-seat.is-family { color: var(--ink-secondary); font-style: italic; }
 .cl-table .cl-btn { flex: none; }
 @media (max-width: 380px) {
   /* 320px: o botão desce para baixo do nome, largura toda */

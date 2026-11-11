@@ -169,6 +169,23 @@ sozinhos — o que é a regra "cópia completa" já combinada.
 
 **Varredura de impacto (o que a "versão = ficha" NÃO muda)**: combate (`frontend/src/campaigns/CombatActionPanel.jsx` lê `characterCampaigns` por id), dados e TV (por id de ficha), subida de nível e aprovações (`frontend/src/progression/`, `frontend/src/group/RequestsPanel.jsx` — por ficha), exportação em PDF (da ficha aberta). Como cada versão é uma ficha comum, esses caminhos funcionam sem alteração.
 
+### 7.2.1 Entregue na v1.0.60 (sem backend novo)
+
+| Item | Estado | Onde |
+|---|---|---|
+| F1 | ✅ modelo puro + 10 testes | `frontend/src/sheet/forks.js`, `frontend/tests/forks.test.js` |
+| F2 | ✅ "Nova versão para outra mesa" cria a ficha (`POST /characters`) e abre o seletor de mesa nela | `VersionsModal.jsx` (seção "Mesas ao mesmo tempo"), `frontend/app.jsx` (`handleFork`) |
+| F3 | ✅ versões logo abaixo do modelo, recuadas, com selo da mesa | `frontend/components/CharacterList.jsx`, `frontend/src/home/HeroCard.jsx`, `frontend/src/home/home.css` |
+| F4 | ✅ chip da versão no herói; a lista "Mesas ao mesmo tempo" abre o modelo e as irmãs | `components/Sheet.jsx`, `VersionsModal.jsx` |
+| F6 | ⚠️ parcial: "Jogar um one-shot" cria a versão `oneshot`; arquivar ao encerrar a campanha ainda não | idem F2 |
+| F9 | ✅ mesa onde outra versão da mesma ficha já senta fica bloqueada ("Outra versão desta ficha já joga aqui") | `frontend/src/sheet/campaign-link.js` (`seatState` → `family`), `CampaignLinkModal.jsx` |
+| F12 | ⚠️ parcial: excluir o modelo avisa quantas versões há e elas ficam como fichas soltas; sem escolha de levar junto | `app.jsx` (`handleDelete`) |
+| F13 | ✅ cinto e rolador múltiplo copiados para a ficha nova | `forks.js` (`copyDevicePrefs`) |
+| — | a versão grava em qual mesa sentou (`versionCampaign`), campo que a produção aceita em campanha | `Sheet.jsx` (efeito de `characterCampaigns`) |
+
+Pendentes no frontend: F5, F6 (arquivar), F10, F11, F12 (levar junto), F14, F16–F19. F7, F8 e F15 esperam o B1.
+Testado no navegador (390×844) contra o servidor local: criar versão, seletor aberto na ficha nova, mesa da mesma família bloqueada, abrir o modelo pela lista, lista inicial agrupada; sem erros no console. Com o plano no limite, a criação mostra o aviso do plano e não navega.
+
 ### 7.3 Backend — só o que o frontend não consegue fazer
 
 | # | Item | Por que não dá no frontend |

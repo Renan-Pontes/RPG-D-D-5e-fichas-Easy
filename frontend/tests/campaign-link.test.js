@@ -94,3 +94,11 @@ test('linkToast e findMyMembership', () => {
   assert.equal(findMyMembership(camp, 5), null);
   assert.equal(findMyMembership(camp, null), null);
 });
+
+test('seatState: outra versão da mesma ficha na mesa vira "family" (nunca duas na mesma mesa)', () => {
+  const camp = { id: 3, role: 'player', myMemberships: [{ id: 1, characterId: 7, characterName: 'Lia' }] };
+  assert.equal(seatState(camp, 8, [7, 8]).kind, 'family');
+  assert.equal(seatState(camp, 8).kind, 'other');
+  assert.equal(seatState(camp, 7, [7, 8]).kind, 'this');
+  assert.match(seatLabel({ kind: 'family' }, 'pt'), /Outra versão/);
+});

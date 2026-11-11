@@ -10,6 +10,7 @@ import CharacterList from './components/CharacterList.jsx';
 import Creator from './components/Creator.jsx';
 import CreatorWizard from './src/creator/CreatorWizard.jsx';
 import Sheet from './components/Sheet.jsx';
+import { fork as forkSheet, familyOf, forksOf, copyDevicePrefs } from './src/sheet/forks.js';
 import { previewChar, parseSheetHash, hasVersion, storeOf as versionStoreOf, isReadOnly as versionReadOnly } from './src/sheet/versions.js';
 
 import { useAuth } from './src/auth/AuthContext.jsx';
@@ -49,6 +50,7 @@ const App = () => {
   const [characters, setCharacters] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [versionPreview, setVersionPreview] = useState(null);   // { id, key }
+  const [autoLinkId, setAutoLinkId] = useState(null);           // versão nova: abre o seletor de mesa
   const [editingChar, setEditingChar] = useState(null);
   const [toast, setToast] = useState('');
   const [confirm, setConfirm] = useState(null);
@@ -377,9 +379,35 @@ const App = () => {
     await refreshCharacters();
   };
 
+  // Nova versão = ficha própria (src/sheet/forks.js): cria a cópia do modelo, leva as
+  // preferências deste aparelho e abre a ficha nova já com o seletor de mesa.
+  const handleFork = async (src, kind) => {
+    let saved;
+    try {
+      saved = await storage.save(applyAutosToCharacter(forkSheet(src, { kind })));
+    } catch (e) {
+      if (showPlanLimit(e)) return;
+      setToast(lang === 'pt' ? 'Não deu para criar a versão. Tente de novo.' : 'Could not create the version. Try again.');
+      return;
+    }
+    copyDevicePrefs(src.id, saved.id);
+    await refreshCharacters();
+    setActiveId(saved.id);
+    setAutoLinkId(saved.id);
+    setScreen(SCREENS.SHEET);
+    setToast(kind === 'oneshot'
+      ? (lang === 'pt' ? 'One-shot criado. Escolha a mesa.' : 'One-shot created. Pick the table.')
+      : (lang === 'pt' ? 'Versão criada. Escolha a mesa.' : 'Version created. Pick the table.'));
+  };
+
   const handleDelete = (id) => {
+    const nForks = forksOf(characters, id).length;
     setConfirm({
-      msg: lang === 'pt' ? 'Excluir este personagem? Esta ação é permanente.' : 'Delete this character? This is permanent.',
+      msg: nForks
+        ? (lang === 'pt'
+          ? `Excluir este modelo? Esta ação é permanente. As ${nForks} versões dele continuam como fichas próprias.`
+          : `Delete this template? This is permanent. Its ${nForks} versions stay as sheets of their own.`)
+        : (lang === 'pt' ? 'Excluir este personagem? Esta ação é permanente.' : 'Delete this character? This is permanent.'),
       onConfirm: async () => {
         await storage.remove(id);
         await refreshCharacters();
@@ -796,6 +824,11 @@ const App = () => {
             onLogin={!auth.user && auth.backendAvailable !== false ? () => setScreen(SCREENS.AUTH) : undefined}
             onSaveVersion={async (c) => { const saved = await storage.save(applyAutosToCharacter(c)); await refreshCharacters(); return saved; }}
             onPreviewVersion={(key) => setVersionPreview({ id: active.id, key })}
+            family={familyOf(characters, active)}
+            onFork={handleFork}
+            onOpenSheet={(id) => { setVersionPreview(null); setActiveId(id); setScreen(SCREENS.SHEET); }}
+            autoLink={autoLinkId === active.id}
+            onAutoLinkDone={() => setAutoLinkId(null)}
           >
             <div style={{ marginTop: 'var(--s-6)' }}>
               <ProgressionPanel

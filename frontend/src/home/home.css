@@ -318,3 +318,13 @@
   .home-card, .home-door, .home-row, .home-dock-slot { transition: none; }
   .home-card:hover, .home-door:hover { transform: none; }
 }
+
+/* Versão de outra mesa (src/sheet/forks.js): recuada sob o modelo, com o selo da mesa */
+.home-card.is-version { margin-left: 22px; }
+.home-card.is-version::before {
+  content: ''; position: absolute; left: -14px; top: -8px; bottom: 50%;
+  width: 10px; border-left: 1px solid var(--gold, #c9a24e); border-bottom: 1px solid var(--gold, #c9a24e);
+  border-bottom-left-radius: 6px; opacity: .55; pointer-events: none;
+}
+.home-tag.is-version { border-color: var(--gold, #c9a24e); }
+@media (max-width: 420px) { .home-card.is-version { margin-left: 14px; } .home-card.is-version::before { left: -10px; width: 7px; } }

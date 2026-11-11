@@ -11,6 +11,7 @@ import { api } from '../api/client.js';
 import { Modal } from '../../components/Shared.jsx';
 import { linkErrorText } from './campaign-link.js';
 import * as V from './versions.js';
+import * as F from './forks.js';
 import './campaign-link.css';
 import './versions.css';
 
@@ -26,7 +27,8 @@ const fromServer = (res) => {
  * e avisa; onPreview(key) abre uma versão guardada só para leitura; onAddCampaign()
  * abre o seletor de mesas (a ficha já está no modelo quando ele abre).
  */
-export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDone, onPreview, onAddCampaign }) {
+export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDone, onPreview, onAddCampaign, family = [], onFork = null, onOpenSheet = null }) {
+  const forkSheet = F.isFork(char);   // esta ficha já é uma versão própria (forks.js)
   const [live, setLive] = useState(char);          // ficha fresca do servidor, já reconciliada
   const [ctx, setCtx] = useState(null);            // { links, campaigns }
   const [loadErr, setLoadErr] = useState('');
@@ -50,7 +52,8 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
       ]);
       const links = l.campaigns || [];
       const campaigns = c ? (c.campaigns || []) : null;
-      const r = V.reconcile(fresh, links, campaigns);
+      // versão própria não usa o armazém antigo: nada a acertar
+      const r = forkSheet ? { char: fresh, changed: false } : V.reconcile(fresh, links, campaigns);
       let next = r.char;
       if (r.changed) next = (await save(next)) || next;
       if (!alive.current) return;
@@ -58,7 +61,7 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
     } catch (e) {
       if (alive.current) setLoadErr(linkErrorText(e, lang));
     }
-  }, [char.id, lang, save]);
+  }, [char.id, lang, save, forkSheet]);
   useEffect(() => { load(); }, [load]);
 
   const store = V.storeOf(live);
@@ -193,6 +196,49 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
     return null;
   };
 
+  // ── Mesas em paralelo: cada versão é uma ficha própria (forks.js) ──
+  const others = (family || []).filter(c => c && c.id !== live.id);
+  const familyRow = (c) => {
+    const tpl = !F.isFork(c);
+    return (
+      <li key={c.id} className="vr-row">
+        <div className="vr-main">
+          <span className="vr-eyebrow">
+            {tpl ? `📜 ${L(lang, 'Modelo', 'Template')}` : c.versionKind === 'oneshot' ? '🎲 One-shot' : `🏰 ${L(lang, 'Mesa', 'Table')}`}
+            {c.inCampaign && <span className="vr-tag is-current">{L(lang, 'Na mesa', 'Seated')}</span>}
+          </span>
+          <strong className="vr-name">{tpl ? (c.name || L(lang, 'Sem nome', 'Unnamed')) : F.forkLabel(c, lang)}</strong>
+          <span className="vr-preview">{L(lang, 'Nível', 'Level')} {c.level || 1}{c.maxHp != null && <> · {L(lang, 'PV', 'HP')} {c.currentHp ?? c.maxHp}/{c.maxHp}</>}</span>
+        </div>
+        {onOpenSheet && (
+          <div className="vr-actions">
+            <button type="button" className="btn btn-primary btn-sm" disabled={!!busy} onClick={() => onOpenSheet(c.id)}>{L(lang, 'Abrir', 'Open')}</button>
+          </div>
+        )}
+      </li>
+    );
+  };
+  const doFork = (kind) => act(`fork:${kind}`, async () => { await onFork(kind); return ''; });
+  const parallel = (
+    <section className="vr-parallel" aria-label={L(lang, 'Versões em mesas ao mesmo tempo', 'Versions at tables at the same time')}>
+      <h3 className="vr-section-title">{L(lang, 'Mesas ao mesmo tempo', 'Tables at the same time')}</h3>
+      <p className="cl-hint muted">{L(lang,
+        'Cada versão é uma ficha à parte, sentada na sua mesa: jogar numa não tira o personagem das outras. Ela nasce como cópia completa do modelo e segue sozinha.',
+        'Each version is a separate sheet seated at its own table: playing in one does not take the character off the others. It starts as a full copy of the template and goes its own way.')}</p>
+      {others.length > 0 && <ul className="vr-list">{others.map(familyRow)}</ul>}
+      {onFork && (
+        <div className="cl-actions">
+          <button type="button" className="btn btn-primary cl-btn" disabled={!!busy} onClick={() => doFork('campaign')}>
+            {busy === 'fork:campaign' ? '…' : L(lang, 'Nova versão para outra mesa', 'New version for another table')}
+          </button>
+          <button type="button" className="btn btn-ghost cl-btn" disabled={!!busy} onClick={() => doFork('oneshot')}>
+            {busy === 'fork:oneshot' ? '…' : L(lang, '🎲 Jogar um one-shot', '🎲 Play a one-shot')}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+
   let body;
   if (loadErr) {
     body = (
@@ -224,9 +270,25 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
         </div>
       </div>
     );
+  } else if (forkSheet) {
+    body = (
+      <>
+        <p className="cl-lead">{live.versionCampaign?.name
+          ? L(lang,
+            `Esta é a versão de “${live.versionCampaign.name}”: uma ficha própria, só desta mesa. O modelo e as outras versões não mudam com ela.`,
+            `This is the “${live.versionCampaign.name}” version: a sheet of its own, for this table only. The template and other versions do not change with it.`)
+          : L(lang,
+            'Esta versão ainda não tem mesa. Use “Campanha” na ficha para sentá-la numa mesa; o modelo e as outras versões não mudam com ela.',
+            'This version has no table yet. Use “Campaign” on the sheet to seat it at a table; the template and other versions do not change with it.')}</p>
+        {parallel}
+        {error && <p className="cl-error" role="alert">{error}</p>}
+      </>
+    );
   } else {
     body = (
       <>
+        {parallel}
+        <h3 className="vr-section-title">{L(lang, 'Uma mesa por vez (troca)', 'One table at a time (swap)')}</h3>
         <p className="cl-lead">{L(lang,
           'Cada campanha tem a sua própria cópia desta ficha. O modelo é a ficha fora de campanha: é dele que nasce a cópia de cada mesa nova.',
           'Each campaign has its own copy of this sheet. The template is the sheet outside campaigns: every new table starts from a copy of it.')}</p>
@@ -287,8 +349,8 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
           </button>
         </div>
         <p className="cl-hint muted">{L(lang,
-          'A ficha joga em uma campanha por vez: abrir uma versão tira o personagem da mesa anterior (você continua lá, sem personagem) e o senta na mesa da versão aberta.',
-          'The sheet plays in one campaign at a time: opening a version takes the character off the previous table (you stay there, without a character) and seats it at the opened version’s table.')}</p>
+          'Aqui as versões revezam a mesma ficha: abrir uma tira o personagem da mesa anterior (você continua lá, sem personagem). Para jogar em duas mesas ao mesmo tempo, use “Nova versão para outra mesa”, acima.',
+          'Here the versions take turns on the same sheet: opening one takes the character off the previous table (you stay there, without a character). To play at two tables at once, use “New version for another table” above.')}</p>
         {store.current !== V.TEMPLATE && (
           <p className="cl-hint muted">{L(lang,
             'Em campanha, nível, PV máximo, atributos e itens são cuidados pelo mestre.',

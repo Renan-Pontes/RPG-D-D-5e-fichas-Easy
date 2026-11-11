@@ -32,12 +32,16 @@ export const dmTableCount = (campaigns) => (Array.isArray(campaigns) ? campaigns
 /**
  * A vaga da pessoa naquela mesa (GET /campaigns → myMemberships / myMembership):
  * 'free' (sem personagem) · 'this' (esta ficha) · 'other' (outra ficha, `name`) ·
- * 'unknown' (servidor antigo, sem o campo).
+ * 'family' (outra versão da mesma ficha, `familyIds`) · 'unknown' (servidor antigo, sem o campo).
  */
-export function seatState(campaign, charId) {
+export function seatState(campaign, charId, familyIds = []) {
   const memberships = campaign?.myMemberships || (campaign?.myMembership ? [campaign.myMembership] : []);
   if (!memberships.length && campaign?.role == null) return { kind: 'unknown', name: '' };
   if (memberships.some(m => String(m.characterId) === String(charId))) return { kind: 'this', name: '' };
+  // outra versão da mesma ficha (src/sheet/forks.js) já senta aqui: nunca duas na mesma mesa
+  const fam = new Set((familyIds || []).map(String).filter(id => id !== String(charId)));
+  const kin = memberships.find(m => m.characterId != null && fam.has(String(m.characterId)));
+  if (kin) return { kind: 'family', name: kin.characterName || '' };
   const empty = memberships.find(m => m.characterId == null && m.role !== 'dm');
   if (empty) return { kind: 'free', name: '' };
   const otherNames = memberships.filter(m => m.characterName).map(m => m.characterName).join(', ');
@@ -49,6 +53,7 @@ export function seatLabel(seat, lang = 'pt') {
   switch (seat?.kind) {
     case 'free': return L(lang, 'Sua vaga está livre', 'Your seat is free');
     case 'this': return L(lang, 'Esta ficha já está aqui', 'This sheet is already here');
+    case 'family': return L(lang, 'Outra versão desta ficha já joga aqui', 'Another version of this sheet already plays here');
     case 'other': return seat.name
       ? L(lang, `Sua vaga tem ${seat.name}`, `Your seat has ${seat.name}`)
       : L(lang, 'Sua vaga tem outro personagem', 'Your seat has another character');

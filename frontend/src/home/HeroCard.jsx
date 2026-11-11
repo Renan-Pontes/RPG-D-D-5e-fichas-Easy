@@ -6,6 +6,7 @@ import Icon from '../../components/Icons.jsx';
 import { t } from '../../data/i18n.js';
 import { classArt, speciesArt } from '../art.js';
 import { L, heroLine, hpState, hpStateLabel } from './home-utils.js';
+import { isFork, forkLabel } from '../sheet/forks.js';
 
 export default function HeroCard({ c, lang, onOpen }) {
   const id = useId();
@@ -21,7 +22,7 @@ export default function HeroCard({ c, lang, onOpen }) {
   const stateWord = hpStateLabel(state, lang);
 
   return (
-    <article className={`home-card${state ? ` hp-${state}` : ''}`}>
+    <article className={`home-card${state ? ` hp-${state}` : ''}${isFork(c) ? ' is-version' : ''}`}>
       <div className="home-card-avatar">
         <div className="home-card-portrait">
           <span className="home-card-letter" aria-hidden="true">{(c.name || '?').charAt(0).toUpperCase()}</span>
@@ -50,6 +51,7 @@ export default function HeroCard({ c, lang, onOpen }) {
             </span>
           )}
           {c.inCampaign && <span className="home-tag">{L(lang, 'Em campanha', 'In campaign')}</span>}
+          {isFork(c) && <span className="home-tag is-version">{c.versionKind === 'oneshot' ? '🎲' : '🏰'} {forkLabel(c, lang)}</span>}
         </div>
       </div>
       <Icon name="chevron-right" size={18} />

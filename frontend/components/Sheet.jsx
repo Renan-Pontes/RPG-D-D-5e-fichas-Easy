@@ -30,6 +30,7 @@ import { placeFeatures, featureKey } from '../src/sheet/feature-placement.js';
 import FhFeatures, { FhFeatureItem } from '../src/sheet/FhFeatures.jsx';
 import { DiceText } from '../src/dice/dice-text.jsx';
 import * as Versions from '../src/sheet/versions.js';
+import * as Forks from '../src/sheet/forks.js';
 import '../src/sheet/versions.css';
 import BeltMultiRoll, { pairBeltSlots, rollBeltPairs } from '../src/dice/BeltMultiRoll.jsx';
 import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
@@ -300,7 +301,7 @@ const SheetHero = ({
 // o app recarrega a lista (char.inCampaign) e mostra `msg`. onLogin: ficha do aparelho,
 // leva à entrada na conta (sem ele, o servidor está fora e a dica não aparece).
 // backLabel: o texto do "voltar" quando a ficha foi aberta de outro lugar (a Mesa, V13).
-const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, backLabel, onLevelUp, onCampaignChange, onLogin, onSaveVersion, onPreviewVersion, onExitPreview, children }) => {
+const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, backLabel, onLevelUp, onCampaignChange, onLogin, onSaveVersion, onPreviewVersion, onExitPreview, family = [], onFork, onOpenSheet, autoLink = false, onAutoLinkDone, children }) => {
   // o rolador global (múltipla por linhas) vincula atributo/proficiência à ficha aberta
   useEffect(() => { setActiveChar(char); }, [char]);
   useEffect(() => () => setActiveChar(null), []);
@@ -372,7 +373,14 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   charRef.current = char;
   const preview = char.versionPreview || null;      // versão guardada aberta só para leitura
   const pt = lang === 'pt';
-  const vStore = typeof char.id === 'number' ? Versions.storeOf(char) : null;
+  const isForkSheet = Forks.isFork(char);           // versão = ficha própria (src/sheet/forks.js)
+  const vStore = typeof char.id === 'number' && !isForkSheet ? Versions.storeOf(char) : null;
+  // versão recém-criada: abre o seletor de mesa uma vez
+  useEffect(() => {
+    if (!autoLink || preview) return;
+    setCampOpen(true);
+    onAutoLinkDone?.();
+  }, [autoLink]); // eslint-disable-line react-hooks/exhaustive-deps
   const vCurrent = vStore && vStore.current !== Versions.TEMPLATE ? vStore.campaigns[vStore.current] : null;
   useEffect(() => { versionsBusy.current = versionsOpen; }, [versionsOpen]);
   // troca de versão: a ficha inteira muda no lugar, com um fade curto
@@ -400,11 +408,17 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
       if (cancelled) return;
       const list = r.campaigns || [];
       setCampaignsList(list);
-      // versões por campanha: acerta o armazém com onde a ficha está agora
-      try {
-        const rec = Versions.reconcile(charRef.current, list, null);
-        if (rec.changed && !versionsBusy.current) onUpdate(rec.char);
-      } catch { /* armazém ilegível: a lista de versões mostra o erro */ }
+      if (Forks.isFork(charRef.current)) {
+        // versão = ficha própria: guarda em qual mesa ela sentou (selo e lista)
+        const at = list[0];
+        if (at && charRef.current.versionCampaign?.id !== at.id) onUpdate(Forks.seatFork(charRef.current, at));
+      } else {
+        // versões por campanha (armazém antigo): acerta com onde a ficha está agora
+        try {
+          const rec = Versions.reconcile(charRef.current, list, null);
+          if (rec.changed && !versionsBusy.current) onUpdate(rec.char);
+        } catch { /* armazém ilegível: a lista de versões mostra o erro */ }
+      }
       const c = list[0];
       if (c) {
         setSheetPolicy(char.id, { allowed: c.sheetRolls, live: c.live, mode: c.sheetRollsMode });
@@ -584,6 +598,15 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
             <span aria-hidden="true">🔒</span>
             <span>{preview.name || (pt ? 'Versão guardada' : 'Stored version')}</span>
           </span>
+        ) : isForkSheet ? (
+          <button type="button" className="fh-version-chip is-campaign no-print"
+            onClick={() => setVersionsOpen(true)}
+            aria-haspopup="dialog"
+            aria-label={pt ? `Versão: ${Forks.forkLabel(char, lang)}. Ver as outras versões` : `Version: ${Forks.forkLabel(char, lang)}. See the other versions`}>
+            <span aria-hidden="true">{char.versionKind === 'oneshot' ? '🎲' : '🏰'}</span>
+            <span>{Forks.forkLabel(char, lang)}</span>
+            <span aria-hidden="true">▾</span>
+          </button>
         ) : vStore ? (
           <button type="button" className={`fh-version-chip no-print${vCurrent ? ' is-campaign' : ''}`}
             onClick={() => setVersionsOpen(true)}
@@ -633,7 +656,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
       )}
       {campOpen && !preview && (
         <Suspense fallback={null}>
-          <CampaignLinkModal char={char} lang={lang} onClose={() => setCampOpen(false)} onDone={campaignChanged} />
+          <CampaignLinkModal char={char} lang={lang} onClose={() => setCampOpen(false)} onDone={campaignChanged} familyIds={family.map(c => c.id)} />
         </Suspense>
       )}
       {versionsOpen && !preview && (
@@ -646,6 +669,9 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
             onDone={async (msg) => { setCampRev(n => n + 1); await onCampaignChange?.(msg); }}
             onPreview={onPreviewVersion}
             onAddCampaign={() => { setVersionsOpen(false); setCampOpen(true); }}
+            family={family}
+            onFork={onFork ? async (kind) => { setVersionsOpen(false); await onFork(char, kind); } : null}
+            onOpenSheet={onOpenSheet ? (id) => { setVersionsOpen(false); onOpenSheet(id); } : null}
           />
         </Suspense>
       )}

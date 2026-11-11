@@ -8,6 +8,7 @@ import Icon from './Icons.jsx';
 import { t } from '../data/i18n.js';
 import { useAuth } from '../src/auth/AuthContext.jsx';
 import HeroCard from '../src/home/HeroCard.jsx';
+import { groupWithForks } from '../src/sheet/forks.js';
 import { HomeActions, HomeLinks, HomeTitle, ImportError } from '../src/home/HomeActions.jsx';
 import { L, filterCharacters, sortCharacters, readFlag, writeFlag } from '../src/home/home-utils.js';
 import { PregenHead, pregenSectionClass } from '../src/pregens/PregenHead.jsx';
@@ -72,7 +73,8 @@ const CharacterList = ({
   useEffect(() => { if (showPregens) loadGallery().catch(() => { /* tenta de novo ao montar */ }); }, [showPregens]);
 
   const sorted = useMemo(() => sortCharacters(characters, sort), [characters, sort]);
-  const filtered = useMemo(() => filterCharacters(sorted, query, lang), [sorted, query, lang]);
+  // versões (fichas próprias de outras mesas) logo depois do seu modelo: src/sheet/forks.js
+  const filtered = useMemo(() => groupWithForks(filterCharacters(sorted, query, lang)), [sorted, query, lang]);
 
   const mode = listState === 'loading' ? 'loading' : listState === 'error' ? 'error' : characters.length ? 'list' : 'empty';
   const online = auth.backendAvailable !== false;

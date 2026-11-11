@@ -21,7 +21,7 @@ const L = (lang, pt, en) => (lang === 'en' ? en : pt);
  * char: ficha da conta (id numérico). onDone(msg): a ação deu certo — a ficha
  * recarrega (char.inCampaign / modo campanha) e o toast mostra `msg`.
  */
-export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }) {
+export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone, familyIds = [] }) {
   const [data, setData] = useState(null);   // { links, campaigns }
   const [loadErr, setLoadErr] = useState('');
   const [switching, setSwitching] = useState(false); // "Trocar de campanha": escolhendo a nova mesa
@@ -96,7 +96,8 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
   });
 
   const pickTable = (table) => {
-    const seat = seatState(table, char.id);
+    const seat = seatState(table, char.id, familyIds);
+    if (seat.kind === 'family') return;
     const attach = () => run(async () => {
       let res;
       let inviteCode = table.inviteCode || table.invite_code || '';
@@ -220,7 +221,7 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
         {tables.length > 0 ? (
           <ul className="cl-tables">
             {tables.map(c => {
-              const seat = seatState(c, char.id);
+              const seat = seatState(c, char.id, familyIds);
               return (
                 <li key={c.id} className="cl-table">
                   <div className="cl-table-text">
@@ -228,7 +229,7 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
                     {c.tagline && <span className="cl-tagline">{c.tagline}</span>}
                     {seatLabel(seat, lang) && <span className={`cl-seat is-${seat.kind}`}>{seatLabel(seat, lang)}</span>}
                   </div>
-                  <button type="button" className="btn btn-primary cl-btn" onClick={() => pickTable(c)} disabled={busy}>
+                  <button type="button" className="btn btn-primary cl-btn" onClick={() => pickTable(c)} disabled={busy || seat.kind === 'family'}>
                     {switching ? L(lang, 'Trocar para cá', 'Move here') : L(lang, 'Atrelar', 'Link')}
                   </button>
                 </li>
