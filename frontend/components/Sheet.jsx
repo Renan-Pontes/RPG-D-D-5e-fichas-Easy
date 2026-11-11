@@ -1825,13 +1825,13 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
                 )}
               </FhMedal>
             </div>
-            <div className="fh-hp-right">
-            <div className="hp-display">
-              <span className={`fh-hp-num${fxKind === 'hit' ? ` fh-shake-${fxBeat}` : ''}`}>
-                <span className="hp-current">{char.currentHp}</span>
-              </span>
-              {char.tempHp > 0 && <span className="fh-hp-temp-badge" title={t('tempHp', lang)}>+{char.tempHp}</span>}
-              <span className="fh-hp-formula">({hpFormula(Utils.hitDiceByDie(char), Utils.abilityMod(char, 'con'), char.level)})</span>
+            {/* PV num coração ao lado da CA: atual + temporários (azul quando há temporários) */}
+            <div className={`fh-hp-heart${char.tempHp > 0 ? ' has-temp' : ''}`}
+              title={char.tempHp > 0 ? `${char.currentHp} + ${char.tempHp} ${t('tempHp', lang)}` : undefined}>
+              <FhMedal shape="heart"
+                value={<span className={`fh-hp-num${fxKind === 'hit' ? ` fh-shake-${fxBeat}` : ''}`}><span className="hp-current">{char.currentHp + (char.tempHp || 0)}</span></span>}
+                label={t('hp', lang)}
+                sub={<span className="fh-hp-formula">{hpFormula(Utils.hitDiceByDie(char), Utils.abilityMod(char, 'con'), char.level)}</span>} />
               {hpFx && (
                 <span key={hpFx.id} className={`fh-float ${fxKind}`} aria-hidden="true">
                   {hpFx.delta < 0 ? '−' : '+'}{Math.abs(hpFx.delta)}
@@ -1839,7 +1839,6 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
               )}
             </div>
             <div className="fh-hp-state">{hpStateLabel(state, lang)}</div>
-            </div>
           </div>
           {/* Barras e controles condensados (src/sheet/HpTracker.jsx): PV temporários, PV em 10
               fatias, Exaustão, Testes contra a Morte, arrastar para dano/cura e Dados de Vida */}

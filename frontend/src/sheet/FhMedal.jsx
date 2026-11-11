@@ -11,6 +11,7 @@ const SHAPES = {
   circle: <circle cx="32" cy="35" r="27" />,
   diamond: <path d="M32 8 L58 35 L32 62 L6 35 Z" />,
   hex: <path d="M32 4 L59 19.5 V50.5 L32 66 L5 50.5 V19.5 Z" />, // atributo de conjuração (como os selos de atributo)
+  heart: <path d="M32 66 C11 50 3 38 3 25 C3 13 11 5 21 5 C27 5 30 8 32 12 C34 8 37 5 43 5 C53 5 61 13 61 25 C61 38 53 50 32 66 Z" />, // Pontos de Vida
 };
 
 export function FhMedalDefs() {

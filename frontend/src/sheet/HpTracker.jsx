@@ -21,17 +21,19 @@ const d = (n) => 1 + Math.floor(Math.random() * n);
  * { label, tone } para a lente (ou null = nada); `commit(dx)` aplica ao soltar.
  * Teclado: setas acumulam o arrasto em passos, Enter aplica, Esc desfaz.
  */
-function DragBar({ className, pct, label, valueText, read, commit, disabled, children, knob = 18 }) {
+function DragBar({ className, pct, label, valueText, read, commit, disabled, children, knob = 18, grow = false }) {
   const ref = useRef(null);
   const start = useRef(null);
   const [dx, setDx] = useState(0);
   const [drag, setDrag] = useState(false);
   // o botão nunca sai da barra: o arrasto é preso entre as duas pontas
-  // o botão mora DENTRO da barra: o centro anda de r até (largura − r), r = metade do botão
+  // o botão mora DENTRO do preenchimento, encostado na ponta dele: a borda direita do
+  // botão é o fim da parte cheia (vazia = botão no começo da barra)
   const r = knob / 2;
-  const w = Math.max(40, (ref.current?.clientWidth || 322) - knob);
-  const home = (pct / 100) * w;
-  const clamp = (v) => Math.max(-home, Math.min(w - home, v));
+  const w = Math.max(40, ref.current?.clientWidth || 340);
+  const home = (Math.max(0, Math.min(100, pct)) / 100) * w;
+  // `grow`: só cresce (PV temporários nunca descem por aqui; o dano é na barra de PV)
+  const clamp = (v) => Math.max(grow ? 0 : -home, Math.min(w - home, v));
   const info = dx ? read(dx) : null;
   const edge = home + dx > w - 70 ? 'right' : home + dx < 70 ? 'left' : '';
   // durante o arrasto o preenchimento acompanha o botão; ao soltar, os dois deslizam
@@ -47,7 +49,7 @@ function DragBar({ className, pct, label, valueText, read, commit, disabled, chi
       {/* só o botão pega o arrasto (a barra em volta não) */}
       <span className="fh-knob" role="slider" tabIndex={disabled ? -1 : 0} aria-label={label}
         aria-valuetext={info ? info.label : valueText} aria-disabled={disabled || undefined}
-        style={{ width: knob, height: knob, marginTop: -r, left: `calc(${r}px + (100% - ${knob}px) * ${(drag ? now : Math.max(0, Math.min(100, pct))) / 100})` }}
+        style={{ width: knob, height: knob, marginTop: -r, left: `max(0px, calc(${(drag ? now : Math.max(0, Math.min(100, pct))) / 100} * 100% - ${knob}px))` }}
         onPointerDown={e => {
           if (disabled) return;
           e.preventDefault(); e.stopPropagation();
@@ -140,10 +142,11 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
   };
   // PV temporários: o arrasto soma/tira do valor atual (nunca abaixo de 0)
   const readTemp = (dx) => {
-    const v = dragAmount(dx, { min: -temp, max: max * 2 });
-    return v ? { label: `${temp + v}`, tone: v < 0 ? 'hurt' : 'temp' } : null;
+    const v = dragAmount(dx, { min: 0, max: max * 2 });
+    return v ? { label: `${temp + v}`, tone: 'temp' } : null;
   };
-  const commitTemp = (dx) => { const v = dragAmount(dx, { min: -temp, max: max * 2 }); if (v) update({ tempHp: temp + v }); };
+  // só sobe: PV temporários se perdem levando dano na barra de PV (que gasta eles primeiro)
+  const commitTemp = (dx) => { const v = dragAmount(dx, { min: 0, max: max * 2 }); if (v > 0) update({ tempHp: temp + v }); };
 
   // Teste contra a morte: o d20 do rolador da ficha (com a animação de sempre); o
   // resultado entra quando o dado termina de girar.
@@ -182,8 +185,8 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
 
   return (
     <div className={`fh-hpt${short ? ' is-short-rest' : ''}`}>
-      <DragBar className="is-temp" knob={12} pct={Math.min(100, (temp / max) * 100)}
-        label={L(lang, 'PV temporários: arraste para mudar', 'Temporary HP: drag to change')} valueText={String(temp)}
+      <DragBar className="is-temp" knob={12} grow pct={Math.min(100, (temp / max) * 100)}
+        label={L(lang, 'PV temporários: arraste para a direita para ganhar', 'Temporary HP: drag right to gain')} valueText={String(temp)}
         read={readTemp} commit={commitTemp}>
         {(fill) => (
           <>
