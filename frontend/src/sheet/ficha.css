@@ -6547,3 +6547,18 @@
   top: auto; bottom: calc((100% - var(--belt-gap) * 1.155) * 0.323); transform: translate(-50%, 50%);
   font-family: 'Cinzel', var(--fh-display, serif); letter-spacing: .04em; padding-left: 0;
 }
+
+/* Recursos: o traço que é o próprio recurso se funde à linha (src/progression/ResourcesCard.jsx) */
+.ficha .fh-res-title { display: flex; flex-wrap: nowrap; align-items: center; gap: 4px 8px; font-family: var(--display); color: var(--gold); text-align: left; }
+.ficha .fh-res-title.is-toggle { width: 100%; min-height: 36px; padding: 0; background: none; border: 0; cursor: pointer; font-size: inherit; }
+.ficha .fh-res-title.is-toggle:hover .fh-res-name, .ficha .fh-res-title.is-toggle:focus-visible .fh-res-name { color: var(--gold-bright); }
+.ficha .fh-res-title .fh-origin { font-family: var(--body, serif); }
+.ficha .fh-res-chev { margin-left: auto; color: var(--ink-muted); transition: transform 0.2s; }
+.ficha .fh-res-row.is-open .fh-res-chev { transform: rotate(180deg); }
+.ficha .fh-res-partial { font-family: var(--body, serif); }
+.ficha .fh-res-desc { padding: 0 0 10px 0; }
+.ficha .fh-res-desc .fh-cf-body { padding-top: 0; }
+
+.ficha .fh-res-title .fh-res-name { min-width: 0; overflow-wrap: anywhere; }
+.ficha .fh-res-title > * { flex: 0 1 auto; }
+.ficha .fh-res-title .fh-res-chev { flex: 0 0 auto; }

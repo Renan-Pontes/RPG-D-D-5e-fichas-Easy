@@ -31,6 +31,9 @@ import FhFeatures, { FhFeatureItem } from '../src/sheet/FhFeatures.jsx';
 import { DiceText } from '../src/dice/dice-text.jsx';
 import * as Versions from '../src/sheet/versions.js';
 import * as Forks from '../src/sheet/forks.js';
+import HpTracker from '../src/sheet/HpTracker.jsx';
+import { RestModeContext } from '../src/sheet/rest-mode.jsx';
+import { hpFormula } from '../src/sheet/hp-logic.js';
 import '../src/sheet/versions.css';
 import BeltMultiRoll, { pairBeltSlots, rollBeltPairs } from '../src/dice/BeltMultiRoll.jsx';
 import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
@@ -49,6 +52,7 @@ import FhExportModal from '../src/sheet/FhExport.jsx';
 import SheetRollTarget from '../src/sheet/SheetRollTarget.jsx';
 import { clearSheetRolls, maybeRecheck, setSheetPolicy, setSheetRecheck, setSheetRolls } from '../src/dice/sheet-roll.js';
 import '../src/sheet/ficha.css';
+import '../src/sheet/hp-tracker.css';
 import '../src/combat/monster-statblock.css';
 
 // Modal "Campanha" (atrelar, desatrelar, trocar): só carrega quando abre.
@@ -353,6 +357,10 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   };
 
   const [hpDelta, setHpDelta] = useState(0);
+  // Descanso ligado (src/sheet/rest-mode.jsx): Curto/Longo do herói viram interruptores.
+  const [restMode, setRestMode] = useState(null);
+  const restCtx = useMemo(() => ({ mode: restMode, setMode: setRestMode }), [restMode]);
+  useEffect(() => { setRestMode(null); }, [char.id]);
   const [tempHpInput, setTempHpInput] = useState(false);
   const [cheatOpen, setCheatOpen] = useState(false);
   // Modal Exportar: ao fechar, o foco volta para o botão que abriu.
@@ -577,7 +585,8 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   // As classes c-* (condições ativas) e is-down (PV 0) só mudam a aparência
   // (retrato e camadas decorativas: src/sheet/FhConditions.jsx).
   return (
-    <div ref={rootRef} className={['ficha', ...condClasses(char), preview ? 'is-version-readonly' : ''].filter(Boolean).join(' ')}>
+    <RestModeContext.Provider value={restCtx}>
+    <div ref={rootRef} className={['ficha', ...condClasses(char), preview ? 'is-version-readonly' : '', restMode ? `is-resting is-resting-${restMode}` : ''].filter(Boolean).join(' ')}>
       <FhConditionFx conditions={char.conditions} />
       {levelCer && <FhLevelCeremony key={levelCer.key} cer={levelCer} char={char} lang={lang} onClose={closeLevelCer} />}
       <SheetHero
@@ -767,6 +776,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         </button>
       </div>
     </div>
+    </RestModeContext.Provider>
   );
 };
 
@@ -1760,13 +1770,6 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
   const styleSummaries = FS.styleSummaries(char, styles);
   const blindsightFt = FS.blindsight(char, styles);
   const reactions = FS.styleReactions(char, styles);
-  const [delta, setDelta] = useState('');
-  const apply = (sign) => {
-    const n = +delta || 0;
-    if (!n) return;
-    applyHp(n * sign);
-    setDelta('');
-  };
 
   const hpPct = Math.max(0, Math.min(100, (char.currentHp / Math.max(1, char.maxHp)) * 100));
   // Só design (src/sheet/hp-feedback.js): estado Firme/Ferido/À beira da morte/Caído pela
@@ -1809,6 +1812,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
                 <span className="hp-max">{char.maxHp}</span>
               </span>
               {char.tempHp > 0 && <span className="fh-hp-temp-badge" title={t('tempHp', lang)}>+{char.tempHp}</span>}
+              <span className="fh-hp-formula">({hpFormula(Utils.hitDiceByDie(char), Utils.abilityMod(char, 'con'), char.level)})</span>
               {hpFx && (
                 <span key={hpFx.id} className={`fh-float ${fxKind}`} aria-hidden="true">
                   {hpFx.delta < 0 ? '−' : '+'}{Math.abs(hpFx.delta)}
@@ -1817,73 +1821,17 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             </div>
             <div className="fh-hp-state">{hpStateLabel(state, lang)}</div>
           </div>
-          {/* barra-fantasma: anda atrás do preenchimento, com atraso, e mostra o quanto caiu */}
-          <div className="hp-bar" aria-hidden="true">
-            <div className="fh-hp-ghost" style={{ width: `${hpPct}%` }} />
-            <div className="hp-bar-fill" style={{ width: `${hpPct}%` }} />
-          </div>
-          <div className="hp-actions">
-            <button className="btn btn-sm btn-hurt" onClick={() => apply(-1)} disabled={!delta}>
-              <Icon name="sword" size={18}/> {t('damage', lang)}
-            </button>
-            <input
-              className="hp-input"
-              type="number"
-              inputMode="numeric"
-              min="0"
-              value={delta}
-              onChange={e => setDelta(e.target.value)}
-              placeholder="0"
-              aria-label={pt ? 'Quantidade de dano ou cura' : 'Damage or healing amount'}
-            />
-            <button className="btn btn-sm btn-heal" onClick={() => apply(1)} disabled={!delta}>
-              <Icon name="heart" size={18}/> {t('heal', lang)}
-            </button>
-          </div>
-          <div className="hp-temp fh-hp-temp">
-            <span className="fh-hp-temp-label">{t('tempHp', lang)}<GrimoireHint id="pv-temporarios" lang={lang} /></span>
-            <input
-              type="number" min="0"
-              inputMode="numeric"
-              value={char.tempHp || 0}
-              onChange={e => update({ tempHp: Math.max(0, +e.target.value || 0) })}
-              aria-label={t('tempHp', lang)}
-            />
-          </div>
-  
-          {/* Death saves */}
-          {char.currentHp === 0 && (
-            <div className="fh-death">
-              <div className="fh-death-title">{t('deathSaves', lang)}<GrimoireHint id="testes-contra-a-morte" lang={lang} /></div>
-              <div className="fh-death-rows">
-                <div className="fh-death-group is-success">
-                  <span className="fh-death-label">{t('successes', lang)}:</span>
-                  <div className="death-pips">
-                    {[0,1,2].map(i => (
-                      <button key={i} type="button" className={`death-pip ${i < char.deathSaves.success ? 'success' : ''}`}
-                        aria-pressed={i < char.deathSaves.success} aria-label={`${t('successes', lang)}: ${i + 1}`}
-                        onClick={() => update({ deathSaves: { ...char.deathSaves, success: i < char.deathSaves.success ? i : i + 1 } })}/>
-                    ))}
-                  </div>
-                </div>
-                <div className="fh-death-group is-fail">
-                  <span className="fh-death-label">{t('failures', lang)}:</span>
-                  <div className="death-pips">
-                    {[0,1,2].map(i => (
-                      <button key={i} type="button" className={`death-pip ${i < char.deathSaves.fail ? 'fail' : ''}`}
-                        aria-pressed={i < char.deathSaves.fail} aria-label={`${t('failures', lang)}: ${i + 1}`}
-                        onClick={() => update({ deathSaves: { ...char.deathSaves, fail: i < char.deathSaves.fail ? i : i + 1 } })}/>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <button className="btn btn-sm btn-ghost fh-death-roll"
-                onClick={() => roll({ die: 20, label: t('death', lang) })}>
-                <Icon name="dice" size={14}/> {lang === 'pt' ? 'Rolar teste contra morte' : 'Roll death save'}
-              </button>
-            </div>
-          )}
-  
+          {/* Barras e controles condensados (src/sheet/HpTracker.jsx): PV temporários, PV em 10
+              fatias, Exaustão, Testes contra a Morte, arrastar para dano/cura e Dados de Vida */}
+          <HpTracker char={char} lang={lang} update={update} applyHp={applyHp} roll={roll}
+            byDie={Utils.hitDiceByDie(char)} conMod={Utils.abilityMod(char, 'con')} hpPct={hpPct}
+            hints={{
+              temp: <GrimoireHint id="pv-temporarios" lang={lang} />,
+              death: <GrimoireHint id="testes-contra-a-morte" lang={lang} />,
+              exhaustion: <GrimoireHint id="exaustao" lang={lang} />,
+              hitDice: <GrimoireHint id="dados-de-vida" lang={lang} />,
+            }} />
+
           {/* Defesa em medalhões: CA, Iniciativa (toque rola), Deslocamento, Prof., Perc. passiva
               e Dados de Vida (as antigas grades .combat-grid desta aba) */}
           <div className="fh-defense">
@@ -1911,8 +1859,6 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             <FhMedal shape="diamond" value={Utils.fmtMod(profB)} label={lang === 'pt' ? 'Prof.' : 'Prof.'} />
             <FhMedal shape="diamond" value={passPerc} label={lang === 'pt' ? 'Perc.' : 'Perc.'}
               hint={<GrimoireHint id="valor-passivo" lang={lang} />} sub={lang === 'pt' ? 'passiva' : 'passive'} />
-            <FhMedal shape="circle" value={Math.max(0, char.level - (char.hitDiceUsed || 0))} label={t('hitDice', lang)}
-              hint={<GrimoireHint id="dados-de-vida" lang={lang} />} sub={`/${Utils.hitDiceLabel(char)}`} />
           </div>
           <FhFeatures items={feats.defense} multi={placed.multi} lang={lang} place="defense" />
           <FhFeatures items={feats.movement} multi={placed.multi} lang={lang} place="movement" />

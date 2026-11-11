@@ -10,12 +10,15 @@ import { computeResources, spendResource } from './resources.js';
 import { api } from '../api/client.js';
 import { tName } from '../../data/i18n.js';
 import { gemLabel } from '../sheet/gem-text.js';
-import FhFeatures from '../sheet/FhFeatures.jsx';
+import FhFeatures, { FhFeatureBody } from '../sheet/FhFeatures.jsx';
+import { levelTag } from '../sheet/feature-placement.js';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
 export default function ResourcesCard({ char, lang, update, canRestore = !!char.cheatMode && !char.inCampaign, local = false, features = [], multiclass = false, showDesc = false }) {
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(() => new Set());   // recursos com a descrição aberta
+  const toggle = (k) => setOpen(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const list = computeResources(char);
   const keys = new Set(list.map(r => r.key));
   const loose = features.filter(f => !keys.has(f.resourceKey));
@@ -44,7 +47,6 @@ export default function ResourcesCard({ char, lang, update, canRestore = !!char.
   return (
     <div style={{ marginTop: 12 }}>
       <div className="eyebrow" style={{ marginBottom: 8 }}>{t(lang, 'Recursos', 'Resources')}</div>
-      {!canRestore && list.length > 0 && <div className="text-xs muted" style={{ marginBottom: 6 }}>{t(lang, 'Gastos voltam no descanso indicado.', 'Spent uses return on the listed rest.')}</div>}
       {grouped.map((r, i) => {
         const left = r.max - r.used;
         const cad = cadence(r);
@@ -53,20 +55,33 @@ export default function ResourcesCard({ char, lang, update, canRestore = !!char.
             {cad === 'short' ? t(lang, '☕ Descanso curto', '☕ Short rest') : cad === 'long' ? t(lang, '🌙 Descanso longo', '🌙 Long rest') : t(lang, '✦ Outros', '✦ Other')}
           </div>
         ) : null;
-        const rest = r.recharge === 'short'
-          ? (r.shortRestRegain ? t(lang, `curto +${r.shortRestRegain} · longo`, `short +${r.shortRestRegain} · long`) : t(lang, 'curto', 'short'))
-          : (r.shortRestRegain ? t(lang, `longo · curto +${r.shortRestRegain}`, `long · short +${r.shortRestRegain}`) : t(lang, 'longo', 'long'));
-        const mine = features.filter(f => f.resourceKey === r.key);
+        // O cabeçalho da cadência já diz quando volta; só o caso misto ganha nota.
+        const partial = r.shortRestRegain && r.recharge !== 'short' ? t(lang, `+${r.shortRestRegain} no curto`, `+${r.shortRestRegain} on short`) : '';
+        // O traço que É o recurso (o de menor nível) se funde à linha: tocar o nome abre a
+        // descrição. Os outros traços do mesmo recurso seguem embaixo.
+        const mine = features.filter(f => f.resourceKey === r.key).slice().sort((a, b) => (a.level || 0) - (b.level || 0));
+        const [own, ...more] = mine;
+        const isOpen = open.has(r.key);
         return (
           <Fragment key={r.key}>
             {head}
-            <div className={`slot-row${mine.length ? ' has-feats' : ''}`} title={r.desc?.[lang] || ''} style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div className={`slot-row fh-res-row${more.length ? ' has-feats' : ''}${isOpen ? ' is-open' : ''}`} title={own ? undefined : (r.desc?.[lang] || '')} style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 180px', minWidth: 0 }}>
-                <div style={{ fontFamily: 'var(--display)', color: 'var(--gold)' }}>
-                  {r.name[lang]}{r.die ? ` (${r.die})` : ''}
-                  {multi && <span className="text-xs muted"> · {r.classId === 'species' ? t(lang, 'espécie', 'species') : tName('class', r.classId, lang)}</span>}
-                </div>
-                <div className="text-xs muted">{t(lang, 'Recupera', 'Recovers')}: {rest}</div>
+                {(() => {
+                  const name = (
+                    <>
+                      <span className="fh-res-name">{r.name[lang]}{r.die ? ` (${r.die})` : ''}</span>
+                      {multi && <span className="text-xs muted"> · {r.classId === 'species' ? t(lang, 'espécie', 'species') : tName('class', r.classId, lang)}</span>}
+                      {own && <span className="fh-origin">{levelTag(own, multiclass && !multi, lang)}</span>}
+                      {partial && <span className="text-xs muted fh-res-partial">{partial}</span>}
+                    </>
+                  );
+                  return own ? (
+                    <button type="button" className="fh-res-title is-toggle" aria-expanded={isOpen} onClick={() => toggle(r.key)}>
+                      {name}<span className="fh-res-chev" aria-hidden="true">⌄</span>
+                    </button>
+                  ) : <div className="fh-res-title">{name}</div>;
+                })()}
                 {showDesc && r.desc?.[lang] && <div className="text-xs muted slot-desc">{r.desc[lang]}</div>}
               </div>
               {r.max <= 12 ? (
@@ -91,8 +106,9 @@ export default function ResourcesCard({ char, lang, update, canRestore = !!char.
               )}
               <span className="text-xs muted mono">{left}/{r.max}</span>
             </div>
+            {own && isOpen && <div className="fh-res-desc"><FhFeatureBody item={own} lang={lang} /></div>}
             {/* a linha já diz a classe quando há recursos de mais de uma: o traço só leva o nível */}
-            <FhFeatures items={mine} multi={multiclass && !multi} lang={lang} label={null} className="fh-res-feats" />
+            <FhFeatures items={more} multi={multiclass && !multi} lang={lang} label={null} className="fh-res-feats" />
           </Fragment>
         );
       })}

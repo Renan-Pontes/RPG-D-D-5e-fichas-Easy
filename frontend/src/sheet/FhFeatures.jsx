@@ -11,9 +11,26 @@ const lk = (lang) => (lang === 'pt' ? 'pt' : 'en');
 
 // item: { key, name: {pt,en}, desc: {pt,en}, picks: [{name, desc}], level, classId }.
 // `tag` troca a etiqueta de nível (ex.: "antecedente").
-export function FhFeatureItem({ item, multi, lang, tag }) {
+/** Descrição + escolhas de um traço (também embaixo da linha de um recurso). */
+export function FhFeatureBody({ item, lang }) {
   const l = lk(lang);
   const desc = item.desc?.[l];
+  return (
+    <div className="fh-cf-body">
+      {desc && <p className="fh-cf-text"><DiceText text={desc} lang={lang} /></p>}
+      {item.picks?.length > 0 && (
+        <ul className="fh-cf-picks">
+          {item.picks.map((p, i) => (
+            <li key={i}><strong>{p.name[l]}</strong>{p.desc?.[l] ? <>: <DiceText text={p.desc[l]} lang={lang} /></> : null}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export function FhFeatureItem({ item, multi, lang, tag }) {
+  const l = lk(lang);
   return (
     <li className="fh-cf-item">
       <details>
@@ -21,16 +38,7 @@ export function FhFeatureItem({ item, multi, lang, tag }) {
           <span className="fh-cf-name">{item.name?.[l]}</span>
           <span className="fh-origin">{tag || levelTag(item, multi, lang)}</span>
         </summary>
-        <div className="fh-cf-body">
-          {desc && <p className="fh-cf-text"><DiceText text={desc} lang={lang} /></p>}
-          {item.picks?.length > 0 && (
-            <ul className="fh-cf-picks">
-              {item.picks.map((p, i) => (
-                <li key={i}><strong>{p.name[l]}</strong>{p.desc?.[l] ? <>: <DiceText text={p.desc[l]} lang={lang} /></> : null}</li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <FhFeatureBody item={item} lang={lang} />
       </details>
     </li>
   );

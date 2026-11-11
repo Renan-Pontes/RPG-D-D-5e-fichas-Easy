@@ -1016,6 +1016,12 @@ return {
   spellcastingAbilityOfClass,
   // "Druida 3 / Guerreiro 1" (ou "Druida 4" com uma classe só)
   classLabel: (char, lang, tn) => MC.classEntries(char).map(e => `${tn('class', e.id, lang)} ${e.level}`).join(' / '),
+  // { 10: 1, 8: 7 }: quantos Dados de Vida de cada tipo (src/sheet/hp-logic.js usa)
+  hitDiceByDie: (char) => {
+    const byDie = {};
+    for (const id of MC.classSequence(char)) { const d = SRD.CLASSES.find(c => c.id === id)?.hitDie || 8; byDie[d] = (byDie[d] || 0) + 1; }
+    return byDie;
+  },
   hitDiceLabel: (char) => {
     const byDie = {};
     for (const id of MC.classSequence(char)) { const d = SRD.CLASSES.find(c => c.id === id)?.hitDie || 8; byDie[d] = (byDie[d] || 0) + 1; }

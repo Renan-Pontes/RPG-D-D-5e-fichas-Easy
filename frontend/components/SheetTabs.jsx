@@ -1,4 +1,6 @@
 /* Spells / Inventory / Story / Notes tabs */
+import { useRestMode } from '../src/sheet/rest-mode.jsx';
+import { exhaustionLevel, setExhaustion, usedByAfterRest } from '../src/sheet/hp-logic.js';
 import { errorMessage } from '../src/api/errors.js';
 import { useId, useState, useMemo } from 'react';
 import SRD from '../data/srd.js';
@@ -83,6 +85,15 @@ const UsesTag = ({ uses, char, lang }) => {
  */
 const RestButtons = ({ char, lang, update }) => {
   const [busy, setBusy] = useState(false);
+  const rest = useRestMode();            // null fora da ficha: descansa direto, como antes
+  // Depois do descanso longo: exaustão −1 e o gasto de Dados de Vida por tipo acertado.
+  const afterLong = (hitDiceUsed) => {
+    const p = {};
+    const lv = exhaustionLevel(char);
+    if (lv > 0) Object.assign(p, setExhaustion(char, lv - 1));
+    if (hitDiceUsed != null && char.hitDiceUsedBy) p.hitDiceUsedBy = usedByAfterRest(char, Utils.hitDiceByDie(char), hitDiceUsed);
+    return p;
+  };
   const restore = async (type) => {
     setBusy(true);
     try {
@@ -106,6 +117,7 @@ const RestButtons = ({ char, lang, update }) => {
           hitDiceUsed: d.hitDiceUsed,
           resourcesUsed: d.resourcesUsed || {},
           ...(char.starryForm?.active ? { starryForm: { active: false } } : {}),
+          ...(type === 'long' ? afterLong(d.hitDiceUsed) : {}),
         });
       } else {
         const patch = {};
@@ -128,19 +140,36 @@ const RestButtons = ({ char, lang, update }) => {
           if (Utils.hasClass(char, 'druid')) patch.wildShapeUses = char.rulesVersion === '2024' ? Math.max(0, (char.wildShapeUses || 0) - 1) : 0;
         }
         patch.resourcesUsed = restResources(char, type).resourcesUsed;
+        if (type === 'long') Object.assign(patch, afterLong(patch.hitDiceUsed));
         update(patch);
       }
     } catch (e) { console.warn('rest failed', e); }
     finally { setBusy(false); }
   };
+  // Interruptor: ligar mostra o que só existe no descanso (gastar Dados de Vida);
+  // desligar conclui e aplica a recuperação; ✕ sai sem descansar.
+  const press = async (type) => {
+    if (!rest) return restore(type);
+    if (rest.mode === type) { await restore(type); rest.setMode(null); }
+    else rest.setMode(type);
+  };
+  const pt = lang === 'pt';
+  const on = rest?.mode || null;
+  const btn = (type, icon, label) => (
+    <button type="button" className={`btn btn-sm fh-rest-toggle is-${type}${on === type ? ' is-on' : ' btn-ghost'}`}
+      onClick={() => press(type)} disabled={busy} aria-pressed={rest ? on === type : undefined}
+      title={on === type ? (pt ? 'Concluir o descanso' : 'Finish the rest') : label}>
+      {icon} {on === type ? (pt ? 'Concluir' : 'Finish') : (type === 'short' ? (pt ? 'Curto' : 'Short') : (pt ? 'Longo' : 'Long'))}
+    </button>
+  );
   return (
-    <div className="row gap-1">
-      <button className="btn btn-sm btn-ghost" onClick={() => restore('short')} disabled={busy} title={lang === 'pt' ? 'Descanso curto' : 'Short rest'}>
-        ☕ {lang === 'pt' ? 'Curto' : 'Short'}
-      </button>
-      <button className="btn btn-sm btn-ghost" onClick={() => restore('long')} disabled={busy} title={lang === 'pt' ? 'Descanso longo' : 'Long rest'}>
-        🛌 {lang === 'pt' ? 'Longo' : 'Long'}
-      </button>
+    <div className="row gap-1 fh-rest-toggles">
+      {btn('short', '☕', pt ? 'Descanso curto' : 'Short rest')}
+      {btn('long', '🛌', pt ? 'Descanso longo' : 'Long rest')}
+      {on && (
+        <button type="button" className="btn btn-sm btn-ghost fh-rest-cancel" onClick={() => rest.setMode(null)} disabled={busy}
+          aria-label={pt ? 'Sair do descanso sem concluir' : 'Leave the rest without finishing'}>✕</button>
+      )}
     </div>
   );
 };
