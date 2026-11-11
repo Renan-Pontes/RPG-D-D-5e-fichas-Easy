@@ -109,3 +109,78 @@ export function hpSliderRange(char) {
 
 /** Texto da lente sobre o botão de arrastar: '−7' (dano) ou '+4' (cura). */
 export const deltaLabel = (d) => (int(d) < 0 ? `−${Math.abs(int(d))}` : int(d) > 0 ? `+${int(d)}` : '0');
+
+// ── Arrastar sobre a própria barra (v1.0.63) ──
+// O botão fica na ponta do preenchimento; arrastar mede só a distância desde onde ele
+// estava: o número cresce exponencialmente (perto = ajuste fino, longe = golpe grande) e,
+// ao soltar, o valor entra e o botão volta para a ponta da barra.
+export const DRAG_SCALE = 38;   // px por "e" de crescimento
+
+/** Valor (com sinal) para um arrasto de `dx` px, preso em [min, max]. */
+export function dragAmount(dx, { min = -Infinity, max = Infinity } = {}) {
+  const d = Math.abs(int(dx));
+  if (d < 6) return 0;                                     // zona morta: toque não é arrasto
+  const v = Math.max(1, Math.round(Math.exp((d - 6) / DRAG_SCALE)));
+  return Math.max(min, Math.min(max, Math.sign(dx) * v));
+}
+
+/** Descanso curto: quantos Dados de Vida um arrasto para a direita pede (1, 2, 3… até o que há). */
+export function diceForDrag(dx, available) {
+  const d = int(dx);
+  if (d < 12 || available <= 0) return 0;
+  return Math.min(available, 1 + Math.floor((d - 12) / 34));
+}
+
+/** Escolhe `n` dados das pilhas, maiores primeiro: [{ die, count }]. */
+export function pickDice(pools, n) {
+  let need = Math.max(0, int(n));
+  const out = [];
+  for (const p of pools) {
+    if (!need) break;
+    const k = Math.min(p.left, need);
+    if (k > 0) { out.push({ die: p.die, count: k }); need -= k; }
+  }
+  return out;
+}
+
+/** "2d8 + 1d6 + 6" (cada dado soma o mod. de CON). */
+export function diceLabel(picks, conMod) {
+  const d = picks.map(p => `${p.count}d${p.die}`).join(' + ');
+  const n = picks.reduce((a, p) => a + p.count, 0);
+  const flat = int(conMod) * n;
+  return !d ? '' : flat ? `${d} ${flat > 0 ? '+' : '−'} ${Math.abs(flat)}` : d;
+}
+
+/**
+ * Gasta vários Dados de Vida de uma vez. `rolls` = [[valores do 1º tipo], …] na ordem de
+ * `picks`. Devolve { patch, gained, detail } ou null.
+ */
+export function spendHitDiceRolls(char, byDie, picks, rolls, conMod) {
+  let c = { ...char };
+  let gained = 0;
+  const detail = [];
+  picks.forEach((p, i) => {
+    (rolls[i] || []).forEach(r => {
+      const step = spendHitDie(c, byDie, p.die, r, conMod);
+      if (!step) return;
+      gained += step.gained;
+      detail.push(r);
+      const { gained: _g, ...patch } = step;
+      c = { ...c, ...patch };
+    });
+  });
+  if (!detail.length) return null;
+  return { patch: { currentHp: c.currentHp, hitDiceUsed: c.hitDiceUsed, hitDiceUsedBy: c.hitDiceUsedBy }, gained, detail };
+}
+
+// ── Teste contra a morte (regra das duas edições) ──
+/** Resultado de um d20: 20 = volta com 1 PV; 1 = duas falhas; ≥10 sucesso; senão falha. */
+export function deathSaveResult(char, d20) {
+  const ds = { success: 0, fail: 0, ...(char.deathSaves || {}) };
+  const n = int(d20);
+  if (n === 20) return { kind: 'crit', patch: { currentHp: 1, deathSaves: { success: 0, fail: 0 }, conditions: (char.conditions || []).filter(c => c !== 'unconscious') } };
+  if (n === 1) { const fail = Math.min(3, ds.fail + 2); return { kind: fail >= 3 ? 'dead' : 'fumble', patch: { deathSaves: { ...ds, fail } } }; }
+  if (n >= 10) { const success = Math.min(3, ds.success + 1); return { kind: success >= 3 ? 'stable' : 'success', patch: { deathSaves: { ...ds, success } } }; }
+  const fail = Math.min(3, ds.fail + 1);
+  return { kind: fail >= 3 ? 'dead' : 'fail', patch: { deathSaves: { ...ds, fail } } };
+}

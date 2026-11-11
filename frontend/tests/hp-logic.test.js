@@ -54,3 +54,42 @@ test('faixa do controle e texto da lente', () => {
   assert.equal(deltaLabel(4), '+4');
   assert.equal(deltaLabel(0), '0');
 });
+
+import { dragAmount, diceForDrag, pickDice, diceLabel, spendHitDiceRolls, deathSaveResult } from '../src/sheet/hp-logic.js';
+
+test('arrasto: zona morta, crescimento exponencial, sinal e limites', () => {
+  assert.equal(dragAmount(3), 0);
+  assert.equal(dragAmount(10), 1);
+  const a = dragAmount(60), b = dragAmount(120), c = dragAmount(180);
+  assert.ok(a < b && b < c && c - b > b - a, `${a} ${b} ${c}`);
+  assert.equal(dragAmount(-60), -a);
+  assert.equal(dragAmount(400, { max: 21 }), 21);
+  assert.equal(dragAmount(-400, { min: -35 }), -35);
+});
+
+test('descanso: dados por arrasto e escolha dos maiores primeiro', () => {
+  assert.equal(diceForDrag(5, 8), 0);
+  assert.equal(diceForDrag(20, 8), 1);
+  assert.equal(diceForDrag(60, 8), 2);
+  assert.equal(diceForDrag(999, 3), 3);
+  const pools = [{ die: 10, left: 1 }, { die: 8, left: 6 }];
+  assert.deepEqual(pickDice(pools, 3), [{ die: 10, count: 1 }, { die: 8, count: 2 }]);
+  assert.equal(diceLabel(pickDice(pools, 3), 2), '1d10 + 2d8 + 6');
+});
+
+test('gastar vários dados de uma vez', () => {
+  const c = { currentHp: 20, maxHp: 51, hitDiceUsed: 0 };
+  const r = spendHitDiceRolls(c, { 10: 1, 8: 7 }, [{ die: 10, count: 1 }, { die: 8, count: 2 }], [[7], [3, 5]], 2);
+  assert.deepEqual(r.patch, { currentHp: 41, hitDiceUsed: 3, hitDiceUsedBy: { 10: 1, 8: 2 } });
+  assert.equal(r.gained, 21);
+});
+
+test('teste contra a morte', () => {
+  const c = { deathSaves: { success: 1, fail: 1 }, conditions: ['unconscious'] };
+  assert.equal(deathSaveResult(c, 20).patch.currentHp, 1);
+  assert.deepEqual(deathSaveResult(c, 1).patch.deathSaves, { success: 1, fail: 3 });
+  assert.equal(deathSaveResult(c, 1).kind, 'dead');
+  assert.equal(deathSaveResult(c, 12).patch.deathSaves.success, 2);
+  assert.equal(deathSaveResult({ deathSaves: { success: 2, fail: 0 } }, 15).kind, 'stable');
+  assert.equal(deathSaveResult(c, 9).kind, 'fail');
+});

@@ -1808,8 +1808,6 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             <div className="hp-display">
               <span className={`fh-hp-num${fxKind === 'hit' ? ` fh-shake-${fxBeat}` : ''}`}>
                 <span className="hp-current">{char.currentHp}</span>
-                <span className="hp-sep">/</span>
-                <span className="hp-max">{char.maxHp}</span>
               </span>
               {char.tempHp > 0 && <span className="fh-hp-temp-badge" title={t('tempHp', lang)}>+{char.tempHp}</span>}
               <span className="fh-hp-formula">({hpFormula(Utils.hitDiceByDie(char), Utils.abilityMod(char, 'con'), char.level)})</span>
