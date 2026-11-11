@@ -488,7 +488,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   // Voltar de 0 PV (cura, 20 natural, Dados de Vida) zera os Testes contra a Morte.
   const update = (patch) => {
     const revived = (char.currentHp || 0) === 0 && (patch.currentHp || 0) > 0;
-    onUpdate({ ...char, ...patch, ...(revived && !patch.deathSaves ? { deathSaves: { success: 0, fail: 0 } } : {}) });
+    onUpdate({ ...char, ...patch, ...(revived && !patch.deathSaves ? { deathSaves: { success: 0, fail: 0 } } : {}), ...(revived ? { stabilized: null } : {}) });
   };
   const updateRef = useRef(update);
   updateRef.current = update;
@@ -1826,7 +1826,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
           {/* Barras e controles condensados (src/sheet/HpTracker.jsx): PV temporários, PV em 10
               fatias, Exaustão, Testes contra a Morte, arrastar para dano/cura e Dados de Vida */}
           <HpTracker char={char} lang={lang} update={update} applyHp={applyHp} roll={roll}
-            byDie={Utils.hitDiceByDie(char)} conMod={Utils.abilityMod(char, 'con')} hpPct={hpPct}
+            byDie={Utils.hitDiceByDie(char)} conMod={Utils.abilityMod(char, 'con')} conScore={Utils.abilityWithRace(char, 'con')} hpPct={hpPct}
             hints={{
               temp: <GrimoireHint id="pv-temporarios" lang={lang} />,
               death: <GrimoireHint id="testes-contra-a-morte" lang={lang} />,

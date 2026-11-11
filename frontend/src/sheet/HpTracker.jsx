@@ -11,6 +11,7 @@ import {
   hpSliderRange, deltaLabel, dragAmount, diceForDrag, pickDice, diceLabel, spendHitDiceRolls, deathSaveResult,
 } from './hp-logic.js';
 import { useRestMode } from './rest-mode.jsx';
+import { survivalStatus, stepDays, breathLabel, frigidMinutes } from './survival.js';
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 const d = (n) => 1 + Math.floor(Math.random() * n);
@@ -31,17 +32,20 @@ function DragBar({ className, pct, label, valueText, read, commit, disabled, chi
   const clamp = (v) => Math.max(-home, Math.min(w - home, v));
   const info = dx ? read(dx) : null;
   const edge = home + dx > w - 70 ? 'right' : home + dx < 70 ? 'left' : '';
+  // durante o arrasto o preenchimento acompanha o botão; ao soltar, os dois deslizam
+  // (transição do CSS) até o valor que entrou
+  const now = Math.max(0, Math.min(100, ((home + dx) / w) * 100));
   const end = (apply) => {
     if (apply && dx) commit(dx);
     start.current = null; setDrag(false); setDx(0);
   };
   return (
     <div ref={ref} className={`fh-dragbar ${className}${drag ? ' is-dragging' : ''}${info?.tone ? ` is-${info.tone}` : ''}`}>
-      {children}
+      {typeof children === 'function' ? children(drag ? now : pct, drag) : children}
       {/* só o botão pega o arrasto (a barra em volta não) */}
       <span className="fh-knob" role="slider" tabIndex={disabled ? -1 : 0} aria-label={label}
         aria-valuetext={info ? info.label : valueText} aria-disabled={disabled || undefined}
-        style={{ left: `calc(11px + (100% - 22px) * ${Math.max(0, Math.min(100, pct)) / 100})`, transform: `translateX(calc(-50% + ${dx}px))` }}
+        style={{ left: `calc(11px + (100% - 22px) * ${(drag ? now : Math.max(0, Math.min(100, pct))) / 100})` }}
         onPointerDown={e => {
           if (disabled) return;
           e.preventDefault(); e.stopPropagation();
@@ -79,7 +83,7 @@ function Pips({ n, on, kind, label, onPick, reverse, inside }) {
   );
 }
 
-export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, hpPct, hints = {} }) {
+export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, conScore = 10, hpPct, hints = {} }) {
   const rest = useRestMode();
   const short = rest?.mode === 'short';
   const max = Math.max(1, char.maxHp || 1);
@@ -88,6 +92,7 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
   const exh = exhaustionLevel(char);
   const ds = char.deathSaves || { success: 0, fail: 0 };
   const down = char.currentHp === 0;
+  const bloodied = !down && char.currentHp <= max / 2;   // Sangrando: metade dos PV ou menos
   const range = hpSliderRange(char);
   const pools = hitDicePools(byDie, char);
   const hdLeft = pools.reduce((a, p) => a + p.left, 0);
@@ -99,6 +104,7 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
       const n = diceForDrag(dx, hdLeft);
       return n ? { label: diceLabel(pickDice(pools, n), conMod), tone: 'dice' } : { label: L(lang, 'sem DV', 'no HD'), tone: '' };
     }
+    if (down && dx < 0) return dragAmount(dx) ? { label: L(lang, '+1 falha', '+1 failure'), tone: 'hurt' } : null;
     const v = dragAmount(dx, range);
     return v ? { label: deltaLabel(v), tone: v < 0 ? 'hurt' : 'heal' } : null;
   };
@@ -111,6 +117,11 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
       if (!r) return;
       update(r.patch);
       setNote({ key: Date.now(), text: `${diceLabel(picks, conMod)}: ${r.detail.join(' + ')}${conMod ? ` ${conMod > 0 ? '+' : '−'} ${Math.abs(conMod * r.detail.length)}` : ''} → +${r.gained}` });
+      return;
+    }
+    if (down && dx < 0) {
+      // dano a 0 PV: uma falha no Teste contra a Morte (e deixa de estar estável)
+      if (dragAmount(dx) < 0) update({ deathSaves: { ...ds, fail: Math.min(3, ds.fail + 1) }, stabilized: null });
       return;
     }
     const v = dragAmount(dx, range);
@@ -139,8 +150,14 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
       update(r.patch);
       let text;
       if (r.kind === 'stable') {
-        const h = d(4);   // estável: recupera 1 PV depois de 1d4 horas
-        text = L(lang, `Estável · 1d4 = ${h} h para recuperar 1 PV`, `Stable · 1d4 = ${h} h to regain 1 HP`);
+        // estável: logo depois do d20, rola o d4 de horas até recuperar 1 PV (com animação)
+        const e4 = window.__diceRoll?.({ die: 4, label: L(lang, 'Estabilizado: horas para 1 PV', 'Stabilized: hours to 1 HP'), sheet: true });
+        const h = e4?.total ?? d(4);
+        setRolling(true);
+        setTimeout(() => { setRolling(false); update({ ...r.patch, stabilized: { hours: h, at: new Date().toISOString() } }); }, e4 ? 1900 : 0);
+        text = L(lang, `d20: ${n} · estável`, `d20: ${n} · stable`);
+        setNote({ key: Date.now(), text, death: r.kind });
+        return;
       } else {
         const say = {
           crit: L(lang, 'volta com 1 PV', 'back with 1 HP'), dead: L(lang, 'morto', 'dead'),
@@ -157,10 +174,14 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
       <DragBar className="is-temp" pct={Math.min(100, (temp / max) * 100)}
         label={L(lang, 'PV temporários: arraste para mudar', 'Temporary HP: drag to change')} valueText={String(temp)}
         read={readTemp} commit={commitTemp}>
-        <div className="fh-hpt-temp" aria-hidden="true">
-          <div className="fh-hpt-temp-fill" style={{ width: `${Math.min(100, (temp / max) * 100)}%` }} />
-        </div>
-        <span className="fh-hpt-temp-tag" aria-hidden="true">{temp ? `+${temp} ${L(lang, 'temp', 'temp')}` : L(lang, 'temp', 'temp')}{hints.temp}</span>
+        {(fill) => (
+          <>
+            <div className="fh-hpt-temp" aria-hidden="true">
+              <div className="fh-hpt-temp-fill" style={{ width: `${fill}%` }} />
+            </div>
+            <span className="fh-hpt-temp-tag" aria-hidden="true">{temp ? `+${temp} ${L(lang, 'temp', 'temp')}` : L(lang, 'temp', 'temp')}{hints.temp}</span>
+          </>
+        )}
       </DragBar>
 
       <DragBar className="is-hp" pct={hpPct}
@@ -168,13 +189,18 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
           ? L(lang, 'Pontos de Vida: arraste para a direita para gastar Dados de Vida, para a esquerda para dano', 'Hit points: drag right to spend Hit Dice, left for damage')
           : L(lang, 'Pontos de Vida: arraste para a esquerda para dano, para a direita para cura', 'Hit points: drag left for damage, right for healing')}
         valueText={`${char.currentHp}`} read={readHp} commit={commitHp}>
-        <div className="hp-bar fh-hpt-bar" aria-hidden="true">
-          <div className="fh-hp-ghost" style={{ width: `${hpPct}%` }} />
-          <div className="hp-bar-fill" style={{ width: `${hpPct}%` }} />
-          <div className="fh-hpt-slices">
-            {Array.from({ length: SLICES }, (_, i) => <span key={i} className={i < on ? 'is-on' : ''} />)}
+        {(fill) => (
+          <div className={`hp-bar fh-hpt-bar${bloodied ? ' is-bloodied' : ''}`} aria-hidden="true">
+            <div className="fh-hp-ghost" style={{ width: `${hpPct}%` }} />
+            <div className="hp-bar-fill" style={{ width: `${fill}%` }} />
+            <div className="fh-hpt-slices">
+              {Array.from({ length: SLICES }, (_, i) => <span key={i} className={i < on ? 'is-on' : ''} />)}
+            </div>
+            {down && char.stabilized?.hours && (
+              <span className="fh-hpt-bar-text">{L(lang, `Estabilizado · ${char.stabilized.hours} h para recuperar 1 PV`, `Stabilized · ${char.stabilized.hours} h to regain 1 HP`)}</span>
+            )}
           </div>
-        </div>
+        )}
       </DragBar>
       {short && (
         <div className="fh-hpt-rest" role="status">
@@ -188,20 +214,60 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
         <Pips n={EXHAUSTION_MAX} on={exh} kind="exh" label={L(lang, 'Exaustão', 'Exhaustion')}
           inside={exh ? `${L(lang, 'Exaustão', 'Exhaustion')} ${exh}` : L(lang, 'Exaustão', 'Exhaustion')}
           onPick={lv => update(setExhaustion(char, lv))} />
-        {hints.exhaustion}
       </div>
 
       <div className={`fh-hpt-row is-death${down ? ' is-down' : ''}`}>
-        <span className="fh-ds-mark is-ko" aria-hidden="true">✗</span>
         <Pips n={3} on={ds.fail} kind="ko" reverse label={L(lang, 'Falhas', 'Failures')} inside={L(lang, 'Falhas', 'Failures')} onPick={n => update({ deathSaves: { ...ds, fail: n } })} />
         <button type="button" className={`fh-death-die${rolling ? ' is-rolling' : ''}`} disabled={!down || rolling} onClick={deathRoll}
           aria-label={down ? L(lang, 'Rolar teste contra a morte', 'Roll death save') : L(lang, 'Teste contra a morte (só a 0 PV)', 'Death save (only at 0 HP)')}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 7v10l-9 5-9-5V7z" /><path d="M12 2v20M3 7l9 5 9-5" /></svg>
         </button>
         <Pips n={3} on={ds.success} kind="ok" label={L(lang, 'Sucessos', 'Successes')} inside={L(lang, 'Sucessos', 'Successes')} onPick={n => update({ deathSaves: { ...ds, success: n } })} />
-        <span className="fh-ds-mark is-ok" aria-hidden="true">✓</span>
-        {hints.death}
+
       </div>
+
+      {/* Sobrevivência (src/sheet/survival.js): dias sem comida/água, fôlego, água gélida */}
+      {(() => {
+        const st = survivalStatus(char, conMod);
+        const s = char.survival || {};
+        const step = (key, dlt) => update(stepDays(char, key, dlt));
+        const counter = (key, n, over, title, sub) => (
+          <div className={`fh-surv-tile${over ? ' is-over' : n ? ' is-warn' : ''}`}>
+            <span className="fh-surv-k">{title}</span>
+            <span className="fh-surv-v">
+              <button type="button" aria-label={L(lang, `${title}: menos um dia`, `${title}: one day less`)} onClick={() => step(key, -1)} disabled={!n}>−</button>
+              <b className="mono">{n}</b>
+              <button type="button" aria-label={L(lang, `${title}: mais um dia`, `${title}: one day more`)} onClick={() => step(key, 1)}>+</button>
+            </span>
+            <span className="fh-surv-s">{sub}</span>
+          </div>
+        );
+        return (
+          <div className="fh-surv" role="group" aria-label={L(lang, 'Sobrevivência', 'Survival')}>
+            <div className={`fh-surv-tile is-state${st.nourished ? ' is-ok' : ' is-over'}`}>
+              <span className="fh-surv-k">{L(lang, 'Nutrido', 'Nourished')}</span>
+              <b className="fh-surv-big">{st.nourished ? '✓' : '✗'}</b>
+              <span className="fh-surv-s">{st.nourished ? L(lang, 'comida e água em dia', 'food and water on track') : L(lang, 'faltando comida ou água', 'short of food or water')}</span>
+            </div>
+            {counter('food', s.food || 0, st.foodOver,
+              L(lang, 'Sem comida', 'No food'),
+              st.foodOver ? L(lang, `+1 exaustão/dia (limite ${st.foodLimit})`, `+1 exhaustion/day (limit ${st.foodLimit})`) : L(lang, `aguenta ${st.foodLimit} dias`, `lasts ${st.foodLimit} days`))}
+            {counter('water', s.water || 0, st.waterOver,
+              L(lang, 'Sem água', 'No water'),
+              st.waterOver ? L(lang, '+1 exaustão ao fim do dia', '+1 exhaustion at day end') : L(lang, '1 galão/dia · ½: CD 15 CON', '1 gal/day · ½: DC 15 CON'))}
+            <div className="fh-surv-tile">
+              <span className="fh-surv-k">{L(lang, 'Fôlego', 'Breath')}</span>
+              <b className="fh-surv-big">{1 + conMod < 1 ? '30 s' : `${1 + conMod} min`}</b>
+              <span className="fh-surv-s">{breathLabel(conMod, lang)}</span>
+            </div>
+            <div className="fh-surv-tile">
+              <span className="fh-surv-k">{L(lang, 'Água gélida', 'Frigid water')}</span>
+              <b className="fh-surv-big">{`${frigidMinutes(conScore)} min`}</b>
+              <span className="fh-surv-s">{L(lang, 'depois CD 10 CON/min', 'then DC 10 CON/min')}</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {note && <div key={note.key} className={`fh-hpt-note${note.death ? ` is-${note.death}` : ''}`} role="status">{note.text}</div>}
     </div>

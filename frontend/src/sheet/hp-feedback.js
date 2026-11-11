@@ -12,8 +12,9 @@ export function hpState(currentHp, maxHp) {
 }
 
 const STATE_LABEL = {
-  pt: { ok: 'Firme', warn: 'Ferido', crit: 'À beira da morte', down: 'Caído' },
-  en: { ok: 'Steady', warn: 'Wounded', crit: 'Near death', down: 'Down' },
+  // 'warn' e 'crit' = metade dos PV ou menos: a condição Sangrando (Bloodied) das regras
+  pt: { ok: 'Firme', warn: 'Sangrando', crit: 'Sangrando · à beira', down: 'Caído' },
+  en: { ok: 'Steady', warn: 'Bloodied', crit: 'Bloodied · near death', down: 'Down' },
 };
 export const hpStateLabel = (state, lang) => (STATE_LABEL[lang] || STATE_LABEL.en)[state];
 
