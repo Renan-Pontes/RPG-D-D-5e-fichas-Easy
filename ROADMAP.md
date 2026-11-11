@@ -108,6 +108,8 @@
 
 ## 5. Backend Sync & Character Version Architecture (Wave 0 Immediate Priority)
 
+> **Fichas em várias mesas / versões / one-shot**: cobertura e plano dividido (F1–F11 no frontend, B1–B8 no backend) em [`docs/character-versions.md`](docs/character-versions.md) §7. O caminho "versão = ficha própria" entrega o objetivo no backend de produção atual.
+
 Full specifications: [`docs/sync-spec.md`](docs/sync-spec.md), [`docs/character-versions.md`](docs/character-versions.md), and [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) (Epics 1–4).
 
 - [ ] **Epic 1 (`sync-spec` Block C + A4):** ~~migration `0015` (`C1`)~~ done in v1.0.57; decide the one-sheet-many-tables rule (`C2`–`C5`, Task 1.2) and, reconcile multi-campaign/multi-character membership tests (`C2`–`C5`), wire missing Pulse `rev` sources (`C6`), enforce `dm_settings` write guard (`C7`) & secret redaction (`C8`), add `manage.py test` gate to `.github/workflows/backend-release.yml` (`C9`), and fix `scripts/self_update.py` `VERSION.json` write (`A4`).

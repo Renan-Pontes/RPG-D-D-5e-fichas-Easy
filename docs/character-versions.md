@@ -115,3 +115,62 @@ a versão (`Membership.version`).
 
 Quando as rotas existirem, o frontend troca só as chamadas de `VersionsModal.jsx` e o
 `reconcile` de `versions.js`; a tela e as regras ficam.
+
+## 7. Cobertura do objetivo e divisão frontend × backend (11/11, v1.0.58)
+
+**Objetivo**: a mesma ficha em várias campanhas ao mesmo tempo (nunca duas vezes na mesma),
+cada campanha com a sua versão do modelo; o jogador pode ter várias fichas e NPCs na mesa,
+trocar entre elas e levar a ficha para um *one-shot* paralelo.
+
+### 7.1 O que o código cobre hoje
+
+| Capacidade | Hoje | Onde |
+|---|---|---|
+| Modelo + uma versão por campanha | ✅ só no frontend | `frontend/src/sheet/versions.js` (`data.versions`) |
+| Sair, voltar, arquivar, excluir, promover a modelo | ✅ frontend (excluir e promover sem teste no navegador) | `frontend/src/sheet/VersionsModal.jsx` |
+| A mesma ficha em **duas mesas ao mesmo tempo** | ❌ | `VersionsModal.jsx` (`detach`) tira a ficha da mesa atual antes de abrir outra versão: o servidor guarda **uma** ficha |
+| Nunca duas vezes na mesma mesa | ⚠️ só na view (409 `character_already_in_campaign`), sem regra no banco | `backend/api/views_campaigns.py::campaign_join`, `campaign_member` |
+| Várias fichas do mesmo jogador na mesma mesa | ⚠️ backend do `main` (migração `0014`), **fora de produção**, sem tela | — |
+| NPCs do mestre na mesa (`isNpc`) | ⚠️ backend do `main`, fora de produção; só `frontend/src/group/PlayersPanel.jsx` lê | `views_campaigns.py::campaign_join` |
+| *One-shot* com a mesma ficha | ⚠️ só saindo da campanha principal | — |
+| Só leitura das versões arquivadas | ⚠️ só na tela | `Sheet.jsx` (`data-version-hide`) |
+
+### 7.2 Frontend — o que dá para fazer sem esperar o backend
+
+A peça que destrava "várias mesas ao mesmo tempo" sem backend novo: **cada versão de campanha
+vira uma ficha própria no servidor** (`POST /characters`), ligada ao modelo por
+`data.versionOf = <id do modelo>`. Cada mesa aponta para a sua ficha; combate, dados, descanso
+e a TV já funcionam por ficha, então nada no servidor precisa saber de versões.
+Custo: cada versão conta no limite de fichas do plano (grátis = 3; a vaga patrocinada da mesa
+cobre o excedente, `plans.py::decide_sponsored`), e o modelo e as versões não se sincronizam
+sozinhos — o que é a regra "cópia completa" já combinada.
+
+| # | Item | Arquivos | Depende de |
+|---|---|---|---|
+| F1 | `versions.js`: novo modo "versão = ficha" — `fork(template, campaign)` monta a cópia (sem `id`, com `versionOf`, `versionCampaign`, `_avatarSame`), `versionsOf(list, templateId)` agrupa por modelo; puro, com testes | `frontend/src/sheet/versions.js`, `frontend/tests/versions.test.js` | — |
+| F2 | Entrar numa mesa com uma ficha que já está em outra: oferecer **"Nova versão para esta mesa"** (cria a cópia e entra com ela) em vez de soltar a outra | `VersionsModal.jsx`, `frontend/src/sheet/CampaignLinkModal.jsx`, `frontend/src/sheet/campaign-link.js` | F1 |
+| F3 | Lista de fichas: as versões aparecem **dentro** do card do modelo (selo com o nome da mesa), não como fichas soltas | `frontend/app.jsx` (lista de fichas) | F1 |
+| F4 | Trocar de versão = abrir a outra ficha (`#ficha=<id>`), sem `detach`/`save`/`attach`; o chip de versão do herói lista as irmãs | `Sheet.jsx` (`versionChip`), `app.jsx` | F1 |
+| F5 | Migrar quem já tem `data.versions`: ao abrir, cada versão guardada vira uma ficha `versionOf` (uma vez, com confirmação); `data.versions` fica só como leitura até o backend chegar | `versions.js` (`unpack`), `Sheet.jsx` | F1 |
+| F6 | **One-shot**: "Jogar um one-shot" no modelo cria a versão com `versionKind: 'oneshot'`; ao encerrar a campanha, ela vira arquivo (só leitura) | `versions.js`, `VersionsModal.jsx` | F1 |
+| F7 | Escolher **qual das minhas fichas** senta à mesa (e trocar) — tela no convite e no painel do grupo | `CampaignLinkModal.jsx`, `frontend/src/group/PlayersPanel.jsx` | deploy do `main` (B) |
+| F8 | Mestre adiciona NPC à mesa (`isNpc`) a partir das fichas dele | `frontend/src/group/PlayersPanel.jsx`, `frontend/src/group/group-api.js` | deploy do `main` (B) |
+| F9 | Barrar no cliente a mesma ficha (ou duas versões do mesmo modelo, se for a regra) duas vezes na mesma mesa, com a mensagem do 409 | `campaign-link.js`, `frontend/src/api/errors.js` | — |
+| F10 | Limite do plano: antes de criar a versão, mostrar quantas fichas sobram e se a mesa patrocina; tratar 402 `plan_limit` | `CampaignLinkModal.jsx`, `errors.js` | F1 |
+| F11 | Testes no navegador de excluir, promover/desfazer e adicionar a uma campanha (faltaram na v1.0.54) | Playwright | — |
+
+### 7.3 Backend — só o que o frontend não consegue fazer
+
+| # | Item | Por que não dá no frontend |
+|---|---|---|
+| B1 | **Deploy do `main`** (segredo `FORJA_UPDATE_KEY_SHA256` ou atualização manual do Renan) | sem ele produção não tem `0014` (várias fichas por jogador, NPC) — trava F7 e F8 |
+| B2 | Decidir a regra da Task 1.2 (opção A: N mesas, nunca duas vezes na mesma) e reescrever os 9 testes | os testes e as views são do servidor |
+| B3 | `UniqueConstraint(campaign, character)` condicional + migração `0016` | corrida de duas requisições só se fecha no banco |
+| B4 | Só leitura no servidor: `PUT /characters/:id` responde `423` para versão arquivada | o cliente pode ser contornado |
+| B5 | Campo `version_of` (FK opcional para o modelo) e `version_kind` em `Character`, com índice | `data.versionOf` funciona, mas consulta e integridade (apagar o modelo) pedem coluna |
+| B6 | Limite do plano: versões do mesmo modelo contam como **uma** ficha (ou regra própria) | a cota é calculada em `plans.py` |
+| B7 | Retrato compartilhado: `/characters/:id/avatar` lê do modelo quando a versão tem `_avatarSame` | evita copiar 1–2 MB de imagem por versão (hoje é cópia) |
+| B8 | (Opcional, depois) `CharacterVersion` + `resolve_sheet_target` do §3 — só se a "versão = ficha" do §7.2 não bastar | o §7.2 cobre o objetivo sem isso |
+
+Com F1–F6 + F9–F11 o objetivo funciona **já, no backend de produção**; B1 libera F7–F8;
+B2–B7 tornam as regras garantidas pelo servidor em vez de só pela tela.
