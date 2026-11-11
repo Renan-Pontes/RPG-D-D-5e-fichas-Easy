@@ -158,6 +158,16 @@ sozinhos — o que é a regra "cópia completa" já combinada.
 | F9 | Barrar no cliente a mesma ficha (ou duas versões do mesmo modelo, se for a regra) duas vezes na mesma mesa, com a mensagem do 409 | `campaign-link.js`, `frontend/src/api/errors.js` | — |
 | F10 | Limite do plano: antes de criar a versão, mostrar quantas fichas sobram e se a mesa patrocina; tratar 402 `plan_limit` | `CampaignLinkModal.jsx`, `errors.js` | F1 |
 | F11 | Testes no navegador de excluir, promover/desfazer e adicionar a uma campanha (faltaram na v1.0.54) | Playwright | — |
+| F12 | Excluir o **modelo**: perguntar o destino das versões (ficam como fichas soltas, ou vão junto); excluir uma versão tira ela da lista do modelo | `frontend/app.jsx` (`handleDelete`) | F1 |
+| F13 | Preferências por aparelho seguem a cópia: `fh-belt:<id>` e `fh-multiroll4:<id>` são copiados para o id novo ao criar a versão | `frontend/components/Sheet.jsx` (`BeltAbilities`), `frontend/src/dice/MultiRoll.jsx` | F1 |
+| F14 | Evolução no modelo não chega às versões (cópia completa): ação opcional **"Recomeçar a partir do modelo"** numa versão sem sessão jogada, com confirmação digitada | `VersionsModal.jsx`, `versions.js` | F1 |
+| F15 | NPC do mestre como versão: o cartão do Mundo aponta para a ficha da versão (`ficha:<id da versão>`), não para o modelo | `frontend/src/sheet/npc-link.js` | F1, F8 |
+| F16 | Plano: o contador e o `LimitDialog` mostram versões agrupadas ("3 fichas · 2 são versões de Arwen"), para o jogador entender o que gasta a cota | `frontend/src/plans/plans-logic.js`, `frontend/src/plans/LimitDialog.jsx` | F1 |
+| F17 | Aposentar a prévia `v:<id>:<chave>` e o hash `#ficha=<id>@<chave>` depois do F5: links antigos abrem a ficha da versão | `versions.js` (`previewChar`, `parseSheetHash`), `app.jsx` (`versionPreview`) | F5 |
+| F18 | Modo offline (`localStorage`, sem login): criar versão funciona igual, com id local; a migração para a conta leva o `versionOf` junto | `frontend/src/api/storage.js` | F1 |
+| F19 | Textos pt/en das telas novas (selo de versão, "Nova versão para esta mesa", one-shot, destino ao excluir) | `frontend/data/i18n.js` | F2–F16 |
+
+**Varredura de impacto (o que a "versão = ficha" NÃO muda)**: combate (`frontend/src/campaigns/CombatActionPanel.jsx` lê `characterCampaigns` por id), dados e TV (por id de ficha), subida de nível e aprovações (`frontend/src/progression/`, `frontend/src/group/RequestsPanel.jsx` — por ficha), exportação em PDF (da ficha aberta). Como cada versão é uma ficha comum, esses caminhos funcionam sem alteração.
 
 ### 7.3 Backend — só o que o frontend não consegue fazer
 
@@ -172,5 +182,5 @@ sozinhos — o que é a regra "cópia completa" já combinada.
 | B7 | Retrato compartilhado: `/characters/:id/avatar` lê do modelo quando a versão tem `_avatarSame` | evita copiar 1–2 MB de imagem por versão (hoje é cópia) |
 | B8 | (Opcional, depois) `CharacterVersion` + `resolve_sheet_target` do §3 — só se a "versão = ficha" do §7.2 não bastar | o §7.2 cobre o objetivo sem isso |
 
-Com F1–F6 + F9–F11 o objetivo funciona **já, no backend de produção**; B1 libera F7–F8;
+Com F1–F6 + F9–F19 o objetivo funciona **já, no backend de produção**; B1 libera F7–F8;
 B2–B7 tornam as regras garantidas pelo servidor em vez de só pela tela.
