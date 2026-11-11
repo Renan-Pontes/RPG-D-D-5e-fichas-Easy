@@ -21,13 +21,15 @@ const d = (n) => 1 + Math.floor(Math.random() * n);
  * { label, tone } para a lente (ou null = nada); `commit(dx)` aplica ao soltar.
  * Teclado: setas acumulam o arrasto em passos, Enter aplica, Esc desfaz.
  */
-function DragBar({ className, pct, label, valueText, read, commit, disabled, children }) {
+function DragBar({ className, pct, label, valueText, read, commit, disabled, children, knob = 18 }) {
   const ref = useRef(null);
   const start = useRef(null);
   const [dx, setDx] = useState(0);
   const [drag, setDrag] = useState(false);
   // o botão nunca sai da barra: o arrasto é preso entre as duas pontas
-  const w = Math.max(40, (ref.current?.clientWidth || 322) - 22);   // trilho = largura − padding (11px de cada lado)
+  // o botão mora DENTRO da barra: o centro anda de r até (largura − r), r = metade do botão
+  const r = knob / 2;
+  const w = Math.max(40, (ref.current?.clientWidth || 322) - knob);
   const home = (pct / 100) * w;
   const clamp = (v) => Math.max(-home, Math.min(w - home, v));
   const info = dx ? read(dx) : null;
@@ -45,7 +47,7 @@ function DragBar({ className, pct, label, valueText, read, commit, disabled, chi
       {/* só o botão pega o arrasto (a barra em volta não) */}
       <span className="fh-knob" role="slider" tabIndex={disabled ? -1 : 0} aria-label={label}
         aria-valuetext={info ? info.label : valueText} aria-disabled={disabled || undefined}
-        style={{ left: `calc(11px + (100% - 22px) * ${(drag ? now : Math.max(0, Math.min(100, pct))) / 100})` }}
+        style={{ width: knob, height: knob, marginTop: -r, left: `calc(${r}px + (100% - ${knob}px) * ${(drag ? now : Math.max(0, Math.min(100, pct))) / 100})` }}
         onPointerDown={e => {
           if (disabled) return;
           e.preventDefault(); e.stopPropagation();
@@ -112,11 +114,20 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
     if (short && dx > 0) {
       const picks = pickDice(pools, diceForDrag(dx, hdLeft));
       if (!picks.length) return;
-      const rolls = picks.map(p => Array.from({ length: p.count }, () => d(p.die)));
-      const r = spendHitDiceRolls(char, byDie, picks, rolls, conMod);
-      if (!r) return;
-      update(r.patch);
-      setNote({ key: Date.now(), text: `${diceLabel(picks, conMod)}: ${r.detail.join(' + ')}${conMod ? ` ${conMod > 0 ? '+' : '−'} ${Math.abs(conMod * r.detail.length)}` : ''} → +${r.gained}` });
+      // os dados rolam no rolador da ficha (com a animação); a cura usa os números dele
+      const nDice = picks.reduce((a, p) => a + p.count, 0);
+      const formula = picks.map(p => `${p.count}d${p.die}`).join('+') + (conMod ? `${conMod > 0 ? '+' : '-'}${Math.abs(conMod * nDice)}` : '');
+      const entry = typeof window !== 'undefined' && window.__diceRoll
+        ? window.__diceRoll({ formula, label: L(lang, 'Dados de Vida', 'Hit Dice'), sheet: true })
+        : null;
+      const rolls = picks.map((p, i) => {
+        const g = entry?.groups?.filter(x => x.die === p.die)?.[0] || entry?.groups?.[i];
+        // o rolador devolve { value, kept } por dado
+        const got = (g?.rolls || []).map(x => (typeof x === 'object' ? x.value : x)).filter(Number.isFinite).slice(0, p.count);
+        return got.length === p.count ? got : Array.from({ length: p.count }, () => d(p.die));
+      });
+      const apply = () => { const r = spendHitDiceRolls(char, byDie, picks, rolls, conMod); if (r) update(r.patch); };
+      if (entry) setTimeout(apply, 1900); else apply();
       return;
     }
     if (down && dx < 0) {
@@ -171,7 +182,7 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
 
   return (
     <div className={`fh-hpt${short ? ' is-short-rest' : ''}`}>
-      <DragBar className="is-temp" pct={Math.min(100, (temp / max) * 100)}
+      <DragBar className="is-temp" knob={12} pct={Math.min(100, (temp / max) * 100)}
         label={L(lang, 'PV temporários: arraste para mudar', 'Temporary HP: drag to change')} valueText={String(temp)}
         read={readTemp} commit={commitTemp}>
         {(fill) => (
@@ -269,7 +280,6 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
         );
       })()}
 
-      {note && <div key={note.key} className={`fh-hpt-note${note.death ? ` is-${note.death}` : ''}`} role="status">{note.text}</div>}
     </div>
   );
 }

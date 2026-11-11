@@ -1809,6 +1809,23 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         <section key="hp" className={`hp-tracker fh-panel fh-hp${fxKind === 'heal' ? ` fh-healed-${fxBeat}` : ''}`} data-state={state}>
           <FhTitle>{t('hp', lang)}</FhTitle>
           <div className="fh-hp-row">
+            {/* CA à esquerda, PV no canto direito */}
+            <div className="fh-hp-ac">
+            <FhMedal shape="shield" value={ac} label={t('ac', lang)}
+                sub={acStyleBonuses.length > 0
+                  ? <span title={acStyleBonuses.map(x => x.label[lang]).join(', ')}>{FS.partsLabel(acStyleBonuses, lang)}</span>
+                  : null}>
+                {untrainedArmor.length > 0 && (
+                  <div className="fh-medal-warn"
+                    title={lang === 'pt'
+                      ? 'Sem treino: desvantagem em testes, salvaguardas e ataques de FOR e DES, e você não pode lançar magias.'
+                      : "Untrained: Disadvantage on STR and DEX checks, saves and attacks, and you can't cast spells."}>
+                    {lang === 'pt' ? 'Sem treino' : 'Untrained'}: {untrainedArmor.join(', ')}
+                  </div>
+                )}
+              </FhMedal>
+            </div>
+            <div className="fh-hp-right">
             <div className="hp-display">
               <span className={`fh-hp-num${fxKind === 'hit' ? ` fh-shake-${fxBeat}` : ''}`}>
                 <span className="hp-current">{char.currentHp}</span>
@@ -1822,6 +1839,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
               )}
             </div>
             <div className="fh-hp-state">{hpStateLabel(state, lang)}</div>
+            </div>
           </div>
           {/* Barras e controles condensados (src/sheet/HpTracker.jsx): PV temporários, PV em 10
               fatias, Exaustão, Testes contra a Morte, arrastar para dano/cura e Dados de Vida */}
@@ -1837,19 +1855,6 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
           {/* Defesa em medalhões: CA, Iniciativa (toque rola), Deslocamento, Prof., Perc. passiva
               e Dados de Vida (as antigas grades .combat-grid desta aba) */}
           <div className="fh-defense">
-            <FhMedal shape="shield" value={ac} label={t('ac', lang)}
-              sub={acStyleBonuses.length > 0
-                ? <span title={acStyleBonuses.map(x => x.label[lang]).join(', ')}>{FS.partsLabel(acStyleBonuses, lang)}</span>
-                : null}>
-              {untrainedArmor.length > 0 && (
-                <div className="fh-medal-warn"
-                  title={lang === 'pt'
-                    ? 'Sem treino: desvantagem em testes, salvaguardas e ataques de FOR e DES, e você não pode lançar magias.'
-                    : "Untrained: Disadvantage on STR and DEX checks, saves and attacks, and you can't cast spells."}>
-                  {lang === 'pt' ? 'Sem treino' : 'Untrained'}: {untrainedArmor.join(', ')}
-                </div>
-              )}
-            </FhMedal>
             <FhMedal shape="circle" value={Utils.fmtMod(initBonus)} label={t('initiative', lang)}
               sub={<FhTapToRoll lang={lang} short />}
               onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} />
