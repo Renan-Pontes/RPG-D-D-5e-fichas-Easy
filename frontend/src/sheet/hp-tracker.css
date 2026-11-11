@@ -191,3 +191,38 @@
 .ficha .fh-hp-heart .fh-float { position: absolute; top: 4px; right: -10px; }
 .ficha .fh-hp .fh-hp-row > .fh-hp-state { margin-left: auto; align-self: center; }
 .ficha .fh-hp-heart .fh-medal-sub, .ficha .fh-hp-heart .fh-medal-sub .fh-hp-formula { text-transform: none; font-variant: normal; font-feature-settings: "smcp" 0, "c2sc" 0; letter-spacing: 0.02em; }
+
+/* v1.0.68: CA e PV gêmeos — mesma forma de caixa, mesmo valor, rótulo e legenda */
+.ficha .fh-hp .fh-hp-row { justify-content: center; align-items: flex-start; gap: 28px; }
+.ficha .fh-hp-ac, .ficha .fh-hp-heart { flex: 0 0 96px; display: grid; justify-items: center; }
+.ficha .fh-hp-ac .fh-medal, .ficha .fh-hp-heart .fh-medal { width: 96px; }
+.ficha .fh-hp-ac .fh-medal-shape, .ficha .fh-hp-heart .fh-medal-shape { width: 80px; height: 86px; }
+.ficha .fh-hp-ac .fh-medal-val, .ficha .fh-hp-heart .fh-medal-val { font-size: 1.9rem; margin-top: -6px; }
+.ficha .fh-hp-ac .fh-medal-shape.is-long .fh-medal-val, .ficha .fh-hp-heart .fh-medal-shape.is-long .fh-medal-val { font-size: 1.55rem; }
+.ficha .fh-hp-ac .fh-medal-label, .ficha .fh-hp-heart .fh-medal-label { margin-top: 2px; }
+.ficha .fh-hp-ac .fh-medal-sub, .ficha .fh-hp-heart .fh-medal-sub { min-height: 1.2em; font-size: 0.78rem; }
+.ficha .fh-hp-heart .fh-medal-shape svg > * { fill: #160f0b; }
+.ficha .fh-hp-heart .fh-hp-formula { font-size: inherit; opacity: 1; }
+
+/* "Sangrando" sob o preenchimento: ocupa só 0–50% da barra; o preenchimento (opaco) cobre */
+.ficha .fh-hpt-bar { position: relative; }
+.ficha .fh-hpt-bar .hp-bar-fill, .ficha .fh-hpt-bar .fh-hpt-slices { position: absolute; z-index: 1; }
+.ficha .fh-hpt-bar .hp-bar-fill { top: 0; bottom: 0; left: 0; }
+.ficha .fh-hpt-bloodied {
+  position: absolute; z-index: 0; top: 0; bottom: 0; left: 0; width: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font: 700 0.62rem/1 var(--body, serif); letter-spacing: 0.18em; text-transform: uppercase;
+  color: #ff6a5a; background: linear-gradient(90deg, rgba(122, 20, 16, 0.55), rgba(176, 38, 30, 0.35));
+  text-shadow: 0 0 6px rgba(255, 70, 50, 0.8); animation: fh-bloodied-pulse 1.4s ease-in-out infinite;
+  border-radius: 999px 0 0 999px; pointer-events: none;
+}
+@keyframes fh-bloodied-pulse { 50% { color: #ffb3a8; background-color: rgba(200, 40, 30, 0.25); text-shadow: 0 0 12px rgba(255, 70, 50, 1); } }
+@media (prefers-reduced-motion: reduce) { .ficha .fh-hpt-bloodied { animation: none; } }
+/* metade dos PV ou menos: tudo vermelho (barra e número) */
+.ficha .fh-hp[data-state="warn"] .hp-bar-fill { background: linear-gradient(90deg, #8f1d14, var(--fh-blood)); }
+.ficha .fh-hp[data-state="warn"] .fh-hp-heart .hp-current { color: var(--fh-blood); }
+/* o rótulo encosta na marca de 50%: as letras surgem uma a uma, da direita, conforme o PV cai */
+.ficha .fh-hpt-bloodied { justify-content: flex-end; padding-right: 8px; }
+/* a fonte de títulos (Cinzel) não tem minúsculas: "9d8" vai na serifa do texto */
+.ficha .fh-hp-heart .fh-hp-formula { font-family: var(--body, Georgia, serif); font-weight: 600; letter-spacing: 0.02em; }
+.ficha .fh-hp[data-state="warn"] .fh-hp-formula { color: var(--fh-blood); }

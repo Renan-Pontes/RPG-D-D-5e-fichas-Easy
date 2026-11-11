@@ -1809,7 +1809,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         <section key="hp" className={`hp-tracker fh-panel fh-hp${fxKind === 'heal' ? ` fh-healed-${fxBeat}` : ''}`} data-state={state}>
           <FhTitle>{t('hp', lang)}</FhTitle>
           <div className="fh-hp-row">
-            {/* CA à esquerda, PV no canto direito */}
+            {/* CA e PV: dois medalhões gêmeos, mesmo tamanho e estilo, centrados */}
             <div className="fh-hp-ac">
             <FhMedal shape="shield" value={ac} label={t('ac', lang)}
                 sub={acStyleBonuses.length > 0
@@ -1838,7 +1838,6 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
                 </span>
               )}
             </div>
-            <div className="fh-hp-state">{hpStateLabel(state, lang)}</div>
           </div>
           {/* Barras e controles condensados (src/sheet/HpTracker.jsx): PV temporários, PV em 10
               fatias, Exaustão, Testes contra a Morte, arrastar para dano/cura e Dados de Vida */}

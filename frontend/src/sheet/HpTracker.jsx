@@ -205,6 +205,9 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
         valueText={`${char.currentHp}`} read={readHp} commit={commitHp}>
         {(fill) => (
           <div className={`hp-bar fh-hpt-bar${bloodied ? ' is-bloodied' : ''}`} aria-hidden="true">
+            {/* "Sangrando" escondido sob o preenchimento, na metade esquerda: aparece aos
+                poucos conforme os PV descem abaixo de 50% */}
+            <span className="fh-hpt-bloodied" aria-hidden="true">{L(lang, 'Sangrando', 'Bloodied')}</span>
             <div className="fh-hp-ghost" style={{ width: `${hpPct}%` }} />
             <div className="hp-bar-fill" style={{ width: `${fill}%` }} />
             <div className="fh-hpt-slices">
