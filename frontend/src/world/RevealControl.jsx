@@ -59,6 +59,7 @@ export function useReveal(entry, lang, onChange, beforeReveal) {
     setVisibility: (visibility) => (visibility === entry?.visibility ? null : run({ visibility })),
     toggleSecret: (id, on) => run({ secrets: { [id]: on } }),
     togglePin: (id, on) => run({ pins: { [id]: on } }),
+    toggleZone: (id, on) => run({ zones: { [id]: on } }),
     run,
   };
 }

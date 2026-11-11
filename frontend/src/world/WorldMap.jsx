@@ -19,7 +19,7 @@
 // - Campanha encerrada (readOnly): sem 📍, sem arrastar, sem editar o marcador.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createEntry, getEntry, isConflict, putEntryImage, updateEntry, worldErrorText, worldImageUrl } from './world-api.js';
-import { compressImage } from './image.js';
+import { autoFitZoneRatio, compressImage, fetchImageRatio } from './image.js';
 import { KIND_META, clampUnit, freshId, isTouchUi, kindIcon, pinCountText, sortEntries, t, tapVerb } from './world-model.js';
 import useAutosave, { saveStateLabel } from './useAutosave.js';
 import { LogDiaryCheck, useReveal } from './RevealControl.jsx';
@@ -40,7 +40,7 @@ export default function WorldMap({ campaign, readOnly = false, entries = [], lan
   const [map, setMap] = useState(null);
   const [error, setError] = useState('');
   const [conflict, setConflict] = useState(false);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(null); // null | 'pin' | 'zone'
   const [sel, setSel] = useState(null);
   const mapRef = useRef(null);
   const [touch] = useState(isTouchUi);
@@ -95,6 +95,16 @@ export default function WorldMap({ campaign, readOnly = false, entries = [], lan
   const updatePin = (id, patch) => setPins(pins.map(p => (p.id === id ? { ...p, ...patch } : p)));
   const removePin = (id) => { setPins(pins.filter(p => p.id !== id)); setSel(null); };
 
+  const zones = map?.data?.map?.zones || [];
+  const setZones = (next) => {
+    const data = { ...(mapRef.current.data || {}), map: { ...(mapRef.current.data?.map || {}), zones: next } };
+    mapRef.current = { ...mapRef.current, data };
+    setMap(mapRef.current);
+    autosave.queue({ data });
+  };
+  const updateZone = (id, patch) => setZones(zones.map(z => (z.id === id ? { ...z, ...patch } : z)));
+  const removeZone = (id) => { setZones(zones.filter(z => z.id !== id)); setSel(null); };
+
   // Mostrar/ocultar pin = ação de revelar (servidor), depois de gravar o pendente.
   const rv = useReveal(map, lang, (next) => {
     versionRef.current = next.version;
@@ -104,8 +114,9 @@ export default function WorldMap({ campaign, readOnly = false, entries = [], lan
   }, () => autosave.flush());
 
   const byId = useMemo(() => new Map(entries.map(e => [e.id, e])), [entries]);
-  const selPin = pins.find(p => p.id === sel) || null;
-  const sheetOpen = !!selPin && !wide;
+  const selPin = sel?.type === 'pin' ? pins.find(p => p.id === sel.id) : (typeof sel === 'string' ? pins.find(p => p.id === sel) : null);
+  const selZone = sel?.type === 'zone' ? zones.find(z => z.id === sel.id) : null;
+  const sheetOpen = (!!selPin || !!selZone) && !wide;
 
   // Celular: com a folha aberta, a página rola para o marcador ficar no meio do
   // pedaço de mapa que sobra acima dela (abaixo do segmentado preso). A folha
@@ -172,7 +183,7 @@ export default function WorldMap({ campaign, readOnly = false, entries = [], lan
     return <NewMapCard campaign={campaign} lang={lang} entries={entries} onCreated={(e) => { onEntryCreated?.(e); setMapId(e.id); }} />;
   }
 
-  const selTarget = selPin?.entryId ? byId.get(selPin.entryId) : null;
+  const selTarget = selPin?.entryId ? byId.get(selPin.entryId) : (selZone?.entryId ? byId.get(selZone.entryId) : null);
   const visibleCount = pins.filter(p => p.visible).length;
   const alerts = (
     <>
@@ -195,6 +206,14 @@ export default function WorldMap({ campaign, readOnly = false, entries = [], lan
       onOpenCard={(id) => { if (!wide) setSel(null); onOpenEntry?.(id); }}
       onEnterMap={(id) => setMapId(id, { push: true })}
       onRemove={() => removePin(selPin.id)} />
+  ) : selZone ? (
+    <ZonePanel zone={selZone} target={selTarget} map={map} entries={entries} lang={lang} readOnly={readOnly} rv={rv}
+      layout={wide ? 'side' : 'sheet'} innerRef={sheetRef} saveState={autosave.state} alerts={sheetOpen ? alerts : null}
+      onUpdate={(patch) => updateZone(selZone.id, patch)}
+      onClose={() => setSel(null)}
+      onOpenCard={(id) => { if (!wide) setSel(null); onOpenEntry?.(id); }}
+      onEnterMap={(id) => setMapId(id, { push: true })}
+      onRemove={() => removeZone(selZone.id)} />
   ) : null;
 
   return (
@@ -217,10 +236,16 @@ export default function WorldMap({ campaign, readOnly = false, entries = [], lan
           {map && (
             <div className="wl-map-tools" role="group" aria-label={t(lang, 'Ferramentas do mapa', 'Map tools')}>
               {!readOnly && (
-                <button type="button" className={`mesa-btn wl-map-tool${adding ? ' is-primary' : ''}`} onClick={() => { setAdding(a => !a); setSel(null); }} aria-pressed={adding}>
-                  <span aria-hidden="true">📍</span>
-                  <span className="wl-map-tool-txt">{adding ? t(lang, `${tap} no mapa…`, `${tap} the map…`) : t(lang, 'Marcador', 'Pin')}</span>
-                </button>
+                <>
+                  <button type="button" className={`mesa-btn wl-map-tool${adding === 'pin' ? ' is-primary' : ''}`} onClick={() => { setAdding(a => a === 'pin' ? null : 'pin'); setSel(null); }} aria-pressed={adding === 'pin'}>
+                    <span aria-hidden="true">📍</span>
+                    <span className="wl-map-tool-txt">{adding === 'pin' ? t(lang, `${tap} no mapa…`, `${tap} the map…`) : t(lang, 'Marcador', 'Pin')}</span>
+                  </button>
+                  <button type="button" className={`mesa-btn wl-map-tool${adding === 'zone' ? ' is-primary' : ''}`} onClick={() => { setAdding(a => a === 'zone' ? null : 'zone'); setSel(null); }} aria-pressed={adding === 'zone'}>
+                    <span aria-hidden="true">🔲</span>
+                    <span className="wl-map-tool-txt">{adding === 'zone' ? t(lang, 'Desenhe a área…', 'Draw area…') : t(lang, 'Área', 'Zone')}</span>
+                  </button>
+                </>
               )}
               <button type="button" className="mesa-btn wl-map-tool" onClick={() => onOpenEntry?.(map.id)}>
                 <span aria-hidden="true">{readOnly ? '📖' : '✎'}</span>
@@ -244,15 +269,24 @@ export default function WorldMap({ campaign, readOnly = false, entries = [], lan
         {!map ? <p className="wl-muted">{t(lang, 'Abrindo mapa…', 'Opening map…')}</p> : (
           <div className="wl-map-col">
             <MapCanvas
-              map={map} pins={pins} byId={byId} lang={lang} adding={adding} selected={sel} readOnly={readOnly}
-              onAdd={(x, y) => {
+              map={map} pins={pins} zones={zones} byId={byId} lang={lang} adding={adding} selected={sel} readOnly={readOnly}
+              onAddPin={(x, y) => {
                 if (pins.length >= 100) { setError(worldErrorText({ data: { error: 'too_many_pins' } }, lang)); return; }
                 const id = freshId('p', pins.map(p => p.id));
                 setPins([...pins, { id, entryId: null, x, y, visible: false }]);
-                setSel(id); setAdding(false);
+                setSel({ type: 'pin', id }); setAdding(null);
               }}
-              onSelect={setSel} zoomSide={wide ? 'right' : 'left'}
+              onAddZone={({ x, y, w, h }) => {
+                if (zones.length >= 40) { setError(worldErrorText({ data: { error: 'too_many_zones' } }, lang)); return; }
+                const id = freshId('z', zones.map(z => z.id));
+                setZones([...zones, { id, entryId: null, x, y, w, h, visible: false }]);
+                setSel({ type: 'zone', id }); setAdding(null);
+              }}
+              onSelectPin={(id) => setSel(id ? { type: 'pin', id } : null)}
+              onSelectZone={(id) => setSel(id ? { type: 'zone', id } : null)}
+              zoomSide={wide ? 'right' : 'left'}
               onMovePin={(id, x, y) => updatePin(id, { x, y })}
+              onEnterMap={(id) => setMapId(id, { push: true })}
             />
 
             {!map.imageVer && (
@@ -380,6 +414,149 @@ function PinPanel({ pin, target, map, entries, lang, readOnly, rv, layout, inner
   );
 }
 
+function ZonePanel({ zone, target, map, entries, lang, readOnly, rv, layout, innerRef, saveState, alerts, onUpdate, onClose, onOpenCard, onEnterMap, onRemove }) {
+  const name = target?.name || zone.label || t(lang, 'Área nova', 'New zone');
+  const flippedAt = useRef(0);
+  useEffect(() => { flippedAt.current = Date.now(); }, [zone.id, zone.visible]);
+
+  const handleAutoFit = async () => {
+    if (!target) return;
+    const targetUrl = target.imageUrl || (target.id ? `/api/world/${target.id}/image` : null);
+    const mapUrl = map?.imageUrl || (map?.id ? `/api/world/${map.id}/image` : null);
+    if (!targetUrl || !mapUrl) return;
+    try {
+      const [targetMeta, mapMeta] = await Promise.all([
+        fetchImageRatio(targetUrl),
+        fetchImageRatio(mapUrl),
+      ]);
+      if (targetMeta && mapMeta) {
+        const updated = autoFitZoneRatio(zone, mapMeta.ratio, targetMeta.ratio);
+        onUpdate({ x: updated.x, y: updated.y, w: updated.w, h: updated.h });
+      }
+    } catch (e) {
+      console.warn('Auto fit failed:', e);
+    }
+  };
+
+  const onPickTarget = async (id) => {
+    onUpdate({ entryId: id });
+    if (!id) return;
+    const picked = entries.find(e => e.id === id);
+    const targetUrl = picked?.imageUrl || (picked?.id ? `/api/world/${picked.id}/image` : null);
+    const mapUrl = map?.imageUrl || (map?.id ? `/api/world/${map.id}/image` : null);
+    if (targetUrl && mapUrl) {
+      try {
+        const [targetMeta, mapMeta] = await Promise.all([
+          fetchImageRatio(targetUrl),
+          fetchImageRatio(mapUrl),
+        ]);
+        if (targetMeta && mapMeta) {
+          const updated = autoFitZoneRatio(zone, mapMeta.ratio, targetMeta.ratio);
+          onUpdate({ entryId: id, x: updated.x, y: updated.y, w: updated.w, h: updated.h });
+        }
+      } catch (err) {
+        // fallback
+      }
+    }
+  };
+
+  const vis = (
+    <div className={`wl-pin-vis${zone.visible ? ' is-on' : ''}`}>
+      <span className="wl-pin-vis-txt">
+        {zone.visible ? t(lang, '👁 Os jogadores veem esta área', '👁 Players see this zone') : t(lang, '🔒 Só você vê esta área', '🔒 Only you see this zone')}
+      </span>
+      {!readOnly && (
+        <button type="button" className={`mesa-btn mesa-btn-lg wl-pin-show${zone.visible ? '' : ' is-primary'}`} disabled={rv.busy}
+          onClick={() => { if (Date.now() - flippedAt.current >= 400) rv.toggleZone(zone.id, !zone.visible); }}>
+          {rv.busy ? '…' : zone.visible ? t(lang, '🔒 Ocultar', '🔒 Hide') : t(lang, '👁 Mostrar aos jogadores', '👁 Show to players')}
+        </button>
+      )}
+    </div>
+  );
+  const log = <LogRow rv={rv} lang={lang} />;
+
+  const body = (
+    <div className="wl-pin-body" ref={innerRef}>
+      {layout === 'side' && vis}
+      {zone.visible && target?.visibility === 'hidden' && (
+        <p className="wl-hint wl-pin-warn">{t(lang, 'O cartão ligado está oculto: os jogadores só verão a área quando você revelar o cartão.', 'The linked card is hidden: players will only see the zone once you reveal the card.')}</p>
+      )}
+      {rv.error && <p className="wl-error" role="alert">{rv.error}</p>}
+      {!readOnly && layout === 'side' && log}
+
+      {readOnly ? (
+        <dl className="wl-pin-ro">
+          <dt>{t(lang, 'Aponta para', 'Points to')}</dt>
+          <dd>{target ? `${kindIcon(target.kind)} ${target.name}` : t(lang, 'nenhum cartão', 'no card')}</dd>
+          {zone.label && <><dt>{t(lang, 'Rótulo / Marco', 'Label / Landmark')}</dt><dd>{zone.label}</dd></>}
+        </dl>
+      ) : (
+        <>
+          <div className="mesa-field">
+            <span className="mesa-field-label">{t(lang, 'Aponta para lugar ou mapa', 'Points to place or map')}</span>
+            <EntryPicker entries={entries} value={zone.entryId} onChange={onPickTarget} exclude={[map.id]} lang={lang}
+              placeholder={t(lang, 'Escolha um lugar ou mapa (opcional)', 'Pick a place or map (optional)')} />
+          </div>
+          <div className="mesa-field">
+            <label htmlFor={`wl-zone-label-${zone.id}`}>{t(lang, 'Rótulo / Marco', 'Label / Landmark')}</label>
+            <input id={`wl-zone-label-${zone.id}`} maxLength={60} value={zone.label || ''} onChange={e => onUpdate({ label: e.target.value })}
+              placeholder={t(lang, 'Ex.: Distrito Comercial, Floresta dos Murmúrios', 'E.g.: Trade District, Whispering Woods')} />
+            {layout === 'sheet' && saveState && (
+              <span className={`wl-save wl-save-${saveState} wl-pin-save`} aria-live="polite">{saveStateLabel(saveState, lang)}</span>
+            )}
+          </div>
+          {target && (target.imageUrl || target.imageVer) && (
+            <div className="mesa-field wl-zone-autofit-wrap">
+              <button
+                type="button"
+                className="mesa-btn wl-zone-autofit-btn"
+                onClick={handleAutoFit}
+                title={t(lang, 'Ajusta largura e altura do retângulo para coincidir exatamente com a proporção da imagem do lugar, tornando o zoom contínuo e sem cortes.', 'Adjusts rectangle width and height to match the place image ratio exactly, making zoom seamless without letterboxing.')}
+              >
+                📐 {t(lang, 'Auto-ajustar proporção da área', 'Auto-fit zone aspect ratio')}
+              </button>
+              <span className="wl-hint">
+                {t(lang, 'Adapta a área para a proporção exata da imagem deste lugar.', 'Adapts zone to the exact ratio of this place’s image.')}
+              </span>
+            </div>
+          )}
+        </>
+      )}
+
+      {(target || !readOnly) && (
+        <div className="wl-pin-acts">
+          {target?.isMap && <button type="button" className="mesa-btn is-primary" onClick={() => onEnterMap(target.id)}>🗺 {t(lang, 'Entrar no mapa aninhado', 'Enter nested map')}</button>}
+          {target && <button type="button" className="mesa-btn" onClick={() => onOpenCard(target.id)}>{kindIcon(target.kind)} {t(lang, 'Abrir cartão', 'Open card')}</button>}
+          {!readOnly && <button type="button" className="mesa-btn is-danger" onClick={onRemove}>{t(lang, 'Remover área', 'Remove zone')}</button>}
+        </div>
+      )}
+      {!readOnly && layout === 'sheet' && log}
+    </div>
+  );
+
+  if (layout === 'sheet') {
+    return (
+      <MesaSheet title={name} icon="🔲" eyebrow={t(lang, 'Área do Mapa', 'Map Zone')} size="auto" width="sm" lang={lang}
+        className="wl-pin-sheet" onClose={onClose} footer={<div className="wl-pin-foot">{alerts}{vis}</div>}>
+        {body}
+      </MesaSheet>
+    );
+  }
+  return (
+    <div className="wl-pin-panel">
+      <div className="wl-pin-panel-head">
+        <div className="wl-pin-panel-title">
+          <p className="mesa-eyebrow">{t(lang, 'Área do Mapa', 'Map Zone')}</p>
+          <strong className="wl-pin-panel-name">🔲 {name}</strong>
+        </div>
+        <button type="button" className="mesa-icon-btn wl-pin-x" onClick={onClose} aria-label={t(lang, 'Fechar', 'Close')}>✕</button>
+      </div>
+      {body}
+    </div>
+  );
+}
+
+
 /** "Registrar na Crônica" com o "?" de 44 que mostra o que ela faz (sem depender do title). */
 function LogRow({ rv, lang }) {
   const [help, setHelp] = useState(false);
@@ -420,13 +597,14 @@ function MapHelp({ lang, tap, readOnly, count, visible }) {
 // zoomSide: os ＋ − ⤢ no canto de baixo à esquerda no celular (à direita, o dado
 // flutuante cobria parte do ⤢ sem a barra da mesa) e à direita no PC (à esquerda
 // fica a janela da Tela).
-function MapCanvas({ map, pins, byId, lang, adding, selected, readOnly, zoomSide = 'right', onAdd, onSelect, onMovePin }) {
+function MapCanvas({ map, pins, zones = [], byId, lang, adding, selected, readOnly, zoomSide = 'right', onAddPin, onAddZone, onSelectPin, onSelectZone, onMovePin, onEnterMap }) {
   const boxRef = useRef(null);
   const innerRef = useRef(null);
   const [view, setView] = useState({ z: 1, x: 0, y: 0 });
   const [ratio, setRatio] = useState(null); // largura/altura da imagem
   const [size, setSize] = useState({ bw: 0, bh: 0, w: 0, h: 0 }); // caixa e imagem (zoom 1), em px
   const [widths, setWidths] = useState({}); // id → largura do rótulo (medida no DOM)
+  const [dragZone, setDragZone] = useState(null);
   const viewRef = useRef(view);
   viewRef.current = view;
   const pointers = useRef(new Map());
@@ -468,6 +646,23 @@ function MapCanvas({ map, pins, byId, lang, adding, selected, readOnly, zoomSide
     setView(clampView({ z, x, y }));
   };
 
+
+  // Zoom profundo entra automaticamente no mapa aninhado da área central
+  useEffect(() => {
+    if (view.z < 3.2 || !zones?.length || !size.w || !size.h) return;
+    const cx = (-view.x + size.bw / 2) / (size.w * view.z);
+    const cy = (-view.y + size.bh / 2) / (size.h * view.z);
+    const hit = zones.find(z => {
+      const trg = z.entryId ? byId.get(z.entryId) : null;
+      return trg?.isMap && trg.id !== map.id &&
+             cx >= z.x && cx <= (z.x + z.w) &&
+             cy >= z.y && cy <= (z.y + z.h);
+    });
+    if (hit) {
+      onEnterMap?.(hit.entryId);
+    }
+  }, [view.z, view.x, view.y, size, zones, byId, map.id, onEnterMap]);
+
   // roda do mouse (listener não-passivo para poder impedir a rolagem da página);
   // no zoom mínimo, afastar não muda nada: a roda rola a página.
   useEffect(() => {
@@ -496,11 +691,18 @@ function MapCanvas({ map, pins, byId, lang, adding, selected, readOnly, zoomSide
     boxRef.current.setPointerCapture?.(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const pinId = e.target.closest?.('[data-pin]')?.getAttribute('data-pin');
+    const zoneId = e.target.closest?.('[data-zone]')?.getAttribute('data-zone');
     if (pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()];
       gesture.current = { type: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y), z: viewRef.current.z };
+    } else if (adding === 'zone') {
+      const u = toUnit(e.clientX, e.clientY);
+      gesture.current = { type: 'draw-zone', sx: u.x, sy: u.y, curX: u.x, curY: u.y };
+      setDragZone({ x: u.x, y: u.y, w: 0, h: 0 });
     } else if (pinId) {
       gesture.current = { type: 'pin', id: pinId, sx: e.clientX, sy: e.clientY, moved: false };
+    } else if (zoneId && !adding) {
+      gesture.current = { type: 'zone-click', id: zoneId, sx: e.clientX, sy: e.clientY, moved: false };
     } else {
       gesture.current = { type: 'pan', sx: e.clientX, sy: e.clientY, vx: viewRef.current.x, vy: viewRef.current.y, moved: false };
     }
@@ -519,10 +721,19 @@ function MapCanvas({ map, pins, byId, lang, adding, selected, readOnly, zoomSide
       const dx = e.clientX - g.sx; const dy = e.clientY - g.sy;
       if (Math.abs(dx) + Math.abs(dy) > 4) g.moved = true;
       if (g.moved) setView(clampView({ z: viewRef.current.z, x: g.vx + dx, y: g.vy + dy }));
+    } else if (g.type === 'draw-zone') {
+      const u = toUnit(e.clientX, e.clientY);
+      const x = Math.min(g.sx, u.x);
+      const y = Math.min(g.sy, u.y);
+      const w = Math.max(0.01, Math.abs(u.x - g.sx));
+      const h = Math.max(0.01, Math.abs(u.y - g.sy));
+      setDragZone({ x, y, w, h });
     } else if (g.type === 'pin') {
       if (Math.abs(e.clientX - g.sx) + Math.abs(e.clientY - g.sy) > 4) g.moved = true;
       // encerrada: o marcador não sai do lugar (o toque só abre)
       if (g.moved && !readOnly) { const u = toUnit(e.clientX, e.clientY); g.last = u; movePreview(g.id, u); }
+    } else if (g.type === 'zone-click') {
+      if (Math.abs(e.clientX - g.sx) + Math.abs(e.clientY - g.sy) > 4) g.moved = true;
     }
   };
   const [preview, setPreview] = useState(null); // {id, x, y} enquanto arrasta
@@ -533,12 +744,34 @@ function MapCanvas({ map, pins, byId, lang, adding, selected, readOnly, zoomSide
     if (pointers.current.size > 0) { if (g?.type === 'pinch') gesture.current = null; return; }
     gesture.current = null;
     if (!g) return;
-    if (g.type === 'pin') {
+    if (g.type === 'draw-zone') {
+      const u = toUnit(e.clientX, e.clientY);
+      let x = Math.min(g.sx, u.x);
+      let y = Math.min(g.sy, u.y);
+      let w = Math.abs(u.x - g.sx);
+      let h = Math.abs(u.y - g.sy);
+      if (w < 0.03 || h < 0.03) {
+        w = 0.16;
+        h = 0.12;
+        x = clampUnit(u.x - w / 2);
+        y = clampUnit(u.y - h / 2);
+      }
+      onAddZone?.({ x, y, w, h });
+      setDragZone(null);
+    } else if (g.type === 'pin') {
       if (g.moved && g.last && !readOnly) onMovePin(g.id, g.last.x, g.last.y);
-      else if (!g.moved) onSelect(g.id);
+      else if (!g.moved) onSelectPin(g.id);
       setPreview(null);
+    } else if (g.type === 'zone-click') {
+      if (!g.moved) onSelectZone(g.id);
     } else if (g.type === 'pan' && !g.moved) {
-      if (adding && !readOnly) { const u = toUnit(e.clientX, e.clientY); onAdd(u.x, u.y); } else onSelect(null);
+      if (adding === 'pin' && !readOnly) {
+        const u = toUnit(e.clientX, e.clientY);
+        onAddPin(u.x, u.y);
+      } else {
+        onSelectPin(null);
+        onSelectZone(null);
+      }
     }
     if (!g.moved) tappedAt.current = Date.now();
   };
@@ -556,7 +789,7 @@ function MapCanvas({ map, pins, byId, lang, adding, selected, readOnly, zoomSide
       x: view.x + clampUnit(pos.x) * size.w * view.z,
       y: view.y + clampUnit(pos.y) * size.h * view.z,
       w: widths[p.id] || 0,
-      prio: pinPriority({ selected: selected === p.id, visible: p.visible }),
+      prio: pinPriority({ selected: (selected?.type === 'pin' ? selected.id : selected) === p.id, visible: p.visible }),
     };
   }), { w: size.bw, h: size.bh }, { avoid: [zoomControlsRect({ w: size.bw, h: size.bh }, { side: zoomSide })] }), [pins, preview, view, size, widths, selected, zoomSide]);
 
@@ -583,6 +816,42 @@ function MapCanvas({ map, pins, byId, lang, adding, selected, readOnly, zoomSide
       <div className="wl-map-inner" ref={innerRef} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.z})` }}>
         <img src={src} alt={map.name} draggable={false} className="wl-map-img"
           onLoad={e => { const im = e.currentTarget; if (im.naturalWidth && im.naturalHeight) setRatio(im.naturalWidth / im.naturalHeight); }} />
+        {zones.map(z => {
+          const target = z.entryId ? byId.get(z.entryId) : null;
+          const isSel = (selected?.type === 'zone' ? selected.id : null) === z.id;
+          const text = z.label || target?.name || '';
+          const canEnter = target?.isMap;
+          return (
+            <div key={z.id} data-zone={z.id}
+              className={`wl-map-zone${z.visible ? ' is-visible' : ' is-hidden'}${isSel ? ' is-selected' : ''}${canEnter ? ' has-map' : ''}`}
+              style={{
+                left: `${z.x * 100}%`,
+                top: `${z.y * 100}%`,
+                width: `${z.w * 100}%`,
+                height: `${z.h * 100}%`,
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectZone(z.id);
+              }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                if (canEnter) onEnterMap(target.id);
+              }}>
+              <div className="wl-map-zone-bar">
+                <span className="wl-map-zone-tag">{text || t(lang, 'Área', 'Zone')}{!z.visible ? ' 🔒' : ''}</span>
+                {canEnter && (
+                  <button type="button" className="wl-map-zone-enter-btn" onClick={(e) => { e.stopPropagation(); onEnterMap(target.id); }} title={t(lang, 'Entrar neste mapa', 'Enter this map')}>
+                    ↳ {t(lang, 'Entrar', 'Enter')}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {dragZone && (
+          <div className="wl-map-zone is-preview" style={{ left: `${dragZone.x * 100}%`, top: `${dragZone.y * 100}%`, width: `${dragZone.w * 100}%`, height: `${dragZone.h * 100}%` }} />
+        )}
         {pins.map(p => {
           const target = p.entryId ? byId.get(p.entryId) : null;
           const pos = preview?.id === p.id ? preview : p;
@@ -591,10 +860,10 @@ function MapCanvas({ map, pins, byId, lang, adding, selected, readOnly, zoomSide
           const text = p.label || target?.name || '';
           return (
             <button key={p.id} type="button" data-pin={p.id}
-              className={`wl-pin${p.visible ? ' is-visible' : ' is-hidden'}${selected === p.id ? ' is-selected' : ''}${target?.visibility === 'hidden' ? ' target-hidden' : ''}${lab ? '' : ' is-label-off'}${lab?.above ? ' is-label-above' : ''}`}
+              className={`wl-pin${p.visible ? ' is-visible' : ' is-hidden'}${((selected?.type === 'pin' ? selected.id : selected) === p.id) ? ' is-selected' : ''}${target?.visibility === 'hidden' ? ' target-hidden' : ''}${lab ? '' : ' is-label-off'}${lab?.above ? ' is-label-above' : ''}`}
               style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%`, '--pin-scale': 1 / view.z, '--wl-kind': meta?.color || '#d6b064', '--label-dx': `${lab?.dx || 0}px` }}
               // teclado (Enter/Espaço): o toque e o mouse já chegam pelos ponteiros
-              onClick={(e) => { if (e.detail === 0) onSelect(p.id); }}
+              onClick={(e) => { if (e.detail === 0) onSelectPin(p.id); }}
               aria-label={`${text || t(lang, 'Marcador', 'Pin')}${p.visible ? '' : ` (${t(lang, 'oculto', 'hidden')})`}`}>
               <span className="wl-pin-head" aria-hidden="true"><span>{target ? kindIcon(target.kind) : '✦'}</span></span>
               {(text || !p.visible) && <span className="wl-pin-label" aria-hidden="true">{text}{!p.visible && ' 🔒'}</span>}
@@ -616,18 +885,40 @@ function NewMapCard({ campaign, lang, entries, onCreated }) {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [mapUrl, setMapUrl] = useState('');
   const fileRef = useRef(null);
   const places = entries.filter(e => e.kind === 'place' && !e.isMap);
 
   const create = async (file) => {
     setBusy(true); setError('');
     try {
-      const img = file ? (await compressImage(file, 1800)).url : null;
+      const img = file ? (await compressImage(file, 3840)).url : null;
       const entry = await createEntry(campaign.id, { kind: 'place', name: name.trim() || t(lang, 'Mapa do mundo', 'World map'), data: { placeType: 'region', map: { pins: [] } } });
       let full = entry;
       if (img) { const r = await putEntryImage(entry.id, img); full = { ...entry, imageVer: r.imageVer, imageUrl: r.imageUrl }; }
       onCreated({ ...full, isMap: true });
     } catch (e) { setError(worldErrorText(e, lang)); } finally { setBusy(false); }
+  };
+  const createFromUrl = async (e) => {
+    e?.preventDefault();
+    const u = mapUrl.trim();
+    if (!u) return;
+    setBusy(true); setError('');
+    try {
+      const entry = await createEntry(campaign.id, {
+        kind: 'place',
+        name: name.trim() || t(lang, 'Mapa do mundo', 'World map'),
+        data: { placeType: 'region', map: { pins: [] } },
+      });
+      const r = await putEntryImage(entry.id, u);
+      const full = { ...entry, imageVer: r.imageVer, imageUrl: r.imageUrl || u };
+      onCreated({ ...full, isMap: true });
+    } catch (err) {
+      setError(worldErrorText(err, lang));
+    } finally {
+      setBusy(false);
+    }
   };
   const convert = async (p) => {
     setBusy(true); setError('');
@@ -653,8 +944,27 @@ function NewMapCard({ campaign, lang, entries, onCreated }) {
           <button type="button" className="mesa-btn mesa-btn-lg is-primary" disabled={busy} onClick={() => fileRef.current?.click()}>
             {busy ? t(lang, 'Criando…', 'Creating…') : t(lang, '🖼 Escolher imagem do mapa', '🖼 Choose map image')}
           </button>
+          <button type="button" className="mesa-btn mesa-btn-lg" disabled={busy} onClick={() => setShowUrlInput(v => !v)}>
+            🌐 {t(lang, 'Usar link de imagem', 'Use image URL')}
+          </button>
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) create(f); }} />
         </div>
+        {showUrlInput && (
+          <form onSubmit={createFromUrl} className="wl-newmap-url-form">
+            <input
+              type="url"
+              className="wl-newmap-url-input"
+              value={mapUrl}
+              onChange={e => setMapUrl(e.target.value)}
+              placeholder={t(lang, 'Cole o link direto da imagem do mapa (https://...)...', 'Paste direct map image URL (https://...)...')}
+              disabled={busy}
+              autoFocus
+            />
+            <button type="submit" className="mesa-btn is-primary" disabled={busy || !mapUrl.trim()}>
+              {busy ? t(lang, 'Criando…', 'Creating…') : t(lang, 'Criar mapa com este link', 'Create map with this URL')}
+            </button>
+          </form>
+        )}
         {places.some(p => p.imageVer) && (
           <>
             <p className="wl-hint">{t(lang, 'Ou transforme a imagem de um lugar que você já criou:', 'Or turn the image of a place you already made into a map:')}</p>

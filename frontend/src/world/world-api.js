@@ -64,11 +64,12 @@ export function deleteEntryImage(id) {
  * opts: {visibility?, secrets?: {s1: true}, pins?: {p1: true}, logDiary = true, lang}
  * → entry (versão nova)
  */
-export async function revealEntry(id, { visibility, secrets, pins, logDiary = true, lang = 'pt' } = {}) {
+export async function revealEntry(id, { visibility, secrets, pins, zones, logDiary = true, lang = 'pt' } = {}) {
   const body = { logDiary, lang };
   if (visibility) body.visibility = visibility;
   if (secrets) body.secrets = secrets;
   if (pins) body.pins = pins;
+  if (zones) body.zones = zones;
   const r = await request(`/api/world/${id}/reveal`, { method: 'POST', body });
   return r.entry;
 }
@@ -166,6 +167,18 @@ export async function getWorldEchoes(campaignId, lang = 'pt') {
   }
 }
 
+/**
+ * Puxa dados de um link externo (Wiki, SRD, JSON, imagem). Mestre.
+ * → { kind, name, summary, body, tags, image, source: { url, label, ingestedAt } }
+ */
+export async function ingestUrl(campaignId, url, withImage = true) {
+  const r = await request(`/api/campaigns/${cid(campaignId)}/world/ingest`, {
+    method: 'POST',
+    body: { url, withImage },
+  });
+  return r.ingested;
+}
+
 export const isConflict = (e) => e?.status === 409 && e?.data?.error === 'version_conflict';
 
 const WORLD_ERRORS = {
@@ -184,6 +197,15 @@ const WORLD_ERRORS = {
   too_many_links: ['No máximo 40 ligações por cartão.', 'At most 40 links per card.'],
   body_too_long: ['Texto longo demais (máx. 20 mil caracteres).', 'Text too long (max 20k characters).'],
   notes_too_long: ['Notas longas demais (máx. 20 mil caracteres).', 'Notes too long (max 20k characters).'],
+  missing_url: ['Informe o endereço (URL) do link.', 'Provide the URL of the link.'],
+  invalid_url: ['Endereço inválido (precisa começar com http:// ou https://).', 'Invalid address (must start with http:// or https://).'],
+  blocked_url: ['Endereço não permitido (endereços locais e privados são bloqueados).', 'Address not allowed (local and private addresses are blocked).'],
+  unreachable: ['Não foi possível conectar ao endereço informado.', 'Could not connect to the specified address.'],
+  fetch_failed: ['Falha ao obter conteúdo da página informada.', 'Failed to retrieve content from the specified page.'],
+  nothing_found: ['Nenhum conteúdo utilizável encontrado no link.', 'No usable content found in the link.'],
+  too_many_zones: ['No máximo 40 áreas retangulares por mapa.', 'At most 40 rectangular zones per map.'],
+  too_many_contains: ['No máximo 100 itens contidos por cartão.', 'At most 100 contained items per card.'],
+  too_many_sources: ['No máximo 12 fontes por cartão.', 'At most 12 sources per card.'],
 };
 
 /** Mensagem legível para erros do Mundo; cai no `fallback(e, lang)` (ex.: errorMessage). */

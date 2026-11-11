@@ -41,15 +41,20 @@ MAX_TAG = 30
 MAX_LINKS = 40
 MAX_LINK_NOTE = 200
 MAX_PINS = 100
+MAX_ZONES = 40
+MAX_CONTAINS = 100
+MAX_SOURCES = 12
+MAX_URL = 500
 MAX_WHEN_LABEL = 60
-MAX_IMAGE_CHARS = 450_000
+MAX_IMAGE_CHARS = 5_000_000
 MAX_STATBLOCK_BYTES = 40_000
 MAX_SESSION_PLAN_BYTES = 60_000
 ORDER_LIMIT = 1_000_000_000
 
-IMAGE_PREFIXES = ('data:image/jpeg;base64,', 'data:image/png;base64,', 'data:image/webp;base64,')
+IMAGE_PREFIXES = ('data:image/jpeg;base64,', 'data:image/png;base64,', 'data:image/webp;base64,', 'data:image/gif;base64,')
 MENTION_RE = re.compile(r'@\[([^\]\n]{1,120})\]\((\d{1,10})\)')
 COLOR_RE = re.compile(r'^#[0-9a-fA-F]{3,8}$')
+URL_RE = re.compile(r'^https?://[^\s<>"\']{3,}$', re.I)
 
 # Campos de `data` por tipo: (nome, limpador, público?)
 # público = o jogador vê quando a entrada está `revealed`.
@@ -108,19 +113,26 @@ def short_id(value, limit=24):
 
 
 def image_version(data_url):
-    return hashlib.sha1(data_url.encode('utf-8')).hexdigest()[:12]
+    return hashlib.sha1((data_url or '').encode('utf-8')).hexdigest()[:12]
 
 
 def clean_image(value):
-    """Data URL jpeg/png/webp em base64, até MAX_IMAGE_CHARS."""
-    if not isinstance(value, str) or not value.startswith(IMAGE_PREFIXES):
+    """Data URL jpeg/png/webp/gif em base64 (até MAX_IMAGE_CHARS), ou link externo http(s)."""
+    if not isinstance(value, str):
         _bad('invalid_image')
-    if len(value) > MAX_IMAGE_CHARS:
+    val = value.strip()
+    if val.startswith(('http://', 'https://')):
+        if len(val) > 2000 or not URL_RE.match(val):
+            _bad('invalid_image')
+        return val
+    if not val.startswith(IMAGE_PREFIXES):
+        _bad('invalid_image')
+    if len(val) > MAX_IMAGE_CHARS:
         _bad('image_too_large')
-    payload = value.split(',', 1)[1]
+    payload = val.split(',', 1)[1]
     if not payload or not re.fullmatch(r'[A-Za-z0-9+/=\s]+', payload):
         _bad('invalid_image')
-    return value
+    return val
 
 
 # ------------------------------------------------------------------ campos
@@ -247,7 +259,92 @@ def _clean_map(raw):
         if label:
             pin['label'] = label
         pins.append(pin)
-    return {'pins': pins}
+    return {'pins': pins, 'zones': _clean_zones(raw.get('zones'))}
+
+
+def _clean_zones(raw):
+    """Áreas (retângulos) de um mapa que levam a outro lugar: zoom aninhado.
+    [{id, entryId, x, y, w, h, label?, visible}] em unidades 0..1 da imagem."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        _bad('invalid_map')
+    if len(raw) > MAX_ZONES:
+        _bad('too_many_zones')
+    zones, used = [], set()
+    for z in raw:
+        if not isinstance(z, dict):
+            _bad('invalid_map')
+        zid = short_id(z.get('id'))
+        if not zid or zid in used:
+            n = len(used) + 1
+            while f'z{n}' in used:
+                n += 1
+            zid = f'z{n}'
+        used.add(zid)
+        x, y = to_unit(z.get('x'), 0.0), to_unit(z.get('y'), 0.0)
+        w = round(max(0.01, min(1.0 - x, to_unit(z.get('w'), 0.2))), 5)
+        h = round(max(0.01, min(1.0 - y, to_unit(z.get('h'), 0.2))), 5)
+        zone = {'id': zid, 'entryId': to_int(z.get('entryId'), 1, 10**10),
+                'x': x, 'y': y, 'w': w, 'h': h, 'visible': bool(z.get('visible'))}
+        label = text(z.get('label'), 60)
+        if label:
+            zone['label'] = label
+        zones.append(zone)
+    return zones
+
+
+def clean_contains(raw):
+    """Ids de cartões "aqui dentro / membros" (N:N). Existência na view."""
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        _bad('invalid_contains')
+    out = []
+    for v in raw:
+        i = to_int(v, 1, 10**10)
+        if i and i not in out:
+            out.append(i)
+    if len(out) > MAX_CONTAINS:
+        _bad('too_many_contains')
+    return out
+
+
+def clean_url(value):
+    """URL http(s) segura para guardar (sem espaços, sem javascript:)."""
+    v = value.strip() if isinstance(value, str) else ''
+    if not v or len(v) > MAX_URL or not URL_RE.match(v):
+        return ''
+    return v
+
+
+def clean_sources(raw):
+    """Fontes do mestre: [{url, label?, ingestedAt?}] (só mestre vê)."""
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        _bad('invalid_sources')
+    out, seen = [], set()
+    for s_ in raw:
+        if isinstance(s_, str):
+            s_ = {'url': s_}
+        if not isinstance(s_, dict):
+            _bad('invalid_sources')
+        url = clean_url(s_.get('url'))
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        item = {'url': url}
+        label = text(s_.get('label'), 80)
+        if label:
+            item['label'] = label
+        when = text(s_.get('ingestedAt'), 40)
+        if when:
+            item['ingestedAt'] = when
+        out.append(item)
+    if len(out) > MAX_SOURCES:
+        _bad('too_many_sources')
+    return out
 
 
 def _clean_statblock(raw):
@@ -300,9 +397,12 @@ DATA_FIELDS = {
         'mannerism': (_txt(300), True), 'wants': (_txt(600), True),
         'characterId': (_pos_int, False),
         'statblock': (_clean_statblock, False),
+        'contains': (clean_contains, True),
     },
-    'place': {'placeType': (_enum(PLACE_TYPES), True), 'map': (_clean_map, True)},
-    'faction': {'goal': (_txt(600), True), 'symbolColor': (_color, True)},
+    'place': {'placeType': (_enum(PLACE_TYPES), True), 'map': (_clean_map, True),
+              'contains': (clean_contains, True)},
+    'faction': {'goal': (_txt(600), True), 'symbolColor': (_color, True),
+                'contains': (clean_contains, True)},
     'item': {
         'rarity': (_txt(30), True), 'attunement': (_bool, True), 'effect': (_txt(2000), True),
         'campaignItemId': (_pos_int, False),
@@ -310,6 +410,14 @@ DATA_FIELDS = {
     'lore': {},
     'handout': {'style': (_enum(HANDOUT_STYLES), True), 'recipients': (_recipients, False)},
 }
+
+# Campos de `data` comuns a todo tipo de cartão.
+COMMON_DATA_FIELDS = {'sources': (clean_sources, False), 'imageUrl': (clean_url, True)}
+CONTAINS_KINDS = ('place', 'faction', 'npc')
+
+
+def data_fields(kind):
+    return {**DATA_FIELDS.get(kind, {}), **COMMON_DATA_FIELDS}
 
 
 def clean_data(kind, raw):
@@ -319,7 +427,7 @@ def clean_data(kind, raw):
     if not isinstance(raw, dict):
         _bad('invalid_data')
     out = {}
-    for key, (fn, _public) in DATA_FIELDS.get(kind, {}).items():
+    for key, (fn, _public) in data_fields(kind).items():
         if key in raw:
             val = fn(raw.get(key))
             if val is not None:
@@ -336,6 +444,18 @@ def map_pin_targets(data):
     if not isinstance(m, dict):
         return []
     return [p['entryId'] for p in m.get('pins') or [] if isinstance(p, dict) and p.get('entryId')]
+
+
+def map_zone_targets(data):
+    m = (data or {}).get('map')
+    if not isinstance(m, dict):
+        return []
+    return [z['entryId'] for z in m.get('zones') or [] if isinstance(z, dict) and z.get('entryId')]
+
+
+def contains_of(data):
+    v = (data or {}).get('contains')
+    return [i for i in v if isinstance(i, int)] if isinstance(v, list) else []
 
 
 def mentions(body):
@@ -425,6 +545,8 @@ def _iso(dt):
 
 
 def _image_url(entry):
+    if isinstance(entry.data, dict) and entry.data.get('imageUrl'):
+        return entry.data['imageUrl']
     return f'/api/world/{entry.id}/image?v={entry.image_ver}' if entry.image_ver else None
 
 
@@ -443,7 +565,19 @@ def _public_pins(data, visible_ids):
         if p.get('label'):
             pin['label'] = p['label']
         pins.append(pin)
-    return {'pins': pins}
+    zones = []
+    for z in m.get('zones') or []:
+        if not isinstance(z, dict) or not z.get('visible'):
+            continue
+        target = z.get('entryId')
+        if target and target not in visible_ids:
+            continue
+        zone = {k: z.get(k) for k in ('id', 'entryId', 'x', 'y', 'w', 'h')}
+        zone['visible'] = True
+        if z.get('label'):
+            zone['label'] = z['label']
+        zones.append(zone)
+    return {'pins': pins, 'zones': zones}
 
 
 def public_data(entry, visible_ids):
@@ -458,6 +592,11 @@ def public_data(entry, visible_ids):
             pins = _public_pins(raw, visible_ids)
             if pins is not None:
                 out['map'] = pins
+        elif key == 'contains':
+            if revealed:
+                ids = [i for i in contains_of(raw) if i in visible_ids]
+                if ids:
+                    out['contains'] = ids
         elif revealed:
             out[key] = raw[key]
     return out
@@ -504,6 +643,8 @@ def serialize_light(entry, for_dm, visible_ids=None):
             'secretsRevealed': sum(1 for s in entry.secrets or [] if isinstance(s, dict) and s.get('revealed')),
             'sort': entry.sort, 'version': entry.version,
             'pinTargets': map_pin_targets(entry.data),
+            'zoneTargets': map_zone_targets(entry.data),
+            'contains': contains_of(entry.data),
         })
         return base
     visible_ids = visible_ids or set()

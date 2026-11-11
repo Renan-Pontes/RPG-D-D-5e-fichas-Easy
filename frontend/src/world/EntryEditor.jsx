@@ -13,13 +13,13 @@ import useConfirm from '../../components/ConfirmDialog.jsx';
 import MoreMenu from '../group/MoreMenu.jsx';
 import '../group/group-styles.css';
 import {
-  deleteEntry, deleteEntryImage, getEntry, isConflict, putEntryImage, updateEntry, worldErrorText,
+  deleteEntry, deleteEntryImage, getEntry, ingestUrl, isConflict, putEntryImage, updateEntry, worldErrorText,
 } from './world-api.js';
 import { compressForEntry } from './image.js';
 import { showPlanLimit } from '../plans/plans-api.js';
 import { limitShortText, planLimitFrom } from '../plans/plans-logic.js';
 import {
-  HANDOUT_STYLES, KINDS, KIND_META, PLACE_TYPES, RARITIES, VIS_META, allTags, backlinks, childrenOf, freshId, handoutStyleLabel,
+  CONTAINS_KINDS, HANDOUT_STYLES, KINDS, KIND_META, PLACE_TYPES, RARITIES, VIS_META, allTags, backlinks, childrenOf, freshId, handoutStyleLabel,
   kindIcon, kindLabel, placeTypeLabel, rarityLabel, relLabel, t,
 } from './world-model.js';
 import useAutosave, { saveStateLabel } from './useAutosave.js';
@@ -44,6 +44,10 @@ export default function EntryEditor({
   const [error, setError] = useState('');
   const [conflict, setConflict] = useState(null); // entrada do servidor no 409
   const [showMore, setShowMore] = useState(false);
+  const [showIngest, setShowIngest] = useState(false);
+  const [ingestInitialUrl, setIngestInitialUrl] = useState('');
+  const [showImgLink, setShowImgLink] = useState(false);
+  const [imgLinkValue, setImgLinkValue] = useState('');
   const [imgBusy, setImgBusy] = useState(false);
   const [items, setItems] = useState(null);
   const versionRef = useRef(null);
@@ -124,7 +128,53 @@ export default function EntryEditor({
   const beforeReveal = () => autosave.flush();
   const rv = useReveal(entry, lang, afterReveal, beforeReveal);
 
-  // ---------------------------------------------------------------- imagem
+  // ---------------------------------------------------------------- ingestão de links
+  const onApplyIngest = async (ingested) => {
+    if (!ingested) return;
+    const patch = {};
+    const dataPatch = {};
+    if (ingested.name && (!entry.name || entry.name.trim() === '' || entry.name === t(lang, 'Sem nome', 'Untitled') || entry.name === 'Sem nome')) {
+      patch.name = ingested.name;
+    }
+    if (ingested.summary) {
+      patch.summary = ingested.summary;
+    }
+    if (ingested.body) {
+      patch.body = entry.body ? `${entry.body}\n\n${ingested.body}` : ingested.body;
+    }
+    if (ingested.tags?.length) {
+      const curTags = entry.tags || [];
+      const merged = [...new Set([...curTags, ...ingested.tags])];
+      patch.tags = merged;
+    }
+    if (ingested.kind && entry.kind === 'lore') {
+      patch.kind = ingested.kind;
+    }
+    if (ingested.source) {
+      const curSources = d.sources || [];
+      dataPatch.sources = [...curSources.filter(s => s.url !== ingested.source.url), ingested.source];
+    }
+    if (Object.keys(dataPatch).length) {
+      patch.data = { ...(entry.data || {}), ...dataPatch };
+    }
+    set(patch);
+
+    if (ingested.image && !entry.imageVer) {
+      setImgBusy(true);
+      try {
+        const r = await putEntryImage(entryId, ingested.image);
+        const next = { ...entryRef.current, imageVer: r.imageVer, imageUrl: r.imageUrl };
+        setLocal(next);
+        onSaved?.(next);
+      } catch (err) {
+        console.warn('Could not save ingested image:', err);
+      } finally {
+        setImgBusy(false);
+      }
+    }
+  };
+
+    // ---------------------------------------------------------------- imagem
   const pickImage = () => fileRef.current?.click();
   const onFile = async (file) => {
     if (!file || readOnly) return;
@@ -153,6 +203,23 @@ export default function EntryEditor({
       setLocal(next);
       onSaved?.(next);
     } catch (e) { setError(worldErrorText(e, lang)); } finally { setImgBusy(false); }
+  };
+  const onApplyImgLink = async () => {
+    const val = imgLinkValue.trim();
+    if (!val || readOnly) return;
+    setImgBusy(true); setError('');
+    try {
+      const r = await putEntryImage(entryId, val);
+      const next = { ...entryRef.current, imageVer: r.imageVer, imageUrl: r.imageUrl || val };
+      setLocal(next);
+      onSaved?.(next);
+      setShowImgLink(false);
+      setImgLinkValue('');
+    } catch (e) {
+      setError(worldErrorText(e, lang));
+    } finally {
+      setImgBusy(false);
+    }
   };
 
   // ---------------------------------------------------------------- apagar
@@ -258,8 +325,31 @@ export default function EntryEditor({
             <button type="button" className="wl-chipbtn" onClick={pickImage} disabled={imgBusy}>
               {imgBusy ? t(lang, 'Enviando…', 'Uploading…') : entry.imageVer ? t(lang, '🖼 Trocar imagem', '🖼 Change image') : (entry.kind === 'npc' ? t(lang, '🖼 Subir retrato', '🖼 Upload portrait') : t(lang, '🖼 Subir imagem', '🖼 Upload image'))}
             </button>
+            <button type="button" className={`wl-chipbtn${showImgLink ? ' is-active' : ''}`} onClick={() => setShowImgLink(v => !v)} disabled={imgBusy}>
+              🌐 {t(lang, 'Link da imagem', 'Image link')}
+            </button>
             {entry.imageVer && <button type="button" className="wl-chipbtn" onClick={removeImage} disabled={imgBusy}>{t(lang, 'Remover', 'Remove')}</button>}
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; onFile(f); }} />
+          </div>
+        )}
+        {showImgLink && !readOnly && (
+          <div className="wl-img-link-pop">
+            <input
+              type="url"
+              className="wl-img-link-input"
+              placeholder={t(lang, 'Cole link direto de imagem (https://...)...', 'Paste direct image URL (https://...)...')}
+              value={imgLinkValue}
+              onChange={e => setImgLinkValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onApplyImgLink(); } }}
+              disabled={imgBusy}
+              autoFocus
+            />
+            <button type="button" className="mesa-btn is-primary btn-sm" onClick={onApplyImgLink} disabled={imgBusy || !imgLinkValue.trim()}>
+              {imgBusy ? t(lang, 'Salvando…', 'Saving…') : t(lang, 'Aplicar', 'Apply')}
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowImgLink(false)} disabled={imgBusy}>
+              {t(lang, 'Cancelar', 'Cancel')}
+            </button>
           </div>
         )}
         <span className="wl-kind-badge"><span aria-hidden="true">{meta.icon}</span> {kindLabel(entry.kind, lang)}</span>
@@ -300,7 +390,12 @@ export default function EntryEditor({
             🗺 {t(lang, 'Mostrar este mapa na Tela', 'Show this map on screen')}
           </ShowOnTable>
         )}
-        {isPlace && (isMap
+        {!readOnly && (
+          <button type="button" className={`btn btn-ghost btn-sm${showIngest ? ' is-active' : ''}`} onClick={() => setShowIngest(v => !v)}>
+            🔗 {t(lang, 'Puxar de link (Wiki / SRD)', 'Pull from link (Wiki / SRD)')}
+          </button>
+        )}
+                {isPlace && (isMap
           ? <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { if (!readOnly) await autosave.flush(); onOpenMap?.(entry.id); }}>🗺 {t(lang, 'Abrir mapa', 'Open map')}</button>
           : !readOnly && (
             <span className="wl-ed-mapuse">
@@ -315,7 +410,18 @@ export default function EntryEditor({
           ))}
       </div>
 
-      {/* ----- mais detalhes */}
+      {showIngest && !readOnly && (
+        <IngestBox
+          campaignId={campaign?.id}
+          entry={entry}
+          lang={lang}
+          initialUrl={ingestInitialUrl}
+          onApply={onApplyIngest}
+          onClose={() => { setShowIngest(false); setIngestInitialUrl(''); }}
+        />
+      )}
+
+            {/* ----- mais detalhes */}
       <button type="button" className="wl-more-toggle" aria-expanded={showMore} onClick={() => setShowMore(v => !v)}>
         <span aria-hidden="true">{showMore ? '▾' : '▸'}</span> {t(lang, 'Mais detalhes', 'More details')}
         {!showMore && <span className="wl-muted wl-small"> — {t(lang, 'texto, segredos, notas, relações…', 'text, secrets, notes, relations…')}</span>}
@@ -419,11 +525,40 @@ export default function EntryEditor({
             )}
           </section>
 
+          {CONTAINS_KINDS.includes(entry.kind) && (
+            <section className="wl-ed-sec">
+              <label className="wl-label">{t(lang, 'Contém / Integrantes aqui dentro', 'Contains / Members inside')}</label>
+              <ContainsEditor
+                contains={d.contains || []}
+                onChange={list => setData({ contains: list })}
+                entries={entries}
+                selfId={entry.id}
+                lang={lang}
+                readOnly={readOnly}
+                onOpen={onOpenEntry}
+              />
+            </section>
+          )}
+
           <section className="wl-ed-sec">
             <label className="wl-label">{t(lang, 'Relações', 'Relations')}</label>
             {readOnly ? <ReadRelations links={entry.links || []} entries={entries} lang={lang} onOpen={onOpenEntry} /> : (
               <RelationsEditor links={entry.links || []} onChange={links => set({ links })} entries={entries} selfId={entry.id} lang={lang} onOpen={onOpenEntry} />
             )}
+          </section>
+
+          <section className="wl-ed-sec">
+            <label className="wl-label">🌐 {t(lang, 'Fontes e Páginas Externas', 'External Pages & Sources')}</label>
+            <SourcesEditor
+              sources={d.sources || []}
+              onChange={sources => setData({ sources })}
+              onIngest={(url) => {
+                setIngestInitialUrl(url);
+                setShowIngest(true);
+              }}
+              lang={lang}
+              readOnly={readOnly}
+            />
           </section>
 
           <fieldset className="wl-ed-fs wl-ed-sec wl-ed-grid" disabled={readOnly}>
@@ -541,7 +676,9 @@ function backVia(b, lang) {
   if (b.via === 'link') return relLabel(b.rel, lang).toLowerCase();
   if (b.via === 'mention') return t(lang, 'menciona', 'mentions');
   if (b.via === 'parent') return t(lang, 'fica aqui', 'is here');
-  if (b.via === 'pin') return t(lang, 'no mapa', 'on the map');
+  if (b.via === 'pin') return t(lang, 'marcador no mapa', 'pin on map');
+  if (b.via === 'zone') return t(lang, 'área no mapa', 'zone on map');
+  if (b.via === 'contains') return t(lang, 'contido aqui', 'contained here');
   return '';
 }
 
@@ -661,4 +798,228 @@ function KindFields({ entry, lang, setData, items, members }) {
     default:
       return null;
   }
+}
+
+function IngestBox({ campaignId, entry, onApply, lang, onClose, initialUrl = '' }) {
+  const [url, setUrl] = useState(initialUrl || '');
+  const [withImage, setWithImage] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    if (initialUrl && initialUrl !== url) {
+      setUrl(initialUrl);
+    }
+  }, [initialUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchLink = async (e) => {
+    e?.preventDefault();
+    if (!url.trim()) return;
+    setBusy(true); setError(''); setResult(null);
+    try {
+      const data = await ingestUrl(campaignId, url.trim(), withImage);
+      setResult(data);
+    } catch (err) {
+      setError(worldErrorText(err, lang));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const apply = () => {
+    if (!result) return;
+    onApply(result);
+    onClose?.();
+  };
+
+  return (
+    <div className="wl-ingest-box" role="region" aria-label={t(lang, 'Puxar conteúdo de link', 'Ingest content from link')}>
+      <div className="wl-ingest-head">
+        <strong>🔗 {t(lang, 'Puxar de link / Wiki / SRD', 'Pull from link / Wiki / SRD')}</strong>
+        <button type="button" className="wl-x" onClick={onClose} aria-label={t(lang, 'Fechar', 'Close')}>×</button>
+      </div>
+      <form onSubmit={fetchLink} className="wl-ingest-form">
+        <div className="wl-ingest-input-row">
+          <input
+            type="url"
+            className="wl-ingest-input"
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            placeholder={t(lang, 'Cole link de Wikipédia, D&D Wiki, Open5e, SRD, Fandom ou imagem...', 'Paste link from Wikipedia, D&D Wiki, Open5e, SRD, Fandom or image...')}
+            disabled={busy}
+          />
+          <button type="submit" className="mesa-btn is-primary wl-ingest-submit" disabled={busy || !url.trim()}>
+            {busy ? t(lang, 'Buscando…', 'Fetching…') : t(lang, 'Puxar', 'Fetch')}
+          </button>
+        </div>
+        <label className="wl-check wl-ingest-check">
+          <input type="checkbox" checked={withImage} onChange={e => setWithImage(e.target.checked)} disabled={busy} />
+          <span>{t(lang, 'Incluir imagem se houver', 'Include image if available')}</span>
+        </label>
+      </form>
+      {error && <p className="wl-error" role="alert">{error}</p>}
+      {result && (
+        <div className="wl-ingest-preview">
+          <div className="wl-ingest-preview-header">
+            {result.image && <img src={result.image} alt="" className="wl-ingest-thumb" />}
+            <div className="wl-ingest-preview-meta">
+              <h4>{result.name || t(lang, 'Sem título', 'Untitled')}</h4>
+              {result.kind && <span className="wl-tag">{kindIcon(result.kind)} {kindLabel(result.kind, lang)}</span>}
+              {result.summary && <p className="wl-ingest-preview-summary">{result.summary}</p>}
+            </div>
+          </div>
+          {result.body && (
+            <div className="wl-ingest-preview-body">
+              <pre>{result.body.slice(0, 320)}{result.body.length > 320 ? '…' : ''}</pre>
+            </div>
+          )}
+          <div className="wl-ingest-actions">
+            <button type="button" className="mesa-btn is-primary" onClick={apply}>
+              ✨ {t(lang, 'Aplicar ao cartão', 'Apply to card')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContainsEditor({ contains = [], onChange, entries = [], selfId, lang, readOnly, onOpen }) {
+  const byId = useMemo(() => new Map((entries || []).map(e => [e.id, e])), [entries]);
+  const list = useMemo(() => (contains || []).map(id => byId.get(id)).filter(Boolean), [contains, byId]);
+
+  const removeId = (id) => {
+    onChange(contains.filter(x => x !== id));
+  };
+
+  const addId = (id) => {
+    if (id && !contains.includes(id)) {
+      onChange([...contains, id]);
+    }
+  };
+
+  return (
+    <div className="wl-contains-wrap">
+      {list.length > 0 ? (
+        <div className="wl-contains-chips">
+          {list.map(item => (
+            <span key={item.id} className="wl-contains-chip">
+              <button type="button" className="wl-tag" onClick={() => onOpen?.(item.id)}>
+                {kindIcon(item.kind)} {item.name}
+              </button>
+              {!readOnly && (
+                <button type="button" className="wl-x" onClick={() => removeId(item.id)} aria-label={t(lang, `Remover ${item.name}`, `Remove ${item.name}`)}>
+                  ×
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="wl-muted wl-small">{t(lang, 'Nenhum item ou personagem contido aqui dentro.', 'No items or characters contained inside.')}</p>
+      )}
+      {!readOnly && (
+        <div className="wl-contains-add">
+          <EntryPicker
+            entries={entries}
+            value={null}
+            onChange={addId}
+            exclude={[selfId, ...(contains || [])]}
+            lang={lang}
+            placeholder={t(lang, '+ Adicionar à lista de contidos…', '+ Add to contained list…')}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SourcesEditor({ sources = [], onChange, onIngest, lang, readOnly }) {
+  const [newUrl, setNewUrl] = useState('');
+  const [newLabel, setNewLabel] = useState('');
+
+  const addSource = (e) => {
+    e?.preventDefault();
+    const u = newUrl.trim();
+    if (!u) return;
+    const exists = sources.some(s => (typeof s === 'string' ? s : s.url) === u);
+    if (!exists) {
+      const item = { url: u };
+      if (newLabel.trim()) item.label = newLabel.trim();
+      item.ingestedAt = new Date().toISOString();
+      onChange([...sources, item]);
+    }
+    setNewUrl('');
+    setNewLabel('');
+  };
+
+  const removeSource = (url) => {
+    onChange(sources.filter(s => (typeof s === 'string' ? s : s.url) !== url));
+  };
+
+  return (
+    <div className="wl-sources-wrap">
+      {sources.length > 0 ? (
+        <ul className="wl-sources-list">
+          {sources.map((s, idx) => {
+            const url = typeof s === 'string' ? s : s.url;
+            const label = typeof s === 'object' && s.label ? s.label : url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 45);
+            return (
+              <li key={url + idx} className="wl-source-item">
+                <span className="wl-source-label">🌐 {label}</span>
+                <a href={url} target="_blank" rel="noopener noreferrer" className="wl-source-link" title={t(lang, 'Abrir link externo', 'Open external link')}>
+                  ↗
+                </a>
+                {!readOnly && onIngest && (
+                  <button
+                    type="button"
+                    className="wl-source-pull-btn btn btn-ghost btn-xs"
+                    onClick={() => onIngest(url)}
+                    title={t(lang, 'Puxar dados desta fonte', 'Pull data from this source')}
+                  >
+                    📥 {t(lang, 'Puxar dados', 'Pull data')}
+                  </button>
+                )}
+                {!readOnly && (
+                  <button
+                    type="button"
+                    className="wl-x"
+                    onClick={() => removeSource(url)}
+                    aria-label={t(lang, 'Remover fonte', 'Remove source')}
+                  >
+                    ×
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="wl-muted wl-small">{t(lang, 'Nenhuma página ou fonte externa vinculada.', 'No external pages or sources linked.')}</p>
+      )}
+      {!readOnly && (
+        <form onSubmit={addSource} className="wl-sources-add-form">
+          <input
+            type="url"
+            className="wl-sources-input"
+            value={newUrl}
+            onChange={e => setNewUrl(e.target.value)}
+            placeholder={t(lang, 'https://pt.wikipedia.org/... ou D&D Wiki...', 'https://en.wikipedia.org/... or D&D Wiki...')}
+          />
+          <input
+            type="text"
+            className="wl-sources-label-input"
+            value={newLabel}
+            onChange={e => setNewLabel(e.target.value)}
+            placeholder={t(lang, 'Rótulo (opcional)', 'Label (optional)')}
+            maxLength={60}
+          />
+          <button type="submit" className="mesa-btn is-primary btn-sm" disabled={!newUrl.trim()}>
+            + {t(lang, 'Adicionar', 'Add')}
+          </button>
+        </form>
+      )}
+    </div>
+  );
 }

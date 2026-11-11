@@ -822,3 +822,334 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
   font-weight: 700; letter-spacing: 0.06em; background: rgba(34, 24, 13, 0.6);
 }
 .wl-sheet-ref:hover { border-color: var(--gold-bright, #edcb7a); background: rgba(52, 36, 16, 0.9); }
+
+/* ---------------------------------------------------------------- ingestão de links */
+.wl-ingest-box {
+  margin: 10px 0;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+.wl-ingest-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  color: var(--gold-bright);
+}
+.wl-ingest-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wl-ingest-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.wl-ingest-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 12px;
+  background: var(--bg-deep);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  color: var(--ink-primary);
+  font-size: 0.88rem;
+}
+.wl-ingest-input:focus {
+  border-color: var(--gold-bright);
+  outline: none;
+}
+.wl-ingest-submit {
+  flex: none;
+}
+.wl-ingest-check {
+  font-size: 0.82rem;
+  color: var(--ink-secondary);
+}
+.wl-ingest-preview {
+  margin-top: 10px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--stroke-faint);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wl-ingest-preview-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.wl-ingest-thumb {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--gold-deep);
+}
+.wl-ingest-preview-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.wl-ingest-preview-meta h4 {
+  margin: 0 0 4px;
+  font-family: var(--display);
+  font-size: 0.95rem;
+  color: var(--gold-bright);
+}
+.wl-ingest-preview-summary {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: var(--ink-secondary);
+}
+.wl-ingest-preview-body pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--body);
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+  max-height: 80px;
+  overflow-y: auto;
+}
+.wl-ingest-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---------------------------------------------------------------- contidos (contains) */
+.wl-contains-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wl-contains-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.wl-contains-chip {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  padding-right: 4px;
+}
+.wl-contains-chip .wl-tag {
+  border: none;
+  background: transparent;
+}
+.wl-contains-chip .wl-x {
+  width: 28px;
+  height: 28px;
+  font-size: 1rem;
+}
+
+/* ---------------------------------------------------------------- áreas retangulares do mapa (zones) */
+.wl-map-zone {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px dashed rgba(214, 176, 100, 0.7);
+  background: rgba(214, 176, 100, 0.08);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  z-index: 1;
+}
+.wl-map-zone:hover {
+  border-color: var(--gold-bright);
+  background: rgba(214, 176, 100, 0.16);
+}
+.wl-map-zone.is-selected {
+  border-color: #ffd700;
+  border-style: solid;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.45);
+  background: rgba(214, 176, 100, 0.22);
+  z-index: 3;
+}
+.wl-map-zone.is-hidden {
+  border-color: rgba(160, 150, 140, 0.45);
+  background: rgba(0, 0, 0, 0.12);
+}
+.wl-map-zone.is-preview {
+  border: 2px dashed var(--gold-bright);
+  background: rgba(214, 176, 100, 0.2);
+  pointer-events: none;
+  z-index: 5;
+}
+.wl-map-zone-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 3px 6px;
+  pointer-events: auto;
+}
+.wl-map-zone-tag {
+  font-family: var(--display);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--gold-bright);
+  background: rgba(14, 10, 7, 0.85);
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--gold-deep);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+.wl-map-zone-enter-btn {
+  background: rgba(214, 176, 100, 0.25);
+  border: 1px solid var(--gold);
+  color: var(--gold-bright);
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.wl-map-zone-enter-btn:hover {
+  background: var(--gold);
+  color: var(--on-gold);
+}
+
+/* ---------------------------------------------------------------- Link de Imagem Direto */
+.wl-img-link-pop {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: rgba(18, 12, 9, 0.94);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--gold);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  z-index: 10;
+}
+.wl-img-link-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--gold-deep);
+  border-radius: 6px;
+  color: var(--ink);
+}
+
+/* ---------------------------------------------------------------- Fontes e Páginas Externas */
+.wl-sources-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.wl-sources-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wl-source-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(224, 181, 94, 0.05);
+  border: 1px solid var(--stroke-faint);
+  border-radius: 6px;
+  font-size: 0.86rem;
+}
+.wl-source-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--gold-bright);
+}
+.wl-source-link {
+  color: var(--ink-secondary);
+  text-decoration: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--stroke-faint);
+  font-size: 0.8rem;
+}
+.wl-source-link:hover {
+  color: var(--gold-bright);
+  border-color: var(--gold);
+}
+.wl-source-pull-btn {
+  font-size: 0.76rem !important;
+  padding: 2px 8px !important;
+}
+.wl-sources-add-form {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.wl-sources-input {
+  flex: 2 1 180px;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+.wl-sources-label-input {
+  flex: 1 1 110px;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+/* ---------------------------------------------------------------- Auto-Fit de Zonas do Mapa */
+.wl-zone-autofit-wrap {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wl-zone-autofit-btn {
+  width: 100%;
+  justify-content: center;
+  font-family: var(--display);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  border-color: var(--gold-deep);
+  background: rgba(214, 176, 100, 0.1);
+  color: var(--gold-bright);
+}
+.wl-zone-autofit-btn:hover {
+  background: rgba(214, 176, 100, 0.22);
+  border-color: var(--gold);
+}
+
+/* ---------------------------------------------------------------- Novo Mapa via URL */
+.wl-newmap-url-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.wl-newmap-url-input {
+  flex: 1 1 240px;
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--stroke);
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--ink);
+  font-size: 0.9rem;
+}

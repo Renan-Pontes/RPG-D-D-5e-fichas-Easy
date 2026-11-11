@@ -143,10 +143,16 @@ def _check_refs(campaign, fields, self_id=None):
     if 'links' in fields:
         fields['links'] = [ln for ln in fields['links'] if ln['to'] in rows and ln['to'] != self_id]
     data = fields.get('data')
-    if isinstance(data, dict) and isinstance(data.get('map'), dict):
-        for p in data['map']['pins']:
-            if p.get('entryId') and p['entryId'] not in rows:
-                p['entryId'] = None
+    if isinstance(data, dict):
+        if 'contains' in data and isinstance(data['contains'], list):
+            data['contains'] = [i for i in data['contains'] if i in rows and i != self_id]
+        if isinstance(data.get('map'), dict):
+            for p in data['map'].get('pins') or []:
+                if p.get('entryId') and p['entryId'] not in rows:
+                    p['entryId'] = None
+            for z in data['map'].get('zones') or []:
+                if z.get('entryId') and z['entryId'] not in rows:
+                    z['entryId'] = None
     return fields
 
 
@@ -166,9 +172,13 @@ def _stamp_secrets(new, old, session, now_iso):
 
 
 def _pins_newly_visible(new_data, old_data):
-    old = {p.get('id') for p in ((old_data or {}).get('map') or {}).get('pins') or [] if p.get('visible')}
-    return any(p.get('visible') and p.get('id') not in old
-               for p in ((new_data or {}).get('map') or {}).get('pins') or [])
+    old_p = {p.get('id') for p in ((old_data or {}).get('map') or {}).get('pins') or [] if p.get('visible')}
+    p_new = any(p.get('visible') and p.get('id') not in old_p
+                for p in ((new_data or {}).get('map') or {}).get('pins') or [])
+    old_z = {z.get('id') for z in ((old_data or {}).get('map') or {}).get('zones') or [] if z.get('visible')}
+    z_new = any(z.get('visible') and z.get('id') not in old_z
+                for z in ((new_data or {}).get('map') or {}).get('zones') or [])
+    return p_new or z_new
 
 
 # ------------------------------------------------------------------ lista / criar
@@ -284,14 +294,23 @@ def _delete_entry(entry):
         for o in others:
             links = [ln for ln in o.links or [] if ln.get('to') != target]
             data = o.data or {}
-            pins = (data.get('map') or {}).get('pins') if isinstance(data.get('map'), dict) else None
-            changed_pins = False
-            if pins:
-                for p in pins:
+            changed_data = False
+            if 'contains' in data and isinstance(data['contains'], list):
+                new_c = [i for i in data['contains'] if i != target]
+                if len(new_c) != len(data['contains']):
+                    data['contains'] = new_c
+                    changed_data = True
+            m_obj = data.get('map') if isinstance(data.get('map'), dict) else None
+            if m_obj:
+                for p in m_obj.get('pins') or []:
                     if p.get('entryId') == target:
                         p['entryId'] = None
-                        changed_pins = True
-            if len(links) != len(o.links or []) or changed_pins:
+                        changed_data = True
+                for z in m_obj.get('zones') or []:
+                    if z.get('entryId') == target:
+                        z['entryId'] = None
+                        changed_data = True
+            if len(links) != len(o.links or []) or changed_data:
                 WorldEntry.objects.filter(pk=o.pk).update(links=links, data=data)
         entry.delete()
 
@@ -306,19 +325,29 @@ def world_image(request, pk):
     entry = _dm_entry(request, pk)
     if request.method == 'DELETE':
         WorldImage.objects.filter(entry=entry).delete()
-        WorldEntry.objects.filter(pk=entry.pk).update(image_ver='', updated_at=timezone.now())
-        return Response({'imageVer': ''})
+        data = dict(entry.data or {})
+        data.pop('imageUrl', None)
+        WorldEntry.objects.filter(pk=entry.pk).update(image_ver='', data=data, updated_at=timezone.now())
+        return Response({'imageVer': '', 'imageUrl': None})
     raw = _body(request).get('image')
     if isinstance(raw, str) and len(raw) > R.MAX_IMAGE_CHARS:
         _bad('image_too_large')
     data_url = _run(R.clean_image, raw)
     old = WorldImage.objects.filter(entry=entry).values_list('data', flat=True).first()
-    P.check_images(entry.campaign.dm, P.image_bytes(data_url), P.image_bytes(old))
+    is_external = data_url.startswith(('http://', 'https://'))
+    if not is_external:
+        P.check_images(entry.campaign.dm, P.image_bytes(data_url), P.image_bytes(old))
     ver = R.image_version(data_url)
     with transaction.atomic():
         WorldImage.objects.update_or_create(entry=entry, defaults={'data': data_url})
-        WorldEntry.objects.filter(pk=entry.pk).update(image_ver=ver, updated_at=timezone.now())
-    return Response({'imageVer': ver, 'imageUrl': f'/api/world/{entry.id}/image?v={ver}'})
+        data = dict(entry.data or {})
+        if is_external:
+            data['imageUrl'] = data_url
+        elif 'imageUrl' in data:
+            del data['imageUrl']
+        WorldEntry.objects.filter(pk=entry.pk).update(image_ver=ver, data=data, updated_at=timezone.now())
+    img_url = data_url if is_external else f'/api/world/{entry.id}/image?v={ver}'
+    return Response({'imageVer': ver, 'imageUrl': img_url})
 
 
 def image_response(request, entry):
@@ -334,6 +363,8 @@ def image_response(request, entry):
         img = WorldImage.objects.filter(entry_id=entry.id).values_list('data', flat=True).first()
         if not img:
             raise NotFound('no_image')
+        if img.startswith(('http://', 'https://')):
+            return HttpResponseRedirect(img)
         head, payload = img.split(',', 1)
         mime = head[5:].split(';', 1)[0]
         resp = HttpResponse(base64.b64decode(payload), content_type=mime)
@@ -420,6 +451,25 @@ def world_reveal(request, pk):
                     newly_pins.append(p)
                 p['visible'] = want
         data['map'] = {**(m or {}), 'pins': pins}
+        fields['data'] = data
+    zone_req = body.get('zones')
+    if zone_req is not None:
+        if not isinstance(zone_req, dict):
+            _bad('invalid_zones')
+        data = dict(fields.get('data') or entry.data or {})
+        m = data.get('map') if isinstance(data.get('map'), dict) else {}
+        zones = [dict(z) for z in m.get('zones') or []]
+        known = {z.get('id') for z in zones}
+        for zid in zone_req:
+            if zid not in known:
+                _bad('unknown_zone')
+        for z in zones:
+            if z.get('id') in zone_req:
+                want = bool(zone_req[z['id']])
+                if want and not z.get('visible'):
+                    newly_pins.append(z)
+                z['visible'] = want
+        data['map'] = {**m, 'zones': zones}
         fields['data'] = data
 
     vis_up = 'visibility' in fields and R.VIS_RANK[fields['visibility']] > R.VIS_RANK[old_vis]
@@ -809,3 +859,24 @@ def world_echoes(request, id_or_slug):
     entries.sort(key=lambda e: e['lastAt'], reverse=True)
     return Response({'immersion': True, 'entries': entries, 'known': known,
                      'lines': R.echo_lines(entries, lang)})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@rate_limit(key='world_ingest', max_attempts=30, window=60, per_ip=False, per_user=True)
+def world_ingest(request, id_or_slug):
+    """Puxa dados de uma URL (wiki, imagem, SRD) e devolve um rascunho de cartão.
+    Só mestre."""
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    body = _body(request)
+    url = (body.get('url') or '').strip()
+    if not url:
+        _bad('missing_url')
+    with_image = bool(body.get('withImage', True))
+    from . import world_ingest as WI
+    try:
+        res = WI.ingest(url, with_image=with_image)
+        return Response(res)
+    except WI.IngestError as e:
+        _bad(e.code)

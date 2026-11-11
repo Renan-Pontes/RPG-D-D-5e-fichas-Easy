@@ -1,10 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { autoFitZoneRatio, fitSize } from '../src/world/image.js';
 import {
   KINDS, KIND_META, defaultArt, kindLabel, visLabel, nextVisibility, parseMentions, mentionIds, plainText,
   mentionMarkup, mentionQueryAt, insertMention, filterEntries, allTags, countByKind, sortEntries, reorderPatches,
   applyPatches, timelineEntries, backlinks, childrenOf, isNewFor, toLight, freshId, norm, subtitleOf, relLabel, clampUnit,
   moveStepPatches, visShort, visTip, secretsText, VISIBILITIES, mergeReorderResponse, pendingAdd, pendingDone,
+  CONTAINS_KINDS, containsOf, containedIn,
 } from '../src/world/world-model.js';
 import { WORLD_LIGHT_DM, WORLD_FULL_DM, WORLD_MAP_DM, WORLD_LIGHT_PLAYER } from '../src/world/fixtures.js';
 
@@ -261,3 +263,88 @@ test('pinCountText flexiona o plural (#40)', async () => {
   assert.equal(tapVerb('pt', false), 'Clique');
   assert.equal(tapVerb('en', false), 'Click');
 });
+
+test('CONTAINS_KINDS, containsOf e containedIn agrupam entidades contidas', () => {
+  assert.deepEqual(CONTAINS_KINDS, ['place', 'faction', 'npc']);
+  const e1 = { id: 10, kind: 'place', data: { contains: [20, 30] } };
+  const e2 = { id: 20, kind: 'npc' };
+  const e3 = { id: 30, kind: 'faction' };
+  const e4 = { id: 40, kind: 'place', contains: [10] };
+
+  assert.deepEqual(containsOf(e1), [20, 30]);
+  assert.deepEqual(containsOf(e2), []);
+  assert.deepEqual(containsOf(e4), [10]);
+  assert.deepEqual(containsOf(null), []);
+
+  const all = [e1, e2, e3, e4];
+  assert.deepEqual(containedIn(20, all).map(x => x.id), [10]);
+  assert.deepEqual(containedIn(e3, all).map(x => x.id), [10]);
+  assert.deepEqual(containedIn(10, all).map(x => x.id), [40]);
+  assert.deepEqual(containedIn(40, all), []);
+});
+
+test('backlinks inclui via zone e via contains', () => {
+  const entries = [
+    { id: 1, name: 'Reino Maior', zoneTargets: [2], contains: [3] },
+    { id: 2, name: 'Floresta Élfica' },
+    { id: 3, name: 'Cidadela' },
+  ];
+  const blZone = backlinks(entries, 2);
+  assert.deepEqual(blZone.map(b => `${b.entry.id}:${b.via}`), ['1:zone']);
+
+  const blContains = backlinks(entries, 3);
+  assert.deepEqual(blContains.map(b => `${b.entry.id}:${b.via}`), ['1:contains']);
+});
+
+test('toLight preserva zoneTargets e contains', () => {
+  const full = {
+    id: 99,
+    kind: 'place',
+    name: 'Mapa Mundial',
+    body: 'Texto descritivo longo...',
+    data: {
+      placeType: 'region',
+      contains: [101, 102],
+      map: {
+        pins: [{ id: 'p1', entryId: 201 }],
+        zones: [{ id: 'z1', entryId: 301, x: 0.1, y: 0.1, w: 0.2, h: 0.2 }],
+      },
+    },
+  };
+  const light = toLight(full);
+  assert.equal(light.body, undefined);
+  assert.equal(light.isMap, true);
+  assert.deepEqual(light.pinTargets, [201]);
+  assert.deepEqual(light.zoneTargets, [301]);
+  assert.deepEqual(light.contains, [101, 102]);
+  assert.deepEqual(light.data.contains, [101, 102]);
+});
+
+test('fitSize escala mantendo proporção até o limite máximo', () => {
+  assert.deepEqual(fitSize(1920, 1080, 1920), { w: 1920, h: 1080 });
+  assert.deepEqual(fitSize(4000, 2000, 2000), { w: 2000, h: 1000 });
+  assert.deepEqual(fitSize(1000, 3000, 1500), { w: 500, h: 1500 });
+});
+
+test('autoFitZoneRatio ajusta altura e largura para coincidir com proporção de tela do destino', () => {
+  // Mapa pai 16:9 (1.7777), Destino quadrado 1:1 (1.0)
+  // Razão K = 1.0 / (16/9) = 9/16 = 0.5625
+  // Para w = 0.2: h = w / K = 0.2 / 0.5625 = 0.35555
+  const zone = { id: 'z1', x: 0.3, y: 0.3, w: 0.2, h: 0.2 };
+  const parentRatio = 16 / 9;
+  const childRatio = 1.0;
+  const fitted = autoFitZoneRatio(zone, parentRatio, childRatio);
+
+  // Proporção visual na tela do retângulo: (fitted.w / fitted.h) * parentRatio
+  const screenAspect = (fitted.w / fitted.h) * parentRatio;
+  assert.ok(Math.abs(screenAspect - childRatio) < 0.01, `esperava ~1.0 mas deu ${screenAspect}`);
+
+  // Centro da zona deve ser preservado
+  const origCx = zone.x + zone.w / 2;
+  const origCy = zone.y + zone.h / 2;
+  const newCx = fitted.x + fitted.w / 2;
+  const newCy = fitted.y + fitted.h / 2;
+  assert.ok(Math.abs(origCx - newCx) < 0.005);
+  assert.ok(Math.abs(origCy - newCy) < 0.005);
+});
+

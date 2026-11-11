@@ -102,6 +102,7 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/world', closed_guard(views_world.world_list, 'campaign')),
     path('campaigns/<str:id_or_slug>/world/sample', closed_guard(views_world.world_sample, 'campaign')),
     path('campaigns/<str:id_or_slug>/world/clear', closed_guard(views_world.world_clear, 'campaign')),
+    path('campaigns/<str:id_or_slug>/world/ingest', closed_guard(views_world.world_ingest, 'campaign')),
     path('campaigns/<str:id_or_slug>/world/seen', views_world.world_seen),
     path('campaigns/<str:id_or_slug>/world/echoes', closed_guard(views_world.world_echoes, 'campaign')),
     path('campaigns/<str:id_or_slug>/session-plan', closed_guard(views_world.session_plan, 'campaign')),

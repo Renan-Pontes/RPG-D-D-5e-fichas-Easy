@@ -336,6 +336,8 @@ export function backlinks(entries, id, adventures = [], plan = null) {
     if ((e.mentions || []).includes(id)) out.push({ entry: e, via: 'mention' });
     if (e.parentId === id) out.push({ entry: e, via: 'parent' });
     if ((e.pinTargets || []).includes(id)) out.push({ entry: e, via: 'pin' });
+    if ((e.zoneTargets || []).includes(id)) out.push({ entry: e, via: 'zone' });
+    if (containsOf(e).includes(id)) out.push({ entry: e, via: 'contains' });
   }
   for (const adv of adventures || []) {
     for (const n of adv.nodes || adv.data?.nodes || []) {
@@ -351,6 +353,21 @@ export function backlinks(entries, id, adventures = [], plan = null) {
 }
 
 /** Filhos diretos ("fica em / pertence a"). */
+export const CONTAINS_KINDS = ['place', 'faction', 'npc'];
+
+/** Lista de IDs contidos nesta entidade (Place, Faction, NPC). */
+export function containsOf(entry) {
+  const arr = entry?.data?.contains ?? entry?.contains;
+  return Array.isArray(arr) ? arr.filter(x => typeof x === 'number' && Number.isFinite(x)) : [];
+}
+
+/** Entidades que contêm esta entidade em seu 'contains'. */
+export function containedIn(entry, entries = []) {
+  const id = typeof entry === 'number' ? entry : entry?.id;
+  if (!id) return [];
+  return (entries || []).filter(e => containsOf(e).includes(id));
+}
+
 export const childrenOf = (entries, id) => (entries || []).filter(e => e.parentId === id);
 
 /** "Novo!" para o jogador: revelado depois da última visita. */
@@ -371,6 +388,8 @@ export function toLight(full) {
   }
   if (typeof body === 'string') out.mentions = mentionIds(body);
   if (data?.map?.pins) out.pinTargets = data.map.pins.map(p => p.entryId).filter(Boolean);
+  if (data?.map?.zones) out.zoneTargets = data.map.zones.map(z => z.entryId).filter(Boolean);
+  if (Array.isArray(data?.contains)) out.contains = data.contains;
   if (data) out.isMap = full.kind === 'place' && !!data.map;
   // Os cartões usam `data` para o subtítulo (papel, tipo de lugar…).
   if (data) out.data = pickCardData(full.kind, data);
@@ -378,7 +397,7 @@ export function toLight(full) {
 }
 
 function pickCardData(kind, data) {
-  const keys = { npc: ['role'], place: ['placeType'], item: ['rarity'], handout: ['style'], faction: ['symbolColor'] }[kind] || [];
+  const keys = { npc: ['role', 'contains'], place: ['placeType', 'contains'], item: ['rarity'], handout: ['style'], faction: ['symbolColor', 'contains'] }[kind] || [];
   const o = {};
   for (const k of keys) if (data[k] !== undefined) o[k] = data[k];
   return o;
