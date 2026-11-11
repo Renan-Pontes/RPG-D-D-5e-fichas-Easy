@@ -71,7 +71,7 @@ Suíte do backend no `main`: 1.005 testes, **13 falhas e 2 erros**.
 
 | # | Item | Arquivo | Detalhe |
 |---|---|---|---|
-| C1 | Migração que falta | `backend/api/migrations/` | `makemigrations --check` pede a `0015` (remove `api_members_user_id_idx`, renomeia `api_members_camp_char_idx`) |
+| C1 | ~~Migração que falta~~ **feito (v1.0.57)** | `backend/api/migrations/0015_drop_duplicate_membership_user_index.py` | a 0014 duplicou o índice de `user` da 0001; a 0015 tira a cópia e o modelo fixa o nome do composto; `makemigrations --check` passa e roda no CI |
 | C2 | Decidir "uma campanha por vez" | `views_campaigns.py` | os commits de 09/11 liberaram N campanhas por ficha; 9 testes ainda esperam o 409. As versões da ficha (bloco D) pedem N campanhas |
 | C3 | Atualizar os testes da regra antiga | `test_campaign_link.py` (`OneCampaignAtATimeTests`: 5), `test_modes.py` (`SingleCampaignTests`: 2) | seguem a decisão de C2 |
 | C4 | 2 erros | `test_campaign_link.py` | `test_can_move_out_of_closed_campaign`, `test_dm_cannot_attach_self_as_player` |

@@ -90,7 +90,7 @@
 - `LivingWorld.jsx` & `PlayerWorld.jsx`: Filtered player-facing view showing only discovered lore.
 - `living-logic.js`: Visibility state machine (Hidden $\rightarrow$ Partial $\rightarrow$ Revealed).
 
-### 2.7 Party Insights & Radar Intelligence (`frontend/src/metrics/` & `frontend/src/group/`)
+### 2.7 Party Insights & Radar Intelligence (`frontend/src/group/`)
 - `party-metrics.js`: 11-role tactical scoring engine, SWOT generator, and spotlight prompts.
 - `PartyInsights.jsx`: Visual dashboard displaying tactical radar charts and party composition tables.
 - `GroupArea.jsx`: Member list, character sheet assignment, and approvals manager.

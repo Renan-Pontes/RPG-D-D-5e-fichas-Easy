@@ -129,8 +129,10 @@ class Membership(models.Model):
 
     class Meta:
         indexes = [
+            # o índice de `user` é o da 0001; a 0014 criou um segundo, igual, que a 0015 tira.
+            # O composto fica com o nome que a 0014 deu (sem ele o Django pede para renomear).
             models.Index(fields=['user']),
-            models.Index(fields=['campaign', 'character']),
+            models.Index(fields=['campaign', 'character'], name='api_members_camp_char_idx'),
         ]
 
 

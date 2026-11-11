@@ -41,6 +41,16 @@ jobs:
         with:
           python-version: '3.11'
 
+      # Portões baratos (ADR-0036): o pacote não sai com migração faltando nem com
+      # documentação apontando para arquivo ou função que não existe. A suíte inteira
+      # ainda não é portão: 9 testes de test_campaign_link esperam a regra antiga
+      # (docs/backlog-grooming-and-cascade-map.md, Task 1.2).
+      - name: Migrações em dia e referências da documentação
+        run: |
+          pip install -q -r backend/requirements.txt
+          (cd backend && python manage.py makemigrations --check --dry-run)
+          python scripts/check_doc_refs.py
+
       - name: Pacote
         run: python scripts/package_release.py --slim --output dist-release/forja-release.zip
 

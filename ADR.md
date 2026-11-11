@@ -197,7 +197,7 @@ Preparing balanced, engaging sessions requires DMs to understand party compositi
 - Actionable GM output (tailored challenge suggestions, spotlight recommendations).
 
 ### Decision Outcome
-Build `frontend/src/metrics/party-metrics.js`:
+Build `frontend/src/group/party-metrics.js`:
 - Maps characters against 11 core roles (Damage, Mitigation, Magic, Healing, Ranged, Melee, Control, Utility, Mobility, Social, Exploration) with base ratings adjusted by actual character attributes, feats, and spells.
 - Cross-references party damage types with the SRD bestiary to calculate monster vulnerability and resistance matching.
 - Generates algorithmic SWOT analysis and spotlight prompts ("Give Floyd a social scene: Persuasion +7").
@@ -1311,7 +1311,7 @@ Accepted (2026-11-11, `v1.0.56`)
 ### Decision Outcome
 1. **Strict Module Size Budgets**:
    - **React UI Components**: max `500` lines per file. Top-level containers (`Sheet.jsx`, `SheetTabs.jsx`, `NextSession.jsx`, `CombatTab.jsx`) act purely as state orchestrators and layout shells, delegating domain sub-trees to `frontend/src/<domain>/`.
-   - **Pure JS Domain Engines**: max `500` lines per file, 100% pure functions with zero React/DOM/fetch imports and dedicated Vitest suites.
+   - **Pure JS Domain Engines**: max `500` lines per file, 100% pure functions with zero React/DOM/fetch imports and dedicated `node --test` suites.
    - **CSS Domain Stylesheets**: max `800` lines per file, organized under domain folders (`frontend/src/sheet/css/sheet-*.css`) using semantic custom properties (`--sheet-*`) and GPU-composited transitions (`transform`, `opacity`).
    - **Django DRF View Modules**: max `600` lines per file. Multi-model mutations, undo ring buffers, and sheet write-backs live in `backend/api/services/<domain>.py`.
 2. **Unified Campaign-Sheet Target Resolution (`resolve_sheet_target`)**:

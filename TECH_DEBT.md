@@ -138,7 +138,7 @@ Register of debt created by the frontend running ahead of the deployed backend. 
 
 | Debt | Where | Clears with |
 |---|---|---|
-| 35 "servidor antigo" fallback branches in 22 files | `frontend/src/{play,prep,stage,screen,player,campaigns,combat,sheet,checks,shell}` | deploy (block A), then delete |
+| 47 "servidor antigo" mentions (fallbacks + comments) in 30 files | `frontend/src/{play,prep,stage,screen,player,campaigns,combat,sheet,checks,shell}` | deploy (block A), then delete |
 | Character versions stored inside `Character.data.versions` | `frontend/src/sheet/versions.js`, `VersionsModal.jsx` | D1 |
 | Read-only versions enforced on screen only | `components/Sheet.jsx` (`is-version-readonly`) | D1.9 |
 | Multi-roll and paired belt rolls never reach the server | `frontend/src/dice/MultiRoll.jsx`, `BeltMultiRoll.jsx` | D2.1–D2.3 |
@@ -146,7 +146,7 @@ Register of debt created by the frontend running ahead of the deployed backend. 
 | NPC card sync done through the World API from the client | `frontend/src/sheet/npc-link.js` | deploy (B11) |
 | Pact slots refunded client-side on a short rest | `components/SheetTabs.jsx` | deploy (B12) |
 | Stale version label in production (`fcaa730` vs code of 2026-10-26) | `scripts/self_update.py` | A4 |
-| Backend suite red on `main` (13 failures, 2 errors) and a missing migration | `backend/api/tests/`, `migrations/` | C1–C8 |
+| Backend suite red on `main` (13 failures, 2 errors); migration fixed in v1.0.57 | `backend/api/tests/` | C2–C8 |
 | Release packaged without running tests | `.github/workflows/backend-release.yml` | C9 |
 | Unused `BeltPbSlot` component left after the belt redesign | `components/Sheet.jsx` | delete |
 

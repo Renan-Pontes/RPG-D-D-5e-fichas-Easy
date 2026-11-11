@@ -50,7 +50,7 @@ novo**.
 
 ### A1. Motor de métricas (lógica pura + testes)
 
-`frontend/src/metrics/party-metrics.js`, sem React. Reaproveita os helpers de `frontend/utils.js`:
+`frontend/src/group/party-metrics.js`, sem React. Reaproveita os helpers de `frontend/utils.js`:
 `abilityMod`, `profBonus`, `saveBonus`, `skillBonus`, `attackFor`, `spellSaveDc`, `spellCatalog`,
 `computeAc`, `passivePerception`. Reaproveita também `MC.classEntries` (`progression/multiclass.js`),
 `computeProgression(char).features` (`progression/engine.js`), `Species.speciesGrants(char).resist`
@@ -90,7 +90,7 @@ e `SRD.SKILLS`.
   fraco), com texto pronto. Ex.: "Floyd: cena social — Persuasão +7".
 
 **Lacuna de dados:** as magias do SRD não têm tipo de dano, salvaguarda nem cura estruturados (só
-`desc`). A solução é criar `frontend/src/metrics/spell-effects.js`, um mapa
+`desc`). A solução é criar `frontend/src/metrics/spell-effects.js` (planejado; o Raio-X saiu em `frontend/src/group/`), um mapa
 `id → {damageType?, save?, attack?, healing?, control?}`.
 - Geração: um script em `frontend/scripts/` lê o `desc.en` com regex ("X damage", "Y saving throw",
   "regain hit points"), depois revisamos à mão.
@@ -103,13 +103,13 @@ Usam as fichas de `data/pregens.json`.
 ### A2. Gráficos e tela de Métricas
 
 Gráficos em **SVG feito à mão**, sem biblioteca, para o bundle continuar leve:
-`frontend/src/metrics/charts/` com `RadarChart`, `BarChart`, `LineChart` e `HeatTable`.
+`frontend/src/metrics/charts/` (planejado; o Raio-X saiu em `frontend/src/group/`) com `RadarChart`, `BarChart`, `LineChart` e `HeatTable`.
 - Cores vêm dos tokens de `styles.css:7-48`.
 - Cada personagem tem uma cor fixa em todos os gráficos.
 - Tooltip ao tocar.
 - Antes de implementar, carregar o skill `dataviz`.
 
-Tela `frontend/src/metrics/MetricsPanel.jsx`. Seções que recolhem, nesta ordem:
+Tela `frontend/src/metrics/MetricsPanel.jsx` (planejado; o Raio-X saiu em `frontend/src/group/`). Seções que recolhem, nesta ordem:
 1. **Visão da party** (imagem 2): tabela + sessão atual (`state.session` e `diarySessions`).
 2. **Papéis da party**: radar de 11 eixos com média × melhor. Botão "ver tabela por classe"
    (imagem 1, mapa de calor).
@@ -289,7 +289,7 @@ Abrir na TV: forja…/tv  código  K7Q2PX
 - **Ping:** toque longo no mapa, pelo mestre ou pelo jogador.
   - `POST /api/campaigns/<id>/ping {x,y}`, com limite de 10 a cada 10 s.
   - Na TV aparece um pulso na cor do jogador por 4 s.
-- **Música e ambiente:** **8 a 10 loops CC0** em `frontend/public/audio/` (taverna, floresta, chuva,
+- **Música e ambiente:** **8 a 10 loops CC0** em `frontend/public/audio/` (planejado) (taverna, floresta, chuva,
   caverna, cidade, mar, tensão, batalha), servidos pelo CDN da Vercel, com os créditos em
   `audio/CREDITS.md`.
   - Também aceita um link direto de mp3 ou ogg.
