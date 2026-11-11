@@ -10,6 +10,7 @@ import CharacterList from './components/CharacterList.jsx';
 import Creator from './components/Creator.jsx';
 import CreatorWizard from './src/creator/CreatorWizard.jsx';
 import Sheet from './components/Sheet.jsx';
+import { previewChar, parseSheetHash, hasVersion, storeOf as versionStoreOf, isReadOnly as versionReadOnly } from './src/sheet/versions.js';
 
 import { useAuth } from './src/auth/AuthContext.jsx';
 import AuthScreen from './src/auth/AuthScreen.jsx';
@@ -47,6 +48,7 @@ const App = () => {
   const [screen, setScreen] = useState(SCREENS.HOME);
   const [characters, setCharacters] = useState([]);
   const [activeId, setActiveId] = useState(null);
+  const [versionPreview, setVersionPreview] = useState(null);   // { id, key }
   const [editingChar, setEditingChar] = useState(null);
   const [toast, setToast] = useState('');
   const [confirm, setConfirm] = useState(null);
@@ -177,11 +179,17 @@ const App = () => {
   // Referência a uma ficha (cartão de NPC no Mundo): #ficha=<id> abre a ficha, se for sua.
   useEffect(() => {
     const go = () => {
-      const m = /^#ficha=(\d+)$/.exec(window.location.hash);
+      const m = parseSheetHash(window.location.hash);   // #ficha=<id> ou #ficha=<id>@<versão>
       if (!m || listState !== 'ready') return;
-      const id = Number(m[1]);
+      const id = m.id;
       history.replaceState(null, '', window.location.pathname);
-      if (characters.some(c => c.id === id)) { setActiveId(id); setScreen(SCREENS.SHEET); }
+      const target = characters.find(c => c.id === id);
+      if (target) {
+        setActiveId(id); setScreen(SCREENS.SHEET);
+        // versão guardada (saiu / arquivo) abre só para leitura; a em uso já é a própria ficha
+        const wantsPreview = m.key && hasVersion(target, m.key) && versionStoreOf(target).current !== m.key && versionReadOnly(target, m.key);
+        setVersionPreview(wantsPreview ? { id, key: m.key } : null);
+      }
       else setToast(lang === 'pt' ? 'Essa ficha é de outra pessoa: os dados dela estão no cartão do NPC.' : "That sheet belongs to someone else: its data is on the NPC card.");
     };
     go();
@@ -256,6 +264,8 @@ const App = () => {
   }, [pendingInvite, auth.loading, auth.user, auth.backendAvailable, lang, clearPendingInvite]);
 
   const active = characters.find(c => c.id === activeId);
+  // Versão guardada da ficha aberta só para leitura (src/sheet/versions.js)
+  const previewOf = versionPreview && active && versionPreview.id === active.id ? previewChar(active, versionPreview.key) : null;
 
   // Entra na mesa com a ficha recém-salva. Se falhar, a ficha continua salva e fica o aviso com "Tentar de novo".
   const joinTable = async (join, characterId, charName) => {
@@ -755,6 +765,20 @@ const App = () => {
       if (!active) { setScreen(SCREENS.HOME); return null; }
       content = (
         <>
+          {previewOf ? (
+            <Sheet
+              key={previewOf.id}
+              lang={lang}
+              char={previewOf}
+              onUpdate={() => {}}
+              onPrint={handlePrint}
+              onExportPdf={opts => handleExportPdf(previewOf, opts)}
+              onExport={() => handleExport(previewOf)}
+              onBack={() => setVersionPreview(null)}
+              backLabel={lang === 'pt' ? 'Voltar à ficha' : 'Back to the sheet'}
+              onExitPreview={() => setVersionPreview(null)}
+            />
+          ) : (
           <Sheet
             lang={lang}
             char={active}
@@ -770,6 +794,8 @@ const App = () => {
             onLevelUp={handleLevelUpRequest}
             onCampaignChange={handleCampaignChange}
             onLogin={!auth.user && auth.backendAvailable !== false ? () => setScreen(SCREENS.AUTH) : undefined}
+            onSaveVersion={async (c) => { const saved = await storage.save(applyAutosToCharacter(c)); await refreshCharacters(); return saved; }}
+            onPreviewVersion={(key) => setVersionPreview({ id: active.id, key })}
           >
             <div style={{ marginTop: 'var(--s-6)' }}>
               <ProgressionPanel
@@ -785,6 +811,7 @@ const App = () => {
               />
             </div>
           </Sheet>
+          )}
           {levelUpFlow?.mode === 'options' && (
             <ClassOptionsModal char={active} classId={levelUpFlow.classId} lang={lang}
               onConfirm={handleClassOptions} onClose={() => setLevelUpFlow(null)} />

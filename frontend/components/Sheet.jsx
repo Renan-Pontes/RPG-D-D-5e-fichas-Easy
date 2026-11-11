@@ -29,6 +29,8 @@ import { trainingLines, featName, featPicksText, backgroundFeature } from '../sr
 import { placeFeatures, featureKey } from '../src/sheet/feature-placement.js';
 import FhFeatures, { FhFeatureItem } from '../src/sheet/FhFeatures.jsx';
 import { DiceText } from '../src/dice/dice-text.jsx';
+import * as Versions from '../src/sheet/versions.js';
+import '../src/sheet/versions.css';
 import BeltMultiRoll, { pairBeltSlots, rollBeltPairs } from '../src/dice/BeltMultiRoll.jsx';
 import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
@@ -50,6 +52,7 @@ import '../src/combat/monster-statblock.css';
 
 // Modal "Campanha" (atrelar, desatrelar, trocar): só carrega quando abre.
 const CampaignLinkModal = lazy(() => import('../src/sheet/CampaignLinkModal.jsx'));
+const VersionsModal = lazy(() => import('../src/sheet/VersionsModal.jsx'));
 
 export const SHEET_TABS = [
   { id: 'play',     labelPt: 'Jogar',           labelEn: 'Play' },
@@ -169,6 +172,7 @@ const SheetHero = ({
   campFoldOpen = false,
   setCampFoldOpen,
   update,
+  versionChip = null,
 }) => {
   const pt = lang === 'pt';
   const letter = (char.name || '?').charAt(0).toUpperCase();
@@ -207,11 +211,11 @@ const SheetHero = ({
         </div>
         {/* Ações discretas no canto superior direito: Cheat -> Edit -> Export */}
         <div className="fh-hero-tools no-print">
-          <button type="button" className={`fh-hero-chip fh-corner-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
+          <button type="button" data-version-hide="" className={`fh-hero-chip fh-corner-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
             <span aria-hidden="true">🎲</span> {lang === 'pt' ? 'Trapaça' : 'Cheat'}
           </button>
           {!char.inCampaign ? (
-            <button type="button" className="fh-hero-chip fh-corner-chip is-icon" aria-label={t('edit', lang)} title={t('edit', lang)} onClick={onEdit}>
+            <button type="button" data-version-hide="" className="fh-hero-chip fh-corner-chip is-icon" aria-label={t('edit', lang)} title={t('edit', lang)} onClick={onEdit}>
               <Icon name="edit" size={15} aria-hidden="true"/>
             </button>
           ) : (
@@ -251,6 +255,7 @@ const SheetHero = ({
               {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
             </div>
           </div>
+          {versionChip}
           <div className="hero-sub fh-hero-rows">
             {(() => {
               const speciesName = race ? tName('race', race.id, lang) : (char.race || '');
@@ -273,7 +278,7 @@ const SheetHero = ({
                   {(align || speciesBg) && <div className="fh-hero-row">{[align, speciesBg].filter(Boolean).join(', ')}</div>}
                   {classes.length > 0 && <div className="fh-hero-row is-classes">{classes.join(', ')}</div>}
                   {langs.length > 0 && <div className="fh-hero-row is-langs">{pt ? 'Fala ' : 'Speaks '}{langs.join(', ')}</div>}
-                  <div className="fh-hero-row is-rest fh-hero-rest no-print">
+                  <div className="fh-hero-row is-rest fh-hero-rest no-print" data-version-hide="">
                     <RestButtons char={char} lang={lang} update={update} />
                   </div>
                 </>
@@ -295,7 +300,7 @@ const SheetHero = ({
 // o app recarrega a lista (char.inCampaign) e mostra `msg`. onLogin: ficha do aparelho,
 // leva à entrada na conta (sem ele, o servidor está fora e a dica não aparece).
 // backLabel: o texto do "voltar" quando a ficha foi aberta de outro lugar (a Mesa, V13).
-const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, backLabel, onLevelUp, onCampaignChange, onLogin, children }) => {
+const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, backLabel, onLevelUp, onCampaignChange, onLogin, onSaveVersion, onPreviewVersion, onExitPreview, children }) => {
   // o rolador global (múltipla por linhas) vincula atributo/proficiência à ficha aberta
   useEffect(() => { setActiveChar(char); }, [char]);
   useEffect(() => () => setActiveChar(null), []);
@@ -360,6 +365,30 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   const [campaignsList, setCampaignsList] = useState([]);
   const [campFoldOpen, setCampFoldOpen] = useState(false);
   const [busyLeaveId, setBusyLeaveId] = useState(null);
+  // Versões da ficha (modelo + uma cópia por campanha): src/sheet/versions.js
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const versionsBusy = useRef(false);
+  const charRef = useRef(char);
+  charRef.current = char;
+  const preview = char.versionPreview || null;      // versão guardada aberta só para leitura
+  const pt = lang === 'pt';
+  const vStore = typeof char.id === 'number' ? Versions.storeOf(char) : null;
+  const vCurrent = vStore && vStore.current !== Versions.TEMPLATE ? vStore.campaigns[vStore.current] : null;
+  useEffect(() => { versionsBusy.current = versionsOpen; }, [versionsOpen]);
+  // troca de versão: a ficha inteira muda no lugar, com um fade curto
+  const vKey = vStore?.current || '';
+  const vSeen = useRef(vKey);
+  useEffect(() => {
+    if (vSeen.current === vKey) return undefined;
+    vSeen.current = vKey;
+    const el = rootRef.current;
+    if (!el) return undefined;
+    el.classList.remove('is-version-swap');
+    void el.offsetWidth;
+    el.classList.add('is-version-swap');
+    const t = setTimeout(() => el.classList.remove('is-version-swap'), 500);
+    return () => clearTimeout(t);
+  }, [vKey]);
 
   useEffect(() => {
     if (typeof char.id !== 'number') {
@@ -371,6 +400,11 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
       if (cancelled) return;
       const list = r.campaigns || [];
       setCampaignsList(list);
+      // versões por campanha: acerta o armazém com onde a ficha está agora
+      try {
+        const rec = Versions.reconcile(charRef.current, list, null);
+        if (rec.changed && !versionsBusy.current) onUpdate(rec.char);
+      } catch { /* armazém ilegível: a lista de versões mostra o erro */ }
       const c = list[0];
       if (c) {
         setSheetPolicy(char.id, { allowed: c.sheetRolls, live: c.live, mode: c.sheetRollsMode });
@@ -527,7 +561,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   // As classes c-* (condições ativas) e is-down (PV 0) só mudam a aparência
   // (retrato e camadas decorativas: src/sheet/FhConditions.jsx).
   return (
-    <div ref={rootRef} className={['ficha', ...condClasses(char)].join(' ')}>
+    <div ref={rootRef} className={['ficha', ...condClasses(char), preview ? 'is-version-readonly' : ''].filter(Boolean).join(' ')}>
       <FhConditionFx conditions={char.conditions} />
       {levelCer && <FhLevelCeremony key={levelCer.key} cer={levelCer} char={char} lang={lang} onClose={closeLevelCer} />}
       <SheetHero
@@ -545,13 +579,28 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         exportBtnRef={exportBtnRef}
         setExportOpen={setExportOpen}
         setCheatOpen={setCheatOpen}
-        campaignBanner={
+        versionChip={preview ? (
+          <span className="fh-version-chip is-readonly no-print">
+            <span aria-hidden="true">🔒</span>
+            <span>{preview.name || (pt ? 'Versão guardada' : 'Stored version')}</span>
+          </span>
+        ) : vStore ? (
+          <button type="button" className={`fh-version-chip no-print${vCurrent ? ' is-campaign' : ''}`}
+            onClick={() => setVersionsOpen(true)}
+            aria-haspopup="dialog"
+            aria-label={pt ? `Versão em uso: ${vCurrent ? vCurrent.name : 'Modelo'}. Trocar de versão` : `Version in use: ${vCurrent ? vCurrent.name : 'Template'}. Switch version`}>
+            <span aria-hidden="true">{vCurrent ? '🏰' : '📜'}</span>
+            <span>{vCurrent ? vCurrent.name : (pt ? 'Modelo' : 'Template')}</span>
+            <span aria-hidden="true">▾</span>
+          </button>
+        ) : null}
+        campaignBanner={preview ? null :
           <CampaignModeBanner
             char={char}
             lang={lang}
             onChange={onUpdate}
             rev={campRev}
-            onManage={typeof char.id === 'number' ? () => setCampOpen(true) : null}
+            onManage={typeof char.id === 'number' ? () => setVersionsOpen(true) : null}
             onLogin={onLogin}
             campFoldOpen={campFoldOpen}
             setCampFoldOpen={setCampFoldOpen}
@@ -570,9 +619,34 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
       {char.inCampaign && typeof char.id === 'number' && (
         <PlayerChecksBanner char={char} lang={lang} />
       )}
-      {campOpen && (
+      {preview && (
+        <div className="fh-readonly-banner no-print" role="status">
+          <p>
+            <strong>{pt ? 'Só leitura. ' : 'Read-only. '}</strong>
+            {preview.state === 'archived'
+              ? (pt ? `A campanha “${preview.name}” foi encerrada: esta versão fica guardada como arquivo.` : `The campaign “${preview.name}” is closed: this version is kept as an archive.`)
+              : (pt ? `Você saiu de “${preview.name}”: esta é a ficha como você a deixou.` : `You left “${preview.name}”: this is the sheet as you left it.`)}
+            {' '}{pt ? 'Os dados rolam só neste aparelho.' : 'Dice roll on this device only.'}
+          </p>
+          <button type="button" className="btn btn-primary btn-sm" onClick={onExitPreview}>{pt ? 'Voltar à ficha' : 'Back to the sheet'}</button>
+        </div>
+      )}
+      {campOpen && !preview && (
         <Suspense fallback={null}>
           <CampaignLinkModal char={char} lang={lang} onClose={() => setCampOpen(false)} onDone={campaignChanged} />
+        </Suspense>
+      )}
+      {versionsOpen && !preview && (
+        <Suspense fallback={null}>
+          <VersionsModal
+            char={char}
+            lang={lang}
+            onClose={() => setVersionsOpen(false)}
+            onSave={onSaveVersion}
+            onDone={async (msg) => { setCampRev(n => n + 1); await onCampaignChange?.(msg); }}
+            onPreview={onPreviewVersion}
+            onAddCampaign={() => { setVersionsOpen(false); setCampOpen(true); }}
+          />
         </Suspense>
       )}
 

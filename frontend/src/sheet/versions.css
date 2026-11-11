@@ -1,0 +1,63 @@
+/* Versões da ficha (VersionsModal.jsx) e a faixa "só leitura" da ficha. */
+.vr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-2); }
+.vr-row {
+  display: flex; flex-direction: column; gap: var(--s-2);
+  padding: var(--s-3); border: 1px solid var(--stroke); border-radius: var(--r-2, 10px);
+  background: var(--bg-elevated);
+}
+.vr-row.is-current { border-color: var(--gold, #c9a24e); box-shadow: inset 3px 0 0 var(--gold, #c9a24e); }
+.vr-row.is-left, .vr-row.is-archived { opacity: .86; }
+.vr-row.is-archived { box-shadow: inset 3px 0 0 var(--ink-muted); }
+.vr-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vr-eyebrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
+.vr-name { font-family: var(--font-display, inherit); font-size: 1.05rem; overflow-wrap: anywhere; }
+.vr-preview { font-size: .85rem; color: var(--ink-secondary); }
+.vr-tag { font-size: .66rem; letter-spacing: .06em; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--stroke); text-transform: uppercase; }
+.vr-tag.is-current { border-color: var(--gold, #c9a24e); color: var(--gold, #c9a24e); }
+.vr-tag.is-left { color: var(--ink-secondary); }
+.vr-tag.is-archived { color: var(--ink-muted); }
+.vr-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.vr-actions .btn { min-height: 40px; }
+.vr-typed { display: flex; flex-direction: column; gap: 6px; font-size: .88rem; }
+.vr-typed input { min-height: 44px; }
+
+/* chip de versão sob o nome do herói */
+.fh-version-chip {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+  margin: 4px 0 2px; padding: 3px 10px 3px 8px; min-height: 28px;
+  border-radius: 999px; border: 1px solid rgba(237, 203, 122, .45);
+  background: rgba(20, 13, 7, .55); color: #edcb7a; cursor: pointer;
+  font-size: .74rem; letter-spacing: .06em; text-transform: uppercase;
+}
+.fh-version-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fh-version-chip.is-campaign { border-color: #edcb7a; background: rgba(60, 40, 12, .7); }
+.fh-version-chip.is-readonly { border-color: var(--ink-muted); color: var(--ink-secondary); }
+.fh-version-chip:focus-visible { outline: 2px solid #edcb7a; outline-offset: 2px; }
+
+/* versão guardada aberta só para leitura */
+.fh-readonly-banner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3);
+  margin: var(--s-2) 0 var(--s-3); padding: var(--s-3);
+  border: 1px solid var(--stroke); border-left: 3px solid var(--ink-muted); border-radius: var(--r-2, 10px);
+  background: var(--bg-elevated); line-height: 1.4;
+}
+.fh-readonly-banner p { margin: 0; flex: 1 1 220px; }
+.fh-readonly-banner .btn { min-height: 40px; }
+/* nada que mude a ficha, a campanha ou o servidor aparece numa versão só leitura */
+.ficha.is-version-readonly .fh-hero-top-left-cluster,
+.ficha.is-version-readonly .fh-hero-actions .is-edit,
+.ficha.is-version-readonly .fh-hero-actions .is-cheat,
+.ficha.is-version-readonly .rest-buttons,
+.ficha.is-version-readonly .fh-rest-corner,
+.ficha.is-version-readonly .campaign-mode-banner,
+.ficha.is-version-readonly .fh-campaign-fold,
+.ficha.is-version-readonly .progression-panel,
+.ficha.is-version-readonly [data-version-hide] { display: none !important; }
+.ficha.is-version-readonly input,
+.ficha.is-version-readonly textarea,
+.ficha.is-version-readonly select { pointer-events: none; }
+
+/* troca de versão */
+.ficha.is-version-swap { animation: fh-version-swap .45s ease-out; }
+@keyframes fh-version-swap { from { opacity: .25; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ficha.is-version-swap { animation: none; } }
