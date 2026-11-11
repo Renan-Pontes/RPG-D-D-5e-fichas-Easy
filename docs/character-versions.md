@@ -5,7 +5,8 @@ campanha: uma cópia completa e independente da ficha. Trocar de campanha troca 
 inteira; sair guarda a versão; só o dono pode excluí-la.
 
 Este documento diz o que o frontend já faz (v1.0.54) e o que o backend precisa passar a
-fazer para o modelo ficar completo.
+fazer para o modelo ficar completo. Onde isto entra no plano geral:
+[`sync-spec.md`](sync-spec.md) bloco D1; decisão registrada em `ADR.md` ADR-0034.
 
 ## 1. Regras
 
@@ -96,8 +97,9 @@ a versão (`Membership.version`).
 - Tudo o que hoje lê `Membership.character.data` passa a ler a versão: combate,
   pedidos de rolagem, testes, aprovações, o cartão de NPC no Mundo, a Tela, o painel
   do mestre, conjurar/descansar/inventário.
-- Uma ficha pode estar `active` em várias campanhas ao mesmo tempo (cai a regra "uma
-  campanha por vez").
+- Uma ficha pode estar `active` em várias campanhas ao mesmo tempo. No `main` a regra
+  "uma campanha por vez" já caiu (commits de 09/11, ADR-0030/0031); a produção ainda a
+  aplica, e 9 testes antigos ainda a esperam (`sync-spec.md` C2 e C3).
 
 ### Migração
 

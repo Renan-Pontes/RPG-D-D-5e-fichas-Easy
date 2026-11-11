@@ -37,6 +37,12 @@
 - [ADR-0027: User-Character-Campaign Multi-Assignment Architecture, Action-Grouped Skills (D&D 5e 2024), Juicy Roll-Up Visuals & 3-State Swipe Engine](#adr-0027-user-character-campaign-multi-assignment-architecture-action-grouped-skills-dd-5e-2024-juicy-roll-up-visuals--3-state-swipe-engine)
 - [ADR-0028: Roll Screen Blackout Remediation, Overlay Stacking Isolation & Resilient DandWiki Ingestion with Auto-Decoding](#adr-0028-roll-screen-blackout-remediation-overlay-stacking-isolation--resilient-dandwiki-ingestion-with-auto-decoding)
 - [ADR-0029: Universal Advantage Engine, Action Header Direct Rolls, Keen Senses Auto-Advantage, Staggered Concurrent Proxy Race & Dramatic Vignette Blackout](#adr-0029-universal-advantage-engine-action-header-direct-rolls-keen-senses-auto-advantage-staggered-concurrent-proxy-race--dramatic-vignette-blackout)
+- [ADR-0030: Top HUD Roll Banners, N:N Multi-Campaign Assignment Support, Player Character Skills & Tools Monster Parity, and Hero Header Top-Left Badge Cluster](#adr-0030-top-hud-roll-banners-nn-multi-campaign-assignment-support-player-character-skills--tools-monster-parity-and-hero-header-top-left-badge-cluster)
+- [ADR-0031: Multi-Character Campaign Support (N Characters per User), DM Active Player / NPC Toggle, Campaign Seal Medal Trinity, and Skills & Progression Scoping](#adr-0031-multi-character-campaign-support-n-characters-per-user-dm-active-player--npc-toggle-campaign-seal-medal-trinity-and-skills--progression-scoping)
+- [ADR-0032: Badge-Array Multi-Roll with In-Place Hero Roll-Up, Coupling, Row Locks and Measured Performance Budget](#adr-0032-badge-array-multi-roll-with-in-place-hero-roll-up-coupling-row-locks-and-measured-performance-budget)
+- [ADR-0033: Dice Belt v2: Four Die Hexads, Per-Die PB Wedges, I/II Loadouts, Hold-to-Roll and Ability-Paired Multiattack Rolls](#adr-0033-dice-belt-v2-four-die-hexads-per-die-pb-wedges-iii-loadouts-hold-to-roll-and-ability-paired-multiattack-rolls)
+- [ADR-0034: Campaigns as Versions of a Character: Template, Per-Campaign Full Copies and an Interim Checkout Store](#adr-0034-campaigns-as-versions-of-a-character-template-per-campaign-full-copies-and-an-interim-checkout-store)
+- [ADR-0035: World Link Ingestion with SSRF Guard, Linked Images, Map Zones and Containment](#adr-0035-world-link-ingestion-with-ssrf-guard-linked-images-map-zones-and-containment)
 
 ---
 
@@ -1191,3 +1197,102 @@ Accepted & Implemented (2026-11-09)
 ### Consequences
 - **Positive:** Players can bring multiple characters to the same table; DMs can flag any sheet as NPC with 1 click; 48px seal trinity creates geometric balance in the hero header; skills tab is compact, clean, and reveals only trained skills on folded headers; progression is scoped strictly to Play.
 - **Verification:** 1,588/1,588 frontend unit tests green across 20 suites; clean Vite production build in 11.37s.
+
+---
+
+## ADR-0032: Badge-Array Multi-Roll with In-Place Hero Roll-Up, Coupling, Row Locks and Measured Performance Budget
+
+### Status
+Accepted & Implemented (2026-11-09, v1.0.29–v1.0.41)
+
+### Context
+1. A multiattack needs several independent rolls (to-hit plus damage, per attack) resolved together. The single-formula roller could not express "three rows, each a d20 and its damage, some with advantage".
+2. The first multi-roll reused `DieShape` from the main roller. That component carries a screen-wide throw path (`die-bounce`, vw/vh keyframes) and a 380 px tone halo, so dice left their rows and the advantage glow flooded the screen once rows were zoomed.
+3. With every die promoted to the full hero animation, frames stalled for 350–550 ms on a software renderer.
+
+### Decision Outcome
+1. **Pure model** in `frontend/src/dice/multi-roll.js`: rows of badges (dice, abilities, PB, flat), coupling groups, row lock with temporary badges, `evalRow`/`evalUnits`, `critExtra` (excludes dice coupled to the d20). UI in `MultiRoll.jsx`; rows persist per character in `localStorage` (`fh-multiroll4:<id>`).
+2. **Gestures**: tap adds, drag reorders or couples, swipe on a d20 or a row cycles normal → advantage → disadvantage. Row selectors sit left of the lock on one axis with a gold guide line down to a round, icon-only Roll button.
+3. **Focus mode**: on Roll the chrome and unselected rows hide; each die runs the main roller's hero roll-up (`isHero`) in place. `.mr-dshape` disables the throw animation and caps the halo. Dice coupled to a d20 roll stacked beneath it and the d20 pumps to the coupled sum (`targetValue`).
+4. **Per-die variance**: `DieShape` gained `delayMs`, `timeScale` and `bodyFx`. Each die starts 0–200 ms late and runs at 0.8–1.25× duration; only the last die to finish drives the focal vignette.
+5. **Performance**: measured by ablation (hide one layer, time the roll). Removed the double `drop-shadow` on ripple rings and dice (largest cost), moved the vignette to a composited element (`.mr2-vignette`, transform/opacity only) instead of body custom properties, and froze row zoom during the roll. Worst frame went from ~350–550 ms to ~60 ms in headless Chromium.
+
+### Consequences
+- **Positive**: multiattacks resolve in one gesture; the animation matches the main roller; cost is bounded and was measured.
+- **Negative**: results never reach the server: no TV, no roll history, no DM-prepared dice. Tracked as D2.1–D2.3 and D2.5 in `docs/sync-spec.md`.
+- **Follow-up**: extend `POST /characters/:id/table-roll` to accept grouped results.
+
+---
+
+## ADR-0033: Dice Belt v2: Four Die Hexads, Per-Die PB Wedges, I/II Loadouts, Hold-to-Roll and Ability-Paired Multiattack Rolls
+
+### Status
+Accepted & Implemented (2026-11-09, v1.0.42–v1.0.51)
+
+### Context
+1. The belt's middle row was a PB hexad plus three dice. PB was a single global toggle, so it applied to every die, including damage dice.
+2. Ability hexads rolled on tap while die hexads rolled on hold-and-release.
+3. An attack is two rolls (d20, then damage), and a multiattack is several pairs; the belt rolled one hexad at a time.
+4. Players keep more than one attack routine and had to rebuild the belt to switch.
+
+### Decision Outcome
+1. **Layout** (`BeltAbilities` in `frontend/components/Sheet.jsx`): top row STR · CON · DEX, bottom row INT · CHA · WIS, middle row four swappable dice defaulting to d6 · d20 · d20 · d8. The two central d20s start bound to STR and DEX with PB on.
+2. **PB wedges**: a triangular toggle fills the gap between STR|CON and CON|DEX and governs only the die hexad beneath it (`slot.pb`). When on, a gold thread draws around the wedge, down the slit and around that hexad (`.fh-belt-pb-slits`, `.fh-belt-pb-drop`, `.fh-belt-pb-contour`).
+3. **Loadout wedges**: inverted wedges in the bottom gaps toggle I/II and swap the two dice on that side (`swapLoadout`). Loadout II starts as a copy of I.
+4. **Hold-to-roll everywhere**: `beltHoldToRoll` (220 ms, cancels on a 12 px drag) drives the check and save halves; keyboard activation is unchanged.
+5. **Paired rolls** (`frontend/src/dice/BeltMultiRoll.jsx`): rolling a die hexad rolls every hexad bound to the same ability, paired d20 + non-d20 in belt order, one column per pair. Damage reveals first (the d20 runs at 1.7× duration); a natural 20 re-rolls the damage die with the extra crit dice. No on-screen labels; each die gets its own delay, speed-up and HSV drift.
+6. **Persistence**: belt slots and loadouts are saved per character in `localStorage` (`fh-belt:<id>`).
+
+### Consequences
+- **Positive**: PB is explicit per die, attack + damage is one gesture, two routines per side are one tap apart.
+- **Negative**: belt state is per device; paired rolls are local only. Tracked as D2.1–D2.4 in `docs/sync-spec.md`.
+- **Supersedes** the PB hexad described in ADR-0010 and `SPEC_BELT_HIVE_STATS_HANDOFF.md` §1–§11; see §18 there.
+
+---
+
+## ADR-0034: Campaigns as Versions of a Character: Template, Per-Campaign Full Copies and an Interim Checkout Store
+
+### Status
+Accepted; frontend implemented (2026-11-11, v1.0.54), backend pending
+
+### Context
+1. A character was one row shared by every campaign it joined: damage or a level gained at one table showed at the other, and leaving kept nothing of that campaign's state.
+2. The production backend cannot be updated at the moment (see `DEPLOY.md` §7), stores one sheet per character and locks sensitive fields while the sheet is in a campaign (`OWNER_LOCKED_IN_CAMPAIGN`).
+3. Product decisions (owner): full copies with no shared fields; only the owning player can permanently exclude a version; closed or deleted campaigns keep their version read-only; "promote to template" exists.
+
+### Decision Outcome
+1. **Model**: a template plus one complete copy per campaign, in state `active`, `left` or `archived`. Rules in `docs/character-versions.md` §1.
+2. **Interim storage**: the server sheet is the working copy of the version in use; the others live in `Character.data.versions` (`current`, `template`, `templatePrev`, `campaigns{}`). Identical portraits are stored by marker (`_avatarSame`), not duplicated.
+3. **Switching is a checkout** in a fixed order that satisfies the server lock: unseat from the current table → save the other version → seat at the new table. A failed seat reverts to the template; a closed campaign archives the version.
+4. **Reconcile on open**: the store is corrected against `GET /characters/:id/campaigns` and `GET /campaigns` (seated elsewhere, left outside the UI, campaign closed or gone).
+5. **Read-only versions** open as a preview character with a non-numeric id (`v:<id>:<key>`), so no code path treats them as an account sheet; `onUpdate` is a no-op and mutating controls are hidden.
+6. **Code**: `frontend/src/sheet/versions.js` (pure, 15 tests), `VersionsModal.jsx`, wiring in `components/Sheet.jsx` and `app.jsx` (`#ficha=<id>@<campaign>`).
+
+### Consequences
+- **Positive**: works on the production backend today and syncs across devices; no data is lost by leaving.
+- **Negative**: a character is seated at one table at a time; the DM cannot see or change a parked version; read-only is enforced on screen only; stored versions enlarge the sheet JSON.
+- **Target**: the `CharacterVersion` table and routes in `docs/character-versions.md` §3 (D1.1–D1.14 in `docs/sync-spec.md`), which also lets a character be active in several campaigns at once (already allowed in `main` since ADR-0030/0031).
+
+---
+
+## ADR-0035: World Link Ingestion with SSRF Guard, Linked Images, Map Zones and Containment
+
+### Status
+Accepted; implemented in `main` (2026-11-10/11, v1.0.25 and v1.0.52), not yet in production
+
+### Context
+1. Building a campaign world card by card is slow; most source material already exists on wikis, SRD JSON endpoints and image hosts.
+2. Card images were capped at 450,000 characters of data URL, too small for maps, and could not be external links.
+3. Maps had pins but no way to mark an area that leads into another place.
+
+### Decision Outcome
+1. **`POST /campaigns/:id/world/ingest`** (`backend/api/world_ingest.py`): fetches a URL and returns a draft card. MediaWiki pages go through the wiki API, JSON through an SRD digester, other pages through an HTML digester, direct images through type sniffing. Every hop passes `check_url` (http/https only; loopback, private, link-local and reserved addresses refused; redirects re-checked).
+2. **Viewer links are unwrapped** (`normalize_image_url`): Reddit media pages, Imgur pages and Google image results resolve to the direct image; the unwrapped target is still checked.
+3. **Images are returned as links, not bytes**: the draft carries `imageUrl`/`image` as an http(s) address. `world_rules.py` accepts either a data URL up to 5,000,000 characters or an http(s) link without spaces or quotes.
+4. **Map zones**: up to 40 rectangles per map (`data.map.zones`), each leading to another entry, auto-fitted to the target's aspect ratio (`frontend/src/world/WorldMap.jsx`).
+5. **Containment and sources**: `data.contains` and up to 12 `data.sources` per card.
+
+### Consequences
+- **Positive**: one link produces a usable card; large maps fit; no image bytes are stored for linked art.
+- **Negative**: linked images can disappear or be hotlink-blocked; the server makes outbound requests on a user's behalf (bounded by the guard, size limits and timeouts).
+- **Blocked on deploy**: until the backend updates, ingestion is 404, linked and large images are refused and zones are dropped on save (B10 in `docs/sync-spec.md`).

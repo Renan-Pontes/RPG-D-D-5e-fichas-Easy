@@ -90,3 +90,16 @@
 - [ ] **Homebrew Bestiary Exporter/Importer:** Community sharing format for custom monster statblocks, spells, and magic items.
 - [ ] **Multi-Campaign Table Hub:** Unified DM overview across multiple running campaigns with shared NPC and lore references.
 - [ ] **Progressive Web App (PWA):** Service worker caching and installable web manifest for full offline standalone operation on mobile devices.
+
+---
+
+## 5. Backend Sync (added 2026-11-11)
+
+Production runs the backend of 2026-10-26; `main` is 328 commits ahead. Full plan: [`docs/sync-spec.md`](docs/sync-spec.md).
+
+- [ ] **A. Unblock the deploy:** `FORJA_UPDATE_KEY_SHA256` secret, one update, fix the stale version label (A1–A4).
+- [ ] **B. Verify what ships:** 26 new routes and migration `0014` (B1–B14); then remove the 35 "old server" fallbacks in the frontend.
+- [ ] **C. Repair `main` first:** missing migration `0015`, 13 failing and 2 erroring backend tests, tests in the release workflow (C1–C9).
+- [ ] **D1. Character versions on the server:** `CharacterVersion` table, routes, read-only enforcement, data migration (D1.1–D1.14). Frontend shipped in v1.0.54.
+- [ ] **D2. Dice on the server:** grouped results in `table-roll`, history, prepared dice, belt and multi-roll persistence (D2.1–D2.5).
+

@@ -525,3 +525,57 @@ GET = corpo de `/me/plan` da conta + `{userId, email}`. PATCH `{ plan?: slug, ad
 
 ### Erro `campaign_closed` (423)
 Qualquer POST/PUT/PATCH/DELETE nas rotas da campanha encerrada (inclui `world/:pk/*`, `approvals/:pk/*`, `checks/:pk/*`, `rolls/:pk/*`, `dice/rigs/:pk`, `characters/:pk/dm-edit`, entrar/sair). Livres: `DELETE /campaigns/:id` e `/close` (idempotentes), `/reopen`, `world/seen`, `world/:pk/view` e o jogador soltar a própria ficha (`PUT /members/<a própria>` com `characterId: null`, ou o `move` de uma troca saindo dela). Quem não é da mesa continua recebendo 403. A ficha do jogador (`/characters/:id`, rest/cast/inventário) continua dele e editável. `POST /dice/roll` com `campaignId` de campanha encerrada rola normalmente, mas fora da campanha (sem log, diário nem dado viciado).
+
+## Rotas no `main` que ainda não estão em produção
+
+A produção roda o backend de 26/10/2026 (`5655785`). As rotas abaixo existem no `main`
+e entram com a próxima atualização do servidor; até lá respondem 404 e o frontend usa
+o caminho antigo. Quem chama cada uma: [`docs/sync-ledger.md`](docs/sync-ledger.md) §1.
+O que falta fazer, em ordem: [`docs/sync-spec.md`](docs/sync-spec.md).
+
+| Rota | O que faz |
+|---|---|
+| `? /proxy` | Busca uma página ou imagem de fora para importar monstros e imagens (lista de hosts permitidos). |
+| `POST /campaigns/:\1/stage` | Palco da Tela no servidor: frente, fundo, só a imagem, desfazer. |
+| `POST /campaigns/:\1/stage/scene` | Começa uma cena do plano (grava na Crônica e leva a TV). |
+| `GET /campaigns/:\1/stage-image` | Imagem do palco para o mestre. |
+| `GET /campaigns/:\1/pulse` | Pulso leve (ETag/304) do mestre e do jogador. |
+| `GET /campaigns/:\1/members/:\1/avatar` | Retrato do personagem daquela vaga. |
+| `POST /campaigns/:\1/world/ingest` | Lê um link (wiki, JSON do SRD, página, imagem) e devolve o rascunho de um cartão. Bloqueia endereços locais e privados. |
+| `POST /campaigns/:\1/session-plan/archive` | Arquiva o plano da sessão. |
+| `POST /campaigns/:\1/session-plan/restore` | Restaura um plano arquivado. |
+| `GET / PUT / PATCH /campaigns/:\1/party-insights` | Ajustes do grupo para o Raio-X. |
+| `GET /campaigns/:\1/party-insights/history` | Histórico do Equilíbrio (testes e quedas por sessão). |
+| `POST /campaigns/:\1/diary/sessions/:\1/end` | Encerra a sessão numa chamada (arruma a mesa, grava o fim, arquiva o plano). |
+| `GET /campaigns/:\1/adventures/:\1/nodes` | Salas leves da aventura. |
+| `GET / PATCH /campaigns/:\1/adventures/:\1/node/:\1` | Uma sala por vez (ler e alterar). |
+| `? /characters/:\1/table-roll` | Rolagem da ficha vai à fila da Tela (respeita a política da mesa). |
+| `GET /screen/:\1/stage-image` | Imagem do palco para a TV. |
+| `GET /screen/:\1/portrait/:\1` | Retrato de um personagem para a TV. |
+| `GET /screen/:\1/token/:\1` | Imagem da ficha de combate para a TV. |
+| `POST /combat/campaign/:\1/save-preview` | Prévia de uma salvaguarda em grupo. |
+| `POST /combat/campaign/:\1/prev-turn` | Volta o turno para quem tinha a vez. |
+| `POST /combat/campaign/:\1/encounter` | Monta o combate numa chamada. |
+| `POST /combat/campaign/:\1/undo` | Desfaz a última ação de combate (por foto). |
+| `POST /combat/campaign/:\1/map-from` | Usa como mapa uma imagem que já está na campanha. |
+| `GET /combat/campaign/:\1/map-image` | Imagem do mapa do combate. |
+| `GET /combat/campaign/:\1/token/:\1` | Imagem da ficha de um combatente. |
+| `GET /combat/campaign/:\1/actions/:\1` | Ações do stat block de um combatente, sob demanda. |
+
+Também mudam com a atualização, sem rota nova:
+- **Vagas** (`0014`): uma pessoa pode ter várias fichas na mesma campanha; vaga de NPC do mestre. A mesma ficha não ocupa duas vagas da mesma mesa.
+- **Imagem do Mundo**: até 5.000.000 de caracteres em data URL, ou um link `http(s)` (sem espaços nem aspas). `ftp:`, `javascript:` e SVG continuam recusados.
+- **Mapa do Mundo**: `data.map.zones` (até 40 retângulos que levam a outro cartão), além de `pins`.
+- **Cartão do Mundo**: `data.contains` (lugares, facções e NPCs de dentro) e `data.sources` (até 12 links).
+- **`screen/:token/rolls`** deixa de existir: as rolagens vão no payload de `screen/:token`.
+- **Descanso curto**: espaços de pacto de multiclasse voltam.
+
+## Versões da ficha por campanha (planejado)
+
+Ainda sem rotas no servidor. O frontend guarda as versões em `Character.data.versions`
+(formato em [`docs/character-versions.md`](docs/character-versions.md) §2) e usa só
+rotas que já existem: `GET /characters/:id`, `GET /characters/:id/campaigns`,
+`GET /campaigns`, `PUT /characters/:id`, `PUT /campaigns/:id/members/:mid` e
+`POST /campaigns/join`. As rotas pedidas (`/characters/:id/versions…`) estão no §3
+daquele documento.
+

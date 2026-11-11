@@ -490,3 +490,34 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 ### 17.4 Verification
 - **Automated Tests**: 1,536 / 1,536 tests passing (100% green across 20 suites).
 - **Production Build**: Clean Vite compilation in 13.28s with 0 errors.
+
+---
+
+## 18. Belt v2: Four Die Hexads, PB Wedges, Loadouts and Paired Rolls (v1.0.42–v1.0.51)
+
+Supersedes the PB hexad of §1–§11. Decision record: `ADR.md` ADR-0033.
+
+### 18.1 Layout
+- Top row **STR · CON · DEX**; bottom row **INT · CHA · WIS** (DEX⇄CON and WIS⇄CHA swapped so STR and DEX sit over the two central dice).
+- Middle row: four swappable die hexads, default **d6 · d20 · d20 · d8**. Slot 1 starts bound to STR, slot 2 to DEX, both with PB on.
+
+### 18.2 PB wedges (`.fh-belt-pb-wedge`)
+- One triangle in each top gap (STR|CON → slot 1, CON|DEX → slot 2). The top edge joins the two hexads' top vertices; the sides follow their upper edges, inset by the standard `--belt-gap` (horizontal inset 2× gap, apex raised 1.155× gap, because the edges run at 30°).
+- Shading: chamfered corners, bevel highlight (top/left) and shadow (right/tip), gradient face with sheen, "PB" etched at the face centroid (1/3 of the height).
+- State is per slot (`slot.pb`). On: polished gold; the glow draws in order: around the wedge (`.fh-belt-pb-slits`), down the slit (`.fh-belt-pb-drop`), around the die hexad (`.fh-belt-pb-contour`), then breathes as one path. Only that hexad gets the gold frame (`.fh-belt-slot.has-pb`).
+
+### 18.3 Loadout wedges (`.fh-belt-pb-wedge.is-loadout`)
+- Inverted wedges in the bottom gaps (INT|CHA → slots 0–1, CHA|WIS → slots 2–3) showing **I** or **II**. Tapping swaps that side's two dice (die, count, ability, PB, advantage). Loadout II starts as a copy of I.
+
+### 18.4 Rolling
+- **Hold → release** on every roll: die hexads (existing) and the check/save halves of ability hexads (`beltHoldToRoll`, 220 ms; a quick tap or a drag does nothing).
+- **Paired rolls**: releasing a die hexad rolls every die hexad bound to the same ability, paired d20 + non-d20 in belt order (`pairBeltSlots`), one column per pair (`BeltMultiRoll.jsx`). Damage lands first; a natural 20 re-rolls the damage die with the extra crit dice (`rollBeltPairs`). A die alone on its ability, or unbound, rolls through the main roller as before.
+- No on-screen labels. Each die: 0–200 ms start delay, 0–25 % speed-up, ±20 % hue/saturation/brightness drift.
+
+### 18.5 Persistence and gaps
+- Slots and loadouts: `localStorage` key `fh-belt:<characterId>` (per device).
+- Paired rolls are local: no TV, no roll history, no DM-prepared dice. Backend items D2.1–D2.4 in `docs/sync-spec.md`.
+
+### 18.6 Verification
+- Frontend suite green at each step (1,607 → 1,627 tests). Layout, wedge states, loadout swap and single/multi pair rolls checked in headless Chromium at 390×844. A real natural 20 was not forced in the browser; the crit arithmetic was checked directly.
+

@@ -129,3 +129,23 @@
 | `views_plans.py` | Subscription tier limits (characters, campaigns, table slots, storage). |
 | `plans.py` | `closed_guard` decorator enforcing read-only state on closed campaigns. |
 | `progression/` | Python port of the progression engine verifying level-up math server-side. |
+
+---
+
+## 4. Additions since 2026-11-07
+
+| Path | Responsibility |
+|---|---|
+| `frontend/src/dice/multi-roll.js`, `MultiRoll.jsx` | Badge-array multi-roll: rows, coupling, locks, focus-mode roll-up (ADR-0032). |
+| `frontend/src/dice/BeltMultiRoll.jsx` | Belt paired rolls: d20 + damage per column, crit re-roll (ADR-0033). |
+| `frontend/src/dice/active-char.js` | Store the open sheet publishes itself to, for the dice panel. |
+| `frontend/src/sheet/versions.js`, `VersionsModal.jsx`, `versions.css` | Campaign versions of a character: rules, switcher, read-only preview (ADR-0034). |
+| `frontend/src/sheet/npc-link.js` | DM sheet ↔ World NPC card link. |
+| `frontend/src/sheet/spell-text.js`, `frontend/data/spell-mechanics.json` | SRD spell text and save/attack badges. |
+| `frontend/data/species-2024.js` (`SPECIES_SUPPLEMENTS`) | Species grants for 40+ species. |
+| `frontend/src/world/image.js`, `WorldMap.jsx` | Full-resolution and linked images; map zones with auto-fit. |
+| `backend/api/world_ingest.py` | Link → draft card, with the outbound-request guard (ADR-0035). |
+| `backend/api/views_proxy.py` | First-party fetch proxy for monster and image imports. |
+| `backend/api/stage.py`, `table_rolls.py`, `views_insights.py` | Server-run TV stage, sheet rolls on the TV queue, party insights. |
+| `docs/sync-spec.md`, `docs/sync-ledger.md`, `docs/character-versions.md` | Frontend × backend × production sync plan, full route and commit ledger, versions spec. |
+

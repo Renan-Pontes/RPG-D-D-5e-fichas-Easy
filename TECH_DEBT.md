@@ -129,3 +129,24 @@ Current implementation in `frontend/src/api/polling.js`:
 **Remediation Architecture:**
 1. **Exponential Backoff:** Start at 2.5s; on network failure, back off to 5s, 10s, max 30s. Reset to 2.5s upon first successful 200/304 response.
 2. **UI Telemetry:** Trigger an unobtrusive offline status pill in the shell when 3 consecutive polls fail, notifying the DM that real-time sync is paused.
+
+---
+
+## 7. Production Drift & Client-Side Workarounds (added 2026-11-11)
+
+Register of debt created by the frontend running ahead of the deployed backend. Plan and item numbers: [`docs/sync-spec.md`](docs/sync-spec.md).
+
+| Debt | Where | Clears with |
+|---|---|---|
+| 35 "servidor antigo" fallback branches in 22 files | `frontend/src/{play,prep,stage,screen,player,campaigns,combat,sheet,checks,shell}` | deploy (block A), then delete |
+| Character versions stored inside `Character.data.versions` | `frontend/src/sheet/versions.js`, `VersionsModal.jsx` | D1 |
+| Read-only versions enforced on screen only | `components/Sheet.jsx` (`is-version-readonly`) | D1.9 |
+| Multi-roll and paired belt rolls never reach the server | `frontend/src/dice/MultiRoll.jsx`, `BeltMultiRoll.jsx` | D2.1–D2.3 |
+| Belt and multi-roll setup saved per device | `localStorage` `fh-belt:<id>`, `fh-multiroll4:<id>` | D2.4, D2.5 |
+| NPC card sync done through the World API from the client | `frontend/src/sheet/npc-link.js` | deploy (B11) |
+| Pact slots refunded client-side on a short rest | `components/SheetTabs.jsx` | deploy (B12) |
+| Stale version label in production (`fcaa730` vs code of 2026-10-26) | `scripts/self_update.py` | A4 |
+| Backend suite red on `main` (13 failures, 2 errors) and a missing migration | `backend/api/tests/`, `migrations/` | C1–C8 |
+| Release packaged without running tests | `.github/workflows/backend-release.yml` | C9 |
+| Unused `BeltPbSlot` component left after the belt redesign | `components/Sheet.jsx` | delete |
+

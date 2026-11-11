@@ -224,3 +224,49 @@ No PythonAnywhere, agendar uma task diária (aba **Tasks**) que faz:
 ```bash
 cp /home/SEU_USUARIO/forja/backend/db.sqlite3 /home/SEU_USUARIO/backups/forja-$(date +%F).sqlite3
 ```
+
+---
+
+## 7. Atualização automática do backend
+
+Desde 16/10/2026 o servidor se atualiza sozinho a partir do GitHub.
+
+1. Cada push na `main` roda `.github/workflows/backend-release.yml`: empacota o
+   backend com o build do frontend e publica `forja-release.zip` no release
+   `backend-latest`.
+2. O passo **Atualiza o servidor** chama `POST /api/ops/update` com o sha256 da senha
+   de atualização. Ele só roda se o secret `FORJA_UPDATE_KEY_SHA256` existir no
+   repositório.
+3. No servidor, `scripts/self_update.py` baixa o pacote, faz backup do banco, troca as
+   pastas, roda `migrate` e `collectstatic` e recarrega o site. Se algo falha depois da
+   troca, volta a pasta e o banco antigos.
+
+### Configurar (uma vez)
+
+```bash
+# no console do PythonAnywhere: define a senha (grava só um verificador em ~/forja-data/update-key)
+~/.virtualenvs/forja/bin/python ~/forja/backend/manage.py chave_atualizacao
+
+# no seu computador: o valor do secret é o sha256 em hex da mesma senha
+printf '%s' 'SUA_SENHA' | sha256sum
+```
+
+No GitHub: *Settings → Secrets and variables → Actions → New repository secret*, nome
+`FORJA_UPDATE_KEY_SHA256`. Só quem é dono (admin) do repositório consegue.
+
+### Conferir e disparar na mão
+
+| Para | Chamada |
+|---|---|
+| Ver a versão que está no ar | `GET /api/ops/version` |
+| Ver o andamento da atualização | `POST /api/ops/status` com `{"password": "<sha256>"}` |
+| Disparar | `POST /api/ops/update` com `{"password": "<sha256>"}` |
+| Rodar no servidor, sem senha | `~/.virtualenvs/forja/bin/python ~/forja/scripts/self_update.py` |
+
+### Estado em 11/11/2026
+
+O secret não existe, então o passo 2 é pulado em todo push: o pacote do último commit
+está publicado, mas a produção continua no backend de 26/10/2026. `/api/ops/version`
+ainda diz `fcaa730` (16/10): o rótulo ficou velho. O que entra quando a atualização
+rodar, e o que consertar antes, está em [`docs/sync-spec.md`](docs/sync-spec.md).
+
