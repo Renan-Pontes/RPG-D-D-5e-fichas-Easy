@@ -177,6 +177,20 @@ export function exclude(char, campaignId) {
   return assemble(char, sheetData(char), store);
 }
 
+/**
+ * Tirar do armazém uma versão que virou ficha própria (src/sheet/forks.js::splitFromStore).
+ * Diferente de `exclude`, vale para qualquer estado menos a versão em uso: os dados não
+ * se perdem, já estão na ficha nova.
+ */
+export function release(char, campaignId) {
+  const k = keyOf(campaignId);
+  const store = storeOf(char);
+  if (!store.campaigns[k]) return char;
+  if (store.current === k) throw new Error('version_in_use');
+  delete store.campaigns[k];
+  return assemble(char, sheetData(char), store);
+}
+
 /** Promover a modelo: o modelo passa a ser uma cópia desta versão (guarda o antigo p/ desfazer). */
 export function promote(char, key) {
   const k = keyOf(key);

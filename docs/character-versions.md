@@ -183,8 +183,24 @@ sozinhos — o que é a regra "cópia completa" já combinada.
 | F13 | ✅ cinto e rolador múltiplo copiados para a ficha nova | `forks.js` (`copyDevicePrefs`) |
 | — | a versão grava em qual mesa sentou (`versionCampaign`), campo que a produção aceita em campanha | `Sheet.jsx` (efeito de `characterCampaigns`) |
 
-Pendentes no frontend: F5, F6 (arquivar), F10, F11, F12 (levar junto), F14, F16–F19. F7, F8 e F15 esperam o B1.
-Testado no navegador (390×844) contra o servidor local: criar versão, seletor aberto na ficha nova, mesa da mesma família bloqueada, abrir o modelo pela lista, lista inicial agrupada; sem erros no console. Com o plano no limite, a criação mostra o aviso do plano e não navega.
+Pendentes no frontend depois da v1.0.60: F5, F6 (arquivar), F10, F11, F12 (levar junto), F14, F16–F19 — **todos entregues na v1.0.61** (§7.2.2). F7, F8 e F15 esperam o B1.
+
+### 7.2.2 Entregue na v1.0.61 — o frontend está completo
+
+| Item | Estado | Onde |
+|---|---|---|
+| F5 | ✅ "Separar em ficha própria" em cada versão guardada do armazém antigo (não a que está em uso: abra o modelo antes). A versão vira ficha `versionOf`, leva as preferências do aparelho, sai do armazém; se estava arquivada, nasce arquivada | `forks.js` (`splittable`, `splitFromStore`), `versions.js` (`release`), `VersionsModal.jsx` |
+| F6 | ✅ one-shot cuja mesa some da lista da ficha vira arquivo sozinho; qualquer versão pode ser arquivada à mão; arquivo abre só leitura com **Desarquivar** | `forks.js` (`shouldAutoArchive`, `archiveFork`, `archivedPreview`), `Sheet.jsx`, `app.jsx` |
+| F10 + F16 | ✅ aviso de cota no painel: "3 de 3 em uso · 2 são versões deste personagem", com alerta quando o plano está cheio | `forks.js` (`forkPlanNote`), `VersionsModal.jsx` (`loadMyPlan`) |
+| F11 | ✅ no navegador (390×844), sem erro no console: separar, promover e desfazer, abrir a ficha separada, desarquivar, recomeçar a partir do modelo (nível 5 → 8), arquivar e desarquivar, lista inicial, excluir modelo + versões | roteiros Playwright da sessão |
+| F12 | ✅ excluir o modelo pergunta em seguida se as versões vão junto (cancelar = ficam como fichas próprias) | `app.jsx` (`handleDelete`) |
+| F14 | ✅ "Recomeçar a partir do modelo" (confirmação digitada): mesma ficha, mesma mesa, dados do modelo de agora | `forks.js` (`restartFromTemplate`), `VersionsModal.jsx` |
+| F17 | ✅ link antigo `#ficha=<id>@<mesa>` de versão já separada abre a ficha nova | `app.jsx` (efeito do hash) |
+| F18 | ➖ não se aplica: versões exigem conta (o painel só existe para fichas da conta); fichas offline seguem sem versões | `Sheet.jsx` (`vStore` só com id numérico) |
+| F19 | ✅ todos os textos novos já nascem em pt/en no próprio componente (`L(lang, pt, en)`), como o resto do app | — |
+| extra | a cerimônia de "subiu de nível" não dispara ao trocar de versão nem ao recomeçar do modelo | `frontend/src/sheet/FhCeremonies.jsx` (`useLevelCeremony`) |
+
+**O que sobra para o frontend só depende do backend**: F7 (escolher qual das minhas fichas senta à mesa) e F8/F15 (NPC do mestre) esperam o B1 (deploy do `main`).
 
 ### 7.3 Backend — só o que o frontend não consegue fazer
 

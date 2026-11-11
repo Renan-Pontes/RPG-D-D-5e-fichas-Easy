@@ -10,7 +10,7 @@ import CharacterList from './components/CharacterList.jsx';
 import Creator from './components/Creator.jsx';
 import CreatorWizard from './src/creator/CreatorWizard.jsx';
 import Sheet from './components/Sheet.jsx';
-import { fork as forkSheet, familyOf, forksOf, copyDevicePrefs } from './src/sheet/forks.js';
+import { fork as forkSheet, familyOf, forksOf, copyDevicePrefs, isArchivedFork, archivedPreview, unarchiveFork } from './src/sheet/forks.js';
 import { previewChar, parseSheetHash, hasVersion, storeOf as versionStoreOf, isReadOnly as versionReadOnly } from './src/sheet/versions.js';
 
 import { useAuth } from './src/auth/AuthContext.jsx';
@@ -185,6 +185,9 @@ const App = () => {
       if (!m || listState !== 'ready') return;
       const id = m.id;
       history.replaceState(null, '', window.location.pathname);
+      // versão antiga já separada em ficha própria: o link abre a ficha nova (F17)
+      const split = m.key ? characters.find(c => c.versionOf === id && String(c.versionCampaign?.id) === m.key) : null;
+      if (split) { setActiveId(split.id); setVersionPreview(null); setScreen(SCREENS.SHEET); return; }
       const target = characters.find(c => c.id === id);
       if (target) {
         setActiveId(id); setScreen(SCREENS.SHEET);
@@ -267,7 +270,9 @@ const App = () => {
 
   const active = characters.find(c => c.id === activeId);
   // Versão guardada da ficha aberta só para leitura (src/sheet/versions.js)
-  const previewOf = versionPreview && active && versionPreview.id === active.id ? previewChar(active, versionPreview.key) : null;
+  const previewOf = versionPreview && active && versionPreview.id === active.id ? previewChar(active, versionPreview.key)
+    // versão própria arquivada (one-shot encerrado): só leitura até desarquivar (src/sheet/forks.js)
+    : active && isArchivedFork(active) ? archivedPreview(active, lang) : null;
 
   // Entra na mesa com a ficha recém-salva. Se falhar, a ficha continua salva e fica o aviso com "Tentar de novo".
   const joinTable = async (join, characterId, charName) => {
@@ -405,11 +410,29 @@ const App = () => {
     setConfirm({
       msg: nForks
         ? (lang === 'pt'
-          ? `Excluir este modelo? Esta ação é permanente. As ${nForks} versões dele continuam como fichas próprias.`
-          : `Delete this template? This is permanent. Its ${nForks} versions stay as sheets of their own.`)
+          ? `Excluir este modelo? Esta ação é permanente. Depois você escolhe se as ${nForks} versões dele vão junto.`
+          : `Delete this template? This is permanent. Next you choose whether its ${nForks} versions go too.`)
         : (lang === 'pt' ? 'Excluir este personagem? Esta ação é permanente.' : 'Delete this character? This is permanent.'),
       onConfirm: async () => {
         await storage.remove(id);
+        // modelo com versões: pergunta se elas vão junto (F12); por padrão ficam como fichas próprias
+        if (nForks) {
+          setConfirm({
+            msg: lang === 'pt'
+              ? `Modelo excluído. Excluir também as ${nForks} versões dele? Sem isso, elas continuam como fichas próprias.`
+              : `Template deleted. Also delete its ${nForks} versions? Otherwise they stay as sheets of their own.`,
+            onConfirm: async () => {
+              for (const f of forksOf(characters, id)) await storage.remove(f.id).catch(() => {});
+              await refreshCharacters();
+              setConfirm(null);
+              setToast(t('deleted', lang));
+            },
+          });
+          await refreshCharacters();
+          setScreen(SCREENS.HOME);
+          setActiveId(null);
+          return;
+        }
         await refreshCharacters();
         setScreen(SCREENS.HOME);
         setActiveId(null);
@@ -804,7 +827,9 @@ const App = () => {
               onExport={() => handleExport(previewOf)}
               onBack={() => setVersionPreview(null)}
               backLabel={lang === 'pt' ? 'Voltar à ficha' : 'Back to the sheet'}
-              onExitPreview={() => setVersionPreview(null)}
+              onExitPreview={previewOf.versionPreview?.fork
+                ? () => handleUpdate(unarchiveFork(active))
+                : () => setVersionPreview(null)}
             />
           ) : (
           <Sheet

@@ -412,6 +412,8 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         // versão = ficha própria: guarda em qual mesa ela sentou (selo e lista)
         const at = list[0];
         if (at && charRef.current.versionCampaign?.id !== at.id) onUpdate(Forks.seatFork(charRef.current, at));
+        // one-shot cuja mesa acabou (encerrada ou saiu): vira arquivo, só leitura (F6)
+        else if (Forks.shouldAutoArchive(charRef.current, list)) onUpdate(Forks.archiveFork(charRef.current));
       } else {
         // versões por campanha (armazém antigo): acerta com onde a ficha está agora
         try {
@@ -646,12 +648,16 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         <div className="fh-readonly-banner no-print" role="status">
           <p>
             <strong>{pt ? 'Só leitura. ' : 'Read-only. '}</strong>
-            {preview.state === 'archived'
+            {preview.fork
+              ? (pt ? `A versão “${preview.name}” está arquivada: a mesa dela acabou ou você a arquivou.` : `The “${preview.name}” version is archived: its table ended or you archived it.`)
+              : preview.state === 'archived'
               ? (pt ? `A campanha “${preview.name}” foi encerrada: esta versão fica guardada como arquivo.` : `The campaign “${preview.name}” is closed: this version is kept as an archive.`)
               : (pt ? `Você saiu de “${preview.name}”: esta é a ficha como você a deixou.` : `You left “${preview.name}”: this is the sheet as you left it.`)}
             {' '}{pt ? 'Os dados rolam só neste aparelho.' : 'Dice roll on this device only.'}
           </p>
-          <button type="button" className="btn btn-primary btn-sm" onClick={onExitPreview}>{pt ? 'Voltar à ficha' : 'Back to the sheet'}</button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={onExitPreview}>
+            {preview.fork ? (pt ? 'Desarquivar' : 'Unarchive') : (pt ? 'Voltar à ficha' : 'Back to the sheet')}
+          </button>
         </div>
       )}
       {campOpen && !preview && (

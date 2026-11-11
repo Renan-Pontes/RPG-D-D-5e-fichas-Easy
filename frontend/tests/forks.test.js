@@ -87,3 +87,51 @@ test('seatConflict: mesma ficha ou outra versão do mesmo modelo na mesa', () =>
   assert.equal(seatConflict(list, { id: 7 }, [9]), 'same_family');
   assert.equal(seatConflict(list, { id: 8, versionOf: 7 }, [1, 4]), null);
 });
+
+import { archiveFork, unarchiveFork, isArchivedFork, shouldAutoArchive, archivedPreview, restartFromTemplate, splittable, splitFromStore, forkPlanNote } from '../src/sheet/forks.js';
+
+test('arquivo: one-shot cuja mesa sumiu vira arquivo; desarquivar volta', () => {
+  const os = { id: 8, versionOf: 7, versionKind: 'oneshot', versionCampaign: { id: 5, name: 'Cripta' } };
+  assert.equal(shouldAutoArchive(os, null), false);
+  assert.equal(shouldAutoArchive(os, [{ id: 5 }]), false);
+  assert.equal(shouldAutoArchive(os, []), true);
+  assert.equal(shouldAutoArchive({ ...os, versionKind: 'campaign' }, []), false);
+  const a = archiveFork(os, 't');
+  assert.equal(isArchivedFork(a), true);
+  assert.equal(shouldAutoArchive(a, []), false);
+  assert.equal(isArchivedFork(unarchiveFork(a)), false);
+  const pv = archivedPreview(a);
+  assert.equal(pv.id, 'a:8');
+  assert.deepEqual(pv.versionPreview, { of: 8, key: 'fork', state: 'archived', name: 'One-shot · Cripta', fork: true });
+});
+
+test('recomeçar a partir do modelo mantém id, mesa e tipo', () => {
+  const v = { id: 8, level: 9, versionOf: 7, versionKind: 'oneshot', versionCampaign: { id: 5, name: 'C' }, versionCreatedAt: 't0' };
+  const r = restartFromTemplate(v, tpl(), 't1');
+  assert.deepEqual([r.id, r.level, r.versionOf, r.versionKind, r.versionCampaign.id, r.versionCreatedAt, r.versionRestartedAt], [8, 3, 7, 'oneshot', 5, 't0', 't1']);
+  assert.throws(() => restartFromTemplate(v, { id: 99 }), /wrong_template/);
+  assert.throws(() => restartFromTemplate(tpl(), tpl()), /not_a_version/);
+});
+
+test('separar versão do armazém antigo em ficha própria', () => {
+  let c = register(tpl(), { id: 1, name: 'A' });
+  c = register(c, { id: 2, name: 'B' });
+  c = checkout(c, '1');
+  c = { ...c, id: 7 };
+  assert.deepEqual(splittable(c).map(x => x.key).sort(), ['2']);
+  const f = splitFromStore(c, '2', 't');
+  assert.deepEqual([f.versionOf, f.versionCampaign.id, f.versionCampaign.name, f.versions], [7, 2, 'B', undefined]);
+  assert.throws(() => splitFromStore(c, '1'), /version_in_use/);
+  assert.throws(() => splitFromStore(c, '9'), /version_not_found/);
+  assert.deepEqual(splittable({ id: 8, versionOf: 7 }), []);
+});
+
+test('aviso do plano', () => {
+  const my = { usage: { characters: 3 }, limits: { characters: 3 } };
+  const n = forkPlanNote(my, list, { id: 7 });
+  assert.equal(n.atLimit, true);
+  assert.match(n.text, /3 de 3 em uso · 2 são versões/);
+  assert.match(n.text, /plano está cheio/);
+  assert.equal(forkPlanNote(null, list, { id: 7 }).atLimit, false);
+  assert.match(forkPlanNote({ usage: { characters: 1 }, limits: { characters: 5 } }, [], { id: 1 }, 'en').text, /1 of 5 in use\.$/);
+});

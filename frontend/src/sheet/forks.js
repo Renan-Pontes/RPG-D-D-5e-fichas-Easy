@@ -7,7 +7,7 @@
 //   versionCampaign { id, name } da mesa para a qual foi criada (null até sentar)
 // Combate, dados, descanso, TV e subida de nível já funcionam por ficha, então nada no
 // servidor precisa saber de versões. Tudo aqui é puro (sem React, DOM nem rede).
-import { sheetData, dataOf, TEMPLATE } from './versions.js';
+import { sheetData, dataOf, storeOf, keyOf, TEMPLATE } from './versions.js';
 
 export const FORK_KINDS = ['campaign', 'oneshot'];
 const FORK_FIELDS = ['versionOf', 'versionKind', 'versionCampaign', 'versionCreatedAt'];
@@ -26,8 +26,12 @@ export const isFork = (c) => templateIdOf(c) != null;
  */
 export function fork(source, { campaign = null, kind = 'campaign', at = new Date().toISOString() } = {}) {
   if (!source || numId(source.id) == null) throw new Error('fork_needs_saved_sheet');
-  const rootId = templateIdOf(source) ?? numId(source.id);
   const base = source.versions ? (dataOf(source, TEMPLATE) || sheetData(source)) : sheetData(source);
+  return build(source, base, { campaign, kind, at });
+}
+
+function build(source, base, { campaign, kind, at }) {
+  const rootId = templateIdOf(source) ?? numId(source.id);
   const out = JSON.parse(JSON.stringify(base));
   delete out.versions;
   for (const k of FORK_FIELDS) delete out[k];
@@ -110,4 +114,72 @@ export function seatConflict(list, c, seatedIds) {
   if (seated.has(numId(c?.id))) return 'same_sheet';
   const fam = familyOf(list, c).map(x => numId(x.id));
   return fam.some(id => id !== numId(c?.id) && seated.has(id)) ? 'same_family' : null;
+}
+
+// ── Arquivo (F6): one-shot encerrado vira só leitura; o jogador pode desarquivar ──
+export const FORK_STATE_FIELDS = ['versionArchivedAt', 'versionRestartedAt'];
+export const isArchivedFork = (c) => isFork(c) && !!c.versionArchivedAt;
+export const archiveFork = (c, at = new Date().toISOString()) => ({ ...c, versionArchivedAt: at });
+export const unarchiveFork = (c) => { const n = { ...c }; delete n.versionArchivedAt; return n; };
+
+/**
+ * One-shot cuja mesa sumiu da lista de campanhas da ficha (encerrada ou saiu) deve virar
+ * arquivo. `campaigns` = resposta de characterCampaigns (null = ainda não carregou).
+ */
+export function shouldAutoArchive(c, campaigns) {
+  if (!isFork(c) || c.versionKind !== 'oneshot' || c.versionArchivedAt) return false;
+  const at = c.versionCampaign?.id;
+  if (at == null || !Array.isArray(campaigns)) return false;
+  return !campaigns.some(x => String(x.id) === String(at));
+}
+
+/** Ficha arquivada aberta só para leitura (mesmo formato da prévia de versões.js). */
+export function archivedPreview(c, lang = 'pt') {
+  return { ...c, id: `a:${c.id}`, versionPreview: { of: c.id, key: 'fork', state: 'archived', name: forkLabel(c, lang), fork: true } };
+}
+
+// ── Recomeçar a partir do modelo (F14): mesma ficha (mesmo id, mesma mesa), dados do modelo ──
+export function restartFromTemplate(c, template, at = new Date().toISOString()) {
+  if (!isFork(c)) throw new Error('not_a_version');
+  if (!template || numId(template.id) !== templateIdOf(c)) throw new Error('wrong_template');
+  const next = fork(template, { campaign: c.versionCampaign, kind: c.versionKind, at: c.versionCreatedAt || at });
+  return { ...next, id: c.id, versionRestartedAt: at };
+}
+
+// ── Separar uma versão do armazém antigo em ficha própria (F5) ──
+/** Versões do armazém antigo que podem virar ficha própria agora (não a que está em uso). */
+export function splittable(char) {
+  if (!char || numId(char.id) == null || isFork(char) || !char.versions) return [];
+  const store = storeOf(char);
+  return Object.entries(store.campaigns).filter(([k]) => k !== store.current).map(([k, v]) => ({ key: k, name: v.name, state: v.state }));
+}
+
+/** Dados da nova ficha separada a partir da versão `key` (sem id; gravar cria). */
+export function splitFromStore(char, key, at = new Date().toISOString()) {
+  const k = keyOf(key);
+  const v = storeOf(char).campaigns[k];
+  if (!v) throw new Error('version_not_found');
+  if (storeOf(char).current === k) throw new Error('version_in_use');
+  const out = build(char, dataOf(char, k), { campaign: { id: /^\d+$/.test(k) ? Number(k) : k, name: v.name }, kind: 'campaign', at });
+  if (v.state === 'archived') out.versionArchivedAt = v.leftAt || at;
+  return out;
+}
+
+// ── Plano (F10, F16): quanto da cota as versões usam ──
+/**
+ * Aviso para o painel de versões. `my` = loadMyPlan() (null = sem dado: não avisa).
+ * Devolve { text, atLimit }.
+ */
+export function forkPlanNote(my, list, c, lang = 'pt') {
+  const en = lang === 'en';
+  const fam = familyOf(list, c).filter(isFork).length;
+  const used = my?.usage?.characters, max = my?.limits?.characters;
+  if (used == null || max == null) {
+    return { text: en ? 'Each version counts as one character on your plan.' : 'Cada versão conta como uma ficha do seu plano.', atLimit: false };
+  }
+  const atLimit = used >= max;
+  const famTxt = fam ? (en ? ` · ${fam} ${fam === 1 ? 'is a version' : 'are versions'} of this character` : ` · ${fam} ${fam === 1 ? 'é versão' : 'são versões'} deste personagem`) : '';
+  const base = en ? `Each version counts as one character on your plan: ${used} of ${max} in use${famTxt}.` : `Cada versão conta como uma ficha do seu plano: ${used} de ${max} em uso${famTxt}.`;
+  const tail = atLimit ? (en ? ' The plan is full: a new version needs a free slot (or a seat from the GM at the table).' : ' O plano está cheio: uma versão nova precisa de vaga livre (ou de uma vaga do mestre na mesa).') : '';
+  return { text: base + tail, atLimit };
 }

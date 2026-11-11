@@ -108,7 +108,7 @@
 
 ## 5. Backend Sync & Character Version Architecture (Wave 0 Immediate Priority)
 
-> **Fichas em várias mesas / versões / one-shot**: cobertura e plano dividido (F1–F19 no frontend, B1–B8 no backend) em [`docs/character-versions.md`](docs/character-versions.md) §7. O caminho "versão = ficha própria" entrega o objetivo no backend de produção atual.
+> **Fichas em várias mesas / versões / one-shot**: cobertura e plano dividido (F1–F19 no frontend — todos entregues até a v1.0.61, menos F7/F8/F15 que esperam o deploy do backend, B1–B8 no backend) em [`docs/character-versions.md`](docs/character-versions.md) §7. O caminho "versão = ficha própria" entrega o objetivo no backend de produção atual.
 
 Full specifications: [`docs/sync-spec.md`](docs/sync-spec.md), [`docs/character-versions.md`](docs/character-versions.md), and [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) (Epics 1–4).
 

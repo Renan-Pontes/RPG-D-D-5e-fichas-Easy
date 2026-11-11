@@ -16,8 +16,10 @@ import Utils from '../../utils.js';
 import { tName } from '../../data/i18n.js';
 
 // Mesmo critério do useHpFeedback: não dispara ao abrir a ficha nem ao trocar de ficha.
+// Trocar de versão (armazém antigo) ou recomeçar a partir do modelo também conta como
+// "outra ficha": o nível muda, mas ninguém subiu de nível.
 export function useLevelCeremony(char) {
-  const now = { id: char.id, level: char.level || 1 };
+  const now = { id: `${char.id}|${char.versions?.current ?? ''}|${char.versionRestartedAt ?? ''}`, level: char.level || 1 };
   const prev = useRef(null);
   const [cer, setCer] = useState(null);
   useEffect(() => {

@@ -12,6 +12,7 @@ import { Modal } from '../../components/Shared.jsx';
 import { linkErrorText } from './campaign-link.js';
 import * as V from './versions.js';
 import * as F from './forks.js';
+import { loadMyPlan } from '../plans/plans-api.js';
 import './campaign-link.css';
 import './versions.css';
 
@@ -36,6 +37,13 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState(null);    // { title, text, ok, danger, typed?, run }
   const [typed, setTyped] = useState('');
+  const [plan, setPlan] = useState(null);          // loadMyPlan() p/ o aviso de cota (F10/F16)
+  useEffect(() => {
+    if (!onFork && !F.splittable(char).length) return undefined;
+    let on = true;
+    loadMyPlan().then(m => { if (on) setPlan(m); }).catch(() => {});
+    return () => { on = false; };
+  }, [char.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const alive = useRef(true);
   const saveRef = useRef(onSave);   // o app recria onSave a cada render: a carga não pode depender dele
   saveRef.current = onSave;
@@ -146,6 +154,42 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
     return L(lang, `De volta a “${r.name}”, com a ficha como você deixou.`, `Back in “${r.name}”, with the sheet as you left it.`);
   });
 
+  // F5: versão do armazém antigo vira ficha própria (o modelo para de guardá-la)
+  const canSplit = new Set(F.splittable(live).map(x => x.key));
+  const doSplit = (r) => setConfirm({
+    title: L(lang, `Separar “${r.name}” em ficha própria?`, `Split “${r.name}” into its own sheet?`),
+    text: L(lang,
+      'A versão vira uma ficha à parte, com tudo o que tem hoje, e sai desta lista. Ela conta como uma ficha do plano. Depois, use “Campanha” nela para sentar na mesa — sem tirar o personagem das outras.',
+      'The version becomes a separate sheet with everything it has today and leaves this list. It counts as one character on your plan. Then use “Campaign” on it to sit at the table — without taking the character off the others.'),
+    ok: L(lang, 'Separar', 'Split'),
+    run: () => act(`split:${r.key}`, async () => {
+      const created = await save(F.splitFromStore(live, r.key));
+      if (created?.id != null) F.copyDevicePrefs(live.id, created.id);
+      await save(V.release(live, r.key));
+      return L(lang, `“${r.name}” agora é uma ficha própria.`, `“${r.name}” is now a sheet of its own.`);
+    }),
+  });
+
+  // F14 / F6: ações da própria versão
+  const template = (family || []).find(c => !F.isFork(c));
+  const doRestart = () => setConfirm({
+    title: L(lang, 'Recomeçar a partir do modelo?', 'Restart from the template?'),
+    text: L(lang,
+      'Esta versão volta a ser uma cópia do modelo como ele está agora: nível, itens e anotações desta mesa se perdem. Ela continua na mesma mesa. Não dá para desfazer.',
+      'This version becomes a copy of the template as it is now: this table’s level, items and notes are lost. It stays at the same table. It cannot be undone.'),
+    ok: L(lang, 'Recomeçar', 'Restart'),
+    danger: true,
+    typed: L(lang, 'recomeçar', 'restart'),
+    run: () => act('restart', async () => {
+      await save(F.restartFromTemplate(live, template));
+      return L(lang, 'Versão recomeçada a partir do modelo.', 'Version restarted from the template.');
+    }),
+  });
+  const doArchive = () => act('archive', async () => {
+    await save(F.archiveFork(live));
+    return L(lang, 'Versão arquivada: fica só para leitura.', 'Version archived: it is now read-only.');
+  });
+
   const doExclude = (r) => setConfirm({
     title: L(lang, `Excluir a versão de “${r.name}”?`, `Exclude the “${r.name}” version?`),
     text: L(lang,
@@ -225,6 +269,7 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
       <p className="cl-hint muted">{L(lang,
         'Cada versão é uma ficha à parte, sentada na sua mesa: jogar numa não tira o personagem das outras. Ela nasce como cópia completa do modelo e segue sozinha.',
         'Each version is a separate sheet seated at its own table: playing in one does not take the character off the others. It starts as a full copy of the template and goes its own way.')}</p>
+      {onFork && (() => { const n = F.forkPlanNote(plan, family, live, lang); return <p className={`cl-hint${n.atLimit ? ' vr-plan-full' : ' muted'}`}>{n.text}</p>; })()}
       {others.length > 0 && <ul className="vr-list">{others.map(familyRow)}</ul>}
       {onFork && (
         <div className="cl-actions">
@@ -281,6 +326,16 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
             'Esta versão ainda não tem mesa. Use “Campanha” na ficha para sentá-la numa mesa; o modelo e as outras versões não mudam com ela.',
             'This version has no table yet. Use “Campaign” on the sheet to seat it at a table; the template and other versions do not change with it.')}</p>
         {parallel}
+        <div className="cl-actions vr-own">
+          {template && (
+            <button type="button" className="btn btn-ghost cl-btn" disabled={!!busy} onClick={doRestart}>
+              {busy === 'restart' ? '…' : L(lang, 'Recomeçar a partir do modelo', 'Restart from the template')}
+            </button>
+          )}
+          <button type="button" className="btn btn-ghost cl-btn" disabled={!!busy} onClick={doArchive}>
+            {busy === 'archive' ? '…' : L(lang, 'Arquivar (só leitura)', 'Archive (read-only)')}
+          </button>
+        </div>
         {error && <p className="cl-error" role="alert">{error}</p>}
       </>
     );
@@ -330,6 +385,11 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
                   )}
                   {r.kind === 'campaign' && (
                     <button type="button" className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => doPromote(r)}>{L(lang, 'Promover a modelo', 'Promote to template')}</button>
+                  )}
+                  {canSplit.has(r.key) && (
+                    <button type="button" className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => doSplit(r)}>
+                      {busy === `split:${r.key}` ? '…' : L(lang, 'Separar em ficha própria', 'Split into its own sheet')}
+                    </button>
                   )}
                   {ro && (
                     <button type="button" className="btn btn-danger btn-sm" disabled={!!busy} onClick={() => doExclude(r)}>{L(lang, 'Excluir', 'Exclude')}</button>
