@@ -237,10 +237,13 @@ const UnifiedSpellsHUD = ({ char, lang, update, slots, casters, spellAb: propSpe
       <div className="fh-spells-hud-top">
         <div className="fh-spell-stats-cards">
           {groups.map(g => {
-            // Só CD e ataque; o atributo aparece apenas quando há dois pares para distinguir.
             const abTag = groups.length > 1 ? ` (${g.abilSh})` : '';
             return (
               <div key={g.ability} className="fh-spell-stat-card-pair">
+                <div className="fh-spell-stat-card card-ab" title={pt ? `Atributo de Conjuração: ${t(g.ability, lang)}` : `Spellcasting Ability: ${t(g.ability, lang)}`}>
+                  <span className="fh-spell-stat-val">{g.abilSh}</span>
+                  <span className="fh-spell-stat-lbl">{t('ability', lang)}</span>
+                </div>
                 <div className="fh-spell-stat-card card-dc" title={pt ? `Classe de Dificuldade de Magia (${g.abilSh})` : `Spell Save DC (${g.abilSh})`}>
                   <span className="fh-spell-stat-val">{g.dc}</span>
                   <span className="fh-spell-stat-lbl">{t('spellSaveDc', lang)}{abTag}</span>
@@ -253,6 +256,9 @@ const UnifiedSpellsHUD = ({ char, lang, update, slots, casters, spellAb: propSpe
             );
           })}
         </div>
+        <div className="fh-spells-hud-rests">
+          <RestButtons char={char} lang={lang} update={update} />
+        </div>
       </div>
       {hasSlots && (
         <div className="fh-spells-hud-slots">
@@ -261,7 +267,43 @@ const UnifiedSpellsHUD = ({ char, lang, update, slots, casters, spellAb: propSpe
               🔒 {pt ? 'Em campanha: slots gerenciados pelo mestre ou botão Conjurar.' : 'In campaign: slots locked or deducted via Cast.'}
             </div>
           )}
-          <SlotMatrix char={char} lang={lang} slots={slots} update={update} />
+          <div className="fh-spells-slots-grid">
+            {slots.map((max, idx) => {
+              if (!max) return null;
+              const lvl = idx + 1;
+              const used = (char.spellSlotsUsed && char.spellSlotsUsed[idx]) || 0;
+              const left = Math.max(0, max - used);
+              const circle = slotCircleLabel(lvl, lang);
+              const locked = !!char.inCampaign;
+              return (
+                <div key={lvl} className="slot-row fh-slot-line">
+                  <div className="slot-level">{circle}</div>
+                  <div className="slot-pips">
+                    {Array.from({ length: max }).map((_, i) => {
+                      const spent = slotSpent(i, max, used);
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          className={`slot-pip ${spent ? 'used' : ''} ${locked ? 'locked' : ''}`}
+                          disabled={locked}
+                          aria-label={gemLabel(circle, i, max, spent, lang)}
+                          title={locked ? lockedSlotTitle(true, lang) : slotTapTitle(spent, lang)}
+                          onClick={locked ? undefined : () => {
+                            const arr = [...(char.spellSlotsUsed || [])];
+                            while (arr.length <= idx) arr.push(0);
+                            arr[idx] = slotTap(used, max, spent);
+                            update({ spellSlotsUsed: arr });
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                  <span className="fh-gem-count">{left}/{max}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

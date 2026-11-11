@@ -222,7 +222,9 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
 
       {assigningMember && (
         <AssignSheet lang={lang} member={assigningMember} members={players} characters={characters}
-          released={released.current} onPick={(id) => assign(assigningMember, id)} onClose={() => setAssigning(null)} />
+          released={released.current} onPick={(id) => assign(assigningMember, id)}
+          onAddAsExtra={() => { setAssigning(null); setAddingChar(true); }}
+          onClose={() => setAssigning(null)} />
       )}
       {addingChar && (
         <AddCharacterSheet lang={lang} members={members} characters={characters}
@@ -377,7 +379,7 @@ function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, onAssignSt
  * servidor também recusa: uma ficha numa campanha por vez). `released`: as que
  * acabaram de sair desta mesa (a lista do app ainda as marca em campanha).
  */
-function AssignSheet({ lang, member, members = [], characters, released, onPick, onClose }) {
+function AssignSheet({ lang, member, members = [], characters, released, onPick, onAddAsExtra, onClose }) {
   const cur = member.character?.id ?? null;
   return (
     <MesaSheet lang={lang} size="auto" width="sm" icon="🛡"
@@ -413,6 +415,19 @@ function AssignSheet({ lang, member, members = [], characters, released, onPick,
           </span>
         </button>
       </div>
+
+      {onAddAsExtra && (
+        <div style={{ marginTop: 12, textAlign: 'center', borderTop: '1px solid rgba(214,176,100,0.15)', paddingTop: 10 }}>
+          <button
+            type="button"
+            className="mesa-btn btn-sm btn-ghost"
+            style={{ fontSize: '0.82rem', fontWeight: 600, width: '100%' }}
+            onClick={onAddAsExtra}
+          >
+            + {t(lang, 'Adicionar nova ficha à mesa (sem substituir)', 'Add new sheet to table (without replacing)')}
+          </button>
+        </div>
+      )}
     </MesaSheet>
   );
 }

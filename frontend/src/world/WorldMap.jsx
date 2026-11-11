@@ -421,13 +421,14 @@ function ZonePanel({ zone, target, map, entries, lang, readOnly, rv, layout, inn
 
   const handleAutoFit = async () => {
     if (!target) return;
-    const targetUrl = target.imageUrl || (target.id ? `/api/world/${target.id}/image` : null);
-    const mapUrl = map?.imageUrl || (map?.id ? `/api/world/${map.id}/image` : null);
-    if (!targetUrl || !mapUrl) return;
+    const targetDirect = target.imageUrl || null;
+    const targetProxy = target.id ? `/api/world/${target.id}/image` : null;
+    const mapDirect = map?.imageUrl || null;
+    const mapProxy = map?.id ? `/api/world/${map.id}/image` : null;
     try {
       const [targetMeta, mapMeta] = await Promise.all([
-        fetchImageRatio(targetUrl),
-        fetchImageRatio(mapUrl),
+        fetchImageRatio(targetDirect, targetProxy),
+        fetchImageRatio(mapDirect, mapProxy),
       ]);
       if (targetMeta && mapMeta) {
         const updated = autoFitZoneRatio(zone, mapMeta.ratio, targetMeta.ratio);
@@ -442,21 +443,21 @@ function ZonePanel({ zone, target, map, entries, lang, readOnly, rv, layout, inn
     onUpdate({ entryId: id });
     if (!id) return;
     const picked = entries.find(e => e.id === id);
-    const targetUrl = picked?.imageUrl || (picked?.id ? `/api/world/${picked.id}/image` : null);
-    const mapUrl = map?.imageUrl || (map?.id ? `/api/world/${map.id}/image` : null);
-    if (targetUrl && mapUrl) {
-      try {
-        const [targetMeta, mapMeta] = await Promise.all([
-          fetchImageRatio(targetUrl),
-          fetchImageRatio(mapUrl),
-        ]);
-        if (targetMeta && mapMeta) {
-          const updated = autoFitZoneRatio(zone, mapMeta.ratio, targetMeta.ratio);
-          onUpdate({ entryId: id, x: updated.x, y: updated.y, w: updated.w, h: updated.h });
-        }
-      } catch (err) {
-        // fallback
+    const targetDirect = picked?.imageUrl || null;
+    const targetProxy = picked?.id ? `/api/world/${picked.id}/image` : null;
+    const mapDirect = map?.imageUrl || null;
+    const mapProxy = map?.id ? `/api/world/${map.id}/image` : null;
+    try {
+      const [targetMeta, mapMeta] = await Promise.all([
+        fetchImageRatio(targetDirect, targetProxy),
+        fetchImageRatio(mapDirect, mapProxy),
+      ]);
+      if (targetMeta && mapMeta) {
+        const updated = autoFitZoneRatio(zone, mapMeta.ratio, targetMeta.ratio);
+        onUpdate({ entryId: id, x: updated.x, y: updated.y, w: updated.w, h: updated.h });
       }
+    } catch (err) {
+      // fallback
     }
   };
 
@@ -609,9 +610,12 @@ function MapCanvas({ map, pins, zones = [], byId, lang, adding, selected, readOn
   viewRef.current = view;
   const pointers = useRef(new Map());
   const gesture = useRef(null);
-  const src = worldImageUrl(map) || '/art/backgrounds/guide.webp';
+  const directSrc = worldImageUrl(map);
+  const proxySrc = map?.id ? `/api/world/${map.id}/image` : null;
+  const [mapFallback, setMapFallback] = useState(false);
+  const src = (mapFallback && proxySrc ? proxySrc : directSrc) || '/art/backgrounds/guide.webp';
 
-  useEffect(() => { setView({ z: 1, x: 0, y: 0 }); }, [map.id]);
+  useEffect(() => { setView({ z: 1, x: 0, y: 0 }); setMapFallback(false); }, [map.id]);
 
   // mede a caixa e a imagem (gira o celular, abre o painel do lado…)
   useLayoutEffect(() => {
@@ -815,7 +819,12 @@ function MapCanvas({ map, pins, zones = [], byId, lang, adding, selected, readOn
       onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onTouchEnd={onTouchEnd}>
       <div className="wl-map-inner" ref={innerRef} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.z})` }}>
         <img src={src} alt={map.name} draggable={false} className="wl-map-img"
-          onLoad={e => { const im = e.currentTarget; if (im.naturalWidth && im.naturalHeight) setRatio(im.naturalWidth / im.naturalHeight); }} />
+          onLoad={e => { const im = e.currentTarget; if (im.naturalWidth && im.naturalHeight) setRatio(im.naturalWidth / im.naturalHeight); }}
+          onError={() => {
+            if (!mapFallback && proxySrc && directSrc !== proxySrc) {
+              setMapFallback(true);
+            }
+          }} />
         {zones.map(z => {
           const target = z.entryId ? byId.get(z.entryId) : null;
           const isSel = (selected?.type === 'zone' ? selected.id : null) === z.id;

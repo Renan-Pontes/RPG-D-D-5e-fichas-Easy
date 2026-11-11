@@ -173,12 +173,18 @@ export function MoveButtons({ move, lang = 'pt', name = '' }) {
   );
 }
 
-/** Imagem do cartão com arte padrão por tipo (e troca para a arte se a imagem falhar). */
+/** Imagem do cartão com arte padrão por tipo (com fallback para proxy e arte padrão se a imagem falhar). */
 export function EntryImage({ entry, className = '', alt = '' }) {
   const own = worldImageUrl(entry);
   const [failed, setFailed] = useState(false);
-  const src = own && !failed ? own : defaultArt(entry);
+  const [proxyFallback, setProxyFallback] = useState(false);
+
+  const proxyUrl = (entry?.id && own && /^https?:/i.test(own)) ? `/api/world/${entry.id}/image` : null;
+  const src = !failed
+    ? (proxyFallback && proxyUrl ? proxyUrl : (own || defaultArt(entry)))
+    : defaultArt(entry);
   const isDefault = !own || failed;
+
   return (
     <img
       className={`${className} ${isDefault ? 'wl-img-default' : ''}`}
@@ -187,7 +193,13 @@ export function EntryImage({ entry, className = '', alt = '' }) {
       loading="lazy"
       decoding="async"
       draggable={false}
-      onError={() => { if (own && !failed) setFailed(true); }}
+      onError={() => {
+        if (!proxyFallback && proxyUrl && own !== proxyUrl) {
+          setProxyFallback(true);
+        } else if (!failed) {
+          setFailed(true);
+        }
+      }}
     />
   );
 }

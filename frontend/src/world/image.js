@@ -113,24 +113,77 @@ export async function compressForEntry(file, { kind, isMap } = {}) {
 const ratioCache = new Map();
 
 /**
+ * Normaliza URLs externas de imagens (desembrulha visualizador do Reddit /media,
+ * converte páginas do Imgur para imagens diretas e remove scale-down do Wikia).
+ */
+export function normalizeImageUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  let u = url.trim();
+  if (!/^https?:\/\//i.test(u)) return u;
+
+  // Reddit media viewer: https://www.reddit.com/media?url=https%3A%2F%2Fi.redd.it%2F3i72n2xxwsdb1.jpg
+  if (u.includes('reddit.com/media') || u.includes('reddit.com/gallery')) {
+    try {
+      const parsed = new URL(u);
+      const target = parsed.searchParams.get('url');
+      if (target) {
+        u = decodeURIComponent(target).replace(/&amp;/g, '&');
+      }
+    } catch {}
+  }
+
+  // Imgur page to direct image: https://imgur.com/Hdoikoc -> https://i.imgur.com/Hdoikoc.jpeg
+  const imgurMatch = u.match(/^https?:\/\/(?:i\.)?imgur\.com\/([a-zA-Z0-9]+)(?:\.[a-zA-Z]+)?$/);
+  if (imgurMatch && !['a', 'gallery'].includes(imgurMatch[1])) {
+    const id = imgurMatch[1];
+    if (id.length >= 5 && id.length <= 8) {
+      u = `https://i.imgur.com/${id}.jpeg`;
+    }
+  }
+
+  // Wikia / Fandom: remove scale-to-width-down para garantir resolução máxima original
+  if (u.includes('static.wikia.nocookie.net') || u.includes('fandom.com')) {
+    u = u.replace(/\/scale-to-width-down\/\d+/, '');
+  }
+
+  return u;
+}
+
+/**
  * Carrega e calcula a proporção w / h de uma URL de imagem (com cache).
+ * Suporta fallbackUrl opcional se a URL direta for bloqueada por CORS/referrer.
  * Retorna { width, height, ratio } ou null em falha.
  */
-export function fetchImageRatio(url) {
-  if (!url) return Promise.resolve(null);
-  if (ratioCache.has(url)) return Promise.resolve(ratioCache.get(url));
+export function fetchImageRatio(url, fallbackUrl = null) {
+  const norm = normalizeImageUrl(url);
+  if (!norm) return Promise.resolve(null);
+  if (ratioCache.has(norm)) return Promise.resolve(ratioCache.get(norm));
   return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
     img.onload = () => {
       const w = img.naturalWidth || img.width || 1;
       const h = img.naturalHeight || img.height || 1;
       const res = { width: w, height: h, ratio: w / h };
-      ratioCache.set(url, res);
+      ratioCache.set(norm, res);
       resolve(res);
     };
-    img.onerror = () => resolve(null);
-    img.src = url;
+    img.onerror = () => {
+      if (fallbackUrl && fallbackUrl !== norm) {
+        const fImg = new Image();
+        fImg.onload = () => {
+          const w = fImg.naturalWidth || fImg.width || 1;
+          const h = fImg.naturalHeight || fImg.height || 1;
+          const res = { width: w, height: h, ratio: w / h };
+          ratioCache.set(norm, res);
+          resolve(res);
+        };
+        fImg.onerror = () => resolve(null);
+        fImg.src = fallbackUrl;
+      } else {
+        resolve(null);
+      }
+    };
+    img.src = norm;
   });
 }
 

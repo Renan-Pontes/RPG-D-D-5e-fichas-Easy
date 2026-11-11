@@ -51,17 +51,22 @@ def normalize_image_url(url):
     if 'reddit.com' in (p.hostname or '') and p.path.rstrip('/') in ('/media', '/gallery'):
         qs = parse_qs(p.query)
         if 'url' in qs and qs['url']:
-            return unquote(qs['url'][0]).replace('&amp;', '&')
+            u = unquote(qs['url'][0]).replace('&amp;', '&')
+            p = urlsplit(u)
     # Imgur gallery/page direct image resolution: https://imgur.com/Hdoikoc -> https://i.imgur.com/Hdoikoc.jpeg
     if p.hostname in ('imgur.com', 'www.imgur.com') and p.path and not p.path.startswith(('/a/', '/gallery/')):
         img_id = p.path.strip('/').split('/')[-1]
-        if img_id and '.' not in img_id and len(img_id) in (5, 7):
-            return f'https://i.imgur.com/{img_id}.jpeg'
+        if img_id and '.' not in img_id and len(img_id) in (5, 6, 7, 8):
+            u = f'https://i.imgur.com/{img_id}.jpeg'
+            p = urlsplit(u)
+    # Wikia / Fandom: strip scale-to-width-down to ensure maximum resolution
+    if 'wikia.nocookie.net' in (p.hostname or '') or 'fandom.com' in (p.hostname or ''):
+        u = re.sub(r'/scale-to-width-down/\d+', '', u)
     # Google Images direct result: https://www.google.com/imgres?imgurl=...
     if 'google.' in (p.hostname or '') and p.path == '/imgres':
         qs = parse_qs(p.query)
         if 'imgurl' in qs and qs['imgurl']:
-            return unquote(qs['imgurl'][0])
+            u = unquote(qs['imgurl'][0])
     return u
 
 
@@ -127,16 +132,17 @@ def fetch(url, opener=None, resolver=None):
         check_url(cur, resolver)
         headers = {
             'User-Agent': UA,
-            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
             'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
         }
         host = (urlsplit(cur).hostname or '').lower()
+        is_img_path = any(cur.lower().endswith(ext) for ext in ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg')) or 'redd.it' in host or 'imgur.com' in host
+        if is_img_path:
+            headers['Accept'] = 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+        else:
+            headers['Accept'] = 'text/html,application/xhtml+xml,application/json,image/webp,image/*;q=0.9,*/*;q=0.8'
+
         if 'wikia.nocookie.net' in host or 'fandom.com' in host:
             headers['Referer'] = 'https://www.fandom.com/'
-        elif 'redd.it' in host or 'reddit.com' in host:
-            headers['Referer'] = 'https://www.reddit.com/'
-        elif 'imgur.com' in host:
-            headers['Referer'] = 'https://imgur.com/'
 
         req = urllib.request.Request(cur, headers=headers)
         try:

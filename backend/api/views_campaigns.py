@@ -466,9 +466,24 @@ def _release_seats(seats):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def campaign_join(request):
-    code = (request.data.get('inviteCode') or '').strip().upper()
-    campaign_id = request.data.get('campaignId')
-    character_id = request.data.get('characterId')
+    code = (
+        request.data.get('inviteCode') or
+        request.data.get('invite_code') or
+        request.data.get('code') or
+        ''
+    ).strip().upper()
+    campaign_id = (
+        request.data.get('campaignId') or
+        request.data.get('campaign_id') or
+        request.data.get('id') or
+        request.data.get('campaign')
+    )
+    character_id = (
+        request.data.get('characterId') or
+        request.data.get('character_id') or
+        request.data.get('charId') or
+        request.data.get('character')
+    )
     is_npc = bool(request.data.get('isNpc') or request.data.get('charType') == 'npc')
     char_type = 'npc' if is_npc else 'player'
 
@@ -483,7 +498,7 @@ def campaign_join(request):
 
     if not campaign:
         if not campaign_id and not code:
-            raise ValidationError({'error': 'invalid_input'})
+            return Response({'error': 'campaign_required'}, status=400)
         return Response({'error': 'campaign_not_found'}, status=404)
 
     is_dm = (campaign.dm_id == request.user.id)
@@ -641,6 +656,12 @@ def _sync_char_to_world_npc(campaign, char):
     from .models import WorldEntry
     try:
         summary, npc_data, body = _npc_summary_from(char)
+        avatar = ''
+        if isinstance(char.data, dict):
+            avatar = str(char.data.get('avatar') or char.data.get('imageUrl') or char.data.get('image') or '').strip()
+        if avatar and avatar.startswith(('http://', 'https://')):
+            npc_data['imageUrl'] = avatar
+
         entry = None
         npcs = list(WorldEntry.objects.filter(campaign=campaign, kind='npc'))
         entry = next((e for e in npcs if isinstance(e.data, dict)
@@ -655,15 +676,38 @@ def _sync_char_to_world_npc(campaign, char):
             data = entry.data if isinstance(entry.data, dict) else {}
             data.update(npc_data)
             entry.data = data
+            t = list(entry.tags or [])
+            for tg in ['npc', 'ficha', f'ficha:{char.id}']:
+                if tg not in t:
+                    t.append(tg)
+            entry.tags = t
+            if avatar:
+                if avatar.startswith(('http://', 'https://')):
+                    entry.image_ver = f'ext_{char.id}'
+                elif avatar.startswith('data:image/'):
+                    from .models import WorldImage
+                    WorldImage.objects.update_or_create(entry=entry, defaults={'data': avatar})
+                    entry.image_ver = f'c_{char.id}'
             entry.save()
             return entry
         last_sort = (WorldEntry.objects.filter(campaign=campaign).order_by('-sort')
                      .values_list('sort', flat=True).first() or 0)
-        return WorldEntry.objects.create(
+        tags = ['npc', 'ficha', f'ficha:{char.id}']
+        image_ver = ''
+        if avatar:
+            if avatar.startswith(('http://', 'https://')):
+                image_ver = f'ext_{char.id}'
+            elif avatar.startswith('data:image/'):
+                image_ver = f'c_{char.id}'
+        created_entry = WorldEntry.objects.create(
             campaign=campaign, kind='npc', name=char.name[:120], summary=summary, body=body,
             visibility='revealed', sort=last_sort + 1, data=npc_data,
-            tags=['npc', 'ficha'],
+            tags=tags, image_ver=image_ver,
         )
+        if avatar and avatar.startswith('data:image/'):
+            from .models import WorldImage
+            WorldImage.objects.update_or_create(entry=created_entry, defaults={'data': avatar})
+        return created_entry
     except Exception:  # pragma: no cover — o Mundo não pode impedir a vaga de mudar
         import logging
         logging.getLogger(__name__).exception('npc world sync failed')
@@ -736,11 +780,16 @@ def campaign_member(request, id_or_slug, membership_id):
                 return Response({'error': 'character_already_in_campaign', 'campaignId': campaign.id,
                                  'campaignName': campaign.name}, status=409)
     with transaction.atomic():
-        # vaga emprestada decidida mantendo o personagem
-        m.sponsored = P.decide_sponsored(m.user, campaign, char, m) if char else False
+        # vaga emprestada decidida mantendo o personagem (NPC nunca consome vaga de jogador)
+        if m.is_npc:
+            m.sponsored = False
+        else:
+            m.sponsored = P.decide_sponsored(m.user, campaign, char, m) if char else False
         m.character = char
         m.save()
-    return Response({'membership': {'id': m.id, 'characterId': m.character_id, 'sponsored': m.sponsored}})
+        if m.is_npc and char:
+            _sync_char_to_world_npc(campaign, char)
+    return Response({'membership': {'id': m.id, 'characterId': m.character_id, 'isNpc': m.is_npc, 'charType': m.char_type, 'sponsored': m.sponsored}})
 
 
 @api_view(['POST'])

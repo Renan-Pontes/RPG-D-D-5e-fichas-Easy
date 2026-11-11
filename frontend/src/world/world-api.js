@@ -8,15 +8,25 @@
 import { request, API_BASE } from '../api/client.js';
 import { errorText as appErrorText } from '../api/errors.js';
 import { setScreenCard, showOnStage } from '../stage/stage-api.js';
+import { normalizeImageUrl } from './image.js';
 
 const cid = (id) => encodeURIComponent(id);
 
 /** URL absoluta de uma imagem do Mundo (o backend devolve '/api/world/…'). */
 export function worldImageUrl(entryOrUrl) {
-  const url = typeof entryOrUrl === 'string' ? entryOrUrl : entryOrUrl?.imageUrl;
+  const url = typeof entryOrUrl === 'string'
+    ? entryOrUrl
+    : (entryOrUrl?.imageUrl || entryOrUrl?.data?.imageUrl);
   if (!url) return null;
-  if (/^(https?:|data:|blob:)/.test(url)) return url;
+  if (/^(https?:|data:|blob:)/.test(url)) return normalizeImageUrl(url);
   return `${API_BASE || ''}${url}`;
+}
+
+/** URL de fallback seguro através do proxy do backend. */
+export function worldImageProxyUrl(entryOrId) {
+  const id = typeof entryOrId === 'string' ? entryOrId : entryOrId?.id;
+  if (!id) return null;
+  return `${API_BASE || ''}/api/world/${id}/image`;
 }
 
 /** Lista leve. Mestre: {entries, count, max}; jogador: {entries, seenAt}. */

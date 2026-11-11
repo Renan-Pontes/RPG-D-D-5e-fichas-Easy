@@ -261,7 +261,32 @@ class CampaignSerializer(serializers.ModelSerializer):
             data['state'] = public_state(instance.state, PLAYER_KEYS)
             data['stage'] = public_stage(instance, card=card)
             data['worldNewCount'] = _world_new_count(instance, request)
+
+        # Vagas de quem vê nesta campanha (suporte a N personagens do mesmo usuário)
+        m_list = self._mine_list(instance)
+        if m_list:
+            data['myMemberships'] = [
+                {'id': m['id'], 'characterId': m['character_id'],
+                 'characterName': m['character__name'], 'sponsored': m['sponsored'],
+                 'isNpc': m.get('is_npc', False), 'charType': m.get('char_type', 'player'),
+                 'role': m.get('role')}
+                for m in m_list
+            ]
+            m_primary = next((m for m in m_list if m['character_id']), m_list[0])
+            data['myMembership'] = {'id': m_primary['id'], 'characterId': m_primary['character_id'],
+                                    'characterName': m_primary['character__name'], 'sponsored': m_primary['sponsored'],
+                                    'isNpc': m_primary.get('is_npc', False), 'charType': m_primary.get('char_type', 'player'),
+                                    'role': m_primary.get('role')}
         return data
+
+    def _mine_list(self, obj):
+        cache = self.context.setdefault('_mine_list', {})
+        if obj.id not in cache:
+            request = self.context.get('request')
+            cache[obj.id] = [] if not request or not request.user.is_authenticated else list(
+                obj.memberships.filter(user=request.user)
+                .values('id', 'role', 'character_id', 'character__name', 'sponsored', 'is_npc', 'char_type'))
+        return cache[obj.id]
 
 
 def _world_new_count(campaign, request):

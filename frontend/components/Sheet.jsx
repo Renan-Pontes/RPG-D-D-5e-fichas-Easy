@@ -258,40 +258,36 @@ const SheetHero = ({
           </div>
           <div className="fh-hero-tags-actions-bar">
             <div className="hero-tags">
+              {char.alignment && <span className="tag hero-alignment-tag">{tName('alignment', char.alignment, lang)}</span>}
               {char.player && <span className="tag">{char.player}</span>}
-              {char.cheatMode && <span className="tag fh-tag-cheat">🎲 {pt ? 'Trapaça' : 'Cheat'}</span>}
+              {Utils.levelingMode(char) === 'milestone' && (
+                <span className="tag" title={pt ? 'Sobe de nível por marcos da história (sem XP)' : 'Levels up at story milestones (no XP)'}>
+                  {pt ? 'Marcos' : 'Milestones'}
+                </span>
+              )}
+              {Utils.levelingMode(char) === 'xp' && <span className="tag">{char.xp || 0} XP</span>}
             </div>
 
+            {/* Ações minimalistas e discretas no canto inferior direito na MESMA linha das etiquetas */}
+            <div className="fh-hero-tools">
+              <button ref={exportBtnRef} type="button" className="fh-hero-chip fh-corner-chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
+                <Icon name="download" size={13} className="chip-icon"/> {t('export', lang)}
+              </button>
+              {!char.inCampaign ? (
+                <button type="button" className="fh-hero-chip fh-corner-chip" onClick={onEdit}><Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}</button>
+              ) : (
+                <span className="fh-hero-chip fh-corner-chip is-locked" title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
+                  🔒 <Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}
+                </span>
+              )}
+              <button type="button" className={`fh-hero-chip fh-corner-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
+                🎲 {lang === 'pt' ? 'Trapaça' : 'Cheat'}
+              </button>
+            </div>
           </div>
 
           {/* Status/faixa da campanha contidos no painel do personagem */}
           {campaignBanner}
-        </div>
-        {/* Rodapé do painel: descansos (valem em qualquer aba) à esquerda, ações à direita */}
-        <div className="fh-hero-footer no-print">
-          <div className="fh-hero-rest">
-            <RestButtons char={char} lang={lang} update={update} />
-          </div>
-          <div className="fh-hero-tools">
-            <button type="button" className={`fh-hero-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
-              <span aria-hidden="true">🎲</span> {lang === 'pt' ? 'Trapaça' : 'Cheat'}
-            </button>
-            {!char.inCampaign ? (
-              <button type="button" className="fh-hero-chip is-icon" aria-label={t('edit', lang)} title={t('edit', lang)} onClick={onEdit}>
-                <Icon name="edit" size={17} aria-hidden="true"/>
-              </button>
-            ) : (
-              <span className="fh-hero-chip is-icon is-locked" role="img"
-                aria-label={lang === 'pt' ? 'Editar (bloqueado em campanha)' : 'Edit (locked in campaign)'}
-                title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
-                <Icon name="edit" size={17} aria-hidden="true"/><span className="fh-chip-lock" aria-hidden="true">🔒</span>
-              </span>
-            )}
-            <button ref={exportBtnRef} type="button" className="fh-hero-chip is-icon" aria-haspopup="dialog"
-              aria-label={t('export', lang)} title={t('export', lang)} onClick={() => setExportOpen(true)}>
-              <Icon name="download" size={17} aria-hidden="true"/>
-            </button>
-          </div>
         </div>
         {update && <HeroChoicesFold char={char} lang={lang} update={update} />}
       </div>

@@ -330,6 +330,9 @@ def world_image(request, pk):
         WorldEntry.objects.filter(pk=entry.pk).update(image_ver='', data=data, updated_at=timezone.now())
         return Response({'imageVer': '', 'imageUrl': None})
     raw = _body(request).get('image')
+    if isinstance(raw, str) and raw.startswith(('http://', 'https://')):
+        from .world_ingest import normalize_image_url
+        raw = normalize_image_url(raw)
     if isinstance(raw, str) and len(raw) > R.MAX_IMAGE_CHARS:
         _bad('image_too_large')
     data_url = _run(R.clean_image, raw)
@@ -364,7 +367,16 @@ def image_response(request, entry):
         if not img:
             raise NotFound('no_image')
         if img.startswith(('http://', 'https://')):
-            return HttpResponseRedirect(img)
+            from . import world_ingest as WI
+            try:
+                final, ctype, raw = WI.fetch(img)
+                resp = HttpResponse(raw, content_type=ctype or 'image/jpeg')
+                resp['Cache-Control'] = 'public, max-age=86400'
+                for k, v in headers.items():
+                    resp[k] = v
+                return resp
+            except Exception:
+                return HttpResponseRedirect(img)
         head, payload = img.split(',', 1)
         mime = head[5:].split(';', 1)[0]
         resp = HttpResponse(base64.b64decode(payload), content_type=mime)

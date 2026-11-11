@@ -15,7 +15,7 @@ import '../group/group-styles.css';
 import {
   deleteEntry, deleteEntryImage, getEntry, ingestUrl, isConflict, putEntryImage, updateEntry, worldErrorText,
 } from './world-api.js';
-import { compressForEntry } from './image.js';
+import { compressForEntry, normalizeImageUrl } from './image.js';
 import { showPlanLimit } from '../plans/plans-api.js';
 import { limitShortText, planLimitFrom } from '../plans/plans-logic.js';
 import {
@@ -205,8 +205,9 @@ export default function EntryEditor({
     } catch (e) { setError(worldErrorText(e, lang)); } finally { setImgBusy(false); }
   };
   const onApplyImgLink = async () => {
-    const val = imgLinkValue.trim();
-    if (!val || readOnly) return;
+    const rawVal = imgLinkValue.trim();
+    if (!rawVal || readOnly) return;
+    const val = normalizeImageUrl(rawVal);
     setImgBusy(true); setError('');
     try {
       const r = await putEntryImage(entryId, val);

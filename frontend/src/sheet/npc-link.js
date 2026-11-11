@@ -67,19 +67,23 @@ export function npcFromSheet(char, lang = 'pt') {
   const story = [char.backstory, char.notes].map(x => String(x || '').trim()).filter(Boolean);
   const body = [...story, lines.join('\n')].join('\n\n');
 
+  const avatar = char.avatar || char.imageUrl || char.image || '';
+  const data = {
+    role: clip(cls || 'NPC', 80),
+    appearance: clip(char.appearance, 600),
+    mannerism: clip([char.personality, char.flaws].filter(Boolean).join(' · '), 300),
+    wants: clip([char.ideals, char.bonds].filter(Boolean).join(' · '), 600),
+    statblock: { ac, hp, speed, pb, ...scores, skills, saves, languages: langs, spellDc: dc, spells },
+  };
+  if (avatar) data.imageUrl = avatar;
+
   return {
     kind: 'npc',
     name: clip(char.name, 120),
     summary: clip(summary || 'NPC', 280),
     body: clip(body, 20000),
     tags: ['npc', sheetTag(char.id)],
-    data: {
-      role: clip(cls || 'NPC', 80),
-      appearance: clip(char.appearance, 600),
-      mannerism: clip([char.personality, char.flaws].filter(Boolean).join(' · '), 300),
-      wants: clip([char.ideals, char.bonds].filter(Boolean).join(' · '), 600),
-      statblock: { ac, hp, speed, pb, ...scores, skills, saves, languages: langs, spellDc: dc, spells },
-    },
+    data,
   };
 }
 
