@@ -535,32 +535,32 @@ O que falta fazer, em ordem: [`docs/sync-spec.md`](docs/sync-spec.md).
 
 | Rota | O que faz |
 |---|---|
-| `? /proxy` | Busca uma página ou imagem de fora para importar monstros e imagens (lista de hosts permitidos). |
-| `POST /campaigns/:\1/stage` | Palco da Tela no servidor: frente, fundo, só a imagem, desfazer. |
-| `POST /campaigns/:\1/stage/scene` | Começa uma cena do plano (grava na Crônica e leva a TV). |
-| `GET /campaigns/:\1/stage-image` | Imagem do palco para o mestre. |
-| `GET /campaigns/:\1/pulse` | Pulso leve (ETag/304) do mestre e do jogador. |
-| `GET /campaigns/:\1/members/:\1/avatar` | Retrato do personagem daquela vaga. |
-| `POST /campaigns/:\1/world/ingest` | Lê um link (wiki, JSON do SRD, página, imagem) e devolve o rascunho de um cartão. Bloqueia endereços locais e privados. |
-| `POST /campaigns/:\1/session-plan/archive` | Arquiva o plano da sessão. |
-| `POST /campaigns/:\1/session-plan/restore` | Restaura um plano arquivado. |
-| `GET / PUT / PATCH /campaigns/:\1/party-insights` | Ajustes do grupo para o Raio-X. |
-| `GET /campaigns/:\1/party-insights/history` | Histórico do Equilíbrio (testes e quedas por sessão). |
-| `POST /campaigns/:\1/diary/sessions/:\1/end` | Encerra a sessão numa chamada (arruma a mesa, grava o fim, arquiva o plano). |
-| `GET /campaigns/:\1/adventures/:\1/nodes` | Salas leves da aventura. |
-| `GET / PATCH /campaigns/:\1/adventures/:\1/node/:\1` | Uma sala por vez (ler e alterar). |
-| `? /characters/:\1/table-roll` | Rolagem da ficha vai à fila da Tela (respeita a política da mesa). |
-| `GET /screen/:\1/stage-image` | Imagem do palco para a TV. |
-| `GET /screen/:\1/portrait/:\1` | Retrato de um personagem para a TV. |
-| `GET /screen/:\1/token/:\1` | Imagem da ficha de combate para a TV. |
-| `POST /combat/campaign/:\1/save-preview` | Prévia de uma salvaguarda em grupo. |
-| `POST /combat/campaign/:\1/prev-turn` | Volta o turno para quem tinha a vez. |
-| `POST /combat/campaign/:\1/encounter` | Monta o combate numa chamada. |
-| `POST /combat/campaign/:\1/undo` | Desfaz a última ação de combate (por foto). |
-| `POST /combat/campaign/:\1/map-from` | Usa como mapa uma imagem que já está na campanha. |
-| `GET /combat/campaign/:\1/map-image` | Imagem do mapa do combate. |
-| `GET /combat/campaign/:\1/token/:\1` | Imagem da ficha de um combatente. |
-| `GET /combat/campaign/:\1/actions/:\1` | Ações do stat block de um combatente, sob demanda. |
+| `GET /proxy` | Busca uma página ou imagem de fora para importar monstros e imagens (lista de hosts permitidos). |
+| `POST /campaigns/:id/stage` | Palco da Tela no servidor: frente, fundo, só a imagem, desfazer. |
+| `POST /campaigns/:id/stage/scene` | Começa uma cena do plano (grava na Crônica e leva a TV). |
+| `GET /campaigns/:id/stage-image` | Imagem do palco para o mestre. |
+| `GET /campaigns/:id/pulse` | Pulso leve (ETag/304) do mestre e do jogador. |
+| `GET /campaigns/:id/members/:membership_id/avatar` | Retrato do personagem daquela vaga. |
+| `POST /campaigns/:id/world/ingest` | Lê um link (wiki, JSON do SRD, página, imagem) e devolve o rascunho de um cartão. Bloqueia endereços locais e privados. |
+| `POST /campaigns/:id/session-plan/archive` | Arquiva o plano da sessão. |
+| `POST /campaigns/:id/session-plan/restore` | Restaura um plano arquivado. |
+| `GET / PUT / PATCH /campaigns/:id/party-insights` | Ajustes do grupo para o Raio-X. |
+| `GET /campaigns/:id/party-insights/history` | Histórico do Equilíbrio (testes e quedas por sessão). |
+| `POST /campaigns/:id/diary/sessions/:number/end` | Encerra a sessão numa chamada (arruma a mesa, grava o fim, arquiva o plano). |
+| `GET /campaigns/:id/adventures/:pk/nodes` | Salas leves da aventura. |
+| `GET / PATCH /campaigns/:id/adventures/:pk/node/:node_id` | Uma sala por vez (ler e alterar). |
+| `POST /characters/:pk/table-roll` | Rolagem da ficha vai à fila da Tela (respeita a política da mesa). |
+| `GET /screen/:token/stage-image` | Imagem do palco para a TV. |
+| `GET /screen/:token/portrait/:char_id` | Retrato de um personagem para a TV. |
+| `GET /screen/:token/token/:combatant_id` | Imagem da ficha de combate para a TV. |
+| `POST /combat/campaign/:id/save-preview` | Prévia de uma salvaguarda em grupo. |
+| `POST /combat/campaign/:id/prev-turn` | Volta o turno para quem tinha a vez. |
+| `POST /combat/campaign/:id/encounter` | Monta o combate numa chamada. |
+| `POST /combat/campaign/:id/undo` | Desfaz a última ação de combate (por foto). |
+| `POST /combat/campaign/:id/map-from` | Usa como mapa uma imagem que já está na campanha. |
+| `GET /combat/campaign/:id/map-image` | Imagem do mapa do combate. |
+| `GET /combat/campaign/:id/token/:combatant_id` | Imagem da ficha de um combatente. |
+| `GET /combat/campaign/:id/actions/:ref` | Ações do stat block de um combatente, sob demanda. |
 
 Também mudam com a atualização, sem rota nova:
 - **Vagas** (`0014`): uma pessoa pode ter várias fichas na mesma campanha; vaga de NPC do mestre. A mesma ficha não ocupa duas vagas da mesma mesa.

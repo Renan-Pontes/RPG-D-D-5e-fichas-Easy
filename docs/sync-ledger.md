@@ -1,8 +1,8 @@
 # Livro-razão da diferença entre produção e `main`
 
-> Gerado do git por `docs/sync-spec.md` §8 (não editar à mão). Base: `5655785` (26/10/2026, o código que a produção roda de fato) → `2c458f6`.
+> Gerado do git por `docs/sync-spec.md` §8 (não editar à mão). Base: `5655785` (26/10/2026, o código que a produção roda de fato) → `d1607f4`.
 
-**328 commits** (sem merges): F: 266, B: 31, F+B: 30, docs: 1.
+**329 commits** (sem merges): F: 266, B: 31, F+B: 30, docs: 2.
 
 Área: **F** só frontend · **B** só backend · **F+B** os dois no mesmo commit · **ops** deploy/scripts · **docs** só documentação.
 
@@ -12,7 +12,7 @@
 
 | Rota (`/api/…`) | Métodos | View | Nova | Chamada em (frontend) |
 |---|---|---|---|---|
-| `proxy` | ? | `views_proxy.proxy_fetch` | **nova** | `src/campaigns/url-monster-importer.js`, `vite.config.js` |
+| `proxy` | GET | `views_proxy.proxy_fetch` | **nova** | `src/campaigns/url-monster-importer.js`, `vite.config.js` |
 | `auth/csrf` | GET | `views_auth.csrf` |  | `src/api/client.js` |
 | `auth/signup` | POST | `views_auth.signup` |  | `src/api/client.js` |
 | `auth/login` | POST | `views_auth.login_view` |  | `src/api/client.js` |
@@ -48,9 +48,9 @@
 | `campaigns/<str:id_or_slug>/rotate-invite-code` | POST | `views_campaigns.campaign_rotate_invite` |  | `src/api/client.js` |
 | `campaigns/<str:id_or_slug>/items` | GET,POST | `views_items.campaign_items` |  | `src/api/client.js` |
 | `campaigns/<str:id_or_slug>/items/<int:item_pk>` | PATCH,DELETE | `views_items.campaign_item_detail` |  | `src/api/client.js` |
-| `campaigns/<str:id_or_slug>/state` | ? | `_wp2` |  | `src/api/client.js`, `src/group/group-api.js`, `src/play/play-api.js` +1 |
-| `campaigns/<str:id_or_slug>/cover` | ? | `_wp2` |  | `src/api/client.js` |
-| `campaigns/<str:id_or_slug>/screen-card` | ? | `_wp2` |  | `src/stage/stage-api.js` |
+| `campaigns/<str:id_or_slug>/state` | PATCH | `views_campaigns.campaign_state_patch` |  | `src/api/client.js`, `src/group/group-api.js`, `src/play/play-api.js` +1 |
+| `campaigns/<str:id_or_slug>/cover` | GET,PUT,DELETE | `views_campaigns.campaign_cover` |  | `src/api/client.js` |
+| `campaigns/<str:id_or_slug>/screen-card` | POST | `views_campaigns.campaign_screen_card` |  | `src/stage/stage-api.js` |
 | `campaigns/<str:id_or_slug>/stage` | POST | `views_campaigns.campaign_stage` | **nova** | `src/stage/stage-api.js` |
 | `campaigns/<str:id_or_slug>/stage/scene` | POST | `views_campaigns.campaign_stage_scene` | **nova** | `src/stage/stage-api.js` |
 | `campaigns/<str:id_or_slug>/stage-image` | GET | `views_campaigns.campaign_stage_image` | **nova** | `src/stage/stage-now.js` |
@@ -104,7 +104,7 @@
 | `shares` | POST | `views_share.share_create` |  | `src/api/client.js` |
 | `shares/<str:token>` | GET | `views_share.share_get` |  | `src/api/client.js` |
 | `dice/roll` | POST | `views_dice.dice_roll` |  | `src/api/client.js` |
-| `characters/<int:pk>/table-roll` | ? | `views_dice.sheet_roll` | **nova** | `src/api/client.js` |
+| `characters/<int:pk>/table-roll` | POST | `views_dice.sheet_roll` | **nova** | `src/api/client.js` |
 | `dice/campaign/<str:id_or_slug>/rigs` | GET,POST | `views_dice.campaign_rigs` |  | `src/api/client.js` |
 | `dice/campaign/<str:id_or_slug>/log` | GET | `views_dice.campaign_dice_log` |  | `src/api/client.js` |
 | `dice/rigs/<int:pk>` | PUT,DELETE | `views_dice.rig_detail` |  | `src/api/client.js` |
@@ -117,8 +117,8 @@
 | `campaigns/invite/<str:code>` | GET | `views_campaigns.campaign_invite_preview` |  | `src/api/client.js` |
 | `campaigns/invite/<str:code>/cover` | GET | `views_campaigns.campaign_invite_cover` |  | — |
 | `screen/<str:token>` | GET | `views_screen.screen` |  | `src/api/client.js`, `src/stage/stage-api.js` |
-| `screen/<str:token>/image/<int:entry_id>` | ? | `_wp2` |  | `src/world/fixtures.js` |
-| `screen/<str:token>/cover` | ? | `_wp2` |  | — |
+| `screen/<str:token>/image/<int:entry_id>` | GET | `views_screen.screen_image` |  | `src/world/fixtures.js` |
+| `screen/<str:token>/cover` | GET | `views_screen.screen_cover` |  | — |
 | `screen/<str:token>/map` | GET | `views_screen.screen_map` |  | — |
 | `screen/<str:token>/stage-image` | GET | `views_screen.screen_stage_image` | **nova** | — |
 | `screen/<str:token>/portrait/<int:char_id>` | GET | `views_screen.screen_portrait` | **nova** | — |
@@ -131,7 +131,7 @@
 | `combat/campaign/<str:id_or_slug>/combatants/<str:combatant_id>` | PUT,DELETE | `views_combat.combat_combatant` |  | `src/api/client.js` |
 | `combat/campaign/<str:id_or_slug>/action` | POST | `views_combat.combat_action` |  | `src/api/client.js`, `src/play/play-api.js` |
 | `combat/campaign/<str:id_or_slug>/player-attack` | POST | `views_combat.combat_player_attack` |  | `src/api/client.js` |
-| `combat/campaign/<str:id_or_slug>/attack-preview` | ? | `_wp2` |  | `src/play/play-api.js` |
+| `combat/campaign/<str:id_or_slug>/attack-preview` | POST | `views_combat.combat_attack_preview` |  | `src/play/play-api.js` |
 | `combat/campaign/<str:id_or_slug>/save-preview` | POST | `views_combat.combat_save_preview` | **nova** | `src/play/play-api.js` |
 | `combat/campaign/<str:id_or_slug>/next-turn` | POST | `views_combat.combat_next_turn` |  | `src/api/client.js` |
 | `combat/campaign/<str:id_or_slug>/prev-turn` | POST | `views_combat.combat_prev_turn` | **nova** | `src/api/client.js` |
@@ -533,3 +533,4 @@
 | `f4f8c07` | F+B | world, sheet, serializers | fix(world/sheet): dynamic external image linking with auto-proxy fallback, multi-char campaign joining, npc world sync, dark fantasy skills accordion and spell slots hud |
 | `2f22e00` | F | Sheet, SheetTabs, sheet | fix(sheet): top-right discrete Cheat/Edit/Export tools, rest buttons below languages, remove hero tags, consolidate ability in spell DC/attack, restore SlotMatrix, and show casting time on spell rows (v1.0.53) |
 | `2c458f6` | F | sheet, Sheet | feat(sheet): campaigns as versions of a character — template plus one full copy per campaign, with a version switcher, leave/join that keeps the version, owner-only exclude, promote to template, read-only archived versions, and the backend spec in docs/character-versions.md (v1.0.54) |
+| `d1607f4` | docs | — | docs: frontend × backend × production sync spec with full route and commit ledger, ADR-0032 to 0035, API routes pending deploy, automatic update guide, belt v2 spec, and roadmap/tech-debt/system-map updates (v1.0.55) |

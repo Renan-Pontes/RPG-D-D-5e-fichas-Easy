@@ -2,6 +2,8 @@
 
 > Estado em 11/11/2026, `main` em `2c458f6`. Este é o documento de entrada. Os detalhes
 > ficam em: [`sync-ledger.md`](sync-ledger.md) (todas as rotas e todos os commits),
+> [`sync-contracts.md`](sync-contracts.md) (cada view e cada função alterada: o que lê, o que devolve,
+> que erros levanta; e todos os arquivos tocados, do backend e do frontend),
 > [`character-versions.md`](character-versions.md) (versões da ficha),
 > [`../API.md`](../API.md) (contratos), [`../DEPLOY.md`](../DEPLOY.md) §7 (atualização
 > automática) e [`../ADR.md`](../ADR.md) ADR-0032 a 0035 (decisões).
@@ -142,3 +144,7 @@ rolador.
 `docs/sync-ledger.md` sai de `git log --no-merges 5655785..HEAD --name-only` (commits)
 e de `backend/api/urls.py` cruzado com as chamadas `/api/…` do frontend (rotas). Ao
 subir o backend, trocar a base pelo commit que entrou em produção e gerar de novo.
+
+`docs/sync-contracts.md` sai da comparação, função por função (`ast`), dos módulos Python
+do backend entre `5655785` e o `HEAD`, mais `git diff --name-status` para os demais
+arquivos. A §6 dele confere a soma: todo arquivo alterado no intervalo cai em uma seção.
