@@ -13,7 +13,7 @@
 | `PRODUCT.md` | Product strategy, user personas, value proposition, core principles, brand commitments. |
 | `ARCHITECTURE.md` | Master architectural blueprint, C4 context/container diagrams, domain engine specifications. |
 | `DESIGN.md` | Design system, visual world ("Dark Fantasy Forged Parchment"), color tokens, typography scales. |
-| `ADR.md` | Architectural Decision Records (ADR-0001 through ADR-0010) in MADR format. |
+| `ADR.md` | Architectural Decision Records (ADR-0001 through ADR-0036) in MADR format. |
 | `ROADMAP.md` | Forward technical and design roadmap across Waves 1, 2, and 3. |
 | `TECH_DEBT.md` | Technical debt audit, 92 legacy references analysis, bundle chunking roadmap. |
 | `DATA_ENGINEERING.md` | Data pipelines, SRD 5.2.1 monster ingestion, Portuguese translations, rule synchronization. |
@@ -43,8 +43,9 @@
 - `ToneAccentFields.jsx`: Visual theme tone and accent color picker for the campaign header.
 
 ### 2.2 Character Sheet Subsystem (`frontend/src/sheet/` & `frontend/components/Sheet.jsx`)
-- `components/Sheet.jsx`: Master character sheet orchestrator (2,167 lines); handles ability scores, vitals, spell slots, death saves, inventory, rest dialogs, and actions.
-- `ficha.css`: Complete styling specification for the "Ficha Forjada" (4,008 lines of custom CSS).
+- `components/Sheet.jsx`: Master character sheet orchestrator (4,093 lines; queued for decomposition in Epic 5); handles ability scores, vitals, Belt v2 Hive Stats, skills groups, features, death saves, rest dialogs, and actions.
+- `components/SheetTabs.jsx`: Character sheet secondary tabs (1,785 lines; queued for decomposition in Epic 5); handles `UnifiedSpellsHUD`, `SlotMatrix`, `SpellRow`, inventory, story, and species traits.
+- `ficha.css`: Complete styling specification for the "Ficha Forjada" (6,549 lines of custom CSS; queued for domain modularization in Epic 5).
 - `FhChecks.jsx`: Ability checks and saving throw rows with proficiency diamonds and advantage toggles.
 - `FhAttack.jsx`: Action cards for weapon attacks, cantrip attacks, and spell DC abilities.
 - `FhFeatures.jsx`: Class and species trait accordions with level tags.
@@ -147,5 +148,6 @@
 | `backend/api/world_ingest.py` | Link → draft card, with the outbound-request guard (ADR-0035). |
 | `backend/api/views_proxy.py` | First-party fetch proxy for monster and image imports. |
 | `backend/api/stage.py`, `table_rolls.py`, `views_insights.py` | Server-run TV stage, sheet rolls on the TV queue, party insights. |
-| `docs/sync-spec.md`, `docs/sync-ledger.md`, `docs/character-versions.md` | Frontend × backend × production sync plan, full route and commit ledger, versions spec. |
+| `docs/sync-spec.md`, `docs/sync-ledger.md`, `docs/sync-contracts.md`, `docs/character-versions.md` | Frontend × backend × production sync plan, route/commit ledger, per-function contract ledger, and versions spec. |
+| `docs/backlog-grooming-and-cascade-map.md` | Master groomed backlog (Epics 1–8), caveat/gap analysis, deterministic cascade map, and monolith decomposition blueprint. |
 

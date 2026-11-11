@@ -150,3 +150,21 @@ Register of debt created by the frontend running ahead of the deployed backend. 
 | Release packaged without running tests | `.github/workflows/backend-release.yml` | C9 |
 | Unused `BeltPbSlot` component left after the belt redesign | `components/Sheet.jsx` | delete |
 
+---
+
+## 8. Monolithic File Decomposition & Component Abstraction Blueprint (added 2026-11-11)
+
+Full deterministic decomposition plan and cascade maps: [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) (Epic 5) and [`ADR.md`](ADR.md) (`ADR-0036`).
+
+| Monolithic File | Current Lines | Target Budget | Planned High-Level Extraction Modules |
+| :--- | ---: | ---: | :--- |
+| [`frontend/src/sheet/ficha.css`](frontend/src/sheet/ficha.css) | 6,549 | `< 800` / module | `sheet-tokens.css`, `sheet-hero.css`, `sheet-belt.css`, `sheet-skills-features.css`, `sheet-spells.css`, `sheet-inventory-modals.css` |
+| [`frontend/components/Sheet.jsx`](frontend/components/Sheet.jsx) | 4,093 | `< 500` (orchestrator) | `SheetHero.jsx`, `BeltHive.jsx`, `SheetSkillsSection.jsx`, `SheetFeaturesSection.jsx`, `SheetCompanionsAndNotes.jsx` + delete dead `BeltPbSlot` |
+| [`backend/api/views_combat.py`](backend/api/views_combat.py) | 2,714 | `< 600` / module | `services/combat_setup.py`, `services/combat_undo.py`, `services/combat_actions.py`, `services/combat_media.py` |
+| [`frontend/styles.css`](frontend/styles.css) | 2,601 | `< 800` / module | Split global design tokens (`:root`), creator shell, and catalog grids; replace layout transitions with `transform`/`opacity` |
+| [`frontend/components/SheetTabs.jsx`](frontend/components/SheetTabs.jsx) | 1,785 | `< 450` / module | `UnifiedSpellsHUD.jsx`, `SlotMatrix.jsx`, `SpellRow.jsx`, `SheetInventoryTab.jsx`, `SheetStoryTab.jsx` |
+| [`frontend/src/campaigns/url-monster-importer.js`](frontend/src/campaigns/url-monster-importer.js) | 1,742 | `< 500` / stage | Separate HTML sanitizer/scraper, bilingual statblock regex parser, and CR normalizer |
+| [`backend/api/world_rules.py`](backend/api/world_rules.py) | 1,518 | `< 550` / module | Split world consistency linter, graph relation validators, and NPC sheet extractor |
+| [`frontend/src/prep/NextSession.jsx`](frontend/src/prep/NextSession.jsx) | 1,434 | `< 500` / view | Extract scene checklist drawer, encounter launcher, and session summary header |
+
+

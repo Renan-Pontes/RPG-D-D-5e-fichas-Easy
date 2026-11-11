@@ -1296,3 +1296,30 @@ Accepted; implemented in `main` (2026-11-10/11, v1.0.25 and v1.0.52), not yet in
 - **Positive**: one link produces a usable card; large maps fit; no image bytes are stored for linked art.
 - **Negative**: linked images can disappear or be hotlink-blocked; the server makes outbound requests on a user's behalf (bounded by the guard, size limits and timeouts).
 - **Blocked on deploy**: until the backend updates, ingestion is 404, linked and large images are refused and zones are dropped on save (B10 in `docs/sync-spec.md`).
+
+---
+
+## ADR-0036: Modular Domain Decomposition, High-Level UI/Service Abstractions, and Deterministic Cascade Governance
+
+### Status
+Accepted (2026-11-11, `v1.0.56`)
+
+### Context
+1. Rapid delivery of 30+ features between `v1.0.21` and `v1.0.56` caused several core files to grow into multi-thousand-line monoliths: `frontend/src/sheet/ficha.css` (6,549 lines), `frontend/components/Sheet.jsx` (4,093 lines), `backend/api/views_combat.py` (2,714 lines), `frontend/styles.css` (2,601 lines), `frontend/components/SheetTabs.jsx` (1,785 lines), `frontend/src/campaigns/url-monster-importer.js` (1,742 lines), and `backend/api/world_rules.py` (1,518 lines).
+2. Cross-cutting domain changes (such as `ADR-0034` `CharacterVersion` per campaign and `ADR-0032`/`0033` server-synced multi-rolls) cascade into 10+ backend gameplay consumers and 20+ frontend modules. Without explicit service abstractions and strict module boundaries, changes cause regression drift across unrelated views and tests.
+
+### Decision Outcome
+1. **Strict Module Size Budgets**:
+   - **React UI Components**: max `500` lines per file. Top-level containers (`Sheet.jsx`, `SheetTabs.jsx`, `NextSession.jsx`, `CombatTab.jsx`) act purely as state orchestrators and layout shells, delegating domain sub-trees to `frontend/src/<domain>/`.
+   - **Pure JS Domain Engines**: max `500` lines per file, 100% pure functions with zero React/DOM/fetch imports and dedicated Vitest suites.
+   - **CSS Domain Stylesheets**: max `800` lines per file, organized under domain folders (`frontend/src/sheet/css/sheet-*.css`) using semantic custom properties (`--sheet-*`) and GPU-composited transitions (`transform`, `opacity`).
+   - **Django DRF View Modules**: max `600` lines per file. Multi-model mutations, undo ring buffers, and sheet write-backs live in `backend/api/services/<domain>.py`.
+2. **Unified Campaign-Sheet Target Resolution (`resolve_sheet_target`)**:
+   - All 10 backend gameplay consumers (combat, dice, checks, approvals, world NPC sync, TV screen, party insights, spell cast, rest, and DM edit) must resolve character state through a single service abstraction (`backend/api/services/version_resolver.py::resolve_sheet_target(character, campaign)`) rather than mutating `Character.data` directly.
+3. **Deterministic Cascade Mapping & CI Test Gate**:
+   - Every backlog epic is governed by [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) and [`docs/sync-contracts.md`](docs/sync-contracts.md), and `.github/workflows/backend-release.yml` must execute `python manage.py makemigrations --check && python manage.py test` prior to building `forja-release.zip`.
+
+### Consequences
+- **Positive**: Eliminates monolithic merge conflicts, isolates character-version and dice-pipeline changes behind single service abstractions, and prevents unverified backend releases.
+- **Negative**: Requires disciplined incremental extraction (Epic 5) with barrel re-exports so existing test imports remain unbroken during decomposition.
+
