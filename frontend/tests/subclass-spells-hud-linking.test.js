@@ -49,14 +49,23 @@ test('Party Holster: NPCs separated from active players and do not consume seats
   assert.match(playersPanelSrc, /Campaign NPCs/);
 });
 
-test('Single-row Hero Footer and Indented Skills Accordion', () => {
+test('Top-right Hero Tools, Universal Rest Row, Consolidated Spell Stats, SlotMatrix, and Action Cost on Spell Rows', () => {
   const sheetSrc = read('../components/Sheet.jsx');
-  const css = read('../src/sheet/ficha.css');
+  const sheetTabsSrc = read('../components/SheetTabs.jsx');
   const monsterCss = read('../src/combat/monster-statblock.css');
 
-  // Single row bar contains tags on left and actions on right
-  assert.match(sheetSrc, /fh-hero-tags-actions-bar/);
+  // Hero tools in top right and RestButtons below languages
   assert.match(sheetSrc, /fh-hero-tools/);
+  assert.match(sheetSrc, /fh-hero-row is-rest fh-hero-rest/);
+
+  // UnifiedSpellsHUD consolidates ability into Save DC and Spell Attack Bonus without standalone card-ab
+  assert.ok(!sheetTabsSrc.includes('card-ab'), 'Should not render standalone ability badge card-ab');
+  assert.match(sheetTabsSrc, /\(\{g\.abilSh\}\) \{t\('spellSaveDc', lang\)\}/);
+  assert.match(sheetTabsSrc, /<SlotMatrix char=\{char\} lang=\{lang\} slots=\{slots\} update=\{update\} \/>/);
+
+  // SpellRow discloses castingTime on folded panel and omits redundant components chipline
+  assert.match(sheetTabsSrc, /<span className="fh-sm-time">\{meta\.castingTime\}<\/span>/);
+  assert.ok(!sheetTabsSrc.includes("{t('components', lang)}:</span> {meta.components}"), 'Should not duplicate components tag in unfolded spell facts');
 
   // Indented skills partial disclosure beneath accordion
   assert.match(sheetSrc, /statblock-action-indented-profs/);

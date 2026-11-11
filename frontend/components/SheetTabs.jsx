@@ -221,7 +221,8 @@ const UnifiedSpellsHUD = ({ char, lang, update, slots, casters, spellAb: propSpe
       const ab = (Utils.spellcastingAbilityOfClass ? Utils.spellcastingAbilityOfClass(c) : Utils.spellcastingAbility(c)) || propSpellAb || 'int';
       const dc = propSpellDc != null ? propSpellDc : (8 + Utils.profBonus(char) + Utils.abilityMod(char, ab));
       const atk = propSpellAtk != null ? propSpellAtk : (Utils.profBonus(char) + Utils.abilityMod(char, ab));
-      const abilSh = (t(ab + 'Sh', lang) || ab).toUpperCase();
+      const rawSh = String(t(ab + 'Sh', lang) || ab);
+      const abilSh = rawSh.charAt(0).toUpperCase() + rawSh.slice(1).toLowerCase();
       const cName = c.className || char.className || '';
       if (!map.has(ab)) {
         map.set(ab, { ability: ab, abilSh, dc, atk, classes: [cName] });
@@ -236,28 +237,18 @@ const UnifiedSpellsHUD = ({ char, lang, update, slots, casters, spellAb: propSpe
     <div className="fh-spells-unified-hud">
       <div className="fh-spells-hud-top">
         <div className="fh-spell-stats-cards">
-          {groups.map(g => {
-            const abTag = groups.length > 1 ? ` (${g.abilSh})` : '';
-            return (
-              <div key={g.ability} className="fh-spell-stat-card-pair">
-                <div className="fh-spell-stat-card card-ab" title={pt ? `Atributo de Conjuração: ${t(g.ability, lang)}` : `Spellcasting Ability: ${t(g.ability, lang)}`}>
-                  <span className="fh-spell-stat-val">{g.abilSh}</span>
-                  <span className="fh-spell-stat-lbl">{t('ability', lang)}</span>
-                </div>
-                <div className="fh-spell-stat-card card-dc" title={pt ? `Classe de Dificuldade de Magia (${g.abilSh})` : `Spell Save DC (${g.abilSh})`}>
-                  <span className="fh-spell-stat-val">{g.dc}</span>
-                  <span className="fh-spell-stat-lbl">{t('spellSaveDc', lang)}{abTag}</span>
-                </div>
-                <div className="fh-spell-stat-card card-atk" title={pt ? `Bônus de Ataque Mágico (${g.abilSh})` : `Spell Attack Bonus (${g.abilSh})`}>
-                  <span className="fh-spell-stat-val">{Utils.fmtMod(g.atk)}</span>
-                  <span className="fh-spell-stat-lbl">{t('spellAttack', lang)}{abTag}</span>
-                </div>
+          {groups.map(g => (
+            <div key={g.ability} className="fh-spell-stat-card-pair">
+              <div className="fh-spell-stat-card card-dc" title={pt ? `Classe de Dificuldade de Magia (${g.abilSh})` : `Spell Save DC (${g.abilSh})`}>
+                <span className="fh-spell-stat-val">{g.dc}</span>
+                <span className="fh-spell-stat-lbl">({g.abilSh}) {t('spellSaveDc', lang)}</span>
               </div>
-            );
-          })}
-        </div>
-        <div className="fh-spells-hud-rests">
-          <RestButtons char={char} lang={lang} update={update} />
+              <div className="fh-spell-stat-card card-atk" title={pt ? `Bônus de Ataque Mágico (${g.abilSh})` : `Spell Attack Bonus (${g.abilSh})`}>
+                <span className="fh-spell-stat-val">{Utils.fmtMod(g.atk)}</span>
+                <span className="fh-spell-stat-lbl">({g.abilSh}) {pt ? t('spellAttack', lang) : 'Spell Attack Bonus'}</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
       {hasSlots && (
@@ -267,43 +258,7 @@ const UnifiedSpellsHUD = ({ char, lang, update, slots, casters, spellAb: propSpe
               🔒 {pt ? 'Em campanha: slots gerenciados pelo mestre ou botão Conjurar.' : 'In campaign: slots locked or deducted via Cast.'}
             </div>
           )}
-          <div className="fh-spells-slots-grid">
-            {slots.map((max, idx) => {
-              if (!max) return null;
-              const lvl = idx + 1;
-              const used = (char.spellSlotsUsed && char.spellSlotsUsed[idx]) || 0;
-              const left = Math.max(0, max - used);
-              const circle = slotCircleLabel(lvl, lang);
-              const locked = !!char.inCampaign;
-              return (
-                <div key={lvl} className="slot-row fh-slot-line">
-                  <div className="slot-level">{circle}</div>
-                  <div className="slot-pips">
-                    {Array.from({ length: max }).map((_, i) => {
-                      const spent = slotSpent(i, max, used);
-                      return (
-                        <button
-                          key={i}
-                          type="button"
-                          className={`slot-pip ${spent ? 'used' : ''} ${locked ? 'locked' : ''}`}
-                          disabled={locked}
-                          aria-label={gemLabel(circle, i, max, spent, lang)}
-                          title={locked ? lockedSlotTitle(true, lang) : slotTapTitle(spent, lang)}
-                          onClick={locked ? undefined : () => {
-                            const arr = [...(char.spellSlotsUsed || [])];
-                            while (arr.length <= idx) arr.push(0);
-                            arr[idx] = slotTap(used, max, spent);
-                            update({ spellSlotsUsed: arr });
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                  <span className="fh-gem-count">{left}/{max}</span>
-                </div>
-              );
-            })}
-          </div>
+          <SlotMatrix char={char} lang={lang} slots={slots} update={update} />
         </div>
       )}
     </div>
@@ -1239,6 +1194,7 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
             </span>
             <span className="spell-meta fh-spell-meta">
               <span className="fh-sm-school">{tName('school', sp.school, lang)}{comps ? ` (${comps})` : ''}</span>
+              <span className="fh-sm-time">{meta.castingTime}</span>
               <span>{meta.duration}</span>
               <span>{meta.range}</span>
               {sp.concentration && <span className="fh-mark is-c" title={pt ? 'Concentração' : 'Concentration'}>C</span>}
@@ -1267,7 +1223,6 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
       {open && (
         <div className="spell-row-body fh-spell-body" id={bodyId}>
           <div className="fh-spell-facts">
-            <span className="fh-chipline"><span className="fh-chipline-k">{t('components', lang)}:</span> {meta.components}</span>
             <span className="fh-chipline"><span className="fh-chipline-k">{pt ? 'Conjuração' : 'Casting time'}:</span> {meta.castingTime}</span>
             <span className={`fh-chipline${sp.concentration ? ' conc' : ''}`}><span className="fh-chipline-k">{t('duration', lang)}:</span> {meta.duration}</span>
           </div>

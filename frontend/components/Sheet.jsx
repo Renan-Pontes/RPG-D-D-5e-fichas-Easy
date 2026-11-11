@@ -205,6 +205,27 @@ const SheetHero = ({
           {portrait && <img key={portrait} src={portrait} alt="" onError={hideBrokenImg} style={heroArtPos} />}
           <FhConditionArt conditions={char.conditions} down={char.currentHp === 0} />
         </div>
+        {/* Ações discretas no canto superior direito: Cheat -> Edit -> Export */}
+        <div className="fh-hero-tools no-print">
+          <button type="button" className={`fh-hero-chip fh-corner-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
+            <span aria-hidden="true">🎲</span> {lang === 'pt' ? 'Trapaça' : 'Cheat'}
+          </button>
+          {!char.inCampaign ? (
+            <button type="button" className="fh-hero-chip fh-corner-chip is-icon" aria-label={t('edit', lang)} title={t('edit', lang)} onClick={onEdit}>
+              <Icon name="edit" size={15} aria-hidden="true"/>
+            </button>
+          ) : (
+            <span className="fh-hero-chip fh-corner-chip is-icon is-locked" role="img"
+              aria-label={lang === 'pt' ? 'Editar (bloqueado em campanha)' : 'Edit (locked in campaign)'}
+              title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
+              <Icon name="edit" size={15} aria-hidden="true"/><span className="fh-chip-lock" aria-hidden="true">🔒</span>
+            </span>
+          )}
+          <button ref={exportBtnRef} type="button" className="fh-hero-chip fh-corner-chip is-icon fh-export-chip" aria-haspopup="dialog"
+            aria-label={t('export', lang)} title={t('export', lang)} onClick={() => setExportOpen(true)}>
+            <Icon name="download" size={15} aria-hidden="true"/>
+          </button>
+        </div>
         <div className="fh-hero-body">
           {/* Header Row: Medalhas Top-Left + Nome do Personagem imediatamente adjacente */}
           <div className="fh-hero-header-row">
@@ -252,38 +273,12 @@ const SheetHero = ({
                   {(align || speciesBg) && <div className="fh-hero-row">{[align, speciesBg].filter(Boolean).join(', ')}</div>}
                   {classes.length > 0 && <div className="fh-hero-row is-classes">{classes.join(', ')}</div>}
                   {langs.length > 0 && <div className="fh-hero-row is-langs">{pt ? 'Fala ' : 'Speaks '}{langs.join(', ')}</div>}
+                  <div className="fh-hero-row is-rest fh-hero-rest no-print">
+                    <RestButtons char={char} lang={lang} update={update} />
+                  </div>
                 </>
               );
             })()}
-          </div>
-          <div className="fh-hero-tags-actions-bar">
-            <div className="hero-tags">
-              {char.alignment && <span className="tag hero-alignment-tag">{tName('alignment', char.alignment, lang)}</span>}
-              {char.player && <span className="tag">{char.player}</span>}
-              {Utils.levelingMode(char) === 'milestone' && (
-                <span className="tag" title={pt ? 'Sobe de nível por marcos da história (sem XP)' : 'Levels up at story milestones (no XP)'}>
-                  {pt ? 'Marcos' : 'Milestones'}
-                </span>
-              )}
-              {Utils.levelingMode(char) === 'xp' && <span className="tag">{char.xp || 0} XP</span>}
-            </div>
-
-            {/* Ações minimalistas e discretas no canto inferior direito na MESMA linha das etiquetas */}
-            <div className="fh-hero-tools">
-              <button ref={exportBtnRef} type="button" className="fh-hero-chip fh-corner-chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
-                <Icon name="download" size={13} className="chip-icon"/> {t('export', lang)}
-              </button>
-              {!char.inCampaign ? (
-                <button type="button" className="fh-hero-chip fh-corner-chip" onClick={onEdit}><Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}</button>
-              ) : (
-                <span className="fh-hero-chip fh-corner-chip is-locked" title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
-                  🔒 <Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}
-                </span>
-              )}
-              <button type="button" className={`fh-hero-chip fh-corner-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
-                🎲 {lang === 'pt' ? 'Trapaça' : 'Cheat'}
-              </button>
-            </div>
           </div>
 
           {/* Status/faixa da campanha contidos no painel do personagem */}

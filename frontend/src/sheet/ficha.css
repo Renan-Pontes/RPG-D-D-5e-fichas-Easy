@@ -6208,30 +6208,10 @@
 }
 @keyframes fh-gem-glow { 50% { box-shadow: 0 0 12px rgba(159, 176, 240, 1), 0 0 2px rgba(255,255,255,.8) inset; } }
 
-/* Painel do personagem: mesma distância da borda em todos os lados (o rodapé — alinhamento,
-   jogador, ações — encosta no fim do painel em vez de flutuar no meio de uma altura mínima) */
+/* Painel do personagem: mesma distância da borda em todos os lados */
 @media (min-width: 720px) {
   .ficha .fh-hero { --fh-hero-pad: 20px; min-height: 0; justify-content: flex-start; }
   .ficha .fh-hero-body { padding: var(--fh-hero-pad) 24px var(--fh-hero-pad) !important; row-gap: 8px; }
-  .ficha .fh-hero-rest {
-    position: absolute; right: 24px; bottom: var(--fh-hero-pad); z-index: 3;
-  }
-}
-@media (max-width: 719px) {
-  .ficha .fh-hero-rest { display: flex; justify-content: flex-end; padding: 0 16px 16px; margin-top: -6px; }
-}
-.ficha .fh-hero-rest .row { display: flex; gap: 8px; }
-.ficha .fh-hero-rest .btn {
-  background: rgba(14, 10, 7, 0.78);
-  border: 1px solid rgba(214, 176, 100, 0.55);
-  color: var(--gold-bright, #edcb7a);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  letter-spacing: 0.12em;
-  min-height: 34px;
-}
-@media (hover: hover) {
-  .ficha .fh-hero-rest .btn:hover { border-color: var(--gold-bright, #edcb7a); background: rgba(40, 28, 14, 0.9); }
 }
 /* O nome vem logo à direita do selo de Inspiração (nunca centralizado no painel) */
 .ficha .fh-hero-header-row { justify-content: flex-start !important; }
@@ -6240,43 +6220,63 @@
 .ficha .fh-spell-head .fh-slot-gem { width: 9px; height: 9px; }
 .ficha .fh-by-level .fh-spell-head .fh-lvl { display: none; }
 
-/* ── Rodapé do painel do personagem: descansos à esquerda, ferramentas à direita ── */
-.ficha .fh-hero-footer {
-  position: relative; z-index: 3;
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-  padding: 0 24px 20px;
+/* ── Ações discretas no canto superior direito (Cheat -> Edit -> Export) e Descansos sob os idiomas ── */
+.ficha .fh-hero-tools {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ficha .fh-hero-rest {
+  position: static !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  padding: 0 !important;
+  margin: 6px 0 0 !important;
 }
 @media (min-width: 720px) {
-  .ficha .fh-hero-body { padding-bottom: 12px !important; }
-  .ficha .fh-hero-rest { position: static; }
+  .ficha .fh-hero-body { padding-bottom: 14px !important; }
 }
-@media (max-width: 719px) {
-  .ficha .fh-hero-footer { padding: 0 16px 16px; }
-  .ficha .fh-hero-rest { padding: 0; margin: 0; display: block; }
-}
-.ficha .fh-hero-rest .row, .ficha .fh-hero-tools { display: flex; align-items: center; gap: 8px; }
-.ficha .fh-hero-rest .btn,
-.ficha .fh-hero-chip {
-  --chip-h: 36px;
-  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  min-height: var(--chip-h); height: var(--chip-h); padding: 0 14px;
+.ficha .fh-hero-rest .row { display: flex; align-items: center; gap: 8px; }
+.ficha .fh-hero-rest .btn {
+  --chip-h: 32px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: var(--chip-h); height: var(--chip-h); padding: 0 12px;
   border-radius: 4px;
   background: linear-gradient(180deg, rgba(34, 24, 13, 0.88), rgba(14, 10, 7, 0.88));
   border: 1px solid rgba(214, 176, 100, 0.55);
   box-shadow: inset 0 1px 0 rgba(255, 226, 160, 0.12), 0 2px 8px rgba(0, 0, 0, 0.45);
   color: var(--gold-bright, #edcb7a);
-  font-family: var(--display, inherit); font-size: 0.78rem; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase;
+  font-family: var(--display, inherit); font-size: 0.74rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
   backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
   cursor: pointer; transition: border-color .15s, background .15s, transform .1s, box-shadow .15s;
 }
-.ficha .fh-hero-chip.is-icon { width: var(--chip-h); padding: 0; position: relative; }
+.ficha .fh-hero-chip {
+  --chip-h: 28px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  min-height: var(--chip-h); height: var(--chip-h); padding: 0 9px;
+  border-radius: 4px;
+  background: rgba(14, 10, 7, 0.76);
+  border: 1px solid rgba(214, 176, 100, 0.35);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  color: var(--ink-secondary, #d9c9a6);
+  font-family: var(--display, inherit); font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  cursor: pointer; transition: border-color .15s, background .15s, color .15s, transform .1s, box-shadow .15s;
+}
+.ficha .fh-hero-chip.is-icon { width: var(--chip-h); padding: 0; position: relative; color: var(--gold-bright, #edcb7a); }
 .ficha .fh-hero-chip.is-icon svg { filter: drop-shadow(0 0 4px rgba(237, 203, 122, 0.45)); }
 .ficha .fh-hero-chip.is-locked { cursor: not-allowed; opacity: 0.6; border-style: dashed; }
 .ficha .fh-hero-chip .fh-chip-lock { position: absolute; right: -5px; bottom: -6px; font-size: 0.62rem; }
 .ficha .fh-hero-chip.is-cheat { border-color: #c084fc; color: #e9d5ff; box-shadow: 0 0 10px rgba(192, 132, 252, 0.35); }
 @media (hover: hover) {
   .ficha .fh-hero-rest .btn:hover, .ficha .fh-hero-chip:not(.is-locked):hover {
+    color: var(--gold-bright, #edcb7a);
     border-color: var(--gold-bright, #edcb7a); background: rgba(52, 36, 16, 0.95);
     box-shadow: 0 0 12px rgba(237, 203, 122, 0.3), inset 0 1px 0 rgba(255, 226, 160, 0.2);
   }

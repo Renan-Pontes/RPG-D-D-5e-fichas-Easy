@@ -82,16 +82,29 @@ test('Inspiração no topo: selo circular 48px, sem rótulo de texto, alinhado e
   assert.match(css, /\.ficha \.fh-seal\.hero-insp\.is-inspired/);
 });
 
-test('Ações no rodapé do painel: exportar, editar e trapaça alinhadas com as tags em linha única sem flutuação', () => {
+test('Ações no canto superior direito do painel (Cheat -> Edit -> Export) e descansos sob idiomas', () => {
   const sheetSrc = read('../components/Sheet.jsx');
   const css = read('../src/sheet/ficha.css');
 
-  // fh-hero-corner-actions alinhadas em linha única no rodapé fh-hero-tags-actions-bar
-  assert.match(sheetSrc, /fh-hero-tags-actions-bar/);
-  assert.match(sheetSrc, /className="fh-hero-tools"/);
+  // fh-hero-tools no topo direito na ordem Cheat -> Edit -> Export, Edit e Export somente ícone
+  const toolsStart = sheetSrc.indexOf('<div className="fh-hero-tools');
+  const toolsEnd = sheetSrc.indexOf('</div>', toolsStart);
+  const toolsHtml = sheetSrc.slice(toolsStart, toolsEnd);
+  const cheatIdx = toolsHtml.indexOf('setCheatOpen(true)');
+  const editIdx = toolsHtml.indexOf('onClick={onEdit}');
+  const exportIdx = toolsHtml.indexOf('setExportOpen(true)');
+  assert.ok(cheatIdx > 0 && editIdx > cheatIdx && exportIdx > editIdx, 'Ordem deve ser Cheat -> Edit -> Export');
 
-  // CSS garante alinhamento flexível à direita da barra de tags sem sobreposição
-  assert.match(css, /\.ficha \.fh-hero-tags-actions-bar/);
+  // Sem tags de alinhamento, nome do jogador ou marcos no painel do herói
+  assert.ok(!sheetSrc.includes('hero-alignment-tag'), 'Não deve exibir tag de alinhamento no painel do herói');
+  assert.ok(!sheetSrc.includes('<div className="hero-tags">'), 'Não deve existir container hero-tags no painel do herói');
+
+  // Descanso curto e longo na linha imediatamente abaixo dos idiomas
+  const langsIdx = sheetSrc.indexOf('fh-hero-row is-langs');
+  const restIdx = sheetSrc.indexOf('<RestButtons char={char} lang={lang} update={update} />');
+  assert.ok(langsIdx > 0 && restIdx > langsIdx, 'RestButtons deve vir na linha abaixo dos idiomas');
+
+  // CSS garante posicionamento no canto superior direito
   assert.match(css, /\.ficha \.fh-hero-tools/);
 });
 
