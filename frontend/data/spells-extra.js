@@ -402,6 +402,9 @@ export function rangePt(range) {
   if (m) return feetToMeters(m[1]);
   m = r.match(/^([\d,]+)\s*miles?$/i);
   if (m) return milesToKm(m[1]);
+  // SRD 5.1: "Self (10-foot radius sphere)", "Self (10-foot radius hemisphere)"
+  m = r.match(/^Self\s*\(([\d,]+)[- ](?:ft|foot|feet)[- ]radius (sphere|hemisphere)\)$/i);
+  if (m) return `Pessoal (${m[2].toLowerCase() === 'sphere' ? 'esfera' : 'hemisfério'} de ${feetToMeters(m[1])} de raio)`;
   m = r.match(/^Self\s*\(([\d,]+)[- ](ft|foot|feet|mile)[- ]?(cone|cube|line|radius|emanation|sphere|cylinder)\)$/i);
   if (m) {
     const dist = /mile/i.test(m[2]) ? milesToKm(m[1]) : feetToMeters(m[1]);
@@ -448,7 +451,7 @@ export function castingTimePt(ct) {
 
 /** Duração: "Concentration, up to 1 minute" / "1 min, conc" / "Conc. 1 hour" → "Concentração, até 1 minuto". */
 export function durationPt(d) {
-  const s = String(d || '').trim();
+  const s = String(d || '').trim().replace(/^Concentration up to/i, 'Concentration, up to').replace(/\bone (minute|hour|round)\b/i, '1 $1');
   const fixed = {
     instant: 'Instantânea', 'inst.': 'Instantânea', instantaneous: 'Instantânea', 'until dispelled': 'Até ser dissipada',
     'until triggered': 'Até ser ativada', 'until dispelled or triggered': 'Até ser dissipada ou ativada', special: 'Especial',

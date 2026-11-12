@@ -6,6 +6,19 @@ import MECH from '../../data/spell-mechanics.json';
 
 let cache = null;
 let pending = null;
+// Fichas de 2014: texto integral do SRD 5.1 (só inglês; o pt fica com o resumo da ficha)
+let cache51 = null;
+let pending51 = null;
+export function loadSpellText51() {
+  if (cache51) return Promise.resolve(cache51);
+  if (!pending51) {
+    pending51 = import('../../data/srd51-spells-text.json')
+      .then((m) => { const t = m.default || m; cache51 = {}; for (const [id, en] of Object.entries(t)) cache51[id] = { en, pt: '' }; return cache51; })
+      .catch(() => { pending51 = null; return {}; });
+  }
+  return pending51;
+}
+const ALIAS51 = { spareDying: 'spareTheDying', identifySpell: 'identify', expediteRetreat: 'expeditiousRetreat', commandSpell: 'command' };
 
 export function loadSpellText() {
   if (cache) return Promise.resolve(cache);
@@ -23,16 +36,17 @@ export function loadSpellText() {
   return pending;
 }
 
-/** Texto integral da magia (ou null enquanto carrega / fora do SRD 2024). */
-export function useSpellText(id, enabled = true) {
-  const [map, setMap] = useState(cache);
+/** Texto integral da magia (ou null enquanto carrega / fora do SRD). `legacy` = ficha de
+ *  2014: usa o SRD 5.1 (a mesma magia mudou de texto no SRD 5.2.1). */
+export function useSpellText(id, enabled = true, legacy = false) {
+  const [map, setMap] = useState(legacy ? cache51 : cache);
   useEffect(() => {
-    if (!enabled || cache) return undefined;
+    if (!enabled || (legacy ? cache51 : cache)) { if (legacy ? cache51 : cache) setMap(legacy ? cache51 : cache); return undefined; }
     let alive = true;
-    loadSpellText().then(m => { if (alive) setMap(m); });
+    (legacy ? loadSpellText51() : loadSpellText()).then(m => { if (alive) setMap(m); });
     return () => { alive = false; };
-  }, [enabled]);
-  return map ? map[id] || null : null;
+  }, [enabled, legacy]);
+  return map ? map[legacy ? (ALIAS51[id] || id) : id] || null : null;
 }
 
 /** Mecânica resumida (tirada do texto do SRD): save, ataque, dados base e por círculo. */
@@ -55,6 +69,6 @@ export function scaledDice(id, spellLevel, slotLevel) {
 /** Só a frase "Usando um espaço de círculo superior…" do texto integral. */
 export function higherLevelText(text) {
   if (!text) return '';
-  const m = text.match(/(Using a Higher-Level Spell Slot\.?|Usando um Espaço de Magia de Círculo Superior\.?)([\s\S]*)$/i);
+  const m = text.match(/(Using a Higher-Level Spell Slot\.?|At Higher Levels\.?|Usando um Espaço de Magia de Círculo Superior\.?)([\s\S]*)$/i);
   return m ? m[2].replace(/\s+/g, ' ').trim() : '';
 }

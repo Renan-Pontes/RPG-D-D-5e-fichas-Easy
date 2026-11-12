@@ -1168,7 +1168,7 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
   const saveAb = mech?.save || (tags?.save ? null : undefined); // null = salvaguarda sem atributo conhecido
   const isAtk = !!(mech?.atk || (!mech && tags?.atk));
   const dc = spellAtk != null ? 8 + spellAtk : null;
-  const fullText = useSpellText(sp.id, open);
+  const fullText = useSpellText(sp.id, open, char?.rulesVersion !== '2024' && !!sp.srd51);
 
   // Slot selecionado pra conjurar (default: nível mínimo possível = nível da magia)
   const available = (slots || []).map((max, i) => {
@@ -1272,7 +1272,7 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
             <span className={`fh-chipline${sp.concentration ? ' conc' : ''}`}><span className="fh-chipline-k">{t('duration', lang)}:</span> {meta.duration}</span>
           </div>
           <div className="fh-spell-desc">
-            {(fullText?.[lang] || fullText?.en || sp.desc[lang]).split(/\n+/).map((para, i) => <p key={i}><DiceText text={para} lang={lang} /></p>)}
+            {(fullText?.[lang] || (lang === 'pt' && sp.desc?.pt) || fullText?.en || sp.desc[lang]).split(/\n+/).map((para, i) => <p key={i}><DiceText text={para} lang={lang} /></p>)}
           </div>
           {error && <div className="fh-spell-error">{error}</div>}
           <div className="fh-spell-acts">

@@ -311,7 +311,7 @@ test('tempo, alcance, componentes e duração em português (metros) nas magias 
   }
   // Os mesmos dados alimentam a ficha (Utils.spellMeta).
   assert.equal(Utils.spellMeta(SRD.SPELLS.find(s => s.id === 'fireBolt'), 'pt').range, '36 metros');
-  assert.equal(Utils.spellMeta(SRD.SPELLS.find(s => s.id === 'fireBolt'), 'en').range, '120 ft');
+  assert.equal(Utils.spellMeta(SRD.SPELLS.find(s => s.id === 'fireBolt'), 'en').range, '120 feet');   // SRD 5.1, 1:1
   assert.deepEqual(translateSpellMeta({ castingTime: 'Bonus Action', range: 'Self', components: 'V', duration: '1 round' }),
     { castingTime: 'Ação Bônus', range: 'Pessoal', components: 'V', duration: '1 rodada' });
 });

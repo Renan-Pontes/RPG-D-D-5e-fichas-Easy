@@ -7,6 +7,10 @@ import { ARTIFICER, EXTRA_RACES, EXTRA_SUBCLASSES, SOURCES } from './expanded-ca
 import { SUBRACES_2014 } from './subraces-2014.js';
 import { SPELLS_2024 } from './rules2024.js';
 import { LEGACY_SPELL_CLASSES } from './spells-legacy-classes.js';
+// SRD 5.1 (CC-BY 4.0): ficha técnica oficial das magias de 2014 (texto integral em srd51-spells-text.json)
+import SRD51_META from './srd51-spells-meta.json' with { type: 'json' };
+
+export const SRD51_ID = (id) => ({ spareDying: 'spareTheDying', identifySpell: 'identify', expediteRetreat: 'expeditiousRetreat', commandSpell: 'command' }[id] || id);
 
 const SRD = (() => {
 
@@ -1902,6 +1906,17 @@ for (const spell of SPELLS) {
   if (classes) spell.classes = [...new Set([...classes, ...(artificerSpells.has(spell.id) ? ['artificer'] : [])])];
 }
 for (const spell of SPELLS_2024) if ((artificerSpells.has(spell.id) || ['identify','blink','elementalWeapon','web'].includes(spell.id)) && !spell.classes.includes('artificer')) spell.classes.push('artificer');
+
+// Ficha técnica 1:1 com o SRD 5.1 para toda magia do catálogo 2014 que está nele: círculo,
+// escola, tempo, alcance, componentes, duração, ritual e concentração vêm do texto oficial
+// (as que vieram do catálogo 2024 perdem o metaPt de 2024 e recalculam o pt a partir daqui).
+for (const spell of SPELLS) {
+  const m = SRD51_META[SRD51_ID(spell.id)];
+  if (!m) continue;
+  Object.assign(spell, m, { srd51: true });
+  delete spell.metaPt;   // recalculado do texto 5.1 (localizeLegacySpells)
+  delete spell.rulesVersion;
+}
 
 // Ids antigos de magia → atuais (fichas salvas são migradas ao carregar).
 const SPELL_ID_ALIASES = { huntersMarkUp: 'thunderousSmite', 'feign death': 'feignDeath' };
