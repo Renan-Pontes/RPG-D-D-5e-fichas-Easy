@@ -949,7 +949,6 @@ const HeroChoicesFold = ({ char, lang, update }) => {
   return (
     <details className={`fh-hero-fold no-print${pending ? ' is-pending' : ''}`} open={pending}>
       <summary>
-        <span className="fh-hero-fold-k">⚜ {entries.length > 1 ? (pt ? 'Classes' : 'Classes') : (pt ? 'Classe' : 'Class')}</span>
         <span className="fh-hero-fold-v">{label}{pending && <span className="fh-hero-fold-dot" aria-label={pt ? 'pendente' : 'pending'} />}</span>
       </summary>
       {hasBody && <div className="fh-hero-fold-body">
