@@ -35,6 +35,7 @@ import SRD from '../../data/srd.js';
 import { ARTIFICER_RULES } from './artificer.js';
 import { RULES_2024 } from '../../data/rules2024.js';
 import { CLASS_OPTIONS } from '../../data/class-options/index.js';
+import SRD51_FEATURES from '../../data/srd51-class-features.json' with { type: 'json' };
 
 // === Druida ===
 const DRUID = {
@@ -812,6 +813,23 @@ for (const [classId, subclasses] of Object.entries(SRD.SUBCLASSES)) {
 for (const [classId, a, b] of [['monk', 'openhand', 'openHand'], ['rogue', 'arcanetrickster', 'arcaneTrickster']]) {
   const subs = PROGRESSION_RULES[classId].subclassPerLevel;
   subs[a] = subs[b] = subs[a] || subs[b];
+}
+
+// SRD 5.1 (CC-BY-4.0): nome e texto oficiais em inglês, 1:1, para as features base
+// e da subclasse SRD de cada classe. Subclasses pagas seguem só com o resumo próprio.
+for (const [classId, table] of Object.entries(SRD51_FEATURES)) {
+  const rule = PROGRESSION_RULES[classId];
+  const apply = (levels, prefix) => {
+    for (const node of Object.values(levels || {})) for (const f of node?.features || []) {
+      const src = table[prefix + f.id];
+      if (src) { f.nameEn = src.nameEn; f.descEn = src.descEn; f.srd51 = true; }
+    }
+  };
+  apply(rule.perLevel, '');
+  for (const [sub, levels] of Object.entries(rule.subclassPerLevel || {})) {
+    const key = Object.keys(table).find(k => k.split(':')[0].toLowerCase() === sub.toLowerCase());
+    if (key) apply(levels, key.split(':')[0] + ':');
+  }
 }
 
 // Bruxo 2014 (PHB): Lista Expandida dos patronos do livro básico. Só amplia a lista
