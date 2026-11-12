@@ -261,9 +261,7 @@ const SheetHero = ({
                 />
                 <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={10}/></span>
               </div>
-              <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
               <CampaignSealButton count={campaignsList.length} campFoldOpen={campFoldOpen} onToggle={() => setCampFoldOpen?.(v => !v)} lang={lang} />
-              <InspirationSealButton inspired={!!char.inspiration} onToggle={onInspiration} lang={lang} />
             </div>
             {/* Cópias da ficha por campanha (mesma ficha-raiz): tocar uma carrega a ficha dela.
                 A cópia aberta fica expandida com os dados da campanha dela. */}
@@ -273,8 +271,15 @@ const SheetHero = ({
               </HeroCopiesAccordion>
             )}
 
-            <div className={char.name ? 'hero-name' : 'hero-name is-unnamed'}>
-              {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
+            {/* Linha de baixo: nível e inspiração (mudam de campanha para campanha) à esquerda do nome */}
+            <div className="fh-hero-name-row">
+              <div className="fh-hero-top-left-cluster fh-hero-name-seals no-print">
+                <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
+                <InspirationSealButton inspired={!!char.inspiration} onToggle={onInspiration} lang={lang} />
+              </div>
+              <div className={char.name ? 'hero-name' : 'hero-name is-unnamed'}>
+                {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
+              </div>
             </div>
           </div>
           {versionChip}

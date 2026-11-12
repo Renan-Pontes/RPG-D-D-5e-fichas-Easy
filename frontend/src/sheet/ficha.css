@@ -6689,3 +6689,6 @@
 .ficha .fh-hero-copy-caret { flex: none; color: var(--gold, #c9a24a); }
 .ficha .fh-hero-copy-body { padding: 0 10px 10px; }
 .ficha .fh-hero-copy-body .fh-hero-campaigns-panel { margin: 0; }
+/* Linha do nome: selos de nível e inspiração à esquerda do nome */
+.ficha .fh-hero-name-row { display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap; }
+.ficha .fh-hero-name-row > .hero-name { flex: 0 1 auto; min-width: 0; margin: 0 !important; text-align: left !important; }
