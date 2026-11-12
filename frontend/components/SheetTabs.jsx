@@ -27,7 +27,7 @@ import FhTitle from '../src/sheet/FhTitle.jsx';
 import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
 import FhFeatures from '../src/sheet/FhFeatures.jsx';
 import { DiceText } from '../src/dice/dice-text.jsx';
-import { useSpellText, spellMechanics, scaledDice, higherLevelText } from '../src/sheet/spell-text.js';
+import { useSpellText, spellTextLoaded, ddbSpellUrl, spellMechanics, scaledDice, higherLevelText } from '../src/sheet/spell-text.js';
 import SPELL_TAGS from '../data/spell-tags.json';
 import { slotCircleLabel, gemLabel, lockedSlotTitle, slotSpent, slotTap, slotTapTitle } from '../src/sheet/gem-text.js';
 
@@ -1168,7 +1168,11 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
   const saveAb = mech?.save || (tags?.save ? null : undefined); // null = salvaguarda sem atributo conhecido
   const isAtk = !!(mech?.atk || (!mech && tags?.atk));
   const dc = spellAtk != null ? 8 + spellAtk : null;
-  const fullText = useSpellText(sp.id, open, char?.rulesVersion !== '2024' && !!sp.srd51);
+  // Ficha 2014 lê o SRD 5.1; magia que não está nele (nem no SRD 5.2.1, na ficha 2024) não tem
+  // texto livre: fica o resumo e o link para a D&D Beyond (src/sheet/spell-text.js)
+  const legacy = char?.rulesVersion !== '2024';
+  const fullText = useSpellText(sp.id, open, legacy);
+  const ddb = open && !fullText && spellTextLoaded(legacy) ? ddbSpellUrl(tName('spellName', sp.id, 'en')) : null;
 
   // Slot selecionado pra conjurar (default: nível mínimo possível = nível da magia)
   const available = (slots || []).map((max, i) => {
@@ -1274,6 +1278,11 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
           <div className="fh-spell-desc">
             {(fullText?.[lang] || (lang === 'pt' && sp.desc?.pt) || fullText?.en || sp.desc[lang]).split(/\n+/).map((para, i) => <p key={i}><DiceText text={para} lang={lang} /></p>)}
           </div>
+          {ddb && (
+            <a className="fh-spell-ddb" href={ddb} target="_blank" rel="noopener noreferrer">
+              {pt ? 'Texto completo na D&D Beyond (livro pago)' : 'Full text on D&D Beyond (paid book)'} ↗
+            </a>
+          )}
           {error && <div className="fh-spell-error">{error}</div>}
           <div className="fh-spell-acts">
             {!isCantrip && (

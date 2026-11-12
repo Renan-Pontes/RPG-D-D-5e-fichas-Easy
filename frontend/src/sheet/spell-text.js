@@ -49,6 +49,12 @@ export function useSpellText(id, enabled = true, legacy = false) {
   return map ? map[legacy ? (ALIAS51[id] || id) : id] || null : null;
 }
 
+/** O texto livre (SRD) da edição já carregou? Só então "sem texto" quer dizer livro pago. */
+export const spellTextLoaded = (legacy) => !!(legacy ? cache51 : cache);
+
+/** Página da magia na D&D Beyond (busca pelo nome em inglês: a URL direta precisa do id numérico deles). */
+export const ddbSpellUrl = (nameEn) => `https://www.dndbeyond.com/spells?filter-search=${encodeURIComponent(String(nameEn || '').trim())}`;
+
 /** Mecânica resumida (tirada do texto do SRD): save, ataque, dados base e por círculo. */
 export const spellMechanics = (id) => MECH[id] || null;
 

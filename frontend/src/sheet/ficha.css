@@ -6635,3 +6635,4 @@
 [data-roll-attack], [data-roll-save], [data-roll-check], [data-d20-interactive], [data-roll-adv],
 .ficha .fh-hex, .ficha .fh-skill-roll, .ficha .fh-atk-btn.is-hit, .ficha .fh-medal.is-roll,
 .abil-btn, .save-btn, .init-btn { touch-action: pan-x; }
+.ficha .fh-spell-ddb { display: inline-block; margin: 2px 0 10px; font: 600 .8rem/1.3 var(--body); color: var(--gold-bright); text-decoration: underline; text-underline-offset: 3px; }

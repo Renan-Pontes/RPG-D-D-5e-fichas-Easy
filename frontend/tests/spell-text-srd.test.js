@@ -58,3 +58,8 @@ test('fora do SRD: magias 2014 usam a ficha técnica do livro de 2014 (acervo of
   assert.equal(ts.castingTime, '1 bonus action');
   assert.equal(SRD.SPELLS.find(s => s.id === 'mindSpike').range, '60 feet');   // XGE, não o 120 do SRD 5.2.1
 });
+
+test('magia sem texto livre: link de busca da D&D Beyond pelo nome em inglês', async () => {
+  const { ddbSpellUrl } = await import('../src/sheet/spell-text.js');
+  assert.equal(ddbSpellUrl("Tasha's Hideous Laughter"), 'https://www.dndbeyond.com/spells?filter-search=Tasha\'s%20Hideous%20Laughter');
+});
