@@ -382,3 +382,28 @@
 .ficha .fh-hp-row .fh-medal-shape, .ficha .fh-hp-ac .fh-medal-shape, .ficha .fh-hp-heart .fh-medal-shape { width: 62px; height: 67px; }
 .ficha .fh-hp-heart .fh-hp-formula { white-space: normal; }
 @media (max-width: 480px) { .ficha .fh-hp-row .fh-medal-label { font-size: 0.58rem; letter-spacing: 0.02em; } .ficha .fh-hp-row .fh-medal-label .grimoire-hint, .ficha .fh-hp-row .fh-medal-label button { transform: scale(.8); } }
+
+/* v1.0.77: número no centro óptico de cada silhueta (coordenadas do viewBox 64×70),
+   com respiro mínimo das bordas */
+.ficha .fh-hp-row .fh-medal-shape { --cx: 32; --cy: 35; }
+.ficha .fh-hp-row .fh-medal-shape .fh-medal-val {
+  position: absolute; margin: 0 !important; left: calc(var(--cx) / 64 * 100%); top: calc(var(--cy) / 70 * 100%);
+  transform: translate(-50%, -50%); font-size: 1.15rem; text-shadow: none;
+}
+.ficha .fh-hp-row .fh-medal-shape.is-shield { --cy: 31; }
+.ficha .fh-hp-row .fh-medal-shape.is-heart { --cy: 32; }
+.ficha .fh-hp-row .fh-medal-shape.is-speed { --cx: 33; }
+.ficha .fh-hp-row .fh-medal-shape.is-speed .fh-medal-val { font-size: 1rem; }
+.ficha .fh-hp-row .fh-medal-shape.is-lens { --cx: 28; --cy: 31; }
+.ficha .fh-hp-row .fh-medal-shape.is-flame { --cy: 45; }
+.ficha .fh-hp-row .fh-medal-shape.is-eye .fh-medal-val, .ficha .fh-hp-row .fh-medal-shape.is-star .fh-medal-val, .ficha .fh-hp-row .fh-medal-shape.is-d20 .fh-medal-val { font-size: 1.05rem; }
+.ficha .fh-hp-row .fh-medal-shape.is-long .fh-medal-val { font-size: 0.95rem; }
+/* fileiras: em cima Percepção, Investigação, Intuição, Proficiência; embaixo CA, PV, Deslocamento, Iniciativa */
+.ficha .fh-hp .fh-hp-row > :nth-child(5) { order: 1; }
+.ficha .fh-hp .fh-hp-row > :nth-child(6) { order: 2; }
+.ficha .fh-hp .fh-hp-row > :nth-child(7) { order: 3; }
+.ficha .fh-hp .fh-hp-row > :nth-child(8) { order: 4; }
+.ficha .fh-hp .fh-hp-row > :nth-child(1) { order: 5; }
+.ficha .fh-hp .fh-hp-row > :nth-child(2) { order: 6; }
+.ficha .fh-hp .fh-hp-row > :nth-child(3) { order: 7; }
+.ficha .fh-hp .fh-hp-row > :nth-child(4) { order: 8; }

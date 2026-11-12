@@ -13,7 +13,7 @@ const SHAPES = {
   hex: <path d="M32 4 L59 19.5 V50.5 L32 66 L5 50.5 V19.5 Z" />, // atributo de conjuração (como os selos de atributo)
   // silhuetas dos medalhões do cabeçalho (cada uma diz o que mede)
   speed: <path d="M4 14 H42 L60 35 L42 56 H4 L17 35 Z" />, // seta em movimento: Deslocamento
-  d20: <><path d="M32 3 L60 19 V51 L32 67 L4 51 V19 Z" /><path className="fh-facet" d="M32 3 L13 47 H51 Z M4 19 L13 47 M60 19 L51 47 M32 67 L13 47 M32 67 L51 47" /></>, // d20: Iniciativa (rola)
+  d20: <><path d="M32 3 L60 19 V51 L32 67 L4 51 V19 Z" /><path className="fh-facet" d="M32.0 3.0 L32.0 13.0 M57.1 19.0 L50.2 24.0 M57.1 51.0 L50.2 46.0 M32.0 67.0 L32.0 57.0 M6.9 51.0 L13.8 46.0 M6.9 19.0 L13.8 24.0 M32.0 13.0 L50.2 24.0 L50.2 46.0 L32.0 57.0 L13.8 46.0 L13.8 24.0 Z" /></>, // d20: Iniciativa (rola)
   eye: <path d="M2 35 C15 12 49 12 62 35 C49 58 15 58 2 35 Z" />, // olho: Percepção passiva
   lens: <><path d="M44.5 47.5 L49.5 42.5 L62 55 Q63 60 57 60 Z" /><circle cx="28" cy="31" r="23" /></>, // lupa: Investigação passiva
   flame: <path d="M32 3 C41 17 57 27 57 44 C57 58 46 67 32 67 C18 67 7 58 7 44 C7 27 23 17 32 3 Z" />, // chama interior: Intuição passiva
