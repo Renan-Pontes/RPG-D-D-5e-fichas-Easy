@@ -417,3 +417,8 @@
   letter-spacing: 0; font-variant-numeric: lining-nums tabular-nums;
 }
 .ficha .fh-hp-row .fh-medal-shape.is-speed { --cx: 30; }
+/* v1.0.79: lupa e chama redesenhadas com o miolo na mesma altura das vizinhas */
+.ficha .fh-hp-row .fh-medal-shape.is-lens { --cx: 30; --cy: 35; }
+.ficha .fh-hp-row .fh-medal-shape.is-flame { --cy: 35; }
+.ficha .fh-hp-row .fh-medal-shape.is-shield, .ficha .fh-hp-row .fh-medal-shape.is-heart { --cy: 35; }
+.ficha .fh-hp-row .fh-hp-ac .fh-medal-val, .ficha .fh-hp-row .fh-hp-heart .fh-medal-val { margin: 0 !important; }
