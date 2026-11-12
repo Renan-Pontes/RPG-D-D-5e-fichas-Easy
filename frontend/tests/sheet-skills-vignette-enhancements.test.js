@@ -153,10 +153,11 @@ test('Item 10: Enquadramento e reposicionamento configurável do banner e avatar
 
   const sharedSrc = read('../components/Shared.jsx');
   assert.match(sharedSrc, /onPositionChange/);
-  assert.match(sharedSrc, /avatar-banner-preview/);
-  assert.match(sharedSrc, /avatar-position-controls/);
-  assert.match(sharedSrc, /handlePosX/);
-  assert.match(sharedSrc, /handlePosY/);
+  // Enquadramento WYSIWYG: moldura na proporção do banner, arrastada por mouse/dedo (e setas)
+  assert.match(sharedSrc, /const FrameDrag =/);
+  assert.match(sharedSrc, /onPointerDown=\{down\}/);
+  assert.match(sharedSrc, /className="is-banner"/);
+  assert.match(sharedSrc, /round className="is-token"/);
   assert.match(sharedSrc, /setPreset/);
 });
 
