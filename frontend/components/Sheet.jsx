@@ -34,7 +34,7 @@ import * as Forks from '../src/sheet/forks.js';
 import HpTracker from '../src/sheet/HpTracker.jsx';
 import { RestModeContext } from '../src/sheet/rest-mode.jsx';
 import { hpFormula, hitDicePools, hitDiceLeftLabel } from '../src/sheet/hp-logic.js';
-import { buildTimeline, byLevel, byTier, tierOf } from '../src/sheet/feature-timeline.js';
+import { buildTimeline, byLevel, byTier, tierOf, classesAt } from '../src/sheet/feature-timeline.js';
 import '../src/sheet/versions.css';
 import BeltMultiRoll, { pairBeltSlots, rollBeltPairs } from '../src/dice/BeltMultiRoll.jsx';
 import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
@@ -4077,6 +4077,18 @@ const FeatureTimeline = ({ char, lang, placed, cls, race, update }) => {
                 <li key={g.level} className={`fh-tl-level${g.level > now ? ' is-later' : ''}${g.level === now ? ' is-now' : ''}`}>
                   <span className="fh-tl-node" aria-label={pt ? `Nível ${g.level}` : `Level ${g.level}`}>{g.level}</span>
                   <div className="fh-tl-body">
+                    {/* classes neste nível; a seta dourada marca a classe que subiu */}
+                    {classesAt(seq, g.level).length > 0 && (
+                      <div className="fh-tl-classes">
+                        {classesAt(seq, g.level).map(c => (
+                          <span key={c.id} className={`fh-tl-cls${c.up ? ' is-up' : ''}`}
+                            title={c.up ? (pt ? 'Subiu nesta classe neste nível' : 'Leveled this class here') : undefined}>
+                            {tName('class', c.id, lang)} {c.level}
+                            {c.up && <svg className="fh-tl-up" viewBox="0 0 10 12" aria-label={pt ? 'subiu' : 'leveled up'}><path d="M5 0 10 6H6.6V12H3.4V6H0Z" /></svg>}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {g.entries.length > 0 && (
                       <FhFeatures items={[]} lang={lang} label={null}>
                         {g.entries.map(e => (

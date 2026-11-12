@@ -85,3 +85,17 @@ export function byTier(groups) {
   }
   return out;
 }
+
+/**
+ * Classes do personagem ao chegar no nível `level`: [{ id, level, up }], na ordem em que
+ * entraram; `up` = a classe escolhida para subir neste nível. Além do que já subiu: [].
+ */
+export function classesAt(seq, level) {
+  const s = (seq || []).slice(0, level);
+  if (s.length < level) return [];
+  const out = [];
+  s.forEach(id => { const r = out.find(x => x.id === id); if (r) r.level++; else out.push({ id, level: 1, up: false }); });
+  const last = out.find(x => x.id === s[level - 1]);
+  if (last) last.up = true;
+  return out;
+}

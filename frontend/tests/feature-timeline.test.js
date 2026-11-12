@@ -52,3 +52,11 @@ test('tiers de jogo e agrupamento', () => {
   const t = byTier([{ level: 1 }, { level: 3 }, { level: 6 }, { level: 17 }]);
   assert.deepEqual(t.map(x => [x.tier, x.levels.map(l => l.level)]), [[1, [1, 3]], [2, [6]], [4, [17]]]);
 });
+
+import { classesAt } from '../src/sheet/feature-timeline.js';
+test('classes em cada nível com a que subiu', () => {
+  const seq = ['warlock', 'warlock', 'sorcerer', 'warlock'];
+  assert.deepEqual(classesAt(seq, 3), [{ id: 'warlock', level: 2, up: false }, { id: 'sorcerer', level: 1, up: true }]);
+  assert.deepEqual(classesAt(seq, 4), [{ id: 'warlock', level: 3, up: true }, { id: 'sorcerer', level: 1, up: false }]);
+  assert.deepEqual(classesAt(seq, 6), []);
+});

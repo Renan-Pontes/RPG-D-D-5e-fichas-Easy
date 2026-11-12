@@ -6601,3 +6601,7 @@
 .fh-tl-embed-h { font-family: var(--display, serif); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; opacity: .8; margin-bottom: 4px; }
 .fh-tl-embed { padding: 8px 10px; border-left: 2px solid rgba(201,162,74,.4); background: rgba(255,255,255,.02); border-radius: 0 6px 6px 0; }
 .fh-tl-tier-h { position: relative; z-index: 1; background-color: #221a12; }
+.ficha .fh-tl-classes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 32px; margin-bottom: 4px; }
+.ficha .fh-tl-cls { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; font: 600 0.78rem/1.4 var(--body); color: rgba(237, 220, 180, 0.6); border: 1px solid rgba(184, 145, 74, 0.25); border-radius: 999px; }
+.ficha .fh-tl-cls.is-up { color: var(--gold-bright); border-color: var(--gold); background: rgba(201, 162, 74, 0.12); }
+.ficha .fh-tl-up { width: 10px; height: 12px; fill: var(--gold-bright); filter: drop-shadow(0 0 3px rgba(237, 203, 122, 0.7)); }
