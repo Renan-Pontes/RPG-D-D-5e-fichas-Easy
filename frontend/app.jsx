@@ -378,12 +378,20 @@ const App = () => {
     try { await handleSaveNew(char); } catch (e) { if (!planLimitFrom(e)) setToast(errorMessage(e, lang)); }
   };
 
+  // Gravações em fila e só a ÚLTIMA recarrega a lista: com várias mudanças seguidas (arrastar
+  // PV, PV temporários), uma resposta antiga do servidor não pode sobrescrever o que já está na
+  // tela — isso fazia os PV irem e voltarem (e tocar dano e cura juntos).
+  const saveSeq = useRef(0);
+  const saveChain = useRef(Promise.resolve());
   const handleUpdate = async (char) => {
     const withAutos = applyAutosToCharacter(char);
     // otimista: a tela muda já; o servidor confirma (ou a lista recarregada corrige) depois
     setCharacters(cs => cs.map(c => (c.id === withAutos.id ? { ...c, ...withAutos } : c)));
-    await storage.save(withAutos);
-    await refreshCharacters();
+    const my = ++saveSeq.current;
+    const job = saveChain.current.then(() => storage.save(withAutos));
+    saveChain.current = job.catch(() => {});
+    await job;
+    if (my === saveSeq.current) await refreshCharacters();
   };
 
   // Nova versão = ficha própria (src/sheet/forks.js): cria a cópia do modelo, leva as

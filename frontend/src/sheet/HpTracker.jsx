@@ -58,7 +58,7 @@ function DragBar({ className, pct, label, valueText, read, commit, disabled, chi
   const home = (Math.max(0, Math.min(100, pct)) / 100) * w;
   // `grow`: só cresce (PV temporários nunca descem por aqui; o dano é na barra de PV)
   const clamp = (v) => Math.max(grow ? 0 : -home, Math.min(w - home, v));
-  const info = dx ? read(dx) : null;
+  const info = dx ? read(dx, (home + dx) / w) : null;
   const edge = home + dx > w - 70 ? 'right' : home + dx < 70 ? 'left' : '';
   // durante o arrasto o preenchimento acompanha o botão; ao soltar, os dois deslizam
   // (transição do CSS) até o valor que entrou
@@ -81,7 +81,7 @@ function DragBar({ className, pct, label, valueText, read, commit, disabled, chi
     return () => clearTimeout(id);
   }, [hold]);
   const end = (apply) => {
-    if (apply && dx) { setHold(now); commit(dx); }
+    if (apply && dx) { setHold(now); commit(dx, (home + dx) / w); }
     start.current = null; setDrag(false); setDx(0);
   };
   return (
@@ -147,16 +147,24 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
   const [note, setNote] = useState(null);     // última rolagem (dados de vida / morte)
 
   // PV: dano à esquerda; à direita cura — ou, no descanso curto, Dados de Vida
-  const readHp = (dx) => {
+  // O botão marca o PV final: soltar em X deixa X PV (sem ir e voltar). Para baixo, o dano
+  // necessário inclui os PV temporários, que se gastam primeiro (regra).
+  const hpChange = (frac) => {
+    const target = Math.max(0, Math.min(max, Math.round(frac * max)));
+    const cur = char.currentHp || 0;
+    if (target === cur) return 0;
+    return target > cur ? target - cur : -(temp + cur - target);
+  };
+  const readHp = (dx, frac) => {
     if (short && dx > 0) {
       const n = diceForDrag(dx, hdLeft);
       return n ? { label: diceLabel(pickDice(pools, n), conMod), tone: 'dice' } : { label: L(lang, 'sem DV', 'no HD'), tone: '' };
     }
     if (down && dx < 0) return dragAmount(dx) ? { label: L(lang, '+1 falha', '+1 failure'), tone: 'hurt' } : null;
-    const v = dragAmount(dx, range);
+    const v = hpChange(frac);
     return v ? { label: deltaLabel(v), tone: v < 0 ? 'hurt' : 'heal' } : null;
   };
-  const commitHp = (dx) => {
+  const commitHp = (dx, frac) => {
     if (short && dx > 0) {
       const picks = pickDice(pools, diceForDrag(dx, hdLeft));
       if (!picks.length) return;
@@ -181,16 +189,18 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
       if (dragAmount(dx) < 0) update({ deathSaves: { ...ds, fail: Math.min(3, ds.fail + 1) }, stabilized: null });
       return;
     }
-    const v = dragAmount(dx, range);
+    const v = hpChange(frac);
     if (v) applyHp(v);
   };
   // PV temporários: o arrasto soma/tira do valor atual (nunca abaixo de 0)
-  const readTemp = (dx) => {
-    const v = dragAmount(dx, { min: 0, max: max * 2 });
+  // PV temporários na mesma escala da barra de PV: soltar em X deixa X temporários
+  const tempTarget = (frac) => Math.max(temp, Math.min(max, Math.round(frac * max)));
+  const readTemp = (dx, frac) => {
+    const v = tempTarget(frac) - temp;
     return v ? { label: `${temp + v}`, tone: 'temp' } : null;
   };
   // só sobe: PV temporários se perdem levando dano na barra de PV (que gasta eles primeiro)
-  const commitTemp = (dx) => { const v = dragAmount(dx, { min: 0, max: max * 2 }); if (v > 0) update({ tempHp: temp + v }); };
+  const commitTemp = (dx, frac) => { const v = tempTarget(frac) - temp; if (v > 0) update({ tempHp: temp + v }); };
 
   // Teste contra a morte: o d20 do rolador da ficha (com a animação de sempre); o
   // resultado entra quando o dado termina de girar.

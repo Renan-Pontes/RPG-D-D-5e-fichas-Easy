@@ -4,7 +4,7 @@
 //    numa animação curta, o topo do PRÓXIMO painel (ou do anterior) ao topo da tela. Painel
 //    mais alto que a tela anda uma tela por arremesso, sem pular o conteúdo dele.
 
-export const FLICK = { minSpeed: 0.4, window: 90, maxHold: 350, margin: 12, page: 0.85, ms: 170 };
+export const FLICK = { minSpeed: 0.4, window: 90, maxHold: 350, margin: 12, page: 0.85, ms: 110 };
 
 /** É arremesso? `samples` = [{ y, t }] do toque (y da tela, t em ms). Devolve -1 (sobe a
  *  página = conteúdo para cima), +1 (desce) ou 0 (arrasto: deixa nativo). */
@@ -73,7 +73,7 @@ export function attachPlaySnap(getPanels, { maxWidth = 1023, area = null } = {})
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (reduce) { window.scrollTo(0, to); return; }
     // duração casada com a velocidade do dedo: arremesso forte chega mais rápido
-    const ms = Math.max(120, Math.min(FLICK.ms + 80, dist / Math.max(0.6, speed * 1.4)));
+    const ms = Math.max(80, Math.min(FLICK.ms + 50, dist / Math.max(1, speed * 2)));
     const t0 = performance.now();
     const step = (now) => {
       const k = Math.min(1, (now - t0) / ms);
