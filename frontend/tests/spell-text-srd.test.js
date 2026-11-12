@@ -59,7 +59,11 @@ test('fora do SRD: magias 2014 usam a ficha técnica do livro de 2014 (acervo of
   assert.equal(SRD.SPELLS.find(s => s.id === 'mindSpike').range, '60 feet');   // XGE, não o 120 do SRD 5.2.1
 });
 
-test('magia sem texto livre: link de busca da D&D Beyond pelo nome em inglês', async () => {
-  const { ddbSpellUrl } = await import('../src/sheet/spell-text.js');
-  assert.equal(ddbSpellUrl("Tasha's Hideous Laughter"), 'https://www.dndbeyond.com/spells?filter-search=Tasha\'s%20Hideous%20Laughter');
+test('magia sem texto livre: link de busca da D&D Beyond pelo nome em inglês', () => {
+  const src = readFileSync(new URL('../src/sheet/spell-text.js', import.meta.url), 'utf8');
+  const body = src.match(/export const ddbSpellUrl = (\(nameEn\) => `[^`]+`);/)[1];
+  const ddbSpellUrl = eval(body);
+  assert.equal(ddbSpellUrl("Tasha's Hideous Laughter"), "https://www.dndbeyond.com/spells?filter-search=Tasha's%20Hideous%20Laughter");
+  const tabs = readFileSync(new URL('../components/SheetTabs.jsx', import.meta.url), 'utf8');
+  assert.match(tabs, /ddbSpellUrl\(tName\('spellName', sp\.id, 'en'\)\)/);
 });
