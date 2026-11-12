@@ -44,7 +44,7 @@ test('Item 3: Subclasse e Progressão consolidadas estritamente na aba Jogar (Pl
 
   // SpeciesTraits está presente na aba Características (SheetFeatures)
   const featuresBody = sheetSrc.slice(sheetSrc.indexOf('export const SheetFeatures ='));
-  assert.match(featuresBody, /<SpeciesTraits char=\{char\} lang=\{lang\} update=\{update\} race=\{race\} \/>/);
+  assert.match(featuresBody, /<SpeciesTraits char=\{char\} lang=\{lang\} update=\{update\} race=\{race\} hideTraits \/>/);
 });
 
 test('Item 4: Juiciness do roll-up: brilho progressivo, faíscas cintilantes e dispersão pela onda de choque da explosão', () => {
@@ -160,10 +160,11 @@ test('Item 11: Aba Características (SheetFeatures) importa DiceText e renderiza
   const sheetSrc = read('../components/Sheet.jsx');
   assert.match(sheetSrc, /import \{ DiceText \} from '\.\.\/src\/dice\/dice-text\.jsx';/);
   assert.match(sheetSrc, /export const SheetFeatures =/);
-  assert.match(sheetSrc, /Características de Classe & Subclasse/);
+  // v1.0.73: classe, espécie, talentos e antecedente numa linha do tempo por nível
+  assert.match(sheetSrc, /<FeatureTimeline char=\{char\}/);
 
   const tabsSrc = read('../components/SheetTabs.jsx');
-  assert.match(tabsSrc, /const traits = race\?\.traits \|\| \[\];/);
+  assert.match(tabsSrc, /const traits = hideTraits \? \[\] : \(race\?\.traits \|\| \[\]\);/);
 });
 
 test('Item 12: Grupos de perícias listados de cima para baixo como ações de combate, sem colunas lado a lado', () => {

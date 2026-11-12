@@ -6562,3 +6562,26 @@
 .ficha .fh-res-title .fh-res-name { min-width: 0; overflow-wrap: anywhere; }
 .ficha .fh-res-title > * { flex: 0 1 auto; }
 .ficha .fh-res-title .fh-res-chev { flex: 0 0 auto; }
+
+/* Linha do tempo de traços (components/Sheet.jsx: FeatureTimeline) — trilho dourado com os
+   níveis à esquerda; cada nível lista o que a ficha ganhou nele */
+.ficha .fh-tl { list-style: none; margin: 0; padding: 0; position: relative; }
+.ficha .fh-tl::before { content: ''; position: absolute; left: 15px; top: 14px; bottom: 14px; width: 2px; background: linear-gradient(180deg, var(--gold-deep), rgba(184, 145, 74, 0.25)); }
+.ficha .fh-tl-level { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; padding: 4px 0 10px; position: relative; }
+.ficha .fh-tl-node {
+  position: relative; z-index: 1; width: 32px; height: 32px; display: grid; place-items: center;
+  font: 700 0.95rem/1 var(--display); color: var(--gold-bright);
+  background: radial-gradient(circle at 40% 35%, #2a1d10, #0d0907); border: 1.5px solid var(--gold); border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--bg-panel, #120c09), 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.ficha .fh-tl-level.is-now .fh-tl-node { background: radial-gradient(circle at 40% 35%, var(--gold-bright), var(--gold-deep)); color: #140d06; box-shadow: 0 0 0 3px var(--bg-panel, #120c09), 0 0 12px rgba(237, 203, 122, 0.55); }
+.ficha .fh-tl-level.is-later .fh-tl-node { opacity: 0.45; border-style: dashed; }
+.ficha .fh-tl-level.is-later .fh-tl-body { opacity: 0.55; }
+.ficha .fh-tl-body { min-width: 0; padding-top: 2px; }
+.ficha .fh-tl-body .fh-feats { margin: 0; }
+.ficha .fh-tl-tag { font: 600 0.66rem/1.2 var(--body, serif); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.ficha .fh-tl-tag.is-species { color: #8fc8a8; }
+.ficha .fh-tl-tag.is-background { color: #c9b07a; }
+.ficha .fh-tl-tag.is-feat { color: var(--gold-bright); }
+.ficha .fh-tl-tag.is-asi { color: #a9b7e8; }
+.ficha .fh-tl-tag.is-pending { color: var(--amber); }

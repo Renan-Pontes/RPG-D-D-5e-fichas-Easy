@@ -34,6 +34,7 @@ import * as Forks from '../src/sheet/forks.js';
 import HpTracker from '../src/sheet/HpTracker.jsx';
 import { RestModeContext } from '../src/sheet/rest-mode.jsx';
 import { hpFormula, hitDicePools, hitDiceLeftLabel } from '../src/sheet/hp-logic.js';
+import { buildTimeline, byLevel } from '../src/sheet/feature-timeline.js';
 import '../src/sheet/versions.css';
 import BeltMultiRoll, { pairBeltSlots, rollBeltPairs } from '../src/dice/BeltMultiRoll.jsx';
 import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
@@ -3499,27 +3500,6 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
   );
 };
 
-const OtherFeatures = ({ char, lang, placed, cls }) => {
-  const pt = lang === 'pt';
-  const bgf = backgroundFeature(char, lang);
-  // Sem dados de progressão (classe fora das regras): os traços do nível 1 do SRD.
-  const srd = !placed.items.length && char.rulesVersion !== '2024' ? (cls?.features || []) : [];
-  const items = placed.by.other;
-  if (!items.length && !bgf && !srd.length) return null;
-  const both = (v) => ({ pt: v, en: v });
-  return (
-    <section className="fh-panel">
-      <FhTitle>{pt ? 'Outros traços' : 'Other features'}</FhTitle>
-      <FhFeatures items={items} multi={placed.multi} lang={lang} label={null}>
-        {srd.map((f, i) => (
-          <FhFeatureItem key={`srd-${i}`} item={{ name: f.name, desc: f.desc }} lang={lang} tag={pt ? 'Nv. 1' : 'Lv 1'} />
-        ))}
-        {bgf && <FhFeatureItem item={{ name: both(bgf.name), desc: both(bgf.desc) }} lang={lang} tag={pt ? 'antecedente' : 'background'} />}
-      </FhFeatures>
-    </section>
-  );
-};
-
 export const SheetAbilities = ({ char, lang, update, profB, roll }) => {
   const pt = lang === 'pt';
   const [beltMode, setBeltMode] = useState(false);
@@ -4019,58 +3999,81 @@ export const SheetTools = ({ char, lang, update, placed }) => {
   );
 };
 
-export const SheetFeatures = ({ char, lang, placed, cls, race, update }) => {
+// Linha do tempo de traços (src/sheet/feature-timeline.js): classe/subclasse no nível do
+// personagem em que vieram, espécie no nível de cada traço, talentos no nível em que
+// substituíram o Aumento no Valor de Atributo. Um trilho dourado com os níveis à esquerda.
+const FeatureTimeline = ({ char, lang, placed, cls, race }) => {
   const pt = lang === 'pt';
-  const classItems = (placed?.items || []).filter(it => it.classId || it.level != null);
-  const fallbackSrd = !classItems.length && char.rulesVersion !== '2024' ? (cls?.features || []) : [];
+  const multi = !!placed?.multi;
+  const seq = (() => { try { return Utils.classSequence(char); } catch { return []; } })();
+  const srd = !(placed?.items || []).length && char.rulesVersion !== '2024' ? (cls?.features || []) : [];
+  const classItems = [
+    ...(placed?.items || []),
+    ...(placed?.orphanPicks || []),
+    ...srd.map((f, i) => ({ key: `srd-${i}`, classId: char.className, level: 1, name: { pt: f.name, en: f.name }, desc: { pt: f.desc, en: f.desc } })),
+  ];
+  const bgf = backgroundFeature(char, lang);
+  const entries = buildTimeline({
+    level: char.level || 1, seq, classItems,
+    speciesTraits: race?.traits || [],
+    feats: char.feats || [],
+    background: bgf ? { name: bgf.name, desc: bgf.desc } : null,
+    levelChoices: char.levelChoices || {},
+    asiText: (asi) => Object.entries(asi || {}).map(([k, v]) => `${t(k + 'Sh', lang)} +${v}`).join(', '),
+  });
+  if (!entries.length) return null;
+  const tagOf = (e) => {
+    if (e.kind === 'species') return pt ? 'Espécie' : 'Species';
+    if (e.kind === 'background') return pt ? 'Antecedente' : 'Background';
+    if (e.kind === 'feat') return e.feat.origin === 'background' ? (pt ? 'Talento · antecedente' : 'Feat · background') : e.feat.origin === 'species' ? (pt ? 'Talento · espécie' : 'Feat · species') : (pt ? 'Talento no lugar do ASI' : 'Feat instead of ASI');
+    if (e.kind === 'asi') return e.pending ? (pt ? 'ASI · escolha pendente' : 'ASI · choice pending') : 'ASI';
+    return multi ? tName('class', e.classId, lang) : (cls?.name?.[lang] || tName('class', char.className, lang));
+  };
+  const itemOf = (e) => {
+    if (e.kind !== 'feat') return e.item;
+    const f = e.feat;
+    const name = featName(char, f, lang);
+    const bits = [
+      f.asi ? Object.entries(f.asi).map(([k, v]) => `${t(k + 'Sh', lang)} +${v}`).join(', ') : '',
+      featSummary(f, lang) || '',
+      f.picks ? featPicksText(f.picks, lang) : '',
+      f.note || '',
+    ].filter(Boolean).join(' · ');
+    return { name: { pt: name, en: name }, desc: { pt: bits, en: bits } };
+  };
+  return (
+    <section className="fh-panel fh-timeline">
+      <FhTitle>{pt ? 'Linha do tempo' : 'Timeline'}</FhTitle>
+      <ol className="fh-tl">
+        {byLevel(entries).map(g => (
+          <li key={g.level} className={`fh-tl-level${g.level > (char.level || 1) ? ' is-later' : ''}${g.level === (char.level || 1) ? ' is-now' : ''}`}>
+            <span className="fh-tl-node" aria-label={pt ? `Nível ${g.level}` : `Level ${g.level}`}>{g.level}</span>
+            <div className="fh-tl-body">
+              <FhFeatures items={[]} lang={lang} label={null}>
+                {g.entries.map(e => (
+                  <FhFeatureItem key={e.key} item={itemOf(e)} lang={lang}
+                    tag={<span className={`fh-tl-tag is-${e.kind}${e.pending ? ' is-pending' : ''}${e.later ? ' is-later' : ''}`}>{tagOf(e)}{e.later ? (pt ? ' · próximo' : ' · next') : ''}</span>} />
+                ))}
+              </FhFeatures>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+};
 
+export const SheetFeatures = ({ char, lang, placed, cls, race, update }) => {
   return (
     <div className="fh-scope-content fh-scope-features">
-      {/* Class and Subclass Features */}
-      <section className="fh-panel">
-        <FhTitle>{pt ? 'Características de Classe & Subclasse' : 'Class & Subclass Features'}</FhTitle>
-        {classItems.length > 0 ? (
-          <FhFeatures items={classItems} multi={placed?.multi} lang={lang} />
-        ) : fallbackSrd.length > 0 ? (
-          <FhFeatures items={[]} lang={lang}>
-            {fallbackSrd.map((f, i) => (
-              <FhFeatureItem key={`srd-${i}`} item={{ name: f.name, desc: f.desc }} lang={lang} tag={pt ? 'Nv. 1' : 'Lv 1'} />
-            ))}
-          </FhFeatures>
-        ) : (
-          <div className="text-sm muted" style={{ padding: '8px 0' }}>
-            {pt ? 'Nenhuma característica de classe ativa.' : 'No active class features.'}
-          </div>
-        )}
-      </section>
-
-      {/* Other features (Background features, etc.) */}
-      {placed && <OtherFeatures char={char} lang={lang} placed={placed} cls={cls} />}
-
-      {/* Feats / Talentos */}
-      {(char.feats || []).length > 0 && (
-        <section className="fh-panel">
-          <FhTitle>{pt ? 'Talentos' : 'Feats'}</FhTitle>
-          <div>
-            {char.feats.map((f, i) => (
-              <div key={i} className="text-sm" style={{ marginBottom: 8 }}>
-                <strong style={{ color: 'var(--gold-deep)' }}>{featName(char, f, lang)}</strong>
-                <span className="muted"> · {f.origin === 'background' ? (pt ? 'Antecedente' : 'Background') : f.origin === 'species' ? (pt ? 'Espécie' : 'Species') : `${pt ? 'Nv.' : 'Lv'} ${f.level}`}</span>
-                {f.asi && <span className="muted"> · {Object.entries(f.asi).map(([k, v]) => `${t(k + 'Sh', lang)} +${v}`).join(', ')}</span>}
-                {featSummary(f, lang) && <div className="text-xs" style={{ color: 'var(--ink-secondary)', marginTop: 2 }}><DiceText text={featSummary(f, lang)} lang={lang} /></div>}
-                {f.picks && <div className="text-xs muted">{featPicksText(f.picks, lang)}</div>}
-                {f.note && <span style={{ color: 'var(--ink-secondary)' }}> — <DiceText text={f.note} lang={lang} /></span>}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Todos os traços numa linha do tempo, por nível do personagem */}
+      <FeatureTimeline char={char} lang={lang} placed={placed} cls={cls} race={race} />
 
       {/* Idiomas e Proficiências de Ferramentas: escopo correto na aba Características */}
       <SheetTools char={char} lang={lang} update={update} placed={placed} />
 
       {/* Species Traits: officially on Features tab with full interactive choices and traits */}
-      {race && <SpeciesTraits char={char} lang={lang} update={update} race={race} />}
+      {race && <SpeciesTraits char={char} lang={lang} update={update} race={race} hideTraits />}
     </div>
   );
 };

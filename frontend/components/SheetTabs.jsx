@@ -1467,15 +1467,17 @@ const SheetStory = ({ char, lang, update, cls, race }) => (
 
 // Traços da espécie + resumo das escolhas (linhagem, resistências, magias…).
 // Em campanha a troca fica com o mestre; pendências aparecem na faixa do topo.
-export const SpeciesTraits = ({ char, lang, update, race }) => {
+export const SpeciesTraits = ({ char, lang, update, race, hideTraits = false }) => {
   const [open, setOpen] = useState(false);
   const rows = speciesSummary(char, lang);
   const canEdit = speciesChoiceSpecs(char).length > 0 && !char.inCampaign;
-  const traits = race?.traits || [];
+  // na aba Características os traços vão para a linha do tempo; aqui ficam as escolhas
+  const traits = hideTraits ? [] : (race?.traits || []);
 
+  if (hideTraits && !rows.length && !canEdit) return null;
   return (
     <section className="fh-panel">
-      <FhTitle>{lang === 'pt' ? 'Traços da Espécie' : 'Species Traits'}</FhTitle>
+      <FhTitle>{lang === 'pt' ? (hideTraits ? 'Escolhas da Espécie' : 'Traços da Espécie') : (hideTraits ? 'Species Choices' : 'Species Traits')}</FhTitle>
       {(rows.length > 0 || canEdit) && (
         <div className="card fh-species-sum">
           {rows.map(([k, v]) => (
