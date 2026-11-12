@@ -15,6 +15,7 @@ import FeatPicker, { featCtx, picksText } from './FeatPicker.jsx';
 import { progHasFightingStyle } from './feat-rules.js';
 import { computeProgression } from './engine.js';
 import { spellbookGain, spellbookCandidates, SPELLBOOK_CLASS } from './spellbook.js';
+import { unknownSpells } from './known.js';
 
 const box = { background: 'var(--bg-elev)', borderRadius: 8, padding: 14, marginBottom: 8 };
 
@@ -173,7 +174,7 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
   // e escolhem as magias no descanso longo — no nível só aprendem truques novos.
   const spellRoom = Utils.isPreparedCaster(view) ? 0 : Math.max(0, (Utils.knownSpellLimit(view) || 0) - countOf(false));
   const maxLvl = Utils.maxSpellLevel(view);
-  const available = catalog.filter(s => !owned.has(s.id) && (cheat || (Utils.inSpellList(view, s) && s.level <= maxLvl && (s.level === 0 || spellRoom > 0))));
+  const available = unknownSpells(char, catalog).filter(s => (cheat || (Utils.inSpellList(view, s) && s.level <= maxLvl && (s.level === 0 || spellRoom > 0))));
   const [added, setAdded] = useState([]);
   useEffect(() => { setAdded([]); }, [classId]);
   const addedCantrips = added.filter(id => catalog.find(s => s.id === id)?.level === 0).length;
@@ -186,7 +187,7 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
   const wizLevel = entry?.level || 1;
   const bookRoom = bookMode ? spellbookGain(wizLevel) : 0;
   const bookAvailable = bookMode
-    ? spellbookCandidates(char, { maxLevel: cheat ? 9 : (wizLevel === 1 ? 1 : maxLvl), anyList: cheat }).filter(s => !owned.has(s.id))
+    ? unknownSpells(char, spellbookCandidates(char, { maxLevel: cheat ? 9 : (wizLevel === 1 ? 1 : maxLvl), anyList: cheat }))
     : [];
   const [bookAdded, setBookAdded] = useState([]);
   useEffect(() => { setBookAdded([]); }, [classId]);

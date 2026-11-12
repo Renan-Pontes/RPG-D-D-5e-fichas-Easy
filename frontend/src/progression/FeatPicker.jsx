@@ -9,6 +9,7 @@ import { featsFor, findFeat } from '../../data/feats.js';
 import { SHARED } from '../../data/class-options/shared.js';
 import { CLASS_OPTIONS } from '../../data/class-options/index.js';
 import { TOOLS, toolName, armorTraining, weaponTraining, startingTools } from '../creator/start-data.js';
+import { unknownSpells, isNewSkill } from './known.js';
 import {
   featCategories, featPrereqIssues, featTakenIssue, featChoiceSpecs, featRules, featScore,
 } from './feat-rules.js';
@@ -142,7 +143,7 @@ function choiceOptions(char, c, picks, lang) {
       // já tem por outro lado. As marcadas aqui mesmo continuam na lista para poder desmarcar.
       const cur = Array.isArray(picks?.[c.key]) ? picks[c.key] : [];
       const isNew = (has) => (id) => cur.includes(id) || !has(id);
-      const newSkill = isNew(id => Utils.hasSkillProf(char, id));
+      const newSkill = (id) => isNewSkill(char, id, cur);
       const skills = SRD.SKILLS.filter(s => (!c.options || c.options.includes(s.id)) && (c.key === 'skillProfOrExpertise' || newSkill(s.id)))
         .map(s => ({ id: s.id, label: tName('skill', s.id, lang) }));
       if (c.key !== 'skillOrTool') return skills;
@@ -179,7 +180,8 @@ function choiceOptions(char, c, picks, lang) {
       if (s.list === 'spellList' && !list) return null; // escolher a lista antes
       const level = c.key === 'cantrip' ? 0 : s.level;
       const schools = (s.schools || []).map(x => x.toLowerCase());
-      return Utils.spellCatalog(char)
+      // Fonte única do "já tem" (known.js): as já conhecidas somem; as marcadas aqui ficam.
+      return unknownSpells(char, Utils.spellCatalog(char), picks?.[c.key])
         .filter(sp => (!list || sp.classes.includes(list)) && (level == null || sp.level === level)
           && (!schools.length || schools.includes(String(sp.school).toLowerCase())) && (!s.ritual || sp.ritual))
         // Livro básico (SRD) primeiro; magias de outros livros marcadas com a fonte ("confirme com o mestre").

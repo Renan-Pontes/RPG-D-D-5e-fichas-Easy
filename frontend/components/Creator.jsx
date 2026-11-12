@@ -1,5 +1,6 @@
 /* Step-by-step character creator (mobile-first) */
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { unknownSpells } from '../src/progression/known.js';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
@@ -823,7 +824,8 @@ const StepSpells = ({ char, set, lang }) => {
       </div>
     );
   }
-  const available = Utils.spellCatalog(char).filter(s => Utils.inSpellList(char, s) && s.level <= Utils.maxSpellLevel(char));
+  // Fonte única do "já tem" (known.js); as marcadas nesta etapa seguem visíveis para desmarcar.
+  const available = unknownSpells(char, Utils.spellCatalog(char), (char.spells || []).filter(s => !s?.auto).map(s => (typeof s === 'string' ? s : s?.id))).filter(s => Utils.inSpellList(char, s) && s.level <= Utils.maxSpellLevel(char));
   const cantrips = available.filter(s => s.level === 0);
   const isPrepared = Utils.isPreparedCaster(char);
   const cantripLimit = Utils.cantripsKnown(char);

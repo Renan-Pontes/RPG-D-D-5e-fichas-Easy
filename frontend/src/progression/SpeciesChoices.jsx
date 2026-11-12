@@ -10,6 +10,7 @@ import { DAMAGE_NAMES, RACE_TOOL_NAMES } from '../../data/species-2024.js';
 import { featEntry } from './feat-rules.js';
 import FeatPicker from './FeatPicker.jsx';
 import { Modal } from '../../components/Shared.jsx';
+import { unknownSpells } from './known.js';
 import {
   speciesDef, speciesChoiceSpecs, speciesChoiceIssues, speciesGrants, speciesFeatEntry, withSpeciesFeat, speciesAsi,
 } from './species.js';
@@ -119,7 +120,8 @@ export default function SpeciesChoices({ char, lang, onChange, lockFeat = false 
             </div>
           );
         } else if (c.key === 'cantrip') {
-          const opts = Utils.spellCatalog(char).filter(s => s.level === 0 && s.classes.includes(c.list));
+          // o truque marcado aqui não conta como "já tem" (sai da ficha vista sem ele)
+          const opts = unknownSpells({ ...char, speciesChoices: { ...(char.speciesChoices || {}), cantrip: undefined } }, Utils.spellCatalog(char), v).filter(s => s.level === 0 && s.classes.includes(c.list));
           body = (
             <select value={v || c.default || ''} onChange={e => setChoice('cantrip', e.target.value || null)}>
               {!c.default && <option value="">{L(lang, 'Escolha…', 'Choose…')}</option>}

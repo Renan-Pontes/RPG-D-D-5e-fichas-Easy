@@ -26,6 +26,7 @@ import { rulesFor } from '../progression/rules.js';
 import { speciesChoiceSpecs } from '../progression/species.js';
 import SRD from '../../data/srd.js';
 import { localizeLegacySpells } from '../../data/spells-extra.js';
+import { unknownSpells } from '../progression/known.js';
 
 // Catálogo 2014 em pt na tela (criação e ficha): resumo 2014 nas magias copiadas do
 // SRD 5.2.1, "SAL DEST"/pés/HP por extenso e tempo/alcance/duração traduzidos (metaPt,
@@ -297,7 +298,7 @@ export const preparedFromBook = (char) => Book.preparedFromBook({ ...char, spell
 export function availableCantrips(char) {
   const granted = new Set(grantedSpells(char).map(g => g.id));
   const expanded = expandedSpellIds(char);
-  return Utils.spellCatalog(char).filter(s => s.level === 0 && onClassList(char, s, expanded) && !granted.has(s.id));
+  return unknownSpells(char, Utils.spellCatalog(char), own(char).map(idOf)).filter(s => s.level === 0 && onClassList(char, s, expanded) && !granted.has(s.id));
 }
 
 /** Magias de círculo 1..máximo da lista da classe que podem ser escolhidas. */
@@ -305,7 +306,7 @@ export function availableSpells(char) {
   const max = spellPlan(char).maxLevel;
   const granted = new Set(grantedSpells(char).map(g => g.id));
   const expanded = expandedSpellIds(char);
-  return Utils.spellCatalog(char).filter(s => s.level >= 1 && s.level <= max && onClassList(char, s, expanded) && !granted.has(s.id));
+  return unknownSpells(char, Utils.spellCatalog(char), own(char).map(idOf)).filter(s => s.level >= 1 && s.level <= max && onClassList(char, s, expanded) && !granted.has(s.id));
 }
 
 /**

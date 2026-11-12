@@ -1,5 +1,6 @@
 /* Spells / Inventory / Story / Notes tabs */
 import { useRestMode } from '../src/sheet/rest-mode.jsx';
+import { unknownSpells } from '../src/progression/known.js';
 import { exhaustionLevel, setExhaustion, usedByAfterRest } from '../src/sheet/hp-logic.js';
 import { errorMessage } from '../src/api/errors.js';
 import { useId, useState, useMemo } from 'react';
@@ -621,7 +622,8 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass, hud = true, b
   };
 
   // Known caster: ability to add new known spells via dropdown
-  const available = Utils.spellCatalog(char).filter(sp => inList(sp) && sp.level <= maxLvl && !grantIds.has(sp.id) && !allEntries.find(s => s.id === sp.id));
+  // Fonte única do "já tem" (src/progression/known.js): ficha, talentos, espécie, opções.
+  const available = unknownSpells(char, Utils.spellCatalog(char)).filter(sp => inList(sp) && sp.level <= maxLvl && !grantIds.has(sp.id));
   const addKnownSpell = (id) => {
     const def = Utils.spellCatalog(char).find(s => s.id === id);
     const count = (def?.level === 0 ? cantripIds : preparedIds).filter(id => !autoIds.has(id)).length;
@@ -882,7 +884,7 @@ const CopySpellModal = ({ lang, char, maxLvl, update, onClose }) => {
   const cheat = !!char.cheatMode;
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
-  const list = Book.spellbookCandidates(char, { maxLevel: cheat ? 9 : Math.max(1, maxLvl), anyList: cheat })
+  const list = unknownSpells(char, Book.spellbookCandidates(char, { maxLevel: cheat ? 9 : Math.max(1, maxLvl), anyList: cheat }))
     .filter(sp => !q || `${tName('spellName', sp.id, 'pt')} ${tName('spellName', sp.id, 'en')}`.toLowerCase().includes(q));
   const groups = groupByLevel(list.map(def => ({ id: def.id, def })));
   const copy = (id) => { update({ spells: Book.addToSpellbook(char, [id]) }); onClose(); };

@@ -24,6 +24,7 @@ import Utils from '../../utils.js';
 import { optionPool, optionCatalog, picksOf } from './options.js';
 import { spellbookIds } from './spellbook.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
+import { unknownSpells } from './known.js';
 
 const toolName = (id) => ITEMS_BY_ID[id]?.name || { pt: id, en: id };
 
@@ -34,7 +35,11 @@ function spellOptions(character, def) {
   const maxSlot = f.maxSlot ? Utils.maxSpellLevel(character) : null;
   const book = f.inBook ? new Set(spellbookIds(character)) : null;
   const include = new Set(f.include || []);
-  return Utils.spellCatalog(character).filter(s => include.has(s.id) || (
+  // Fonte única do "já tem" (known.js); as escolhas de opção da ficha seguem visíveis para trocar.
+  const keep = (character.classOptions || []).flatMap(p => [p?.id, ...[].concat(p?.detail || [])]).filter(Boolean);
+  // Pools que escolhem DENTRE as já conhecidas (Maestria/Assinatura do mago: filter.inBook) não filtram.
+  const pool = f.inBook ? Utils.spellCatalog(character) : unknownSpells(character, Utils.spellCatalog(character), keep);
+  return pool.filter(s => include.has(s.id) || (
     (!book || book.has(s.id)) &&
     (!f.classes || f.classes.some(c => s.classes.includes(c)))
     && (f.level == null || s.level === f.level)
