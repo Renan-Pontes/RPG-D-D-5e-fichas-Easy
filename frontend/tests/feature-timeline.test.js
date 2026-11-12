@@ -44,3 +44,11 @@ test('ASI: escolhido em atributos mostra os pontos; sem escolha fica pendente', 
   const pend = buildTimeline({ level: 4, seq: s4, classItems: items });
   assert.equal(pend[0].pending, true);
 });
+
+import { tierOf, byTier } from '../src/sheet/feature-timeline.js';
+test('tiers de jogo e agrupamento', () => {
+  assert.deepEqual([1, 4, 5, 10, 11, 16, 17, 20].map(l => tierOf(l).tier), [1, 1, 2, 2, 3, 3, 4, 4]);
+  assert.equal(tierOf(12).en, 'Masters of the Realm');
+  const t = byTier([{ level: 1 }, { level: 3 }, { level: 6 }, { level: 17 }]);
+  assert.deepEqual(t.map(x => [x.tier, x.levels.map(l => l.level)]), [[1, [1, 3]], [2, [6]], [4, [17]]]);
+});

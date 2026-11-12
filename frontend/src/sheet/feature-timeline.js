@@ -63,3 +63,25 @@ export function byLevel(entries) {
   for (const e of entries) { if (!m.has(e.level)) m.set(e.level, []); m.get(e.level).push(e); }
   return [...m.entries()].map(([lv, list]) => ({ level: lv, entries: list }));
 }
+
+// ── Tiers de jogo (PHB 2014 cap. 1 "Tiers of Play"; DMG cap. 1; PHB 2024 "Level Advancement") ──
+export const TIERS = [
+  { tier: 1, from: 1, to: 4, pt: 'Heróis Locais', en: 'Local Heroes' },
+  { tier: 2, from: 5, to: 10, pt: 'Heróis do Reino', en: 'Heroes of the Realm' },
+  { tier: 3, from: 11, to: 16, pt: 'Mestres do Reino', en: 'Masters of the Realm' },
+  { tier: 4, from: 17, to: 20, pt: 'Mestres do Mundo', en: 'Masters of the World' },
+];
+/** Tier de um nível (1–20; fora disso, o mais próximo). */
+export const tierOf = (level) => TIERS.find(t => level <= t.to) || TIERS[TIERS.length - 1];
+
+/** Agrupa os grupos de nível (byLevel) por tier: [{ ...tier, levels: [{ level, entries }] }]. */
+export function byTier(groups) {
+  const out = [];
+  for (const g of groups) {
+    const t = tierOf(g.level);
+    let row = out[out.length - 1];
+    if (!row || row.tier !== t.tier) { row = { ...t, levels: [] }; out.push(row); }
+    row.levels.push(g);
+  }
+  return out;
+}

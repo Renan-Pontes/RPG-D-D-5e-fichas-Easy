@@ -6585,3 +6585,19 @@
 .ficha .fh-tl-tag.is-feat { color: var(--gold-bright); }
 .ficha .fh-tl-tag.is-asi { color: #a9b7e8; }
 .ficha .fh-tl-tag.is-pending { color: var(--amber); }
+
+/* ── Linha do tempo: tiers de jogo e origem (nível 1) ── */
+.fh-tl-now { font-family: var(--body); font-size: 12px; color: var(--gold, #c9a24a); letter-spacing: .02em; }
+.fh-tl-tier { list-style: none; margin: 0 0 14px; }
+.fh-tl-tier-h { display: flex; align-items: baseline; gap: 10px; padding: 6px 10px; margin-bottom: 8px;
+  border: 1px solid rgba(201,162,74,.35); border-radius: 6px; background: linear-gradient(90deg, rgba(201,162,74,.12), transparent); }
+.fh-tl-tier-n { font-family: var(--display, serif); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold, #c9a24a); }
+.fh-tl-tier-t { font-family: var(--display, serif); font-size: 15px; flex: 1; }
+.fh-tl-tier-r { font-family: var(--body); font-size: 12px; opacity: .7; }
+.fh-tl-tier.is-current .fh-tl-tier-h { border-color: var(--gold, #c9a24a); box-shadow: 0 0 0 1px rgba(201,162,74,.25) inset; }
+.fh-tl-tier.is-later { opacity: .6; }
+.fh-tl-levels { list-style: none; margin: 0; padding: 0; }
+.fh-tl-origin { display: grid; gap: 10px; margin-top: 8px; }
+.fh-tl-embed-h { font-family: var(--display, serif); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; opacity: .8; margin-bottom: 4px; }
+.fh-tl-embed { padding: 8px 10px; border-left: 2px solid rgba(201,162,74,.4); background: rgba(255,255,255,.02); border-radius: 0 6px 6px 0; }
+.fh-tl-tier-h { position: relative; z-index: 1; background-color: #221a12; }

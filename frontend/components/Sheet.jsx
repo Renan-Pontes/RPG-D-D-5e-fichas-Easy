@@ -34,7 +34,7 @@ import * as Forks from '../src/sheet/forks.js';
 import HpTracker from '../src/sheet/HpTracker.jsx';
 import { RestModeContext } from '../src/sheet/rest-mode.jsx';
 import { hpFormula, hitDicePools, hitDiceLeftLabel } from '../src/sheet/hp-logic.js';
-import { buildTimeline, byLevel } from '../src/sheet/feature-timeline.js';
+import { buildTimeline, byLevel, byTier, tierOf } from '../src/sheet/feature-timeline.js';
 import '../src/sheet/versions.css';
 import BeltMultiRoll, { pairBeltSlots, rollBeltPairs } from '../src/dice/BeltMultiRoll.jsx';
 import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
@@ -3964,24 +3964,33 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
   );
 };
 
-export const SheetTools = ({ char, lang, update, placed }) => {
+export const SheetTools = ({ char, lang, update, placed, embedded = false }) => {
   const pt = lang === 'pt';
   const toolSummaries = [
     ...trainingLines(char, lang),
     ...(char.otherProfs ? [{ key: 'other', label: pt ? 'Outras proficiências' : 'Other proficiencies', text: char.otherProfs }] : []),
   ];
 
+  // `embedded`: dentro do nível 1 da linha do tempo (sem painel nem título; os traços de
+  // proficiência já aparecem no nível em que vieram)
+  const Wrap = embedded ? ({ children }) => <div className="fh-tl-embed fh-tl-tools">{children}</div>
+    : ({ children }) => (
+      <div className="fh-scope-content fh-scope-tools">
+        <section className="fh-panel">
+          <FhTitle>{pt ? 'Idiomas e Proficiências de Ferramentas' : 'Languages & Tool Proficiencies'}</FhTitle>
+          {children}
+        </section>
+      </div>
+    );
   return (
-    <div className="fh-scope-content fh-scope-tools">
-      <section className="fh-panel">
-        <FhTitle>{pt ? 'Idiomas e Proficiências de Ferramentas' : 'Languages & Tool Proficiencies'}</FhTitle>
+    <Wrap>
         <LanguagesField char={char} lang={lang} update={update} />
         {toolSummaries.map(tl => (
           <div key={tl.key} className="text-sm" style={{ marginBottom: 6 }}>
             <strong style={{ color: 'var(--gold-deep)' }}>{tl.label}:</strong> {tl.text}
           </div>
         ))}
-        {placed?.by?.proficiencies && (
+        {!embedded && placed?.by?.proficiencies && (
           <FhFeatures items={placed.by.proficiencies} multi={placed.multi} lang={lang} place="proficiencies" className="fh-cf-profs" />
         )}
         <div style={{ marginTop: 12 }}>
@@ -3994,15 +4003,14 @@ export const SheetTools = ({ char, lang, update, placed }) => {
             rows={3}
           />
         </div>
-      </section>
-    </div>
+    </Wrap>
   );
 };
 
 // Linha do tempo de traços (src/sheet/feature-timeline.js): classe/subclasse no nível do
 // personagem em que vieram, espécie no nível de cada traço, talentos no nível em que
 // substituíram o Aumento no Valor de Atributo. Um trilho dourado com os níveis à esquerda.
-const FeatureTimeline = ({ char, lang, placed, cls, race }) => {
+const FeatureTimeline = ({ char, lang, placed, cls, race, update }) => {
   const pt = lang === 'pt';
   const multi = !!placed?.multi;
   const seq = (() => { try { return Utils.classSequence(char); } catch { return []; } })();
@@ -4041,21 +4049,47 @@ const FeatureTimeline = ({ char, lang, placed, cls, race }) => {
     ].filter(Boolean).join(' · ');
     return { name: { pt: name, en: name }, desc: { pt: bits, en: bits } };
   };
+  const now = char.level || 1;
+  const cur = tierOf(now);
+  // nível 1 sempre existe: é onde ficam idiomas, proficiências e as escolhas da espécie
+  const groups = byLevel(entries);
+  if (!groups.length || groups[0].level !== 1) groups.unshift({ level: 1, entries: [] });
+  const origin = (
+    <div className="fh-tl-origin">
+      {race && <SpeciesTraits char={char} lang={lang} update={update} race={race} hideTraits embedded />}
+      <div className="fh-tl-embed-h">{pt ? 'Idiomas e proficiências' : 'Languages & proficiencies'}</div>
+      <SheetTools char={char} lang={lang} update={update} placed={placed} embedded />
+    </div>
+  );
   return (
     <section className="fh-panel fh-timeline">
-      <FhTitle>{pt ? 'Linha do tempo' : 'Timeline'}</FhTitle>
+      <FhTitle sub={<span className="fh-tl-now">{pt ? `Tier ${cur.tier} · ${cur.pt}` : `Tier ${cur.tier} · ${cur.en}`}</span>}>{pt ? 'Linha do tempo' : 'Timeline'}</FhTitle>
       <ol className="fh-tl">
-        {byLevel(entries).map(g => (
-          <li key={g.level} className={`fh-tl-level${g.level > (char.level || 1) ? ' is-later' : ''}${g.level === (char.level || 1) ? ' is-now' : ''}`}>
-            <span className="fh-tl-node" aria-label={pt ? `Nível ${g.level}` : `Level ${g.level}`}>{g.level}</span>
-            <div className="fh-tl-body">
-              <FhFeatures items={[]} lang={lang} label={null}>
-                {g.entries.map(e => (
-                  <FhFeatureItem key={e.key} item={itemOf(e)} lang={lang}
-                    tag={<span className={`fh-tl-tag is-${e.kind}${e.pending ? ' is-pending' : ''}${e.later ? ' is-later' : ''}`}>{tagOf(e)}{e.later ? (pt ? ' · próximo' : ' · next') : ''}</span>} />
-                ))}
-              </FhFeatures>
+        {byTier(groups).map(tr => (
+          <li key={tr.tier} className={`fh-tl-tier${tr.tier === cur.tier ? ' is-current' : ''}${tr.from > now ? ' is-later' : ''}`}>
+            <div className="fh-tl-tier-h">
+              <span className="fh-tl-tier-n">Tier {tr.tier}</span>
+              <span className="fh-tl-tier-t">{pt ? tr.pt : tr.en}</span>
+              <span className="fh-tl-tier-r">{pt ? `Nv. ${tr.from}–${tr.to}` : `Lv ${tr.from}–${tr.to}`}</span>
             </div>
+            <ol className="fh-tl-levels">
+              {tr.levels.map(g => (
+                <li key={g.level} className={`fh-tl-level${g.level > now ? ' is-later' : ''}${g.level === now ? ' is-now' : ''}`}>
+                  <span className="fh-tl-node" aria-label={pt ? `Nível ${g.level}` : `Level ${g.level}`}>{g.level}</span>
+                  <div className="fh-tl-body">
+                    {g.entries.length > 0 && (
+                      <FhFeatures items={[]} lang={lang} label={null}>
+                        {g.entries.map(e => (
+                          <FhFeatureItem key={e.key} item={itemOf(e)} lang={lang}
+                            tag={<span className={`fh-tl-tag is-${e.kind}${e.pending ? ' is-pending' : ''}${e.later ? ' is-later' : ''}`}>{tagOf(e)}{e.later ? (pt ? ' · próximo' : ' · next') : ''}</span>} />
+                        ))}
+                      </FhFeatures>
+                    )}
+                    {g.level === 1 && origin}
+                  </div>
+                </li>
+              ))}
+            </ol>
           </li>
         ))}
       </ol>
@@ -4066,14 +4100,9 @@ const FeatureTimeline = ({ char, lang, placed, cls, race }) => {
 export const SheetFeatures = ({ char, lang, placed, cls, race, update }) => {
   return (
     <div className="fh-scope-content fh-scope-features">
-      {/* Todos os traços numa linha do tempo, por nível do personagem */}
-      <FeatureTimeline char={char} lang={lang} placed={placed} cls={cls} race={race} />
-
-      {/* Idiomas e Proficiências de Ferramentas: escopo correto na aba Características */}
-      <SheetTools char={char} lang={lang} update={update} placed={placed} />
-
-      {/* Species Traits: officially on Features tab with full interactive choices and traits */}
-      {race && <SpeciesTraits char={char} lang={lang} update={update} race={race} hideTraits />}
+      {/* Tudo numa linha do tempo por nível, agrupada nos tiers de jogo: traços de classe,
+          espécie, antecedente, talentos e, no nível 1, idiomas, proficiências e escolhas */}
+      <FeatureTimeline char={char} lang={lang} placed={placed} cls={cls} race={race} update={update} />
     </div>
   );
 };

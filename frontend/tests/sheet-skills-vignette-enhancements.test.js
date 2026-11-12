@@ -43,8 +43,9 @@ test('Item 3: Subclasse e Progressão consolidadas estritamente na aba Jogar (Pl
   assert.ok(!storyEnd.includes('<SpeciesTraits char={char}'), 'SheetStory não deve ter SpeciesTraits');
 
   // SpeciesTraits está presente na aba Características (SheetFeatures)
-  const featuresBody = sheetSrc.slice(sheetSrc.indexOf('export const SheetFeatures ='));
-  assert.match(featuresBody, /<SpeciesTraits char=\{char\} lang=\{lang\} update=\{update\} race=\{race\} hideTraits \/>/);
+  // (embutido no nível 1 da linha do tempo da aba Características)
+  const featuresBody = sheetSrc.slice(sheetSrc.indexOf('const FeatureTimeline ='));
+  assert.match(featuresBody, /<SpeciesTraits char=\{char\} lang=\{lang\} update=\{update\} race=\{race\} hideTraits embedded \/>/);
 });
 
 test('Item 4: Juiciness do roll-up: brilho progressivo, faíscas cintilantes e dispersão pela onda de choque da explosão', () => {
@@ -137,8 +138,8 @@ test('Item 9: Grade de perícias dobrável/recolhível por ação e aba Ferramen
   assert.ok(!sheetSrc.includes('fh-skills-collapse-all'));
 
   // SheetTools transferido do escopo de Perícias para Características (SheetFeatures)
-  const featuresBody = sheetSrc.slice(sheetSrc.indexOf('export const SheetFeatures ='));
-  assert.match(featuresBody, /<SheetTools char=\{char\} lang=\{lang\} update=\{update\} placed=\{placed\} \/>/);
+  const featuresBody = sheetSrc.slice(sheetSrc.indexOf('const FeatureTimeline ='));
+  assert.match(featuresBody, /<SheetTools char=\{char\} lang=\{lang\} update=\{update\} placed=\{placed\} embedded \/>/);
 });
 
 test('Item 10: Enquadramento e reposicionamento configurável do banner e avatar do personagem', () => {

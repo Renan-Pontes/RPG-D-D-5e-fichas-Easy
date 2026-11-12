@@ -1467,7 +1467,7 @@ const SheetStory = ({ char, lang, update, cls, race }) => (
 
 // Traços da espécie + resumo das escolhas (linhagem, resistências, magias…).
 // Em campanha a troca fica com o mestre; pendências aparecem na faixa do topo.
-export const SpeciesTraits = ({ char, lang, update, race, hideTraits = false }) => {
+export const SpeciesTraits = ({ char, lang, update, race, hideTraits = false, embedded = false }) => {
   const [open, setOpen] = useState(false);
   const rows = speciesSummary(char, lang);
   const canEdit = speciesChoiceSpecs(char).length > 0 && !char.inCampaign;
@@ -1475,9 +1475,11 @@ export const SpeciesTraits = ({ char, lang, update, race, hideTraits = false }) 
   const traits = hideTraits ? [] : (race?.traits || []);
 
   if (hideTraits && !rows.length && !canEdit) return null;
+  // `embedded`: dentro do nível 1 da linha do tempo (sem painel; título pequeno)
+  const Shell = embedded ? 'div' : 'section';
   return (
-    <section className="fh-panel">
-      <FhTitle>{lang === 'pt' ? (hideTraits ? 'Escolhas da Espécie' : 'Traços da Espécie') : (hideTraits ? 'Species Choices' : 'Species Traits')}</FhTitle>
+    <Shell className={embedded ? 'fh-tl-embed fh-tl-species' : 'fh-panel'}>
+      {embedded ? <div className="fh-tl-embed-h">{lang === 'pt' ? 'Escolhas da espécie' : 'Species choices'}</div> : <FhTitle>{lang === 'pt' ? (hideTraits ? 'Escolhas da Espécie' : 'Traços da Espécie') : (hideTraits ? 'Species Choices' : 'Species Traits')}</FhTitle>}
       {(rows.length > 0 || canEdit) && (
         <div className="card fh-species-sum">
           {rows.map(([k, v]) => (
@@ -1510,7 +1512,7 @@ export const SpeciesTraits = ({ char, lang, update, race, hideTraits = false }) 
         })}
       </div>
       {open && <SpeciesChoicesModal char={char} lang={lang} onSave={update} onClose={() => setOpen(false)} />}
-    </section>
+    </Shell>
   );
 };
 
