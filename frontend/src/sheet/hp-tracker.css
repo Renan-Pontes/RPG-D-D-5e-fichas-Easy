@@ -349,3 +349,7 @@
 .ficha .fh-hpt-row { min-height: 0; height: var(--fh-gauge-h); }
 .ficha .fh-hpt-row.is-death .fh-death-die { width: 26px; height: 26px; margin: -5px 0; padding: 4px; }
 .ficha .fh-hpt-rest { margin-top: 0; }
+/* Dados de Vida livres sob a fórmula, mesma serifa, um tom abaixo */
+.ficha .fh-hp-heart .fh-medal-sub { display: grid; gap: 2px; justify-items: center; }
+.ficha .fh-hp-hd-left { font-family: var(--body, Georgia, serif); font-size: 0.74rem; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-secondary); text-transform: none; font-variant: normal; white-space: nowrap; }
+.ficha .fh-hp-heart .fh-medal { width: auto; min-width: 96px; }

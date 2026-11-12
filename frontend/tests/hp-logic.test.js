@@ -27,7 +27,7 @@ test('descanso longo: devolve primeiro os dados maiores', () => {
 
 test('fórmula dos PV no jeito do livro', () => {
   assert.equal(hpFormula({ 8: 8 }, 2, 8), '8d8 + 16');
-  assert.equal(hpFormula(by, -1, 8), '1d10 + 7d8 − 8');
+  assert.equal(hpFormula(by, -1, 8), '7d8 + 1d10 − 8');
   assert.equal(hpFormula({ 6: 1 }, 0, 1), '1d6');
 });
 
@@ -55,7 +55,7 @@ test('faixa do controle e texto da lente', () => {
   assert.equal(deltaLabel(0), '0');
 });
 
-import { dragAmount, diceForDrag, pickDice, diceLabel, spendHitDiceRolls, deathSaveResult } from '../src/sheet/hp-logic.js';
+import { hitDiceLeftLabel, dragAmount, diceForDrag, pickDice, diceLabel, spendHitDiceRolls, deathSaveResult } from '../src/sheet/hp-logic.js';
 
 test('arrasto: zona morta, crescimento exponencial, sinal e limites', () => {
   assert.equal(dragAmount(3), 0);
@@ -73,8 +73,11 @@ test('descanso: dados por arrasto e escolha dos maiores primeiro', () => {
   assert.equal(diceForDrag(60, 8), 2);
   assert.equal(diceForDrag(999, 3), 3);
   const pools = [{ die: 10, left: 1 }, { die: 8, left: 6 }];
-  assert.deepEqual(pickDice(pools, 3), [{ die: 10, count: 1 }, { die: 8, count: 2 }]);
-  assert.equal(diceLabel(pickDice(pools, 3), 2), '1d10 + 2d8 + 6');
+  // dos menores para os maiores, de todas as classes
+  assert.deepEqual(pickDice(pools, 3), [{ die: 8, count: 3 }]);
+  assert.deepEqual(pickDice(pools, 7), [{ die: 8, count: 6 }, { die: 10, count: 1 }]);
+  assert.deepEqual(pickDice([{ die: 6, left: 2 }, { die: 12, left: 1 }, { die: 8, left: 1 }], 3), [{ die: 6, count: 2 }, { die: 8, count: 1 }]);
+  assert.equal(diceLabel(pickDice(pools, 7), 2), '6d8 + 1d10 + 14');
 });
 
 test('gastar vários dados de uma vez', () => {
@@ -92,4 +95,8 @@ test('teste contra a morte', () => {
   assert.equal(deathSaveResult(c, 12).patch.deathSaves.success, 2);
   assert.equal(deathSaveResult({ deathSaves: { success: 2, fail: 0 } }, 15).kind, 'stable');
   assert.equal(deathSaveResult(c, 9).kind, 'fail');
+});
+
+test('rótulo dos Dados de Vida livres', () => {
+  assert.equal(hitDiceLeftLabel([{ die: 8, left: 3, total: 4 }, { die: 6, left: 5, total: 8 }]), '5/8 d6 · 3/4 d8');
 });

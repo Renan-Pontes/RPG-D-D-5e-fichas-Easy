@@ -33,7 +33,7 @@ import * as Versions from '../src/sheet/versions.js';
 import * as Forks from '../src/sheet/forks.js';
 import HpTracker from '../src/sheet/HpTracker.jsx';
 import { RestModeContext } from '../src/sheet/rest-mode.jsx';
-import { hpFormula } from '../src/sheet/hp-logic.js';
+import { hpFormula, hitDicePools, hitDiceLeftLabel } from '../src/sheet/hp-logic.js';
 import '../src/sheet/versions.css';
 import BeltMultiRoll, { pairBeltSlots, rollBeltPairs } from '../src/dice/BeltMultiRoll.jsx';
 import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
@@ -1831,7 +1831,11 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
               <FhMedal shape="heart"
                 value={<span className={`fh-hp-num${fxKind === 'hit' ? ` fh-shake-${fxBeat}` : ''}`}><span className="hp-current">{char.currentHp + (char.tempHp || 0)}</span></span>}
                 label={t('hp', lang)}
-                sub={<span className="fh-hp-formula">{hpFormula(Utils.hitDiceByDie(char), Utils.abilityMod(char, 'con'), char.level)}</span>} />
+                sub={<>
+                  <span className="fh-hp-formula">({hpFormula(Utils.hitDiceByDie(char), Utils.abilityMod(char, 'con'), char.level)})</span>
+                  {/* Dados de Vida ainda não gastos, por tipo: "5/8 d6 · 3/4 d8" */}
+                  <span className="fh-hp-hd-left" title={t('hitDice', lang)}>{hitDiceLeftLabel(hitDicePools(Utils.hitDiceByDie(char), char))}</span>
+                </>} />
               {hpFx && (
                 <span key={hpFx.id} className={`fh-float ${fxKind}`} aria-hidden="true">
                   {hpFx.delta < 0 ? '−' : '+'}{Math.abs(hpFx.delta)}

@@ -65,9 +65,9 @@ export function usedByAfterRest(char, byDie, newTotal) {
   return out;
 }
 
-/** "8d8 + 16" (Dados de Vida + CON × nível), o jeito de escrever os PV do livro. */
+/** "8d6 + 4d8 + 15" (Dados de Vida, do menor ao maior, + CON × nível): o jeito do livro. */
 export function hpFormula(byDie, conMod, level) {
-  const d = dice(byDie).map(([die, n]) => `${n}d${die}`).join(' + ');
+  const d = dice(byDie).slice().reverse().map(([die, n]) => `${n}d${die}`).join(' + ');
   if (!d) return '';
   const flat = int(conMod) * Math.max(1, int(level, 1));
   return flat ? `${d} ${flat > 0 ? '+' : '−'} ${Math.abs(flat)}` : d;
@@ -131,11 +131,15 @@ export function diceForDrag(dx, available) {
   return Math.min(available, 1 + Math.floor((d - 12) / 34));
 }
 
-/** Escolhe `n` dados das pilhas, maiores primeiro: [{ die, count }]. */
+/**
+ * Escolhe `n` dados de TODAS as pilhas (todas as classes), dos MENORES para os maiores:
+ * pedir pouca cura gasta d6 antes de d8/d10/d12; pedindo mais, passa para os maiores.
+ * Devolve [{ die, count }] do menor para o maior.
+ */
 export function pickDice(pools, n) {
   let need = Math.max(0, int(n));
   const out = [];
-  for (const p of pools) {
+  for (const p of pools.slice().sort((a, b) => a.die - b.die)) {
     if (!need) break;
     const k = Math.min(p.left, need);
     if (k > 0) { out.push({ die: p.die, count: k }); need -= k; }
@@ -183,4 +187,9 @@ export function deathSaveResult(char, d20) {
   if (n >= 10) { const success = Math.min(3, ds.success + 1); return { kind: success >= 3 ? 'stable' : 'success', patch: { deathSaves: { ...ds, success } } }; }
   const fail = Math.min(3, ds.fail + 1);
   return { kind: fail >= 3 ? 'dead' : 'fail', patch: { deathSaves: { ...ds, fail } } };
+}
+
+/** Dados de Vida ainda não gastos, por tipo, do menor ao maior: "5/8 d6 · 3/4 d8". */
+export function hitDiceLeftLabel(pools) {
+  return pools.slice().sort((a, b) => a.die - b.die).map(p => `${p.left}/${p.total} d${p.die}`).join(' · ');
 }
