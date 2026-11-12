@@ -738,9 +738,8 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
             <SheetPlay
               char={char} lang={lang} update={update} applyHp={applyHp}
               ac={ac} speed={speed} profB={profB} initBonus={initBonus}
-              passPerc={passPerc} slots={slots} roll={roll} placed={placed}
+              passPerc={passPerc} slots={slots} roll={roll} placed={placed} after={children || null}
             />
-            {children && <div className="fh-after no-print">{children}</div>}
           </>
         )}
 
@@ -1558,7 +1557,7 @@ const STD_CONDITIONS = [
   'restrained','stunned','unconscious',
 ];
 
-const ConditionsPanel = ({ char, lang, update }) => {
+const ConditionsPanel = ({ char, lang, update , embedded = false }) => {
   const [newEffect, setNewEffect] = useState('');
   const [open, setOpen] = useState(false);
   const active = char.conditions || [];
@@ -1578,7 +1577,7 @@ const ConditionsPanel = ({ char, lang, update }) => {
 
   // Só o que está ativo fica à vista; a lista completa abre sob demanda.
   return (
-    <section className="fh-panel">
+    <section className={embedded ? 'fh-cond-embed' : 'fh-panel'}>
       <FhTitle
         hint={<GrimoireHint id="condicoes" lang={lang} />}
         act={(
@@ -1762,7 +1761,7 @@ const SheetNpcs = ({ char, lang, update }) => {
 };
 
 // ===== Play tab =====
-const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, passPerc, slots, roll, placed }) => {
+const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, passPerc, slots, roll, placed, after = null }) => {
   // Armadura/escudo sem treino: desvantagem em FOR/DES e sem conjurar magias (2014 e 2024).
   const untrainedArmor = [
     ...(char.armor && !isArmorProficient(char, char.armor) ? [tName('armor', char.armor, lang)] : []),
@@ -1864,6 +1863,8 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             <FhMedal shape="star" value={Utils.fmtMod(profB)} label={lang === 'pt' ? 'Proficiência' : 'Proficiency'}
               sub={lang === 'pt' ? 'bônus' : 'bonus'} />
           </div>
+          {/* Condições e efeitos dentro do painel de saúde, logo acima da barra de PV */}
+          <ConditionsPanel char={char} lang={lang} update={update} embedded />
           {/* Barras e controles condensados (src/sheet/HpTracker.jsx): PV temporários, PV em 10
               fatias, Exaustão, Testes contra a Morte, arrastar para dano/cura e Dados de Vida */}
           <HpTracker char={char} lang={lang} update={update} applyHp={applyHp} roll={roll}
@@ -1879,6 +1880,29 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
           <FhFeatures items={feats.movement} multi={placed.multi} lang={lang} place="movement" />
         </section>
     ) },
+    { h: PLAY_H.abilities, el: (
+        /* Abilities at a glance */
+        <section key="abilities" className="fh-panel">
+          <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{t('tabStats', lang)}</FhTitle>
+          <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang) + ' ' + t('abilityCheck', lang)} />
+        </section>
+    ) },
+    slots && slots.length > 0 && {
+      h: PLAY_H.slots + PLAY_H.slotRow * slotLevels,
+      el: (
+        /* Mesmo painel da aba Magias: CD, ataque de magia e espaços por círculo */
+        <SpellcastingSummary key="slots" char={char} lang={lang} update={update} slots={slots} />
+      ),
+    },
+    { h: (resourceCount || resFeats.length) ? PLAY_H.resources + PLAY_H.resourceRow * resourceCount + PLAY_H.trait * resFeats.length : 0, el: (
+        /* Recursos de classe com usos (Fúria, Canalizar Divindade…), cada um com os traços que o
+            usam embaixo. O componente é compartilhado com o editor do mestre: o painel é só um
+            embrulho daqui (vazio quando não há recursos nem traços; o CSS esconde). */
+        <section key="resources" className="fh-panel fh-res">
+          <ResourcesCard char={char} lang={lang} update={update} features={resFeats} multiclass={placed.multi} />
+        </section>
+    ) },
+    after && { h: PLAY_H.progression, el: <div key="progression" className="fh-after no-print">{after}</div> },
     { h: PLAY_H.attacks + PLAY_H.attackRow * (atks.length + 1) + PLAY_H.attackNote * attackNotes + featsH(feats.attacks.length), el: (
         /* Ataques: uma linha por arma e o Golpe Desarmado (src/sheet/FhAttack.jsx). Os botões
             "Ataque +X" e "Dano NdX+Y" fazem as mesmas rolagens (rótulos e valores) de antes. */
@@ -1973,25 +1997,6 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         </section>
       ),
     },
-    slots && slots.length > 0 && {
-      h: PLAY_H.slots + PLAY_H.slotRow * slotLevels,
-      el: (
-        /* Mesmo painel da aba Magias: CD, ataque de magia e espaços por círculo */
-        <SpellcastingSummary key="slots" char={char} lang={lang} update={update} slots={slots} />
-      ),
-    },
-    { h: (resourceCount || resFeats.length) ? PLAY_H.resources + PLAY_H.resourceRow * resourceCount + PLAY_H.trait * resFeats.length : 0, el: (
-        /* Recursos de classe com usos (Fúria, Canalizar Divindade…), cada um com os traços que o
-            usam embaixo. O componente é compartilhado com o editor do mestre: o painel é só um
-            embrulho daqui (vazio quando não há recursos nem traços; o CSS esconde). */
-        <section key="resources" className="fh-panel fh-res">
-          <ResourcesCard char={char} lang={lang} update={update} features={resFeats} multiclass={placed.multi} />
-        </section>
-    ) },
-    { h: PLAY_H.conditions, el: (
-        /* Conditions / status effects */
-        <ConditionsPanel key="conditions" char={char} lang={lang} update={update} />
-    ) },
     druid && {
       h: PLAY_H.wild + (starry ? PLAY_H.starry : 0) + featsH(wildFeats.length),
       el: (
@@ -1999,13 +2004,6 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         <WildShapePanel key="wild" char={char} druid={druid} lang={lang} update={update} features={wildFeats} multi={placed.multi} />
       ),
     },
-    { h: PLAY_H.abilities, el: (
-        /* Abilities at a glance */
-        <section key="abilities" className="fh-panel">
-          <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{t('tabStats', lang)}</FhTitle>
-          <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang) + ' ' + t('abilityCheck', lang)} />
-        </section>
-    ) },
 
   ].filter(Boolean);
   const split = splitColumns(panels.map(p => p.h));

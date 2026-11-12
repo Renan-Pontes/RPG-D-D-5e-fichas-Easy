@@ -36,7 +36,9 @@ test('Item 3: Subclasse e Progressão consolidadas estritamente na aba Jogar (Pl
   // SubclassBanner e SpeciesBanner consolidados estritamente dentro da aba play
   assert.match(sheetSrc, /\{tab === 'play' && \([\s\S]*?<SubclassBanner char=\{char\} lang=\{lang\} update=\{update\} \/>/);
   assert.match(sheetSrc, /\{tab === 'play' && \([\s\S]*?<SpeciesBanner char=\{char\} lang=\{lang\} update=\{update\} \/>/);
-  assert.match(sheetSrc, /\{tab === 'play' && \([\s\S]*?\{children && <div className="fh-after no-print">\{children\}<\/div>\}/);
+  // Progressão só na aba Jogar: entra como painel da própria aba (abaixo de Recursos)
+  assert.match(sheetSrc, /\{tab === 'play' && \([\s\S]*?after=\{children \|\| null\}/);
+  assert.match(sheetSrc, /after && \{ h: PLAY_H\.progression, el: <div key="progression" className="fh-after no-print">\{after\}<\/div> \}/);
 
   // SpeciesTraits NÃO está mais no final de SheetStory
   const storyEnd = tabsSrc.slice(tabsSrc.indexOf('const SheetStory ='), tabsSrc.indexOf('// ===== Notes / Journal ====='));

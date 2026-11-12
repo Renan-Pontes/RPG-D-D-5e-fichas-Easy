@@ -8,7 +8,7 @@
  * painel pula de coluna durante o uso. */
 
 export const PLAY_H = {
-  hp: 450,                                  // PV, PV temp e os 6 medalhões
+  hp: 610,                                  // PV, PV temp e os 6 medalhões
   attacks: 70, attackRow: 80, attackNote: 50, // título; uma linha por arma (+ Golpe Desarmado); cada aviso/maestria
   styles: 70, style: 60, styleExtra: 40,    // título; por estilo; sentidos e reações
   slots: 190, slotRow: 65,                  // título; por círculo com espaços
@@ -17,6 +17,7 @@ export const PLAY_H = {
   wild: 330, starry: 180,                   // Forma Selvagem; Forma Estelar (Círculo das Estrelas)
   abilities: 210,
   rest: 115,
+  progression: 1200,                        // painel Progressão (linha do tempo) vindo de fora da ficha
   traitHead: 30, trait: 45,                 // traços de classe de um painel: rótulo; por traço (fechado)
 };
 

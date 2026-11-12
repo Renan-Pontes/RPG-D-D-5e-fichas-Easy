@@ -131,5 +131,7 @@ test('Hero Header e Escopo de Progressão: medalha de campanhas 48px, inspiraç�
   assert.match(css, /\.hero-insp-pip/);
 
   // Progressão da Ficha (children) restrita estritamente à aba 'play'
-  assert.match(sheetSrc, /\{tab === 'play' && \([\s\S]*?\{children && <div className="fh-after no-print">\{children\}<\/div>\}/);
+  // Progressão só na aba Jogar: entra como painel da própria aba (abaixo de Recursos)
+  assert.match(sheetSrc, /\{tab === 'play' && \([\s\S]*?after=\{children \|\| null\}/);
+  assert.match(sheetSrc, /after && \{ h: PLAY_H\.progression, el: <div key="progression" className="fh-after no-print">\{after\}<\/div> \}/);
 });

@@ -422,3 +422,6 @@
 .ficha .fh-hp-row .fh-medal-shape.is-flame { --cy: 35; }
 .ficha .fh-hp-row .fh-medal-shape.is-shield, .ficha .fh-hp-row .fh-medal-shape.is-heart { --cy: 35; }
 .ficha .fh-hp-row .fh-hp-ac .fh-medal-val, .ficha .fh-hp-row .fh-hp-heart .fh-medal-val { margin: 0 !important; }
+
+/* Condições e efeitos embutidas no painel de saúde, acima da barra de PV */
+.ficha .fh-hp .fh-cond-embed { margin: 14px 0 6px; padding-top: 10px; border-top: 1px solid rgba(184,145,74,.22); }
