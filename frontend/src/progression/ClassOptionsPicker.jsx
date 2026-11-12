@@ -106,13 +106,15 @@ function SwapSection({ char, classId, pool, lang, value, onChange }) {
   const current = value.swaps.find(s => s.pool === pool) || { pool, from: '', to: '' };
   const mine = picksOf(char, classId, pool);
   const pending = value.adds.map(a => ({ ...a, classId }));
-  const candidates = poolOptions(view, classId, pool, pending, view.level || 1).filter(o => o.eligible && o.id !== current.from);
+  // Rascunho em andamento: a troca só vale com os dois lados, então cada select parte do
+  // rascunho (não da troca já registrada), senão escolher um lado apagava o outro.
+  const draft = value._draft?.[pool] || current;
+  const candidates = poolOptions(view, classId, pool, pending, view.level || 1).filter(o => o.eligible && o.id !== draft.from);
   const set = (patch) => {
-    const next = { ...current, ...patch };
+    const next = { ...draft, ...patch };
     const others = value.swaps.filter(s => s.pool !== pool);
     onChange({ ...value, swaps: next.from && next.to ? [...others, next] : others, _draft: { ...(value._draft || {}), [pool]: next } });
   };
-  const draft = value._draft?.[pool] || current;
   return (
     <details style={{ marginBottom: 12 }}>
       <summary className="text-sm">{t(lang, `Trocar uma opção de ${def.name.pt} (opcional)`, `Swap one ${def.name.en} option (optional)`)}</summary>
