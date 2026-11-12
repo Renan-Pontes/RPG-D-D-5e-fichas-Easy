@@ -925,7 +925,7 @@ const App = () => {
             autoLink={autoLinkId === active.id}
             onAutoLinkDone={() => setAutoLinkId(null)}
           >
-            <div style={{ marginTop: 'var(--s-6)' }}>
+            <div className="fh-prog-wrap">
               <ProgressionPanel
                 character={active}
                 lang={lang}

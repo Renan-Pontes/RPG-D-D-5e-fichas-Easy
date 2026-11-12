@@ -6655,3 +6655,15 @@
 .ficha .fh-tl-respec-item { margin-top: 6px; display: grid; gap: 2px; }
 .ficha .fh-tl-respec-t { color: var(--gold-bright, #edcb7a); }
 .ficha .fh-tl-respec-c { color: var(--ink-secondary, #bba); font-size: .78rem; }
+
+/* Painel de Progressão na aba Jogar: começa na mesma altura dos outros painéis da coluna
+   (sem a margem de cima de quando fica solto) e o título leva o mesmo filete dourado. */
+.fh-prog-wrap { margin-top: var(--s-6); }
+.ficha .fh-play-col .fh-prog-wrap { margin-top: 0; }
+.ficha .fh-play-col .progression-panel > h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-family: var(--display); font-weight: 600; font-size: 1.05rem; line-height: 1.25; letter-spacing: 0.14em; text-transform: uppercase; }
+.ficha .fh-play-col .progression-panel > h3::after {
+  content: ""; flex: 1 0 20px; min-width: 20px; height: 1px;
+  background: linear-gradient(90deg, var(--gold-deep), transparent);
+}
+/* O filete do título nunca some, mesmo com ações ao lado (Vitalidade e demais) */
+.ficha .fh-title-main::after { min-width: 20px; }
