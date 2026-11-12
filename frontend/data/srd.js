@@ -9,6 +9,9 @@ import { SPELLS_2024 } from './rules2024.js';
 import { LEGACY_SPELL_CLASSES } from './spells-legacy-classes.js';
 // SRD 5.1 (CC-BY 4.0): ficha técnica oficial das magias de 2014 (texto integral em srd51-spells-text.json)
 import SRD51_META from './srd51-spells-meta.json' with { type: 'json' };
+// Fora do SRD: ficha técnica 2014 (PHB 2014 e suplementos) conferida no acervo offline do GM
+// Craft — só fatos de regra (círculo, escola, tempo, alcance, componentes, duração), sem texto.
+import META_2014 from './spells-2014-meta.json' with { type: 'json' };
 
 export const SRD51_ID = (id) => ({ spareDying: 'spareTheDying', identifySpell: 'identify', expediteRetreat: 'expeditiousRetreat', commandSpell: 'command' }[id] || id);
 
@@ -1915,6 +1918,14 @@ for (const spell of SPELLS) {
   if (!m) continue;
   Object.assign(spell, m, { srd51: true });
   delete spell.metaPt;   // recalculado do texto 5.1 (localizeLegacySpells)
+  delete spell.rulesVersion;
+}
+for (const spell of SPELLS) {
+  const m = !spell.srd51 && META_2014[spell.id];
+  if (!m) continue;
+  const { book, ...facts } = m;
+  Object.assign(spell, facts, { book2014: book });
+  delete spell.metaPt;
   delete spell.rulesVersion;
 }
 

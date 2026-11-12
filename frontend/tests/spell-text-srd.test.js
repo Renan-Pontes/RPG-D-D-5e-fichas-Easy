@@ -36,3 +36,25 @@ test('SRD 5.1: as 319 magias, e o catálogo 2014 usa a ficha técnica oficial de
   assert.equal(fb.range, '150 feet');
   assert.equal(fb.components, 'V, S, M (a tiny ball of bat guano and sulfur)');
 });
+
+test('SRD 5.2.1: campos da ficha sem texto vazado da extração (Component:, parágrafo na duração)', () => {
+  for (const s of S24) {
+    assert.ok(s.components, `${s.id}: componentes`);
+    assert.ok(!/Component/.test(s.range), `${s.id}: alcance`);
+    assert.ok(s.duration.length < 60, `${s.id}: duração`);
+  }
+});
+
+test('fora do SRD: magias 2014 usam a ficha técnica do livro de 2014 (acervo offline), sem texto do livro', () => {
+  const M14 = j('../data/spells-2014-meta.json');
+  assert.ok(Object.keys(M14).length >= 200);
+  for (const [id, m] of Object.entries(M14)) {
+    assert.deepEqual(Object.keys(m).sort(), ['book', 'castingTime', 'components', 'concentration', 'duration', 'level', 'ritual', 'range', 'school'].sort(), id);
+    const sp = SRD.SPELLS.find(s => s.id === id);
+    if (!sp || sp.srd51) continue;
+    for (const k of ['level', 'school', 'castingTime', 'range', 'components', 'duration']) assert.deepEqual(sp[k], m[k], `${id}.${k}`);
+  }
+  const ts = SRD.SPELLS.find(s => s.id === 'thunderousSmite');
+  assert.equal(ts.castingTime, '1 bonus action');
+  assert.equal(SRD.SPELLS.find(s => s.id === 'mindSpike').range, '60 feet');   // XGE, não o 120 do SRD 5.2.1
+});

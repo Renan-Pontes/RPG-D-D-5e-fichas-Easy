@@ -620,7 +620,7 @@
     ],
     "castingTime": "Bonus Action",
     "range": "Touch",
-    "components": "",
+    "components": "V, S, M (a handful of bark)",
     "duration": "1 hour",
     "ritual": false,
     "concentration": false,
@@ -1002,7 +1002,7 @@
     "castingTime": "Action",
     "range": "30 feet",
     "components": "V, S",
-    "duration": "1 hour One creature you can see within range makes a Wisdom saving throw. It does so with Advantage if you or your allies are fighting it. On a failed save, the target has the Charmed condition until the spell ends or until you or your allies damage it. The Charmed creature is Friendly to you. When the spell ends, the target knows it was Charmed by you. Using a Higher-Level Spell Slot. You can target one additional creature for each spell slot level above 4.",
+    "duration": "1 hour",
     "ritual": false,
     "concentration": false,
     "desc": {
@@ -1158,7 +1158,7 @@
     "castingTime": "1 hour",
     "range": "Touch",
     "components": "V, S, M (a diamond worth 1,000+ GP,",
-    "duration": "Instantaneous You touch a creature or at least 1 cubic inch of its flesh. An inert duplicate of that creature forms inside the vessel used in the spell’s casting and fin- ishes growing after 120 days; you choose whether the finished clone is the same age as the creature or younger. The clone remains inert and endures indef- initely while its vessel remains undisturbed. If the original creature dies after the clone fin- ishes forming, the creature’s soul transfers to the clone if the soul is free and willing to return. The clone is physically identical to the original and has the same personality, memories, and abilities, but none of the original’s equipment. The creature’s original remains, if any, become inert and can’t be revived, since the creature’s soul is elsewhere.",
+    "duration": "Instantaneous",
     "ritual": false,
     "concentration": false,
     "desc": {
@@ -1584,8 +1584,8 @@
       "druid"
     ],
     "castingTime": "Action",
-    "range": "Touch Component: V, S",
-    "components": "",
+    "range": "Touch",
+    "components": "V, S",
     "duration": "7 days",
     "ritual": false,
     "concentration": false,
@@ -1869,7 +1869,7 @@
     "castingTime": "Action",
     "range": "120 feet",
     "components": "V, S, M (a bit of phosphorus)",
-    "duration": "Concentration, up to 1 minute You create up to four torch-size lights within range, making them appear as torches, lanterns, or glow- ing orbs that hover for the duration. Alternatively, you combine the four lights into one glowing Me- dium form that is vaguely humanlike. Whichever form you choose, each light sheds Dim Light in a 10- foot radius. As a Bonus Action, you can move the lights up to 60 feet to a space within range. A light must be within 20 feet of another light created by this spell, and a light vanishes if it exceeds the spell’s range.",
+    "duration": "Concentration, up to 1 minute",
     "ritual": false,
     "concentration": true,
     "desc": {
@@ -2026,7 +2026,7 @@
     "castingTime": "Action",
     "range": "60 feet",
     "components": "S",
-    "duration": "1 hour You create a shadowy Medium door on a flat solid surface that you can see within range. This door can be opened and closed, and it leads to a demiplane that is an empty room 30 feet in each dimension, made of wood or stone (your choice). When the spell ends, the door vanishes, and any objects inside the demiplane remain there. Any creatures inside also remain unless they opt to be shunted through the door as it vanishes, landing with the Prone condition in the unoccupied spaces closest to the door’s former space. Each time you cast this spell, you can create a new demiplane or connect the shadowy door to a demiplane you created with a previous casting of this spell. Additionally, if you know the nature and contents of a demiplane created by a casting of this spell by another creature, you can connect the shad- owy door to that demiplane instead.",
+    "duration": "1 hour",
     "ritual": false,
     "concentration": false,
     "desc": {
@@ -2365,8 +2365,8 @@
       "paladin"
     ],
     "castingTime": "Bonus Action, which you take immedi-",
-    "range": "Self Component: V",
-    "components": "",
+    "range": "Self",
+    "components": "V",
     "duration": "Instantaneous",
     "ritual": false,
     "concentration": false,
@@ -3029,8 +3029,8 @@
       "paladin"
     ],
     "castingTime": "Action",
-    "range": "30 feet Component: V, S",
-    "components": "",
+    "range": "30 feet",
+    "components": "V, S",
     "duration": "Instantaneous",
     "ritual": false,
     "concentration": false,
@@ -3901,8 +3901,8 @@
       "druid"
     ],
     "castingTime": "Action",
-    "range": "Touch Component: V, S",
-    "components": "",
+    "range": "Touch",
+    "components": "V, S",
     "duration": "Concentration, up to 1 minute",
     "ritual": false,
     "concentration": true,
@@ -4130,7 +4130,7 @@
     "castingTime": "Action",
     "range": "60 feet",
     "components": "V, S, M (a piece of iron and a flame)",
-    "duration": "Concentration, up to 1 minute Choose a manufactured metal object, such as a metal weapon or a suit of Heavy or Medium metal armor, that you can see within range. You cause the object to glow red-hot. Any creature in physical contact with the object takes 2d8 Fire damage when you cast the spell. Until the spell ends, you can take a Bonus Action on each of your later turns to deal this damage again if the object is within range. If a creature is holding or wearing the object and takes the damage from it, the creature must suc- ceed on a Constitution saving throw or drop the object if it can. If it doesn’t drop the object, it has Disadvantage on attack rolls and ability checks un- til the start of your next turn. Using a Higher-Level Spell Slot. The damage in- creases by 1d8 for each spell slot level above 2.",
+    "duration": "Concentration, up to 1 minute",
     "ritual": false,
     "concentration": true,
     "desc": {
@@ -4691,8 +4691,8 @@
       "wizard"
     ],
     "castingTime": "Bonus Action",
-    "range": "Touch Component: V, S, M (a grasshopper’s hind leg)",
-    "components": "",
+    "range": "Touch",
+    "components": "V, S, M (a grasshopper’s hind leg)",
     "duration": "1 minute",
     "ritual": false,
     "concentration": false,
@@ -4719,7 +4719,7 @@
     "castingTime": "Action",
     "range": "60 feet",
     "components": "V",
-    "duration": "Instantaneous Choose an object that you can see within range. The object can be a door, a box, a chest, a set of mana- cles, a padlock, or another object that contains a mundane or magical means that prevents access. A target that is held shut by a mundane lock or that is stuck or barred becomes unlocked, unstuck, or unbarred. If the object has multiple locks, only one of them is unlocked. If the target is held shut by Arcane Lock, that spell is suppressed for 10 minutes, during which time the target can be opened and closed. When you cast the spell, a loud knock, audible up to 300 feet away, emanates from the target.",
+    "duration": "Instantaneous",
     "ritual": false,
     "concentration": false,
     "desc": {
@@ -5399,7 +5399,7 @@
     "castingTime": "Action",
     "range": "120 feet",
     "components": "S, M (a copper wire)",
-    "duration": "1 round You point toward a creature within range and whisper a message. The target (and only the target) hears the message and can reply in a whisper that only you can hear. You can cast this spell through solid objects if you are familiar with the target and know it is beyond the barrier. Magical silence; 1 foot of stone, metal, or wood; or a thin sheet of lead blocks the spell.",
+    "duration": "1 round",
     "ritual": false,
     "concentration": false,
     "desc": {
@@ -5656,7 +5656,7 @@
     "castingTime": "Action",
     "range": "120 feet",
     "components": "V, S, M (a moonseed leaf)",
-    "duration": "Concentration, up to 1 minute A silvery beam of pale light shines down in a 5-foot-radius, 40-foot-high Cylinder centered on a point within range. Until the spell ends, Dim Light fills the Cylinder, and you can take a Magic action on later turns to move the Cylinder up to 60 feet. When the Cylinder appears, each creature in it makes a Constitution saving throw. On a failed save, a creature takes 2d10 Radiant damage, and if the creature is shape-shifted (as a result of the Poly- morph spell, for example), it reverts to its true form and can’t shape-shift until it leaves the Cylinder. On a successful save, a creature takes half as much damage only. A creature also makes this save when the spell’s area moves into its space and when it enters the spell’s area or ends its turn there. A crea- ture makes this save only once per turn. Using a Higher-Level Spell Slot. The damage in- creases by 1d10 for each spell slot level above 2.",
+    "duration": "Concentration, up to 1 minute",
     "ritual": false,
     "concentration": true,
     "desc": {
@@ -5884,7 +5884,7 @@
     "castingTime": "1 hour",
     "range": "60 feet",
     "components": "V, S, M (a jewel worth 1,000+ GP, which",
-    "duration": "24 hours You attempt to bind a Celestial, an Elemental, a Fey, or a Fiend to your service. The creature must be within range for the entire casting of the spell. (Typically, the creature is first summoned into the center of the inverted version of the Magic Circle spell to trap it while this spell is cast.) At the com- pletion of the casting, the target must succeed on a Charisma saving throw or be bound to serve you for the duration. If the creature was summoned or created by another spell, that spell’s duration is ex- tended to match the duration of this spell. A bound creature must follow your commands to the best of its ability. You might command the creature to accompany you on an adventure, to guard a location, or to deliver a message. If the creature is Hostile, it strives to twist your com- mands to achieve its own objectives. If the creature carries out your commands completely before the spell ends, it travels to you to report this fact if you are on the same plane of existence. If you are on a different plane, it returns to the place where you bound it and remains there until the spell ends. Using a Higher-Level Spell Slot. The duration increases with a spell slot of level 6 (10 days), 7 (30 days), 8 (180 days), and 9 (366 days).",
+    "duration": "24 hours",
     "ritual": false,
     "concentration": false,
     "desc": {
@@ -6015,8 +6015,8 @@
       "cleric"
     ],
     "castingTime": "Action",
-    "range": "60 feet Component: V",
-    "components": "",
+    "range": "60 feet",
+    "components": "V",
     "duration": "Instantaneous",
     "ritual": false,
     "concentration": false,
@@ -6042,8 +6042,8 @@
       "wizard"
     ],
     "castingTime": "Action",
-    "range": "60 feet Component: V",
-    "components": "",
+    "range": "60 feet",
+    "components": "V",
     "duration": "Instantaneous",
     "ritual": false,
     "concentration": false,
@@ -6606,8 +6606,8 @@
       "druid"
     ],
     "castingTime": "Action",
-    "range": "Touch Component: V, S",
-    "components": "",
+    "range": "Touch",
+    "components": "V, S",
     "duration": "Concentration, up to 1 minute",
     "ritual": false,
     "concentration": true,
@@ -6633,7 +6633,7 @@
     "castingTime": "1 hour",
     "range": "Touch",
     "components": "V, S, M (a diamond worth 1,000+ GP,",
-    "duration": "Instantaneous With a touch, you revive a dead creature that has been dead for no more than a century, didn’t die of old age, and wasn’t Undead when it died. The creature returns to life with all its Hit Points. This spell also neutralizes any poisons that affected the creature at the time of death. This spell closes all mortal wounds and restores any missing body parts. Coming back from the dead is an ordeal. The tar- get takes a −4 penalty to D20 Tests. Every time the target finishes a Long Rest, the penalty is reduced by 1 until it becomes 0. Casting this spell to revive a creature that has been dead for 365 days or longer taxes you. Until you finish a Long Rest, you can’t cast spells again, and you have Disadvantage on D20 Tests.",
+    "duration": "Instantaneous",
     "ritual": false,
     "concentration": false,
     "desc": {
@@ -6833,8 +6833,8 @@
       "paladin"
     ],
     "castingTime": "Bonus Action, which you take immedi-",
-    "range": "Self Component: V",
-    "components": "",
+    "range": "Self",
+    "components": "V",
     "duration": "1 minute",
     "ritual": false,
     "concentration": false,
@@ -7108,8 +7108,8 @@
       "paladin"
     ],
     "castingTime": "Bonus Action, which you take immedi-",
-    "range": "Self Component: V",
-    "components": "",
+    "range": "Self",
+    "components": "V",
     "duration": "Concentration, up to 1 minute",
     "ritual": false,
     "concentration": true,
@@ -7211,7 +7211,7 @@
     "castingTime": "12 hours",
     "range": "Touch",
     "components": "V, S, M (powdered ruby worth 1,500+ GP,",
-    "duration": "Until dispelled You create a simulacrum of one Beast or Humanoid that is within 10 feet of you for the entire casting of the spell. You finish the casting by touching both the creature and a pile of ice or snow that is the same size as that creature, and the pile turns into the simulacrum, which is a creature. It uses the game statistics of the original creature at the time of cast- ing, except it is a Construct, its Hit Point maximum is half as much, and it can’t cast this spell. The simulacrum is Friendly to you and creatures you designate. It obeys your commands and acts on your turn in combat. The simulacrum can’t gain lev- els, and it can’t take Short or Long Rests. If the simulacrum takes damage, the only way to restore its Hit Points is to repair it as you take a Long Rest, during which you expend components worth 100 GP per Hit Point restored. The simula- crum must stay within 5 feet of you for the repair. The simulacrum lasts until it drops to 0 Hit Points, at which point it reverts to snow and melts away. If you cast this spell again, any simulacrum you cre- ated with this spell is instantly destroyed.",
+    "duration": "Until dispelled",
     "ritual": false,
     "concentration": false,
     "desc": {
@@ -7311,8 +7311,8 @@
       "sorcerer"
     ],
     "castingTime": "Action",
-    "range": "120 feet Component: V, S",
-    "components": "",
+    "range": "120 feet",
+    "components": "V, S",
     "duration": "Instantaneous",
     "ritual": false,
     "concentration": false,
