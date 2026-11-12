@@ -40,6 +40,10 @@ export function trainingLines(char, lang = 'pt') {
     if (weapons.martialProps.size) parts.push(L(lang, 'marciais com Acuidade ou Leves', 'martial Finesse or Light'));
     if (parts.length) out.push({ key: 'weapons', label: L(lang, 'Armas', 'Weapons'), text: parts.join(', ') });
   }
+  // Resistências concedidas por escolhas (Dádiva da Resistência a Energia…).
+  let res = [];
+  try { res = [...new Set(Utils.classGrants(char).resistances || [])]; } catch { res = []; }
+  if (res.length) out.push({ key: 'resistances', label: L(lang, 'Resistências', 'Resistances'), text: res.map(d => Utils.damageLabel(d, lang)).join(', ') });
   return out;
 }
 

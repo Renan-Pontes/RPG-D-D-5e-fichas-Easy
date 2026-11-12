@@ -3,7 +3,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { PROGRESSION_RULES, PROGRESSION_RULES_2024 } from '../frontend/src/progression/rules.js';
 import { CLASS_OPTIONS } from '../frontend/data/class-options/index.js';
-import { SPECIES_RESOURCES } from '../frontend/src/progression/resources.js';
+import { SPECIES_RESOURCES, FEAT_RESOURCES } from '../frontend/src/progression/resources.js';
 import { FEATS } from '../frontend/data/feats.js';
 import { speciesSpellTable } from '../frontend/src/progression/species.js';
 import { packsForBackend } from '../frontend/src/items/packs.js';
@@ -50,9 +50,11 @@ const feats = FEATS.map(f => ({
 // Espécies: só truques/magias (por linhagem e nível), para o apply_autos do servidor.
 const species = speciesSpellTable();
 const speciesResources = Object.fromEntries(Object.entries(SPECIES_RESOURCES).map(([rv, bySpecies]) => [rv, Object.fromEntries(Object.entries(bySpecies).map(([sp, list]) => [sp, list.map(r => pick(r, ['id', 'uses', 'recharge', 'minLevel']))]))]));
+// Talentos com usos (Sorte, Adepto Marcial…): chave `feat.<id-base>`, nível = nível total.
+const featResources = Object.fromEntries(Object.entries(FEAT_RESOURCES).map(([rv, byFeat]) => [rv, Object.fromEntries(Object.entries(byFeat).map(([id, r]) => [id, pick(r, ['id', 'uses', 'recharge', 'die'])]))]));
 // Pacotes de equipamento: nomes que reconhecem o pacote, itens de dentro por regra (api/packs.py).
 const packs = packsForBackend();
-const text = JSON.stringify({ legacy: convert(PROGRESSION_RULES), current: convert(PROGRESSION_RULES_2024), options, feats, species, speciesResources, packs }, null, 2) + '\n';
+const text = JSON.stringify({ legacy: convert(PROGRESSION_RULES), current: convert(PROGRESSION_RULES_2024), options, feats, species, speciesResources, featResources, packs }, null, 2) + '\n';
 if (process.argv.includes('--check')) {
   if (readFileSync(output, 'utf8') !== text) throw new Error('Run node scripts/sync-rules.mjs to update backend rules.');
 } else writeFileSync(output, text);

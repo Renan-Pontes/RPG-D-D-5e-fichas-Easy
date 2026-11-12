@@ -18,6 +18,7 @@ const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 export default function ResourcesCard({ char, lang, update, canRestore = !!char.cheatMode && !char.inCampaign, local = false, features = [], multiclass = false, showDesc = false }) {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(() => new Set());   // recursos com a descrição aberta
+  const [stale, setStale] = useState(() => new Set()); // recursos de talento que o servidor ainda não conhece
   const toggle = (k) => setOpen(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const list = computeResources(char);
   const keys = new Set(list.map(r => r.key));
@@ -36,7 +37,10 @@ export default function ResourcesCard({ char, lang, update, canRestore = !!char.
     try {
       if (!local && typeof char.id === 'number') {
         const res = await api.resource(char.id, { key: r.key, action: delta > 0 ? 'use' : 'restore', amount: Math.abs(delta) });
-        update({ resourcesUsed: res.character.data.resourcesUsed || {} });
+        const used = res.character.data.resourcesUsed || {};
+        // Servidor ainda sem a tabela de recursos de talento: a chave volta igual.
+        if (r.key.startsWith('feat.') && (used[r.key] || 0) === r.used) setStale(x => new Set(x).add(r.key));
+        update({ resourcesUsed: used });
       } else {
         update({ resourcesUsed: spendResource(char, r.key, delta).resourcesUsed });
       }
@@ -71,7 +75,8 @@ export default function ResourcesCard({ char, lang, update, canRestore = !!char.
                   const name = (
                     <>
                       <span className="fh-res-name">{r.name[lang]}{r.die ? ` (${r.die})` : ''}</span>
-                      {multi && <span className="text-xs muted"> · {r.classId === 'species' ? t(lang, 'espécie', 'species') : tName('class', r.classId, lang)}</span>}
+                      {multi && <span className="text-xs muted"> · {r.classId === 'species' ? t(lang, 'espécie', 'species') : r.classId === 'feat' ? t(lang, 'talento', 'feat') : tName('class', r.classId, lang)}</span>}
+                      {stale.has(r.key) && <span className="text-xs muted fh-res-stale"> · {t(lang, 'aguardando atualização do servidor', 'waiting for server update')}</span>}
                       {own && <span className="fh-origin">{levelTag(own, multiclass && !multi, lang)}</span>}
                       {partial && <span className="text-xs muted fh-res-partial">{partial}</span>}
                     </>

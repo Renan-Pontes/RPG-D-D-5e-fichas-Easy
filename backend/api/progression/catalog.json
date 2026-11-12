@@ -34617,6 +34617,45 @@
       ]
     }
   },
+  "featResources": {
+    "2014": {
+      "lucky": {
+        "id": "lucky",
+        "uses": {
+          "fixed": 3
+        },
+        "recharge": "long"
+      },
+      "martialAdept": {
+        "id": "martialAdept",
+        "uses": {
+          "fixed": 1
+        },
+        "recharge": "short",
+        "die": {
+          "byLevel": {
+            "1": "d6"
+          }
+        }
+      },
+      "metamagicAdept": {
+        "id": "metamagicAdept",
+        "uses": {
+          "fixed": 2
+        },
+        "recharge": "long"
+      }
+    },
+    "2024": {
+      "lucky": {
+        "id": "lucky",
+        "uses": {
+          "profBonus": true
+        },
+        "recharge": "long"
+      }
+    }
+  },
   "packs": {
     "names": {
       "mochila do explorador": "explorer",

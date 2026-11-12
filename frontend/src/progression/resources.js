@@ -87,6 +87,19 @@ export const SPECIES_RESOURCES = {
   },
 };
 
+// Talentos com usos (chave pelo id-base do talento). Espelho esperado em resources.py
+// (catalog.json → featResources). Até o backend ler isso, o servidor ignora estas chaves.
+export const FEAT_RESOURCES = {
+  '2024': {
+    lucky: { id: 'lucky', name: b('Pontos de Sorte', 'Luck Points'), uses: { profBonus: true }, recharge: 'long' },
+  },
+  '2014': {
+    lucky: { id: 'lucky', name: b('Pontos de Sorte', 'Luck Points'), uses: { fixed: 3 }, recharge: 'long' },
+    martialAdept: { id: 'martialAdept', name: b('Dado de Superioridade (Adepto Marcial)', 'Superiority Die (Martial Adept)'), uses: { fixed: 1 }, recharge: 'short', die: { byLevel: { 1: 'd6' } } },
+    metamagicAdept: { id: 'metamagicAdept', name: b('Pontos de Feitiçaria (Adepto Metamágico)', 'Sorcery Points (Metamagic Adept)'), uses: { fixed: 2 }, recharge: 'long' },
+  },
+};
+
 /** Recursos ativos da ficha (todas as classes), com máximo e gasto atuais. */
 export function computeResources(character) {
   const rules = character.rulesVersion === '2024' ? '2024' : '2014';
@@ -95,6 +108,13 @@ export function computeResources(character) {
   for (const r of SPECIES_RESOURCES[rules][character.race] || []) {
     if (total < (r.minLevel || 1)) continue;
     const res = build(character, 'species', r, `species.${r.id}`, total);
+    if (res) out.push(res);
+  }
+  for (const f of Array.isArray(character.feats) ? character.feats : []) {
+    const base = String(f?.id || '').replace(/2014$/, '');
+    const r = FEAT_RESOURCES[rules][base];
+    if (!r || out.some(x => x.key === `feat.${base}`)) continue;
+    const res = build(character, 'feat', r, `feat.${base}`, total);
     if (res) out.push(res);
   }
   for (const entry of classEntries(character)) {
