@@ -12,7 +12,7 @@
 //    → fica como pendente.
 
 export const ASI_ID = 'abilityScoreImprovement';
-const KIND_ORDER = { species: 0, background: 1, class: 2, asi: 3, feat: 4 };
+const KIND_ORDER = { species: 0, background: 1, multiclass: 2, class: 3, choice: 4, asi: 5, feat: 6 };
 
 /** Nível do personagem em que a classe chegou a `classLevel` (null = ainda não chegou). */
 export function charLevelOf(seq, classId, classLevel) {
@@ -27,7 +27,7 @@ export function charLevelOf(seq, classId, classLevel) {
  * entries: [{ level, kind, key, item, later }] em ordem; kinds: species | background |
  * class | asi | feat. `item` = { name:{pt,en}, desc:{pt,en}, picks? } (formato do FhFeatureItem).
  */
-export function buildTimeline({ level = 1, seq = [], classItems = [], speciesTraits = [], feats = [], background = null, levelChoices = {}, asiText = null }) {
+export function buildTimeline({ level = 1, seq = [], classItems = [], speciesTraits = [], feats = [], background = null, levelChoices = {}, asiText = null, pending = [], multiclass = [], extras = [] }) {
   const out = [];
   const both = (v) => (v && typeof v === 'object' ? { pt: v.pt ?? v.en ?? '', en: v.en ?? v.pt ?? '' } : { pt: v || '', en: v || '' });
   speciesTraits.forEach((tr, i) => {
@@ -50,6 +50,20 @@ export function buildTimeline({ level = 1, seq = [], classItems = [], speciesTra
     }
     out.push({ level: lv, kind: 'class', key: `c:${it.key || it.id}:${lv}`, classId: it.classId, item: it, later: lv > level });
   }
+  // Decisões pendentes da engine (invocações, dádiva, metamagia, subclasse, ASI quando a
+  // classe não traz o traço de ASI). `level` = nível do personagem.
+  const asiAt = new Set(out.filter(e => e.kind === 'asi').map(e => e.level));
+  pending.filter(c => !(c.type === 'asiOrFeat' && asiAt.has(c.level))).forEach((c, i) => {
+    out.push({ level: c.level, kind: 'choice', key: `pc:${i}`, classId: c.classId, choice: c, pending: true, later: false,
+      item: { name: both({ pt: c.reason, en: c.reasonEn || c.reason }), desc: both('') } });
+  });
+  // Proficiências ao entrar numa classe por multiclasse: no nível em que entrou.
+  multiclass.forEach(m => {
+    const lv = charLevelOf(seq, m.classId, 1);
+    if (lv != null) out.push({ level: lv, kind: 'multiclass', key: `mc:${m.classId}`, classId: m.classId, item: { name: both(m.name), desc: both(m.text) }, later: false });
+  });
+  // Outros itens já com nível do personagem (truques automáticos da subclasse…).
+  extras.forEach((x, i) => out.push({ later: x.level > level, ...x, key: x.key || `x:${i}`, item: { ...x.item, name: both(x.item.name), desc: both(x.item.desc) } }));
   feats.forEach((f, i) => {
     const lv = f.origin === 'background' || f.origin === 'species' ? 1 : Math.max(1, +f.level || 1);
     out.push({ level: lv, kind: 'feat', key: `f:${i}`, feat: f, later: lv > level });

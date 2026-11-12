@@ -34,7 +34,9 @@ import * as Forks from '../src/sheet/forks.js';
 import HpTracker from '../src/sheet/HpTracker.jsx';
 import { RestModeContext } from '../src/sheet/rest-mode.jsx';
 import { hpFormula, hitDicePools, hitDiceLeftLabel } from '../src/sheet/hp-logic.js';
-import { buildTimeline, byLevel, byTier, tierOf, classesAt } from '../src/sheet/feature-timeline.js';
+import { buildTimeline, byLevel, byTier, tierOf, classesAt, charLevelOf } from '../src/sheet/feature-timeline.js';
+import { computeProgression } from '../src/progression/engine.js';
+import { subclassLevelOf } from '../src/progression/subclass-lock.js';
 import '../src/sheet/versions.css';
 import BeltMultiRoll, { pairBeltSlots, rollBeltPairs } from '../src/dice/BeltMultiRoll.jsx';
 import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
@@ -3976,8 +3978,14 @@ export const SheetTools = ({ char, lang, update, placed, embedded = false }) => 
 // Linha do tempo de traços (src/sheet/feature-timeline.js): classe/subclasse no nível do
 // personagem em que vieram, espécie no nível de cada traço, talentos no nível em que
 // substituíram o Aumento no Valor de Atributo. Um trilho dourado com os níveis à esquerda.
-const FeatureTimeline = ({ char, lang, placed, cls, race, update }) => {
+export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race: raceIn, update, onResolveChoice, onResolveOptions, title = null }) => {
   const pt = lang === 'pt';
+  // Fonte única (aba Características e painel Progressão): os mesmos traços posicionados,
+  // escolhas de classe, pendências da engine, proficiências de multiclasse e truques automáticos.
+  const placed = placedIn || (() => { try { return placeFeatures(char); } catch { return placeFeatures({}); } })();
+  const cls = clsIn || SRD.CLASSES.find(c => c.id === char.className);
+  const race = raceIn !== undefined ? raceIn : Utils.races(char).find(r => r.id === char.race);
+  const prog = (() => { try { return computeProgression(char); } catch { return null; } })();
   const multi = !!placed?.multi;
   const seq = (() => { try { return Utils.classSequence(char); } catch { return []; } })();
   const srd = !(placed?.items || []).length && char.rulesVersion !== '2024' ? (cls?.features || []) : [];
@@ -3986,6 +3994,17 @@ const FeatureTimeline = ({ char, lang, placed, cls, race, update }) => {
     ...(placed?.orphanPicks || []),
     ...srd.map((f, i) => ({ key: `srd-${i}`, classId: char.className, level: 1, name: { pt: f.name, en: f.name }, desc: { pt: f.desc, en: f.desc } })),
   ];
+  const multiclass = (prog?.classes || []).filter(e => !e.primary).map(e => ({
+    classId: e.id,
+    name: { pt: `Multiclasse: ${tName('class', e.id, 'pt')}`, en: `Multiclass: ${tName('class', e.id, 'en')}` },
+    text: Utils.multiclassProfs(char, e.id) || '',
+  }));
+  const autoLv = (() => { try { return charLevelOf(seq, char.className, subclassLevelOf(char)) || subclassLevelOf(char); } catch { return 3; } })();
+  const extras = (prog?.autoCantrips || []).length ? [{
+    level: autoLv, kind: 'class', classId: char.className, key: 'autocantrips',
+    item: { name: { pt: 'Truques automáticos da subclasse', en: 'Subclass auto cantrips' },
+      desc: { pt: prog.autoCantrips.map(id => tName('spellName', id, 'pt')).join(', '), en: prog.autoCantrips.map(id => tName('spellName', id, 'en')).join(', ') } },
+  }] : [];
   const bgf = backgroundFeature(char, lang);
   const entries = buildTimeline({
     level: char.level || 1, seq, classItems,
@@ -3994,6 +4013,7 @@ const FeatureTimeline = ({ char, lang, placed, cls, race, update }) => {
     background: bgf ? { name: bgf.name, desc: bgf.desc } : null,
     levelChoices: char.levelChoices || {},
     asiText: (asi) => Object.entries(asi || {}).map(([k, v]) => `${t(k + 'Sh', lang)} +${v}`).join(', '),
+    pending: prog?.pendingChoices || [], multiclass, extras,
   });
   if (!entries.length) return null;
   const tagOf = (e) => {
@@ -4001,6 +4021,8 @@ const FeatureTimeline = ({ char, lang, placed, cls, race, update }) => {
     if (e.kind === 'background') return pt ? 'Antecedente' : 'Background';
     if (e.kind === 'feat') return e.feat.origin === 'background' ? (pt ? 'Talento · antecedente' : 'Feat · background') : e.feat.origin === 'species' ? (pt ? 'Talento · espécie' : 'Feat · species') : (pt ? 'Talento no lugar do ASI' : 'Feat instead of ASI');
     if (e.kind === 'asi') return e.pending ? (pt ? 'ASI · escolha pendente' : 'ASI · choice pending') : 'ASI';
+    if (e.kind === 'choice') return pt ? 'Pendente' : 'Pending';
+    if (e.kind === 'multiclass') return pt ? 'Multiclasse' : 'Multiclass';
     return multi ? tName('class', e.classId, lang) : (cls?.name?.[lang] || tName('class', char.className, lang));
   };
   const itemOf = (e) => {
@@ -4015,12 +4037,22 @@ const FeatureTimeline = ({ char, lang, placed, cls, race, update }) => {
     ].filter(Boolean).join(' · ');
     return { name: { pt: name, en: name }, desc: { pt: bits, en: bits } };
   };
+  // Botão "Escolher agora" nas pendências (quando quem usa a linha do tempo resolve escolhas)
+  const actionOf = (e) => {
+    if (!e.pending) return null;
+    const c = e.choice;
+    const go = c?.type === 'classOption' ? (onResolveOptions && (() => onResolveOptions(c.classId || char.className)))
+      : (c?.type === 'asiOrFeat' || c?.type === 'epicBoon' || e.kind === 'asi') ? (onResolveChoice && (() => onResolveChoice(e.level)))
+      : null;
+    if (!go) return null;
+    return <button type="button" className="btn btn-sm btn-primary prog-choose" onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); go(); }}>{pt ? 'Escolher agora' : 'Choose now'}</button>;
+  };
   const now = char.level || 1;
   const cur = tierOf(now);
   // nível 1 sempre existe: é onde ficam idiomas, proficiências e as escolhas da espécie
   const groups = byLevel(entries);
   if (!groups.length || groups[0].level !== 1) groups.unshift({ level: 1, entries: [] });
-  const origin = (
+  const origin = !update ? null : (
     <div className="fh-tl-origin">
       {race && <SpeciesTraits char={char} lang={lang} update={update} race={race} hideTraits embedded />}
       <div className="fh-tl-embed-h">{pt ? 'Idiomas e proficiências' : 'Languages & proficiencies'}</div>
@@ -4028,8 +4060,8 @@ const FeatureTimeline = ({ char, lang, placed, cls, race, update }) => {
     </div>
   );
   return (
-    <section className="fh-panel fh-timeline">
-      <FhTitle sub={<span className="fh-tl-now">{pt ? `Tier ${cur.tier} · ${cur.pt}` : `Tier ${cur.tier} · ${cur.en}`}</span>}>{pt ? 'Linha do tempo' : 'Timeline'}</FhTitle>
+    <section className={title === false ? 'fh-timeline fh-timeline-bare' : 'fh-panel fh-timeline'}>
+      {title !== false && <FhTitle sub={<span className="fh-tl-now">{pt ? `Tier ${cur.tier} · ${cur.pt}` : `Tier ${cur.tier} · ${cur.en}`}</span>}>{pt ? 'Linha do tempo' : 'Timeline'}</FhTitle>}
       <ol className="fh-tl">
         {byTier(groups).map(tr => (
           <li key={tr.tier} className={`fh-tl-tier${tr.tier === cur.tier ? ' is-current' : ''}${tr.from > now ? ' is-later' : ''}`}>
@@ -4059,7 +4091,10 @@ const FeatureTimeline = ({ char, lang, placed, cls, race, update }) => {
                       <FhFeatures items={[]} lang={lang} label={null}>
                         {g.entries.map(e => (
                           <FhFeatureItem key={e.key} item={itemOf(e)} lang={lang}
-                            tag={<span className={`fh-tl-tag is-${e.kind}${e.pending ? ' is-pending' : ''}${e.later ? ' is-later' : ''}`}>{tagOf(e)}{e.later ? (pt ? ' · próximo' : ' · next') : ''}</span>} />
+                            tag={<>
+                              <span className={`fh-tl-tag is-${e.kind}${e.pending ? ' is-pending' : ''}${e.later ? ' is-later' : ''}`}>{tagOf(e)}{e.later ? (pt ? ' · próximo' : ' · next') : ''}</span>
+                              {actionOf(e)}
+                            </>} />
                         ))}
                       </FhFeatures>
                     )}

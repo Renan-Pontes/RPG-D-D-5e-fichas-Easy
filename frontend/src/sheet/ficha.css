@@ -6616,3 +6616,6 @@
 .ficha .prog-tl-desc { padding: 6px 0 2px; font-size: .85rem; color: var(--ink-secondary); }
 .ficha .prog-tl-row.is-pending { border: 1px dashed rgba(201,162,74,.55); background: rgba(201,162,74,.06); }
 .ficha .fh-tl-tag.is-pending { color: var(--amber, #e0a64a); border-color: currentColor; }
+/* pendência: etiqueta e "Escolher agora" na mesma linha */
+.ficha .fh-timeline .fh-origin:has(.prog-choose) { display: inline-flex; align-items: center; gap: 8px; border: 0; padding: 0; background: none; }
+.ficha .fh-timeline .fh-origin .prog-choose { padding: 4px 12px; font-size: 0.7rem; min-height: 0; }
