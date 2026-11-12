@@ -74,6 +74,7 @@
  * aqui eles aparecem porque podem ser pegos em qualquer vaga de talento por quem
  * tem a característica Estilo de Luta.
  */
+import SRD_FEAT_TEXT from './srd-feats-text.json' with { type: 'json' };
 import { SHARED } from './class-options/shared.js';
 
 const b = (pt, en) => ({ pt, en });
@@ -556,6 +557,13 @@ const FEATS_2014 = [...PHB_2014, ...XGE_2014, ...TCE_2014, ...OTHER_2014]
   .map(f => (IDS_2024.has(f.id) ? { ...f, id: `${f.id}2014`, base: f.id } : f));
 
 export const FEATS = [...ORIGIN_2024, ...GENERAL_2024, ...FIGHTING_STYLE_2024, ...EPIC_2024, ...FEATS_2014];
+
+// Texto oficial 1:1 (inglês) dos talentos do SRD 5.2.1 e do Agarrador do SRD 5.1 (CC-BY-4.0).
+// Talentos de livros pagos ficam só com o resumo original acima.
+for (const f of FEATS) {
+  const t = SRD_FEAT_TEXT[f.id];
+  if (t) f.srdText = { en: t.en, meta: t.meta, src: t.src };
+}
 
 const BY_ID = new Map(FEATS.map(f => [f.id, f]));
 

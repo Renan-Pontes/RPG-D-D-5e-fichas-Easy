@@ -330,6 +330,12 @@ export default function FeatPicker({ char, lang, level, kind, hasFightingStyle, 
             <button type="button" className="btn btn-ghost" onClick={() => onChange({ type: 'feat', feat: '' })}>{L(lang, 'Trocar', 'Change')}</button>
           </div>
           <div className="text-sm" style={{ margin: '6px 0 10px', color: 'var(--ink-secondary)' }}>{selected.desc[lang]}</div>
+          {selected.srdText && (
+            <details className="fh-feat-srd" style={{ margin: '0 0 10px' }}>
+              <summary className="text-xs muted">{L(lang, 'Texto oficial', 'Official text')} · {selected.srdText.src}</summary>
+              <div className="text-sm" lang="en" style={{ whiteSpace: 'pre-line', marginTop: 6 }}>{selected.srdText.en}</div>
+            </details>
+          )}
           {selected.asi && <FeatAsi char={char} lang={lang} feat={selected} asi={value.asi || {}} onChange={asi => onChange({ ...value, asi })} />}
           <FeatChoices char={char} lang={lang} feat={selected} level={level} picks={value.picks || {}} onChange={picks => onChange({ ...value, picks })} />
         </div>
