@@ -1578,6 +1578,15 @@ const ConditionsPanel = ({ char, lang, update , embedded = false }) => {
   // Só o que está ativo fica à vista; a lista completa abre sob demanda.
   return (
     <section className={embedded ? 'fh-cond-embed' : 'fh-panel'}>
+      {/* Embutido no painel Vitalidade: sem título, só o botão (e a dica) no canto */}
+      {embedded ? (
+        <div className="fh-cond-bar">
+          <GrimoireHint id="condicoes" lang={lang} />
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(o => !o)}>
+            {open ? (pt ? 'Fechar' : 'Close') : (pt ? '+ Condição' : '+ Condition')}
+          </button>
+        </div>
+      ) : (
       <FhTitle
         hint={<GrimoireHint id="condicoes" lang={lang} />}
         act={(
@@ -1586,7 +1595,8 @@ const ConditionsPanel = ({ char, lang, update , embedded = false }) => {
           </button>
         )}
       >{pt ? 'Condições e efeitos' : 'Conditions & effects'}</FhTitle>
-      {!active.length && !temps.length && !open && (
+      )}
+      {!embedded && !active.length && !temps.length && !open && (
         <div className="text-sm muted">{pt ? 'Nenhuma condição ativa.' : 'No active conditions.'}</div>
       )}
       {/* Pílulas com ícone (src/sheet/ficha.css). A condição ligada também muda a
@@ -1809,7 +1819,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
   const panels = [
     { h: PLAY_H.hp + featsH(feats.defense.length) + featsH(feats.movement.length), el: (
         <section key="hp" className={`hp-tracker fh-panel fh-hp${fxKind === 'heal' ? ` fh-healed-${fxBeat}` : ''}`} data-state={state}>
-          <FhTitle>{t('hp', lang)}</FhTitle>
+          <FhTitle>{pt ? 'Vitalidade' : 'Vitality'}</FhTitle>
           <div className="fh-hp-row">
             {/* CA e PV: dois medalhões gêmeos, mesmo tamanho e estilo, centrados */}
             <div className="fh-hp-ac">

@@ -425,3 +425,6 @@
 
 /* Condições e efeitos embutidas no painel de saúde, acima da barra de PV */
 .ficha .fh-hp .fh-cond-embed { margin: 14px 0 6px; padding-top: 10px; border-top: 1px solid rgba(184,145,74,.22); }
+.ficha .fh-hp .fh-cond-embed { margin: 12px 0 4px; padding-top: 0; border-top: 0; position: relative; }
+.ficha .fh-cond-bar { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
+.ficha .fh-cond-embed .cond-chips:not(:empty) { margin-top: 6px; }
