@@ -4089,14 +4089,24 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
               <span className="fh-tl-tier-n">Tier {tr.tier}</span>
               <span className="fh-tl-tier-t">{pt ? tr.pt : tr.en}</span>
               <span className="fh-tl-tier-r">{pt ? `Nv. ${tr.from}–${tr.to}` : `Lv ${tr.from}–${tr.to}`}</span>
+              {(() => {
+                const n = tr.levels.reduce((k, g) => k + g.entries.filter(e => e.pending).length, 0);
+                return n ? <span className="fh-tl-badge is-tier" title={pt ? `${n} pendente(s) neste tier` : `${n} pending in this tier`}>{n}</span> : null;
+              })()}
             </div>
             <ol className="fh-tl-levels">
               {tr.levels.map(g => (
                 <li key={g.level} className={`fh-tl-level${g.level > now ? ' is-later' : ''}${g.level === now ? ' is-now' : ''}${isOpen(g) ? '' : ' is-folded'}`}>
                   {/* o marcador do nível abre/fecha o conteúdo dele (acordeão) */}
                   <button type="button" className="fh-tl-node" aria-expanded={isOpen(g)}
-                    aria-label={pt ? `Nível ${g.level}: ${isOpen(g) ? 'recolher' : 'expandir'}` : `Level ${g.level}: ${isOpen(g) ? 'collapse' : 'expand'}`}
-                    onClick={() => toggle(g)}>{g.level}</button>
+                    aria-label={(pt ? `Nível ${g.level}: ${isOpen(g) ? 'recolher' : 'expandir'}` : `Level ${g.level}: ${isOpen(g) ? 'collapse' : 'expand'}`) + (g.entries.some(e => e.pending) ? (pt ? ' · tem escolhas pendentes' : ' · has pending choices') : '')}
+                    onClick={() => toggle(g)}>{g.level}
+                    {(() => {
+                      // contador de escolhas pendentes neste marcador (estilo notificação)
+                      const n = g.entries.filter(e => e.pending).length;
+                      return n ? <span className="fh-tl-badge" aria-label={pt ? `${n} ${n === 1 ? 'escolha pendente' : 'escolhas pendentes'}` : `${n} pending ${n === 1 ? 'choice' : 'choices'}`}>{n}</span> : null;
+                    })()}
+                  </button>
                   {!isOpen(g) && (
                     <button type="button" className="fh-tl-fold" onClick={() => toggle(g)}>
                       {classesAt(seq, g.level).filter(c => c.up).map(c => `${tName('class', c.id, lang)} ${c.level}`).join(' · ')}
