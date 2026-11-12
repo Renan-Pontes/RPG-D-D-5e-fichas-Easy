@@ -6762,3 +6762,7 @@
 /* Respiro seguro entre blocos do cabeçalho (nada encosta: sem tangentes) */
 .ficha .fh-hero-header-row.is-stacked { gap: 12px !important; }
 .ficha .fh-hero-campbar .fh-hero-copies { margin-top: 2px; }
+/* Mesma largura útil em cima (corpo, com 24px de recuo de cada lado) e embaixo (dobra de classes) */
+@media (min-width: 900px) {
+  .ficha .fh-hero > .fh-hero-fold { max-width: calc(min(620px, 58%) - 48px); }
+}
