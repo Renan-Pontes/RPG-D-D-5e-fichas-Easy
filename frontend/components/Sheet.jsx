@@ -342,7 +342,8 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
 
     // Check if touch originated inside inputs, sliders, belt components, or overlays
     const el = start.target;
-    if (el && el.closest('input, textarea, select, [contenteditable], button[role="slider"], .fh-belt, .fh-belt-badge, .fh-belt-header, .fh-belt-slot, .modal, .dice-overlay')) {
+    // controles que se arrastam na horizontal (barras de PV/PV temp., sliders) nunca trocam de aba
+    if (el && el.closest('input, textarea, select, [contenteditable], [role="slider"], .fh-dragbar, .fh-knob, .fh-pips, [data-no-swipe], .fh-belt, .fh-belt-badge, .fh-belt-header, .fh-belt-slot, .modal, .dice-overlay')) {
       return;
     }
 
@@ -4061,6 +4062,10 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
   };
   const now = char.level || 1;
   const cur = tierOf(now);
+  // Acordeão: começam abertos o nível atual e os que têm escolha pendente; o resto, fechado
+  const [openMap, setOpenMap] = useState({});
+  const isOpen = (g) => openMap[g.level] ?? (g.level === now || g.entries.some(e => e.pending));
+  const toggle = (g) => setOpenMap(m => ({ ...m, [g.level]: !isOpen(g) }));
   // nível 1 sempre existe: é onde ficam idiomas, proficiências e as escolhas da espécie
   const groups = byLevel(entries);
   if (!groups.length || groups[0].level !== 1) groups.unshift({ level: 1, entries: [] });
@@ -4084,9 +4089,18 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
             </div>
             <ol className="fh-tl-levels">
               {tr.levels.map(g => (
-                <li key={g.level} className={`fh-tl-level${g.level > now ? ' is-later' : ''}${g.level === now ? ' is-now' : ''}`}>
-                  <span className="fh-tl-node" aria-label={pt ? `Nível ${g.level}` : `Level ${g.level}`}>{g.level}</span>
-                  <div className="fh-tl-body">
+                <li key={g.level} className={`fh-tl-level${g.level > now ? ' is-later' : ''}${g.level === now ? ' is-now' : ''}${isOpen(g) ? '' : ' is-folded'}`}>
+                  {/* o marcador do nível abre/fecha o conteúdo dele (acordeão) */}
+                  <button type="button" className="fh-tl-node" aria-expanded={isOpen(g)}
+                    aria-label={pt ? `Nível ${g.level}: ${isOpen(g) ? 'recolher' : 'expandir'}` : `Level ${g.level}: ${isOpen(g) ? 'collapse' : 'expand'}`}
+                    onClick={() => toggle(g)}>{g.level}</button>
+                  {!isOpen(g) && (
+                    <button type="button" className="fh-tl-fold" onClick={() => toggle(g)}>
+                      {classesAt(seq, g.level).filter(c => c.up).map(c => `${tName('class', c.id, lang)} ${c.level}`).join(' · ')}
+                      <span className="fh-tl-fold-n">{g.entries.length} {pt ? (g.entries.length === 1 ? 'item' : 'itens') : (g.entries.length === 1 ? 'item' : 'items')}{g.entries.some(e => e.pending) ? (pt ? ' · pendente' : ' · pending') : ''}</span>
+                    </button>
+                  )}
+                  {isOpen(g) && <div className="fh-tl-body">
                     {/* classes neste nível; a seta dourada marca a classe que subiu */}
                     {classesAt(seq, g.level).length > 0 && (
                       <div className="fh-tl-classes">
@@ -4111,7 +4125,7 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
                       </FhFeatures>
                     )}
                     {g.level === 1 && origin}
-                  </div>
+                  </div>}
                 </li>
               ))}
             </ol>

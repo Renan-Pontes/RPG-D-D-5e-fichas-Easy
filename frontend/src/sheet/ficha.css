@@ -6620,3 +6620,12 @@
 .ficha .fh-timeline .fh-origin:has(.prog-choose) { display: inline-flex; align-items: center; gap: 8px; border: 0; padding: 0; background: none; }
 .ficha .fh-timeline .fh-origin .prog-choose { padding: 4px 12px; font-size: 0.7rem; min-height: 0; }
 
+
+/* Linha do tempo em acordeão: o marcador do nível abre/fecha */
+.ficha button.fh-tl-node { cursor: pointer; padding: 0; font: inherit; transition: transform .15s ease, box-shadow .15s ease; }
+.ficha button.fh-tl-node:hover { box-shadow: 0 0 0 3px rgba(201,162,74,.25); }
+.ficha .fh-tl-level.is-folded > .fh-tl-node { opacity: .8; }
+.ficha .fh-tl-fold { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 32px; padding: 4px 10px; text-align: left;
+  font: 600 .8rem/1.3 var(--body); color: rgba(237,220,180,.7); background: rgba(255,255,255,.02); border: 1px dashed rgba(184,145,74,.25); border-radius: 4px; cursor: pointer; }
+.ficha .fh-tl-fold:hover { border-color: rgba(201,162,74,.6); color: var(--gold-bright); }
+.ficha .fh-tl-fold-n { margin-left: auto; font-weight: 400; opacity: .75; }
