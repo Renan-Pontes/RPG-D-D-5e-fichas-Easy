@@ -327,3 +327,25 @@
 .ficha .fh-hpt-row { min-height: var(--fh-gauge-h); }
 .ficha .fh-hpt-row .fh-pips-wrap { flex: 1; min-width: 0; }
 .ficha .fh-death-die { width: 28px; height: 28px; padding: 4px; }
+
+/* ── v1.0.71 ── */
+/* "Sangrando" centralizado na barra inteira, por cima do preenchimento (abaixo do botão) */
+.ficha .fh-hpt-bar .fh-hpt-bloodied {
+  z-index: 3; width: auto; right: 0; justify-content: center; padding: 0;
+  background: none; border-radius: 0; font-size: 0.6rem; letter-spacing: 0.22em;
+  color: #ffd5cc; text-shadow: 0 0 3px #000, 0 0 6px rgba(255, 60, 40, 0.9);
+}
+@keyframes fh-bloodied-pulse { 50% { color: #fff; text-shadow: 0 0 3px #000, 0 0 12px rgba(255, 60, 40, 1); } }
+/* rótulos internos legíveis: sem vincos atravessando, fundo limpo atrás do texto */
+.ficha .fh-hpt-row .fh-pips[data-label]::before { letter-spacing: 0.16em; font-size: 0.58rem; }
+/* deslizar ao soltar: botão e preenchimento com a mesma curva; nada durante o arrasto */
+.ficha .fh-dragbar .fh-knob { transition: left 0.42s cubic-bezier(.22, .9, .3, 1), background 0.15s; }
+.ficha .fh-dragbar .hp-bar-fill, .ficha .fh-dragbar .fh-hpt-temp-fill { transition: width 0.42s cubic-bezier(.22, .9, .3, 1); }
+.ficha .fh-dragbar.is-dragging .fh-knob, .ficha .fh-dragbar.is-dragging .hp-bar-fill, .ficha .fh-dragbar.is-dragging .fh-hpt-temp-fill { transition: none; }
+/* mesmo espaço entre todos os medidores: cada linha tem a altura do medidor; o dado da morte
+   não empurra a linha (sai para fora dela) */
+.ficha .fh-hpt { gap: 10px; }
+.ficha .fh-dragbar.is-temp { margin-top: 0; }
+.ficha .fh-hpt-row { min-height: 0; height: var(--fh-gauge-h); }
+.ficha .fh-hpt-row.is-death .fh-death-die { width: 26px; height: 26px; margin: -5px 0; padding: 4px; }
+.ficha .fh-hpt-rest { margin-top: 0; }

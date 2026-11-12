@@ -5,7 +5,7 @@
 // Arrastar: o número cresce exponencialmente com a distância, aparece numa lente sobre o
 // botão e entra ao soltar; o botão volta para a ponta. Com o descanso curto ligado, puxar a
 // barra de PV para a direita gasta Dados de Vida (rolagens) em vez de números fixos.
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   SLICES, EXHAUSTION_MAX, filledSlices, hitDicePools, exhaustionLevel, setExhaustion, toggleTo,
   hpSliderRange, deltaLabel, dragAmount, diceForDrag, pickDice, diceLabel, spendHitDiceRolls, deathSaveResult,
@@ -18,7 +18,7 @@ const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 // ── Silhueta dos medidores: pontas chanfradas e um vinco em V (em cima e embaixo) em cada
 // divisão. O mesmo polígono, em %, recorta o conteúdo (clip-path) e vira o contorno dourado
 // (SVG esticado): como todos os medidores têm a mesma largura e altura, o desenho bate.
-const CH = 1.6, NW = 0.9, ND = 26;   // chanfro das pontas (% da largura), meia-boca do vinco (% larg.), fundura (% altura)
+const CH = 1.6, NW = 0.9, ND = 17;   // chanfro das pontas (% da largura), meia-boca do vinco (% larg.), fundura (% altura)
 export function gaugePoints(n) {
   const xs = Array.from({ length: Math.max(0, n - 1) }, (_, i) => ((i + 1) / n) * 100);
   const top = [[CH, 0], ...xs.flatMap(x => [[x - NW, 0], [x, ND], [x + NW, 0]]), [100 - CH, 0]];
@@ -29,10 +29,8 @@ const clipOf = (n) => `polygon(${gaugePoints(n).map(([x, y]) => `${x.toFixed(2)}
 /** Contorno dourado + vincos; vai por cima do conteúdo do medidor (não pega toque). */
 function GaugeFrame({ n }) {
   const pts = gaugePoints(n).map(([x, y]) => `${x},${y}`).join(' ');
-  const xs = Array.from({ length: Math.max(0, n - 1) }, (_, i) => ((i + 1) / n) * 100);
   return (
     <svg className="fh-gauge-frame" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-      {xs.map(x => <line key={x} className="fh-gauge-crease" x1={x} y1={ND} x2={x} y2={100 - ND} vectorEffect="non-scaling-stroke" />)}
       <polygon className="fh-gauge-edge" points={pts} vectorEffect="non-scaling-stroke" />
       <polygon className="fh-gauge-shine" points={pts} vectorEffect="non-scaling-stroke" />
     </svg>
@@ -51,6 +49,7 @@ function DragBar({ className, pct, label, valueText, read, commit, disabled, chi
   const start = useRef(null);
   const [dx, setDx] = useState(0);
   const [drag, setDrag] = useState(false);
+  const [hold, setHold] = useState(null);   // posição em que o botão foi solto (veja `end`)
   // o botão nunca sai da barra: o arrasto é preso entre as duas pontas
   // o botão mora DENTRO do preenchimento, encostado na ponta dele: a borda direita do
   // botão é o fim da parte cheia (vazia = botão no começo da barra)
@@ -64,17 +63,34 @@ function DragBar({ className, pct, label, valueText, read, commit, disabled, chi
   // durante o arrasto o preenchimento acompanha o botão; ao soltar, os dois deslizam
   // (transição do CSS) até o valor que entrou
   const now = Math.max(0, Math.min(100, ((home + dx) / w) * 100));
+  const shown = drag ? now : (hold ?? Math.max(0, Math.min(100, pct)));
+  // Ao soltar, botão e preenchimento ficam onde o dedo largou (`hold`) até o valor novo
+  // chegar; aí deslizam dele até a posição certa. Sem isso o botão voltava à posição antiga
+  // e depois pulava para a nova (o vai-e-volta).
+  const lastPct = useRef(pct);
+  useEffect(() => {
+    if (pct === lastPct.current) return undefined;
+    lastPct.current = pct;
+    if (hold == null) return undefined;
+    const id = requestAnimationFrame(() => setHold(null));   // um quadro depois: a transição pega
+    return () => cancelAnimationFrame(id);
+  }, [pct]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (hold == null) return undefined;
+    const id = setTimeout(() => setHold(null), 900);          // nada mudou (valor 0): volta sozinho
+    return () => clearTimeout(id);
+  }, [hold]);
   const end = (apply) => {
-    if (apply && dx) commit(dx);
+    if (apply && dx) { setHold(now); commit(dx); }
     start.current = null; setDrag(false); setDx(0);
   };
   return (
     <div ref={ref} className={`fh-dragbar ${className}${drag ? ' is-dragging' : ''}${info?.tone ? ` is-${info.tone}` : ''}`}>
-      {typeof children === 'function' ? children(drag ? now : pct, drag) : children}
+      {typeof children === 'function' ? children(shown, drag) : children}
       {/* só o botão pega o arrasto (a barra em volta não) */}
       <span className="fh-knob" role="slider" tabIndex={disabled ? -1 : 0} aria-label={label}
         aria-valuetext={info ? info.label : valueText} aria-disabled={disabled || undefined}
-        style={{ width: knob, height: knob, marginTop: -r, left: `max(0px, calc(${(drag ? now : Math.max(0, Math.min(100, pct))) / 100} * 100% - ${knob}px))` }}
+        style={{ width: knob, height: knob, marginTop: -r, left: `max(0px, calc(${shown / 100} * 100% - ${knob}px))` }}
         onPointerDown={e => {
           if (disabled) return;
           e.preventDefault(); e.stopPropagation();
@@ -224,7 +240,6 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
               </div>
               <GaugeFrame n={SLICES} />
             </div>
-            <span className="fh-hpt-temp-tag" aria-hidden="true">{temp ? `+${temp} ${L(lang, 'temp', 'temp')}` : L(lang, 'temp', 'temp')}{hints.temp}</span>
           </>
         )}
       </DragBar>
@@ -239,7 +254,7 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
           <div className={`hp-bar fh-hpt-bar fh-gauge${bloodied ? ' is-bloodied' : ''}`} style={gaugeStyle(SLICES)} aria-hidden="true">
             {/* "Sangrando" escondido sob o preenchimento, na metade esquerda: aparece aos
                 poucos conforme os PV descem abaixo de 50% */}
-            <span className="fh-hpt-bloodied" aria-hidden="true">{L(lang, 'Sangrando', 'Bloodied')}</span>
+            {bloodied && <span className="fh-hpt-bloodied" aria-hidden="true">{L(lang, 'Sangrando', 'Bloodied')}</span>}
             <div className="fh-hp-ghost" style={{ width: `${hpPct}%` }} />
             <div className="hp-bar-fill" style={{ width: `${fill}%` }} />
             <div className="fh-hpt-slices">
