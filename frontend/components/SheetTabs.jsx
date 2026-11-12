@@ -85,7 +85,7 @@ const UsesTag = ({ uses, char, lang }) => {
  * Botões de descanso. Em campanha: chama backend (recurso autorizado pra dono
  * ou DM). Em standalone: aplica local.
  */
-const RestButtons = ({ char, lang, update }) => {
+const RestButtons = ({ char, lang, update, seals = false }) => {
   const [busy, setBusy] = useState(false);
   const rest = useRestMode();            // null fora da ficha: descansa direto, como antes
   // Depois do descanso longo: exaustão −1 e o gasto de Dados de Vida por tipo acertado.
@@ -164,6 +164,33 @@ const RestButtons = ({ char, lang, update }) => {
       {icon} {on === type ? (pt ? 'Concluir' : 'Finish') : (type === 'short' ? (pt ? 'Curto' : 'Short') : (pt ? 'Longo' : 'Long'))}
     </button>
   );
+  // Selos (linha do nome, depois da Inspiração): mesmo anel dos outros selos; descansando,
+  // o selo brilha com o ✓ orbitando (tocar de novo conclui) e um ✕ ao lado sai sem descansar.
+  if (seals) {
+    const seal = (type, icon, label) => (
+      <button key={type} type="button" className={`fh-seal hero-rest no-print is-${type}${on === type ? ' is-on' : ''}`}
+        onClick={() => press(type)} disabled={busy} aria-pressed={rest ? on === type : undefined}
+        aria-label={on === type ? (pt ? `Concluir: ${label}` : `Finish: ${label}`) : label}
+        title={on === type ? (pt ? 'Concluir o descanso' : 'Finish the rest') : label}>
+        <svg className="fh-seal-ring" viewBox="0 0 64 64" aria-hidden="true">
+          <circle cx="32" cy="32" r="30" fill="none" stroke="#e0b55e" strokeWidth="1.2" strokeDasharray="2 4"/>
+          <circle cx="32" cy="32" r="27" fill="none" stroke="#9a7231" strokeWidth="0.8"/>
+        </svg>
+        <span className="fh-seal-core"><span className="hero-rest-icon" aria-hidden="true">{icon}</span></span>
+        {on === type && <span className="hero-level-up hero-rest-pip" aria-hidden="true">✓</span>}
+      </button>
+    );
+    return (
+      <>
+        {seal('short', '☕', pt ? 'Descanso curto' : 'Short rest')}
+        {seal('long', '🛌', pt ? 'Descanso longo' : 'Long rest')}
+        {on && (
+          <button type="button" className="fh-rest-seal-cancel no-print" onClick={() => rest.setMode(null)} disabled={busy}
+            aria-label={pt ? 'Sair do descanso sem concluir' : 'Leave the rest without finishing'} title={pt ? 'Sair sem descansar' : 'Leave without resting'}>✕</button>
+        )}
+      </>
+    );
+  }
   return (
     <div className="row gap-1 fh-rest-toggles">
       {btn('short', '☕', pt ? 'Descanso curto' : 'Short rest')}

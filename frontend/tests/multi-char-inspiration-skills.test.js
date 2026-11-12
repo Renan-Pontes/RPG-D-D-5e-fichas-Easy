@@ -101,10 +101,10 @@ test('Ações no canto superior direito do painel (Cheat -> Edit -> Export) e de
   assert.ok(!sheetSrc.includes('hero-alignment-tag'), 'Não deve exibir tag de alinhamento no painel do herói');
   assert.ok(!sheetSrc.includes('<div className="hero-tags">'), 'Não deve existir container hero-tags no painel do herói');
 
-  // Descanso curto e longo na linha imediatamente abaixo dos idiomas
-  const langsIdx = sheetSrc.indexOf('fh-hero-row is-langs');
-  const restIdx = sheetSrc.indexOf('<RestButtons char={char} lang={lang} update={update} />');
-  assert.ok(langsIdx > 0 && restIdx > langsIdx, 'RestButtons deve vir na linha abaixo dos idiomas');
+  // Descanso curto e longo como selos, logo depois da Inspiração na linha do nome
+  const inspIdx = sheetSrc.indexOf('<InspirationSealButton inspired=');
+  const restIdx = sheetSrc.indexOf('<RestButtons char={char} lang={lang} update={update} seals />');
+  assert.ok(inspIdx > 0 && restIdx > inspIdx, 'RestButtons (selos) deve vir depois da Inspiração');
 
   // CSS garante posicionamento no canto superior direito
   assert.match(css, /\.ficha \.fh-hero-tools/);

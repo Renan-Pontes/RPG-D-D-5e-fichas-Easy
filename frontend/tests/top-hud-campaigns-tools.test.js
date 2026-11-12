@@ -120,7 +120,7 @@ test('Hero Header e Escopo de Progressão: medalha de campanhas 48px, inspiraç�
   // Ações Cheat -> Edit -> Export ancoradas discretamente no canto superior direito e descansos abaixo de idiomas
   assert.match(sheetSrc, /fh-hero-tools/);
   assert.match(sheetSrc, /fh-hero-chip/);
-  assert.match(sheetSrc, /fh-hero-row is-rest fh-hero-rest/);
+  assert.match(sheetSrc, /fh-hero-rest-seals[\s\S]*?<RestButtons[^>]*seals \/>/); // descansos como selos depois da Inspiração
   assert.match(css, /\.ficha \.fh-hero-tools/);
 
   // Quadrilátero de Selos Circulares de 48px

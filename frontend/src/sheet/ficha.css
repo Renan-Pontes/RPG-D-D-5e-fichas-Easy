@@ -6766,3 +6766,12 @@
 @media (min-width: 900px) {
   .ficha .fh-hero > .fh-hero-fold { max-width: calc(min(620px, 58%) - 48px); }
 }
+
+/* Descansos curto e longo como selos, depois da Inspiração (mesmo desenho, 48px) */
+.ficha .fh-hero-rest-seals { display: contents; }
+.ficha .fh-hero-name-seals .fh-seal.hero-rest .hero-rest-icon { font-size: 1.15rem; line-height: 1; }
+.ficha .fh-hero-name-seals .fh-seal.hero-rest.is-on .fh-seal-core { box-shadow: 0 0 0 2px var(--fh-gold-hi, #fbe4a3), 0 0 14px rgba(251, 228, 163, .7); }
+.ficha .fh-rest-seal-cancel {
+  flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; padding: 0; cursor: pointer;
+  border: 1px solid var(--gold-deep, #9a7231); background: #140e0b; color: var(--gold-bright, #edcb7a); font-size: .75rem; align-self: center;
+}

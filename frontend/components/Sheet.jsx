@@ -280,6 +280,9 @@ const SheetHero = ({
                 </div>
                 <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
                 <InspirationSealButton inspired={!!char.inspiration} onToggle={onInspiration} lang={lang} />
+                <span className="fh-hero-rest-seals" data-version-hide="">
+                  <RestButtons char={char} lang={lang} update={update} seals />
+                </span>
               </div>
               <div className={char.name ? 'hero-name' : 'hero-name is-unnamed'}>
                 {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
@@ -307,9 +310,6 @@ const SheetHero = ({
                 <>
                   {(align || speciesBg) && <div className="fh-hero-row">{[align, speciesBg].filter(Boolean).join(', ')}</div>}
                   {langs.length > 0 && <div className="fh-hero-row is-langs">{pt ? 'Fala ' : 'Speaks '}{langs.join(', ')}</div>}
-                  <div className="fh-hero-row is-rest fh-hero-rest no-print" data-version-hide="">
-                    <RestButtons char={char} lang={lang} update={update} />
-                  </div>
                 </>
               );
             })()}

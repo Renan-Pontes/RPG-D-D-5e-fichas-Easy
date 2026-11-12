@@ -56,7 +56,7 @@ test('Top-right Hero Tools, Universal Rest Row, Consolidated Spell Stats, SlotMa
 
   // Hero tools in top right and RestButtons below languages
   assert.match(sheetSrc, /fh-hero-tools/);
-  assert.match(sheetSrc, /fh-hero-row is-rest fh-hero-rest/);
+  assert.match(sheetSrc, /fh-hero-rest-seals[\s\S]*?<RestButtons[^>]*seals \/>/); // descansos como selos depois da Inspiração
 
   // UnifiedSpellsHUD consolidates ability into Save DC and Spell Attack Bonus without standalone card-ab
   assert.ok(!sheetTabsSrc.includes('card-ab'), 'Should not render standalone ability badge card-ab');
