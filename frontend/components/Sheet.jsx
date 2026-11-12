@@ -181,6 +181,8 @@ const SheetHero = ({
   setExportOpen,
   setCheatOpen,
   campaignBanner,
+  copies = [],
+  onOpenCopy = null,
   campaignsList = [],
   campFoldOpen = false,
   setCampFoldOpen,
@@ -245,7 +247,7 @@ const SheetHero = ({
         </div>
         <div className="fh-hero-body">
           {/* Header Row: Medalhas Top-Left + Nome do Personagem imediatamente adjacente */}
-          <div className="fh-hero-header-row">
+          <div className="fh-hero-header-row is-stacked">
             <div className="fh-hero-top-left-cluster no-print">
               <div className="fh-hero-portrait-medal" title={pt ? 'Foto do personagem' : 'Character portrait'}>
                 <AvatarUpload
@@ -263,6 +265,13 @@ const SheetHero = ({
               <CampaignSealButton count={campaignsList.length} campFoldOpen={campFoldOpen} onToggle={() => setCampFoldOpen?.(v => !v)} lang={lang} />
               <InspirationSealButton inspired={!!char.inspiration} onToggle={onInspiration} lang={lang} />
             </div>
+            {/* Cópias da ficha por campanha (mesma ficha-raiz): tocar uma carrega a ficha dela.
+                A cópia aberta fica expandida com os dados da campanha dela. */}
+            {campFoldOpen && (
+              <HeroCopiesAccordion copies={copies} lang={lang} onOpen={onOpenCopy}>
+                {campaignBanner}
+              </HeroCopiesAccordion>
+            )}
 
             <div className={char.name ? 'hero-name' : 'hero-name is-unnamed'}>
               {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
@@ -299,8 +308,8 @@ const SheetHero = ({
             })()}
           </div>
 
-          {/* Status/faixa da campanha contidos no painel do personagem */}
-          {campaignBanner}
+          {/* Status/faixa da campanha: dentro da cópia aberta no acordeão (acima) quando ele está aberto */}
+          {!campFoldOpen && campaignBanner}
         </div>
         {update && <HeroChoicesFold char={char} lang={lang} update={update} />}
       </div>
@@ -308,6 +317,29 @@ const SheetHero = ({
   );
 };
 
+
+// Acordeão das cópias da ficha (original + uma por campanha). Linha ativa expandida com
+// `children` (dados da campanha); as outras trocam a ficha inteira para aquela cópia.
+const HeroCopiesAccordion = ({ copies, lang, onOpen, children }) => {
+  const pt = lang === 'pt';
+  const list = copies.length ? copies : [{ id: 'self', active: true, label: pt ? 'Esta ficha' : 'This sheet' }];
+  return (
+    <ul className="fh-hero-copies no-print" role="list" aria-label={pt ? 'Versões da ficha por campanha' : 'Sheet versions per campaign'}>
+      {list.map(c => (
+        <li key={c.id} className={`fh-hero-copy${c.active ? ' is-active' : ''}`}>
+          <button type="button" className="fh-hero-copy-head" aria-expanded={!!c.active} aria-current={c.active ? 'true' : undefined}
+            disabled={c.active || !onOpen} onClick={() => onOpen && !c.active && onOpen(c.id)}>
+            <span className="fh-hero-copy-ico" aria-hidden="true">{c.kind === 'template' ? '📜' : c.kind === 'oneshot' ? '🎲' : '🏰'}</span>
+            <span className="fh-hero-copy-name">{c.label}</span>
+            {c.level ? <span className="fh-hero-copy-lv">{pt ? 'Nv.' : 'Lv'} {c.level}</span> : null}
+            <span className="fh-hero-copy-caret" aria-hidden="true">{c.active ? '▾' : '▸'}</span>
+          </button>
+          {c.active && <div className="fh-hero-copy-body">{children}</div>}
+        </li>
+      ))}
+    </ul>
+  );
+};
 
 // onCampaignChange(msg): a ficha entrou/saiu/trocou de campanha (modal "Campanha") —
 // o app recarrega a lista (char.inCampaign) e mostra `msg`. onLogin: ficha do aparelho,
@@ -643,6 +675,14 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
             <span aria-hidden="true">▾</span>
           </button>
         ) : null}
+        copies={family.map(c => ({
+          id: c.id,
+          active: c.id === char.id,
+          level: c.level,
+          kind: Forks.isFork(c) ? (c.versionKind || 'campaign') : 'template',
+          label: Forks.isFork(c) ? (c.versionCampaign?.name || Forks.forkLabel(c, lang)) : (pt ? 'Ficha original' : 'Original sheet'),
+        }))}
+        onOpenCopy={onOpenSheet}
         campaignBanner={preview ? null :
           <CampaignModeBanner
             char={char}

@@ -6667,3 +6667,25 @@
 }
 /* O filete do título nunca some, mesmo com ações ao lado (Vitalidade e demais) */
 .ficha .fh-title-main::after { min-width: 20px; }
+
+/* Cabeçalho do herói em pilha: retrato e selos na linha de cima, o acordeão das cópias
+   por campanha logo abaixo e o nome por último. */
+.ficha .fh-hero-header-row.is-stacked { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+.ficha .fh-hero-header-row.is-stacked > .fh-hero-top-left-cluster { align-self: flex-start; }
+.ficha .fh-hero-header-row.is-stacked > .hero-name { align-self: flex-start; }
+
+.ficha .fh-hero-copies { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ficha .fh-hero-copy { border: 1px solid rgba(201, 162, 74, .28); border-radius: 8px; background: rgba(12, 8, 6, .45); overflow: hidden; }
+.ficha .fh-hero-copy.is-active { border-color: var(--gold, #c9a24a); box-shadow: 0 0 0 1px rgba(201, 162, 74, .25) inset; }
+.ficha .fh-hero-copy-head {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: none; border: 0;
+  color: var(--ink, #f3e6cb); font: 600 .9rem/1.2 var(--display); letter-spacing: .06em; text-align: left; cursor: pointer;
+}
+.ficha .fh-hero-copy-head:disabled { cursor: default; }
+.ficha .fh-hero-copy:not(.is-active) .fh-hero-copy-head:hover { background: rgba(201, 162, 74, .08); }
+.ficha .fh-hero-copy-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ficha .fh-hero-copy.is-active .fh-hero-copy-name { color: var(--gold-bright, #edcb7a); }
+.ficha .fh-hero-copy-lv { flex: none; font-size: .75rem; color: var(--ink-muted, #a99); }
+.ficha .fh-hero-copy-caret { flex: none; color: var(--gold, #c9a24a); }
+.ficha .fh-hero-copy-body { padding: 0 10px 10px; }
+.ficha .fh-hero-copy-body .fh-hero-campaigns-panel { margin: 0; }
