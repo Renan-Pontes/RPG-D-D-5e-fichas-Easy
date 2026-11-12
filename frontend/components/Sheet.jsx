@@ -11,7 +11,9 @@ import { featSummary } from '../src/progression/FeatPicker.jsx';
 import ResourcesCard from '../src/progression/ResourcesCard.jsx';
 import { setActiveChar } from '../src/dice/active-char.js';
 import { computeResources } from '../src/progression/resources.js';
-import { SpeciesChoicesModal } from '../src/progression/SpeciesChoices.jsx';
+import { SpeciesChoicesModal, speciesSummary } from '../src/progression/SpeciesChoices.jsx';
+import { speciesChoiceSpecs } from '../src/progression/species.js';
+import { assignSpeciesChoices } from '../src/sheet/species-trait-choices.js';
 import { t, tName } from '../data/i18n.js';
 import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
 import Icon from './Icons.jsx';
@@ -4042,7 +4044,36 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
     if (e.kind === 'multiclass') return pt ? 'Multiclasse' : 'Multiclass';
     return multi ? tName('class', e.classId, lang) : (cls?.name?.[lang] || tName('class', char.className, lang));
   };
+  // Escolhas da espécie ligadas ao traço que as pede (Instintos de Changeling → perícias,
+  // Linhagem Élfica → linhagem…): o rótulo da escolha começa com o nome do traço, ou é
+  // linhagem/ancestral. O valor escolhido aparece no próprio traço da linha do tempo.
+  const speciesRows = (() => { try { return speciesSummary(char, lang); } catch { return []; } })();
+  const speciesSpecs = (() => { try { return speciesChoiceSpecs(char); } catch { return []; } })();
+  const speciesAt = assignSpeciesChoices(race?.traits || [], speciesSpecs);
+  // Escolhas ligadas ao traço da entrada `sp:<i>`: [{ spec, value }] (value '' = ainda não escolhida)
+  const choicesFor = (e) => {
+    const i = Number(String(e.key || '').split(':')[1]);
+    if (!Number.isInteger(i)) return [];
+    return speciesSpecs.map((c, k) => ({ c, k })).filter(({ k }) => speciesAt[k] === i).map(({ c }) => {
+      const label = c.label?.[lang] || c.label?.en || c.label?.pt || c.key;
+      const row = speciesRows.find(([l]) => l === label);
+      return { label, value: row ? row[1] : '' };
+    });
+  };
   const itemOf = (e) => {
+    if (e.kind === 'species') {
+      const rows = choicesFor(e);
+      if (!rows.length) return e.item;
+      // rótulo igual ao nome do traço (Instintos de Changeling) não se repete: "Escolhido: Intuição, Persuasão"
+      const own = [e.item?.name?.pt, e.item?.name?.en].filter(Boolean).map(n => n.toLowerCase());
+      const chosen = rows.map(r => {
+        const label = String(r.label).split(':').pop().trim();
+        const v = r.value || (pt ? 'a escolher' : 'to choose');
+        return own.includes(String(r.label).toLowerCase()) ? v : `${label}: ${v}`;
+      }).join(' · ');
+      const add = (d) => `${d || ''}${d ? ' ' : ''}${pt ? 'Escolhido' : 'Chosen'}: ${chosen}.`;
+      return { ...e.item, desc: { pt: add(e.item.desc?.pt), en: add(e.item.desc?.en) } };
+    }
     if (e.kind !== 'feat') return e.item;
     const f = e.feat;
     const name = featName(char, f, lang);
@@ -4073,6 +4104,7 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
     if (e.kind === 'asi' && e.done) req = { kind: 'level', level: e.level };
     else if (e.kind === 'feat' && !['background', 'species'].includes(e.feat?.origin) && (char.levelChoices || {})[e.feat?.level]) req = { kind: 'level', level: e.feat.level };
     else if (e.kind === 'feat' && ['background', 'species'].includes(e.feat?.origin)) req = { kind: 'origin', index: (char.feats || []).indexOf(e.feat) };
+    else if (e.kind === 'species' && choicesFor(e).length) req = { kind: 'species' };
     else if (e.kind === 'class' && e.classId && e.item?.picks?.length) req = { kind: 'options', classId: e.classId };
     if (!req) return null;
     return (

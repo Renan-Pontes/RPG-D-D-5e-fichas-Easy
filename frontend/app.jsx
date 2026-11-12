@@ -24,6 +24,7 @@ import ProgressionPanel from './src/progression/ProgressionPanel.jsx';
 import { applyAutosToCharacter, applyLevelUpChoices, applyLevelChoice, applyClassOptions, revertLastLevel, revertLevelChoice, changeLevelChoice } from './src/progression/engine.js';
 import { RespecContext, respecApprovalBody, respecPatch, pendingRespecs } from './src/progression/respec.js';
 import OriginFeatModal from './src/progression/OriginFeatModal.jsx';
+import { SpeciesChoicesModal } from './src/progression/SpeciesChoices.jsx';
 import { dropSubclassesBelowLevel } from './src/progression/subclass-lock.js';
 import LevelUpModal from './src/progression/LevelUpModal.jsx';
 import { ClassOptionsModal } from './src/progression/ClassOptionsPicker.jsx';
@@ -670,7 +671,8 @@ const App = () => {
   const respecActions = {
     change: (req) => setLevelUpFlow(req.kind === 'level' ? { mode: 'changeLevel', level: req.level }
       : req.kind === 'options' ? { mode: 'changeOptions', classId: req.classId }
-      : req.kind === 'origin' && req.index >= 0 ? { mode: 'changeOrigin', index: req.index } : null),
+      : req.kind === 'origin' && req.index >= 0 ? { mode: 'changeOrigin', index: req.index }
+      : req.kind === 'species' ? { mode: 'changeSpecies' } : null),
     submit: submitRespec,
     pending: respecPending,
   };
@@ -952,7 +954,11 @@ const App = () => {
               onConfirm={(after) => submitRespec(after, lang === 'pt' ? 'Troca do talento de origem' : 'Origin feat changed')}
               onClose={() => setLevelUpFlow(null)} />
           )}
-          {levelUpFlow && !['options', 'changeOptions', 'changeOrigin'].includes(levelUpFlow.mode) && (
+          {levelUpFlow?.mode === 'changeSpecies' && (
+            <SpeciesChoicesModal char={active} lang={lang} onClose={() => setLevelUpFlow(null)}
+              onSave={(patch) => submitRespec({ ...active, ...patch }, lang === 'pt' ? 'Escolhas da espécie' : 'Species choices')} />
+          )}
+          {levelUpFlow && !['options', 'changeOptions', 'changeOrigin', 'changeSpecies'].includes(levelUpFlow.mode) && (
             <LevelUpModal
               char={levelUpFlow.mode === 'changeLevel' ? revertLevelChoice(active, levelUpFlow.level) : active}
               lang={lang}
