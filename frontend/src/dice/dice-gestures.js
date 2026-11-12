@@ -87,7 +87,21 @@ export function findRollableElement(target) {
     '.fh-stat',
     '.fh-save',
     '.fh-skill',
+    '.fh-hex',
+    '.fh-skill-roll',
+    '.fh-atk-btn.is-hit',
+    '.fh-medal.is-roll',
   ].join(', '));
+}
+
+/** Seletor CSS dos campos que rolam d20: neles o gesto vertical é vantagem/desvantagem,
+ *  nunca rolagem da página nem encaixe de painel (ficha.css usa `touch-action: pan-x`). */
+export const ROLL_FIELD_SELECTOR = '[data-roll-attack], [data-roll-save], [data-roll-check], [data-d20-interactive], [data-roll-adv], .abil-btn, .save-btn, .init-btn, .fh-stat, .fh-save, .fh-skill, .fh-hex, .fh-skill-roll, .fh-atk-btn.is-hit, .fh-medal.is-roll';
+
+/** Último estado de vantagem escolhido por gesto num campo, para o rolador da ficha usar. */
+export function advForTarget(target) {
+  const el = findRollableElement(target);
+  return el ? getElementAdvState(el) : null;
 }
 
 /**
@@ -125,7 +139,8 @@ export function setupGlobalDiceSwipeListener() {
                   el.classList.contains('statblock-action-skill-btn') ||
                   el.classList.contains('fh-stat') ||
                   el.classList.contains('fh-save') ||
-                  el.classList.contains('fh-skill');
+                  el.classList.contains('fh-skill') ||
+                  el.matches('.fh-hex, .fh-skill-roll, .fh-atk-btn.is-hit, .fh-medal.is-roll');
 
     if (!isD20) return;
 

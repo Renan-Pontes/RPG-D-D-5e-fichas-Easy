@@ -35,6 +35,7 @@ import HpTracker from '../src/sheet/HpTracker.jsx';
 import { RestModeContext } from '../src/sheet/rest-mode.jsx';
 import { hpFormula, hitDicePools, hitDiceLeftLabel } from '../src/sheet/hp-logic.js';
 import { attachPlaySnap } from '../src/sheet/play-snap.js';
+import { advForTarget } from '../src/dice/dice-gestures.js';
 import { buildTimeline, byLevel, byTier, tierOf, classesAt, charLevelOf } from '../src/sheet/feature-timeline.js';
 import { computeProgression } from '../src/progression/engine.js';
 import { subclassLevelOf } from '../src/progression/subclass-lock.js';
@@ -343,7 +344,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
     // Check if touch originated inside inputs, sliders, belt components, or overlays
     const el = start.target;
     // controles que se arrastam na horizontal (barras de PV/PV temp., sliders) nunca trocam de aba
-    if (el && el.closest('input, textarea, select, [contenteditable], [role="slider"], .fh-dragbar, .fh-knob, .fh-pips, [data-no-swipe], .fh-belt, .fh-belt-badge, .fh-belt-header, .fh-belt-slot, .modal, .dice-overlay')) {
+    if (el && el.closest('input, textarea, select, [contenteditable], [role="slider"], .fh-dragbar, .fh-knob, .fh-pips, [data-no-swipe], [data-roll-check], [data-roll-save], [data-roll-attack], .fh-hex, .fh-skill-roll, .fh-atk-btn, .fh-medal.is-roll, .fh-belt, .fh-belt-badge, .fh-belt-header, .fh-belt-slot, .modal, .dice-overlay')) {
       return;
     }
 
@@ -586,7 +587,9 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   // O ponto comum das rolagens da ficha (perícia, salvaguarda, ataque, dano, iniciativa,
   // morte, magia): rola no aparelho e, numa campanha, vai também à Tela (V15).
   const roll = (config) => {
-    if (window.__diceRoll) window.__diceRoll({ ...config, sheet: true });
+    // vantagem/desvantagem escolhida deslizando o próprio campo (src/dice/dice-gestures.js)
+    const adv = config.advMode == null && typeof document !== 'undefined' ? advForTarget(document.activeElement) : null;
+    if (window.__diceRoll) window.__diceRoll({ ...config, ...(adv ? { adv, advMode: adv } : {}), sheet: true });
   };
 
   // Raiz .ficha: escopo do visual da ficha (src/sheet/ficha.css). Sem transform,

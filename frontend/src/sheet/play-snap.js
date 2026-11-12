@@ -1,3 +1,4 @@
+import { ROLL_FIELD_SELECTOR } from '../dice/dice-gestures.js';
 // Aba Jogar no celular/tablet: dois gestos diferentes.
 //  • Arrastar (dedo apoiado, devagar): rolagem nativa, livre e fina; nada encaixa.
 //  • Arremessar (flick: dedo rápido que solta em movimento): corta a inércia nativa e leva,
@@ -64,7 +65,7 @@ export function attachPlaySnap(getPanels, { maxWidth = 1023, area = null } = {})
   let samples = [], anim = 0, stuckInset = 0;
   let g = null;                                   // gesto atual: { x0, y0, s0, mode }
   const stop = () => { if (anim) { cancelAnimationFrame(anim); anim = 0; } };
-  const skip = (t) => !!t?.closest?.('input, textarea, select, [role="slider"], [data-no-snap], .fh-dragbar, .hp-drag');
+  const skip = (t) => !!t?.closest?.('input, textarea, select, [role="slider"], [data-no-snap], .fh-dragbar, .hp-drag') || !!t?.closest?.(ROLL_FIELD_SELECTOR);
 
   const animateTo = (to, speed) => {
     const from = window.scrollY;
