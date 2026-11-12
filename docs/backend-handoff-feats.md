@@ -50,6 +50,11 @@ Fora de campanha ela é salva direto. Numa campanha vira um pedido:
 ```
 
 O mestre já vê o pedido no painel de solicitações, com a lista de `changes`.
+O jogador vê uma faixa "Troca aguardando o mestre" no topo da linha do tempo. Ela é lida de
+`GET /api/approvals/campaign/:id` (pedidos `respec` em `pending` ou `approved`) e conferida
+a cada 20 s. Quando o pedido vira `consumed`, a ficha é recarregada. Por isso,
+ao aplicar o `patch`, o servidor deve marcar o pedido como `consumed`, como já faz com
+os outros tipos em `approval_review`.
 Falta o servidor aplicar o `patch` ao aprovar. Em
 `apply_approval_to_character` (`backend/api/progression/engine.py`):
 

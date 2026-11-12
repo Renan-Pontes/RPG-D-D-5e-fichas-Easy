@@ -4072,6 +4072,7 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
     let req = null;
     if (e.kind === 'asi' && e.done) req = { kind: 'level', level: e.level };
     else if (e.kind === 'feat' && !['background', 'species'].includes(e.feat?.origin) && (char.levelChoices || {})[e.feat?.level]) req = { kind: 'level', level: e.feat.level };
+    else if (e.kind === 'feat' && ['background', 'species'].includes(e.feat?.origin)) req = { kind: 'origin', index: (char.feats || []).indexOf(e.feat) };
     else if (e.kind === 'class' && e.classId && e.item?.picks?.length) req = { kind: 'options', classId: e.classId };
     if (!req) return null;
     return (
@@ -4100,6 +4101,17 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
   return (
     <section className={title === false ? 'fh-timeline fh-timeline-bare' : 'fh-panel fh-timeline'}>
       {title !== false && <FhTitle sub={<span className="fh-tl-now">{pt ? `Tier ${cur.tier} · ${cur.pt}` : `Tier ${cur.tier} · ${cur.en}`}</span>}>{pt ? 'Linha do tempo' : 'Timeline'}</FhTitle>}
+      {respec?.pending?.length > 0 && (
+        <div className="fh-tl-respec" role="status">
+          <strong>⏳ {pt ? (respec.pending.length === 1 ? 'Troca aguardando o mestre' : `${respec.pending.length} trocas aguardando o mestre`) : (respec.pending.length === 1 ? 'Change waiting for your DM' : `${respec.pending.length} changes waiting for your DM`)}</strong>
+          {respec.pending.map(a => (
+            <div key={a.id} className="fh-tl-respec-item">
+              <span className="fh-tl-respec-t">{a.payload.title}{a.status === 'approved' ? (pt ? ' · aprovada, aplicando…' : ' · approved, applying…') : ''}</span>
+              {(a.payload.changes || []).length > 0 && <span className="fh-tl-respec-c">{a.payload.changes.join(' · ')}</span>}
+            </div>
+          ))}
+        </div>
+      )}
       <ol className="fh-tl">
         {byTier(groups).map(tr => (
           <li key={tr.tier} className={`fh-tl-tier${tr.tier === cur.tier ? ' is-current' : ''}${tr.from > now ? ' is-later' : ''}`}>

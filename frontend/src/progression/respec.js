@@ -14,6 +14,8 @@ import { tName } from '../../data/i18n.js';
 import { featPicksText } from '../sheet/sheet-text.js';
 import { knownSpellIds } from './known.js';
 import { findOption } from './options.js';
+import { featEntry, withFeatAsi } from './feat-rules.js';
+import { applyAutosToCharacter } from './engine.js';
 
 /** Campos da ficha que uma troca de escolha pode mexer. */
 export const RESPEC_FIELDS = ['abilities', 'feats', 'levelChoices', 'classOptions', 'speciesChoices', 'raceBonus', 'spells', 'skillProfs', 'skillExpertise'];
@@ -84,3 +86,22 @@ export function respecApprovalBody(before, after, { lang = 'pt', title } = {}) {
 // Ações da linha do tempo para trocar escolhas (o app fornece; a ficha só consome).
 import { createContext } from 'react';
 export const RespecContext = createContext(null);
+
+/**
+ * Troca um talento de origem (antecedente/espécie) ou as sub-escolhas dele:
+ * desfaz o aumento antigo, grava o novo registro no mesmo lugar (mesma origem e
+ * nível) e recalcula as concessões.
+ */
+export function changeFeatEntry(char, index, choice) {
+  const feats = [...(char.feats || [])];
+  const old = feats[index];
+  if (!old) return char;
+  let next = withFeatAsi(char, old.asi, -1);
+  next = withFeatAsi(next, choice.asi, 1);
+  feats[index] = featEntry(choice, old.level || 1, old.origin ? { origin: old.origin } : {});
+  return applyAutosToCharacter({ ...next, feats });
+}
+
+/** Pedidos de troca deste personagem ainda em andamento (do GET de aprovações). */
+export const pendingRespecs = (approvals, charId) => (approvals || [])
+  .filter(a => a?.payload?.kind === 'respec' && a.character?.id === charId && (a.status === 'pending' || a.status === 'approved'));

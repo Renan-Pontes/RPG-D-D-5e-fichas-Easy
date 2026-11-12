@@ -35,3 +35,23 @@ test('anySwap lets the timeline swap any class option already picked', () => {
   const swap = { swaps: [{ pool: 'fightingStyle', from: 'defense', to: 'archery' }] };
   assert.equal(validateClassOptions(c, 'fighter', swap, { anySwap: true }).valid, true);
 });
+
+import { changeFeatEntry, pendingRespecs } from '../src/progression/respec.js';
+
+test('origin feat: picks change in place, origin and level kept', () => {
+  const c = { ...base, feats: [{ id: 'magicInitiate', name: 'Magic Initiate', level: 1, origin: 'background', picks: { spellList: 'cleric', cantrip: ['guidance', 'light'], spell: ['bless'] } }] };
+  const after = changeFeatEntry(c, 0, { type: 'feat', featId: 'magicInitiate', feat: 'Magic Initiate', picks: { spellList: 'wizard', cantrip: ['light', 'mageHand'], spell: ['shield'] } });
+  assert.equal(after.feats[0].origin, 'background');
+  assert.equal(after.feats[0].picks.spellList, 'wizard');
+  assert.ok(respecChanges(c, after, 'en').some(l => l.startsWith('+ ') && /Shield/i.test(l)));
+});
+
+test('pending respecs: only this character, only open requests', () => {
+  const list = [
+    { id: 1, status: 'pending', character: { id: 7 }, payload: { kind: 'respec' } },
+    { id: 2, status: 'consumed', character: { id: 7 }, payload: { kind: 'respec' } },
+    { id: 3, status: 'pending', character: { id: 8 }, payload: { kind: 'respec' } },
+    { id: 4, status: 'pending', character: { id: 7 }, payload: { name: 'item' } },
+  ];
+  assert.deepEqual(pendingRespecs(list, 7).map(a => a.id), [1]);
+});

@@ -6650,3 +6650,8 @@
 @media (prefers-reduced-motion: reduce) { .ficha .fh-tl-badge { animation: none; } }
 .ficha .fh-tl-badge.is-tier { position: static; display: inline-block; margin-left: 6px; vertical-align: middle; }
 .ficha .fh-tl-change { padding: 2px 8px; font-size: .72rem; margin-left: 6px; }
+/* Trocas de escolha aguardando o mestre (campanha) */
+.ficha .fh-tl-respec { margin: 0 0 12px; padding: 10px 12px; border: 1px dashed var(--gold, #c9a24a); border-radius: 8px; background: rgba(201,162,74,.07); font-size: .85rem; }
+.ficha .fh-tl-respec-item { margin-top: 6px; display: grid; gap: 2px; }
+.ficha .fh-tl-respec-t { color: var(--gold-bright, #edcb7a); }
+.ficha .fh-tl-respec-c { color: var(--ink-secondary, #bba); font-size: .78rem; }

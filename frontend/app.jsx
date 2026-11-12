@@ -22,7 +22,8 @@ import CampaignList from './src/campaigns/CampaignList.jsx';
 import CampaignDetail from './src/campaigns/CampaignDetail.jsx';
 import ProgressionPanel from './src/progression/ProgressionPanel.jsx';
 import { applyAutosToCharacter, applyLevelUpChoices, applyLevelChoice, applyClassOptions, revertLastLevel, revertLevelChoice, changeLevelChoice } from './src/progression/engine.js';
-import { RespecContext, respecApprovalBody, respecPatch } from './src/progression/respec.js';
+import { RespecContext, respecApprovalBody, respecPatch, pendingRespecs } from './src/progression/respec.js';
+import OriginFeatModal from './src/progression/OriginFeatModal.jsx';
 import { dropSubclassesBelowLevel } from './src/progression/subclass-lock.js';
 import LevelUpModal from './src/progression/LevelUpModal.jsx';
 import { ClassOptionsModal } from './src/progression/ClassOptionsPicker.jsx';
@@ -623,6 +624,32 @@ const App = () => {
 
   // Troca de escolhas já feitas (linha do tempo). Fora de campanha salva a ficha
   // recalculada; numa campanha manda um pedido de aprovação a cada mesa do personagem.
+  // Pedidos de troca deste personagem em andamento (para a faixa da linha do tempo).
+  const [respecPending, setRespecPending] = useState([]);
+  const loadRespecs = async (char = active) => {
+    if (!char?.inCampaign || typeof char.id !== 'number') { setRespecPending([]); return; }
+    try {
+      const camps = (await api.characterCampaigns(char.id)).campaigns || [];
+      const lists = await Promise.all(camps.map(c => api.listApprovals(c.id).then(r => r.approvals || []).catch(() => [])));
+      setRespecPending(pendingRespecs(lists.flat(), char.id));
+    } catch { setRespecPending([]); }
+  };
+  useEffect(() => { loadRespecs(); }, [active?.id, active?.inCampaign]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Enquanto houver troca aguardando, confere de tempos em tempos: quando o mestre aprova e o
+  // servidor aplica (o pedido sai da lista), a ficha é recarregada.
+  useEffect(() => {
+    if (!respecPending.length) return undefined;
+    const id = setInterval(async () => {
+      await loadRespecs();
+    }, 20000);
+    return () => clearInterval(id);
+  }, [respecPending.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const prevPending = useRef(0);
+  useEffect(() => {
+    if (respecPending.length < prevPending.current) refreshCharacters();
+    prevPending.current = respecPending.length;
+  }, [respecPending.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const submitRespec = async (after, title) => {
     if (!active) return;
     const recalculated = applyAutosToCharacter(after);
@@ -632,6 +659,7 @@ const App = () => {
       try { camps = (await api.characterCampaigns(active.id)).campaigns || []; } catch (e) { console.warn('characterCampaigns failed', e); }
       const body = respecApprovalBody(active, recalculated, { lang, title });
       for (const c of camps) await api.createApproval(c.id, body);
+      await loadRespecs();
       setToast(lang === 'pt' ? 'Troca enviada ao mestre para aprovação ✉️' : 'Change sent to your DM for approval ✉️');
       return;
     }
@@ -640,8 +668,11 @@ const App = () => {
     setToast(lang === 'pt' ? 'Escolha trocada ✨' : 'Choice changed ✨');
   };
   const respecActions = {
-    change: (req) => setLevelUpFlow(req.kind === 'level' ? { mode: 'changeLevel', level: req.level } : req.kind === 'options' ? { mode: 'changeOptions', classId: req.classId } : null),
+    change: (req) => setLevelUpFlow(req.kind === 'level' ? { mode: 'changeLevel', level: req.level }
+      : req.kind === 'options' ? { mode: 'changeOptions', classId: req.classId }
+      : req.kind === 'origin' && req.index >= 0 ? { mode: 'changeOrigin', index: req.index } : null),
     submit: submitRespec,
+    pending: respecPending,
   };
 
   // Opções de classe pendentes (invocações etc.) ou troca livre, fora da subida de nível.
@@ -916,7 +947,12 @@ const App = () => {
               onConfirm={(classId, picks) => submitRespec(applyClassOptions(active, classId, picks), lang === 'pt' ? 'Troca de opções de classe' : 'Class options changed')}
               onClose={() => setLevelUpFlow(null)} />
           )}
-          {levelUpFlow && levelUpFlow.mode !== 'options' && levelUpFlow.mode !== 'changeOptions' && (
+          {levelUpFlow?.mode === 'changeOrigin' && (
+            <OriginFeatModal char={active} index={levelUpFlow.index} lang={lang}
+              onConfirm={(after) => submitRespec(after, lang === 'pt' ? 'Troca do talento de origem' : 'Origin feat changed')}
+              onClose={() => setLevelUpFlow(null)} />
+          )}
+          {levelUpFlow && !['options', 'changeOptions', 'changeOrigin'].includes(levelUpFlow.mode) && (
             <LevelUpModal
               char={levelUpFlow.mode === 'changeLevel' ? revertLevelChoice(active, levelUpFlow.level) : active}
               lang={lang}
