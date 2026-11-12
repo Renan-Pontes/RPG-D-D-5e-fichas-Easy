@@ -101,7 +101,8 @@ const Pips = ({ count, used, onChange, type = 'normal' }) => {
 // Sem foto: clique abre o seletor. Com foto: clique abre a foto ampliada com
 // "Alterar" / "Remover". A imagem é recortada no centro (quadrado) e reduzida
 // pra 400px JPEG — fica no JSON da ficha (~30KB), sem mídia no servidor.
-const AVATAR_PX = 400;
+const AVATAR_PX = 800;
+// Mantém o formato da foto (o banner é largo, o token é redondo): só reduz o lado maior.
 const compressAvatar = (file) => new Promise((resolve, reject) => {
   const reader = new FileReader();
   reader.onerror = reject;
@@ -109,17 +110,65 @@ const compressAvatar = (file) => new Promise((resolve, reject) => {
     const img = new Image();
     img.onerror = reject;
     img.onload = () => {
-      const side = Math.min(img.width, img.height);
-      const out = Math.min(AVATAR_PX, side);
+      const k = Math.min(1, AVATAR_PX / Math.max(img.width, img.height));
       const c = document.createElement('canvas');
-      c.width = out; c.height = out;
-      c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, out, out);
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
       resolve(c.toDataURL('image/jpeg', 0.82));
     };
     img.src = reader.result;
   };
   reader.readAsDataURL(file);
 });
+
+// Enquadramento WYSIWYG: a moldura tem a proporção real do banner do herói; arrastar a foto
+// (mouse ou dedo) move o recorte. object-position em %: com object-fit cover, só o eixo que
+// sobra pode andar; 1px arrastado = 100/sobra %.
+const ratioOf = (a) => { const [w, h] = String(a).split('/').map(Number); return w > 0 && h > 0 ? +(w / h).toFixed(4) : 1.7778; };
+const FrameDrag = ({ src, pos, onPos, aspect, round = false, className = '', label }) => {
+  const box = useRef(null);
+  const [nat, setNat] = useState(null);
+  const drag = useRef(null);
+  const overflow = () => {
+    const el = box.current;
+    if (!el || !nat) return { x: 0, y: 0 };
+    const fw = el.clientWidth, fh = el.clientHeight;
+    const k = Math.max(fw / nat.w, fh / nat.h);
+    return { x: nat.w * k - fw, y: nat.h * k - fh };
+  };
+  const down = (e) => {
+    e.preventDefault();
+    box.current?.setPointerCapture?.(e.pointerId);
+    drag.current = { x: e.clientX, y: e.clientY, px: pos.x, py: pos.y };
+  };
+  const move = (e) => {
+    const d = drag.current;
+    if (!d) return;
+    const o = overflow();
+    const clamp = (v) => Math.max(0, Math.min(100, Math.round(v * 10) / 10));
+    onPos({
+      x: o.x > 0 ? clamp(d.px - ((e.clientX - d.x) / o.x) * 100) : d.px,
+      y: o.y > 0 ? clamp(d.py - ((e.clientY - d.y) / o.y) * 100) : d.py,
+    });
+  };
+  const up = () => { drag.current = null; };
+  const key = (e) => {
+    const step = e.shiftKey ? 10 : 2;
+    const m = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+    if (!m) return;
+    e.preventDefault();
+    onPos({ x: Math.max(0, Math.min(100, pos.x + m[0])), y: Math.max(0, Math.min(100, pos.y + m[1])) });
+  };
+  return (
+    <div ref={box} className={`avatar-frame ${round ? 'is-round' : ''} ${className}`}
+      style={{ aspectRatio: aspect, ...(round ? {} : { width: `min(100%, calc(48vh * ${ratioOf(aspect)}))`, marginInline: 'auto' }) }}
+      onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+      tabIndex={0} role="slider" aria-label={label} aria-valuetext={`${pos.x}% · ${pos.y}%`} onKeyDown={key}>
+      <img src={src} alt="" draggable={false} onLoad={(e) => setNat({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+        style={{ objectPosition: `${pos.x}% ${pos.y}%` }} />
+    </div>
+  );
+};
 
 const AvatarUpload = ({
   value,
@@ -159,6 +208,12 @@ const AvatarUpload = ({
   };
 
   const objPos = `${posX}% ${posY}%`;
+  // Proporção real do banner do herói (moldura WYSIWYG); sem a ficha na tela, 16:9.
+  const bannerAspect = (() => {
+    if (!viewing || typeof document === 'undefined') return '16 / 9';
+    const r = document.querySelector('.fh-hero-art')?.getBoundingClientRect();
+    return r && r.width > 0 && r.height > 0 ? `${Math.round(r.width)} / ${Math.round(r.height)}` : '16 / 9';
+  })();
 
   return (
     <>
@@ -176,119 +231,19 @@ const AvatarUpload = ({
       <input ref={fileRef} type="file" accept="image/*" onChange={handle} style={{ display: 'none' }} />
       {viewing && value && (
         <Modal onClose={() => setViewing(false)}>
-          <div className="avatar-viewer">
+          <div className="avatar-viewer is-wysiwyg">
             <h3 style={{ margin: 0, fontFamily: 'var(--display)', color: 'var(--gold-bright)' }}>
-              {pt ? 'Enquadramento da Imagem' : 'Character Portrait Framing'}
+              {pt ? 'Enquadrar o retrato' : 'Frame the portrait'}
             </h3>
-
-            {/* Banner Preview Frame */}
-            <div className="avatar-viewer-preview-box" style={{ width: '100%', maxWidth: 420 }}>
-              <div style={{ fontSize: '0.78rem', color: 'var(--ink-secondary)', marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
-                <span>{pt ? 'Prévia do Banner Superior' : 'Top Banner Preview'}</span>
-                <span>{posX}% · {posY}%</span>
-              </div>
-              <div
-                className="avatar-banner-preview"
-                style={{
-                  width: '100%',
-                  height: 110,
-                  borderRadius: 6,
-                  overflow: 'hidden',
-                  border: '1px solid var(--gold-deep)',
-                  background: 'rgba(0,0,0,0.6)',
-                  position: 'relative',
-                }}
-              >
-                <img
-                  src={value}
-                  alt=""
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    objectPosition: objPos,
-                    display: 'block',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Circular Token Preview */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div
-                style={{
-                  width: 58,
-                  height: 58,
-                  borderRadius: '50%',
-                  overflow: 'hidden',
-                  border: '2px solid var(--gold-bright)',
-                  boxShadow: '0 0 12px rgba(224, 181, 94, 0.4)',
-                  flexShrink: 0,
-                }}
-              >
-                <img
-                  src={value}
-                  alt=""
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    objectPosition: objPos,
-                  }}
-                />
-              </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--ink-secondary)' }}>
-                {pt ? 'Ajuste os controles abaixo para centralizar o rosto ou corpo no banner superior e no token redondo.'
-                    : 'Adjust the sliders below to center your character\'s face or body in the banner and token.'}
-              </div>
-            </div>
-
-            {/* Framing Sliders */}
-            <div className="avatar-position-controls" style={{ width: '100%', maxWidth: 420, display: 'grid', gap: 10 }}>
-              <div>
-                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 2 }}>
-                  <span>{pt ? 'Posição Horizontal (X)' : 'Horizontal Framing (X)'}</span>
-                  <span style={{ color: 'var(--gold-bright)', fontWeight: 600 }}>{posX}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={posX}
-                  onChange={(e) => handlePosX(e.target.value)}
-                  style={{ width: '100%', accentColor: 'var(--gold-bright)' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 2 }}>
-                  <span>{pt ? 'Posição Vertical / Altura (Y)' : 'Vertical Framing (Y)'}</span>
-                  <span style={{ color: 'var(--gold-bright)', fontWeight: 600 }}>{posY}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={posY}
-                  onChange={(e) => handlePosY(e.target.value)}
-                  style={{ width: '100%', accentColor: 'var(--gold-bright)' }}
-                />
-              </div>
-
-              {/* Quick Presets */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 4 }}>
-                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPreset(50, 15)}>
-                  👤 {pt ? 'Topo / Cabeça' : 'Top / Head'}
-                </button>
-                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPreset(50, 50)}>
-                  🎯 {pt ? 'Centro' : 'Center'}
-                </button>
-                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPreset(50, 85)}>
-                  🛡️ {pt ? 'Base' : 'Bottom'}
-                </button>
-                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPreset(50, 22)}>
-                  ↺ {pt ? 'Padrão' : 'Reset'}
-                </button>
+            <p className="avatar-frame-hint">{pt ? 'Arraste a imagem dentro da moldura (mouse ou dedo). É exatamente o que aparece na ficha.' : 'Drag the image inside the frame (mouse or finger). This is exactly what the sheet shows.'}</p>
+            <FrameDrag src={value} pos={{ x: posX, y: posY }} onPos={(p) => onPositionChange && onPositionChange(p)}
+              aspect={bannerAspect} className="is-banner" label={pt ? 'Enquadramento do banner' : 'Banner framing'} />
+            <div className="avatar-frame-row">
+              <FrameDrag src={value} pos={{ x: posX, y: posY }} onPos={(p) => onPositionChange && onPositionChange(p)}
+                aspect="1 / 1" round className="is-token" label={pt ? 'Enquadramento do retrato redondo' : 'Round portrait framing'} />
+              <div className="avatar-frame-meta">
+                <span>{pt ? 'Retrato redondo: mesmo recorte.' : 'Round portrait: same crop.'}</span>
+                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPreset(50, 22)}>↺ {pt ? 'Centralizar' : 'Recenter'}</button>
               </div>
             </div>
 
