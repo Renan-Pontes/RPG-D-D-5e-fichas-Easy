@@ -1,6 +1,7 @@
 /* Character sheet view — play/stats/spells/inventory/story/journal tabs */
 import { errorMessage } from '../src/api/errors.js';
-import { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useContext, lazy, Suspense } from 'react';
+import { RespecContext } from '../src/progression/respec.js';
 import { createPortal } from 'react-dom';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
@@ -4063,6 +4064,23 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
     if (!go) return null;
     return <button type="button" className="btn btn-sm btn-primary prog-choose" onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); go(); }}>{pt ? 'Escolher agora' : 'Choose now'}</button>;
   };
+  // Botão "Trocar" nas escolhas já feitas: talento/ASI do nível e opções de classe.
+  // O app (RespecContext) recalcula a ficha e salva, ou manda para o mestre aprovar.
+  const respec = useContext(RespecContext);
+  const changeOf = (e) => {
+    if (!respec || e.pending || e.later) return null;
+    let req = null;
+    if (e.kind === 'asi' && e.done) req = { kind: 'level', level: e.level };
+    else if (e.kind === 'feat' && !['background', 'species'].includes(e.feat?.origin) && (char.levelChoices || {})[e.feat?.level]) req = { kind: 'level', level: e.feat.level };
+    else if (e.kind === 'class' && e.classId && e.item?.picks?.length) req = { kind: 'options', classId: e.classId };
+    if (!req) return null;
+    return (
+      <button type="button" className="btn btn-sm btn-ghost fh-tl-change" title={pt ? 'Trocar esta escolha' : 'Change this choice'}
+        onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); respec.change(req); }}>
+        ✎ {pt ? 'Trocar' : 'Change'}
+      </button>
+    );
+  };
   const now = char.level || 1;
   const cur = tierOf(now);
   // Acordeão: começam abertos o nível atual e os que têm escolha pendente; o resto, fechado
@@ -4133,6 +4151,7 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
                             tag={<>
                               <span className={`fh-tl-tag is-${e.kind}${e.pending ? ' is-pending' : ''}${e.later ? ' is-later' : ''}`}>{tagOf(e)}{e.later ? (pt ? ' · próximo' : ' · next') : ''}</span>
                               {actionOf(e)}
+                              {changeOf(e)}
                             </>} />
                         ))}
                       </FhFeatures>

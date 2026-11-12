@@ -35,7 +35,40 @@ for f in character.get('feats') or []:
 `rest_resources` já cobre o resto: o curto recupera o Adepto Marcial
 (`recharge: 'short'`) e o longo zera tudo.
 
-## 2. Pulso: campos novos sem fonte de rev
+## 2. Troca de escolhas pela linha do tempo (respec)
+
+**Hoje:** na linha do tempo, cada escolha feita tem um botão "Trocar": ASI/talento do
+nível, opções de classe e escolhas da espécie. A ficha calcula a versão nova inteira.
+Fora de campanha ela é salva direto. Numa campanha vira um pedido:
+`POST /api/approvals/campaign/:id`, um por mesa do personagem, com este corpo:
+
+```json
+{ "type": "other", "characterId": 12,
+  "payload": { "kind": "respec", "title": "Troca da escolha do nível 4",
+               "changes": ["− Talento: Alerta", "+ Talento: Sortudo", "FOR 16 → 18"],
+               "patch": { "abilities": {}, "feats": [], "levelChoices": {} } } }
+```
+
+O mestre já vê o pedido no painel de solicitações, com a lista de `changes`.
+Falta o servidor aplicar o `patch` ao aprovar. Em
+`apply_approval_to_character` (`backend/api/progression/engine.py`):
+
+```python
+RESPEC_FIELDS = ('abilities', 'feats', 'levelChoices', 'classOptions', 'speciesChoices',
+                 'raceBonus', 'spells', 'skillProfs', 'skillExpertise')
+if approval_type == 'other' and payload.get('kind') == 'respec':
+    patch = payload.get('patch') or {}
+    for k in RESPEC_FIELDS:
+        if k in patch:
+            nxt[k] = patch[k]
+    return apply_autos(nxt)
+```
+
+Vale validar antes (ex.: `validate_level_choice` para cada `levelChoices` alterado), mas
+o mestre já revisa o pedido. A lista de campos é a mesma de `RESPEC_FIELDS` em
+`frontend/src/progression/respec.js`.
+
+## 2b. Pulso: campos novos sem fonte de rev
 
 `api.tests.test_pulse` falha em 2 testes. `myMembership`, `myMemberships` e,
 para o jogador, `inviteCode` saem no GET da campanha, mas o `/pulse` não

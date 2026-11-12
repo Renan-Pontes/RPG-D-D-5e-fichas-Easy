@@ -244,7 +244,7 @@ export function allOptionGrants(character) {
  * valem ao subir de nível (`levelUp`, até pool.swapOnLevelUp) ou a qualquer
  * momento em pools com `freeSwap`.
  */
-export function validateOptionPicks(character, classId, { adds = [], swaps = [] } = {}, classLevel = character.level || 1, { levelUp = false } = {}) {
+export function validateOptionPicks(character, classId, { adds = [], swaps = [] } = {}, classLevel = character.level || 1, { levelUp = false, anySwap = false } = {}) {
   character = migrateClassOptions(character);
   const issues = [];
   const data = classOptionsData(classId);
@@ -255,7 +255,7 @@ export function validateOptionPicks(character, classId, { adds = [], swaps = [] 
   for (const s of swaps) {
     const def = data.pools[s?.pool];
     const levelOk = levelUp && def?.swapOnLevelUp && (!def.swapLevels || def.swapLevels.includes(classLevel));
-    if (!def || !(def.freeSwap || levelOk)) { issues.push('Este pool não permite troca agora'); continue; }
+    if (!def || !(def.freeSwap || levelOk || anySwap)) { issues.push('Este pool não permite troca agora'); continue; }
     const i = picks.findIndex(p => p.pool === s.pool && p.id === s.from);
     if (i < 0) { issues.push('Opção a trocar não encontrada'); continue; }
     picks = [...picks.slice(0, i), ...picks.slice(i + 1)];

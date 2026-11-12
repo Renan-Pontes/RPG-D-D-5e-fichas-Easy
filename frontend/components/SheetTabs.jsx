@@ -3,7 +3,8 @@ import { useRestMode } from '../src/sheet/rest-mode.jsx';
 import { unknownSpells } from '../src/progression/known.js';
 import { exhaustionLevel, setExhaustion, usedByAfterRest } from '../src/sheet/hp-logic.js';
 import { errorMessage } from '../src/api/errors.js';
-import { useId, useState, useMemo } from 'react';
+import { useId, useState, useMemo, useContext } from 'react';
+import { RespecContext } from '../src/progression/respec.js';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { restResources } from '../src/progression/resources.js';
@@ -1497,7 +1498,9 @@ const SheetStory = ({ char, lang, update, cls, race }) => (
 export const SpeciesTraits = ({ char, lang, update, race, hideTraits = false, embedded = false }) => {
   const [open, setOpen] = useState(false);
   const rows = speciesSummary(char, lang);
-  const canEdit = speciesChoiceSpecs(char).length > 0 && !char.inCampaign;
+  // Numa campanha a troca vira pedido ao mestre (RespecContext); fora dela salva direto.
+  const respec = useContext(RespecContext);
+  const canEdit = speciesChoiceSpecs(char).length > 0 && (!char.inCampaign || !!respec);
   // na aba Características os traços vão para a linha do tempo; aqui ficam as escolhas
   const traits = hideTraits ? [] : (race?.traits || []);
 
@@ -1538,7 +1541,8 @@ export const SpeciesTraits = ({ char, lang, update, race, hideTraits = false, em
           );
         })}
       </div>
-      {open && <SpeciesChoicesModal char={char} lang={lang} onSave={update} onClose={() => setOpen(false)} />}
+      {open && <SpeciesChoicesModal char={char} lang={lang} onClose={() => setOpen(false)}
+        onSave={char.inCampaign && respec ? (patch) => respec.submit({ ...char, ...patch }, lang === 'pt' ? 'Escolhas da espécie' : 'Species choices') : update} />}
     </Shell>
   );
 };

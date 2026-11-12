@@ -21,7 +21,8 @@ import { api } from './src/api/client.js';
 import CampaignList from './src/campaigns/CampaignList.jsx';
 import CampaignDetail from './src/campaigns/CampaignDetail.jsx';
 import ProgressionPanel from './src/progression/ProgressionPanel.jsx';
-import { applyAutosToCharacter, applyLevelUpChoices, applyLevelChoice, applyClassOptions, revertLastLevel } from './src/progression/engine.js';
+import { applyAutosToCharacter, applyLevelUpChoices, applyLevelChoice, applyClassOptions, revertLastLevel, revertLevelChoice, changeLevelChoice } from './src/progression/engine.js';
+import { RespecContext, respecApprovalBody, respecPatch } from './src/progression/respec.js';
 import { dropSubclassesBelowLevel } from './src/progression/subclass-lock.js';
 import LevelUpModal from './src/progression/LevelUpModal.jsx';
 import { ClassOptionsModal } from './src/progression/ClassOptionsPicker.jsx';
@@ -607,6 +608,9 @@ const App = () => {
       setToast(lang === 'pt' ? `Nível ${choices.toLevel}! ✨` : `Level ${choices.toLevel}! ✨`);
       return;
     }
+    if (levelUpFlow.mode === 'changeLevel') {
+      return submitRespec(changeLevelChoice(active, levelUpFlow.level, choices.choice), lang === 'pt' ? `Troca da escolha do nível ${levelUpFlow.level}` : `Level ${levelUpFlow.level} choice changed`);
+    }
     // 'choice': ASI/talento pendente de um nível já alcançado.
     if (typeof active.id === 'number') {
       await api.levelChoice(active.id, { level: levelUpFlow.level, choice: choices.choice });
@@ -615,6 +619,29 @@ const App = () => {
     }
     await refreshCharacters();
     setToast(lang === 'pt' ? 'Escolha registrada ✨' : 'Choice saved ✨');
+  };
+
+  // Troca de escolhas já feitas (linha do tempo). Fora de campanha salva a ficha
+  // recalculada; numa campanha manda um pedido de aprovação a cada mesa do personagem.
+  const submitRespec = async (after, title) => {
+    if (!active) return;
+    const recalculated = applyAutosToCharacter(after);
+    if (!Object.keys(respecPatch(active, recalculated)).length) { setToast(lang === 'pt' ? 'Nada mudou.' : 'Nothing changed.'); return; }
+    if (active.inCampaign && typeof active.id === 'number') {
+      let camps = [];
+      try { camps = (await api.characterCampaigns(active.id)).campaigns || []; } catch (e) { console.warn('characterCampaigns failed', e); }
+      const body = respecApprovalBody(active, recalculated, { lang, title });
+      for (const c of camps) await api.createApproval(c.id, body);
+      setToast(lang === 'pt' ? 'Troca enviada ao mestre para aprovação ✉️' : 'Change sent to your DM for approval ✉️');
+      return;
+    }
+    await storage.save(recalculated);
+    await refreshCharacters();
+    setToast(lang === 'pt' ? 'Escolha trocada ✨' : 'Choice changed ✨');
+  };
+  const respecActions = {
+    change: (req) => setLevelUpFlow(req.kind === 'level' ? { mode: 'changeLevel', level: req.level } : req.kind === 'options' ? { mode: 'changeOptions', classId: req.classId } : null),
+    submit: submitRespec,
   };
 
   // Opções de classe pendentes (invocações etc.) ou troca livre, fora da subida de nível.
@@ -825,7 +852,7 @@ const App = () => {
     case SCREENS.SHEET:
       if (!active) { setScreen(SCREENS.HOME); return null; }
       content = (
-        <>
+        <RespecContext.Provider value={previewOf ? null : respecActions}>
           {previewOf ? (
             <Sheet
               key={previewOf.id}
@@ -884,17 +911,22 @@ const App = () => {
             <ClassOptionsModal char={active} classId={levelUpFlow.classId} lang={lang}
               onConfirm={handleClassOptions} onClose={() => setLevelUpFlow(null)} />
           )}
-          {levelUpFlow && levelUpFlow.mode !== 'options' && (
+          {levelUpFlow?.mode === 'changeOptions' && (
+            <ClassOptionsModal char={active} classId={levelUpFlow.classId} lang={lang} anySwap
+              onConfirm={(classId, picks) => submitRespec(applyClassOptions(active, classId, picks), lang === 'pt' ? 'Troca de opções de classe' : 'Class options changed')}
+              onClose={() => setLevelUpFlow(null)} />
+          )}
+          {levelUpFlow && levelUpFlow.mode !== 'options' && levelUpFlow.mode !== 'changeOptions' && (
             <LevelUpModal
-              char={active}
+              char={levelUpFlow.mode === 'changeLevel' ? revertLevelChoice(active, levelUpFlow.level) : active}
               lang={lang}
-              onlyChoiceLevel={levelUpFlow.mode === 'choice' ? levelUpFlow.level : null}
+              onlyChoiceLevel={levelUpFlow.mode === 'choice' || levelUpFlow.mode === 'changeLevel' ? levelUpFlow.level : null}
               allowMulticlass={levelUpFlow.mode === 'consume' ? unlockedLevelup?.allowMulticlass !== false : true}
               onConfirm={handleLevelUpConfirm}
               onClose={() => setLevelUpFlow(null)}
             />
           )}
-        </>
+        </RespecContext.Provider>
       );
       break;
   }

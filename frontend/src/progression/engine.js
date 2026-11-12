@@ -454,7 +454,7 @@ export function applyLevelUpChoices(character, choices) {
 }
 
 /** Desfaz a escolha de ASI/talento registrada num nível. */
-function revertLevelChoice(character, level) {
+export function revertLevelChoice(character, level) {
   const choice = (character.levelChoices || {})[level];
   if (!choice) return character;
   const levelChoices = { ...character.levelChoices };
@@ -471,6 +471,14 @@ function revertLevelChoice(character, level) {
     next.feats = feats;
   }
   return next;
+}
+
+/**
+ * Troca a escolha (ASI/talento e sub-escolhas) já registrada num nível: desfaz a antiga,
+ * aplica a nova e recalcula o que deriva dela (magias concedidas, autos).
+ */
+export function changeLevelChoice(character, level, choice) {
+  return applyAutosToCharacter(applyLevelChoice(revertLevelChoice(character, level), level, choice));
 }
 
 /**
@@ -538,10 +546,10 @@ function viewOf(character, classId) {
  * no nível atual. Espelha backend/api/progression/options.py.
  * picks: { adds: [{pool, id, detail?}], swaps: [{pool, from, to, detail?}] }
  */
-export function validateClassOptions(character, classId, picks, { levelUp = false } = {}) {
+export function validateClassOptions(character, classId, picks, { levelUp = false, anySwap = false } = {}) {
   const view = viewOf(character, classId);
   if (!view) return { valid: false, issues: ['Classe ausente na ficha'] };
-  return validateOptionPicks(view, classId, picks, view.level || 1, { levelUp });
+  return validateOptionPicks(view, classId, picks, view.level || 1, { levelUp, anySwap });
 }
 
 /** Registra escolhas pendentes de um nível já alcançado (sem subir de nível). */

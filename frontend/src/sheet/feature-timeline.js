@@ -57,6 +57,13 @@ export function buildTimeline({ level = 1, seq = [], classItems = [], speciesTra
     out.push({ level: c.level, kind: 'choice', key: `pc:${i}`, classId: c.classId, choice: c, pending: true, later: false,
       item: { name: both({ pt: c.reason, en: c.reasonEn || c.reason }), desc: both('') } });
   });
+  // ASI já escolhido em nível sem traço de ASI na lista da classe (regras 2014): também
+  // aparece, para a linha do tempo mostrar toda escolha feita (e poder trocá-la).
+  for (const [k, ch] of Object.entries(levelChoices || {})) {
+    const lv = +k;
+    if (ch?.type !== 'asi' || !lv || out.some(e => e.kind === 'asi' && e.level === lv)) continue;
+    out.push({ level: lv, kind: 'asi', key: `asi:${lv}`, item: { id: ASI_ID, name: both({ pt: 'Aumento no Valor de Atributo', en: 'Ability Score Improvement' }), desc: both(asiText ? asiText(ch.asi) : '') }, later: lv > level, done: true });
+  }
   // Proficiências ao entrar numa classe por multiclasse: no nível em que entrou.
   multiclass.forEach(m => {
     const lv = charLevelOf(seq, m.classId, 1);

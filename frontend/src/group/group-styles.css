@@ -314,3 +314,7 @@
   /* "Meus pedidos" do jogador ao lado do próprio cartão */
   .grp-area.is-player .grp-after-mine { grid-column: span 2; }
 }
+
+/* Troca de escolhas (respec): o que muda na ficha, em linhas curtas */
+.grp-req-changes { margin: 6px 0 0; padding-left: 16px; font-size: .82rem; line-height: 1.45; color: var(--ink-secondary, #cbb); }
+.grp-req-changes li { list-style: none; margin-left: -12px; }

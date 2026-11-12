@@ -332,6 +332,11 @@ function RequestRow({ a, lang, children }) {
             {a.character?.classes?.length ? <> · {charLine(a.character, lang)}</> : null}
             {a.status === 'approved' && <> · {t(lang, 'o jogador confirma na ficha', 'the player confirms on their sheet')}</>}
           </div>
+          {a.payload?.kind === 'respec' && Array.isArray(a.payload.changes) && a.payload.changes.length > 0 && (
+            <ul className="grp-req-changes">
+              {a.payload.changes.map((c, i) => <li key={i}>{c}</li>)}
+            </ul>
+          )}
           {a.note && <p className="grp-req-note">“{a.note}”</p>}
         </div>
       </div>

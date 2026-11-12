@@ -20,7 +20,7 @@ export function viewFor(char, classId) {
 }
 
 /** Pools com vagas abertas e pools que permitem troca agora. */
-export function openPools(char, classId, value = { adds: [] }, { levelUp = false } = {}) {
+export function openPools(char, classId, value = { adds: [] }, { levelUp = false, anySwap = false } = {}) {
   const view = viewFor(char, classId);
   const data = classOptionsData(classId);
   if (!view || !data) return { open: [], swappable: [] };
@@ -34,7 +34,7 @@ export function openPools(char, classId, value = { adds: [] }, { levelUp = false
   }
   // Troca: pools de troca livre sempre; os demais só ao subir de nível (e nos níveis permitidos).
   const swappable = Object.entries(data.pools || {})
-    .filter(([pool, def]) => (def.freeSwap || (levelUp && def.swapOnLevelUp && (!def.swapLevels || def.swapLevels.includes(view.level))))
+    .filter(([pool, def]) => (anySwap || def.freeSwap || (levelUp && def.swapOnLevelUp && (!def.swapLevels || def.swapLevels.includes(view.level))))
       && picksOf(char, classId, pool).length)
     .map(([pool]) => pool);
   return { open, swappable };
@@ -130,8 +130,8 @@ function SwapSection({ char, classId, pool, lang, value, onChange }) {
   );
 }
 
-export default function ClassOptionsPicker({ char, classId, lang, value, onChange, levelUp = false }) {
-  const { open, swappable } = openPools(char, classId, value, { levelUp });
+export default function ClassOptionsPicker({ char, classId, lang, value, onChange, levelUp = false, anySwap = false }) {
+  const { open, swappable } = openPools(char, classId, value, { levelUp, anySwap });
   if (!open.length && !swappable.length) return null;
   return (
     <>
@@ -146,13 +146,14 @@ export default function ClassOptionsPicker({ char, classId, lang, value, onChang
 }
 
 /** Janela avulsa: resolve pendências ou troca opções de troca livre. */
-export function ClassOptionsModal({ char, classId, lang, onConfirm, onClose }) {
+/** `anySwap`: troca de qualquer escolha já feita (edição pela linha do tempo). */
+export function ClassOptionsModal({ char, classId, lang, onConfirm, onClose, anySwap = false }) {
   const [value, setValue] = useState({ adds: [], swaps: [] });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const picks = { adds: value.adds, swaps: value.swaps };
   const empty = !picks.adds.length && !picks.swaps.length;
-  const check = empty ? { valid: false, issues: [] } : validateClassOptions(char, classId, picks);
+  const check = empty ? { valid: false, issues: [] } : validateClassOptions(char, classId, picks, { anySwap });
   const confirm = async () => {
     setBusy(true); setError('');
     try { await onConfirm(classId, picks); onClose(); }
@@ -162,7 +163,7 @@ export function ClassOptionsModal({ char, classId, lang, onConfirm, onClose }) {
   return (
     <Modal onClose={onClose}>
       <div style={{ maxHeight: '65vh', overflowY: 'auto', marginBottom: 14 }}>
-        <ClassOptionsPicker char={char} classId={classId} lang={lang} value={value} onChange={setValue} />
+        <ClassOptionsPicker char={char} classId={classId} lang={lang} value={value} onChange={setValue} anySwap={anySwap} />
       </div>
       {!empty && !check.valid && <div className="text-xs" style={{ color: 'var(--blood-bright)', marginBottom: 8 }}>{check.issues.join(' · ')}</div>}
       {error && <div className="text-sm" style={{ color: 'var(--blood-bright)', marginBottom: 8 }}>{error}</div>}

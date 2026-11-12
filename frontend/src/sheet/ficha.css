@@ -6649,3 +6649,4 @@
 @keyframes fh-tl-badge-pulse { 0% { box-shadow: 0 0 0 0 rgba(192,57,43,.55); } 70%, 100% { box-shadow: 0 0 0 7px rgba(192,57,43,0); } }
 @media (prefers-reduced-motion: reduce) { .ficha .fh-tl-badge { animation: none; } }
 .ficha .fh-tl-badge.is-tier { position: static; display: inline-block; margin-left: 6px; vertical-align: middle; }
+.ficha .fh-tl-change { padding: 2px 8px; font-size: .72rem; margin-left: 6px; }
