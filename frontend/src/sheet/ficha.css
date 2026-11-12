@@ -6715,3 +6715,17 @@
 @media (max-width: 560px) {
   .ficha .fh-hero-copy.is-active { flex-wrap: wrap; row-gap: 4px; }
 }
+
+/* Linha da campanha aberta: nome sempre visível, etiquetas embaixo, ações à direita; capa da mesa ao fundo */
+.ficha .fh-hero-copy.is-active { background-size: cover; background-position: center; }
+.ficha .fh-hero-copy-main { flex: 1 1 auto; min-width: 0; display: grid; gap: 3px; }
+.ficha .fh-hero-copy-main > .fh-hero-copy-name { min-width: 0; }
+.ficha .fh-hero-copy-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.ficha .fh-hero-copy-tag.is-npc { border-color: rgba(160, 120, 220, .5); background: rgba(160, 120, 220, .18); }
+.ficha .fh-hero-copy-tag.is-pc { border-color: rgba(110, 190, 150, .5); background: rgba(110, 190, 150, .16); }
+.ficha .fh-hero-copy-acts { flex-wrap: wrap; justify-content: flex-end; }
+.ficha .fh-camp-rolls-toggle.is-secret { color: var(--ink-muted, #b9a); }
+.ficha .fh-hero-copy-acts .btn { min-height: 0 !important; height: auto !important; padding: 4px 9px !important; font-size: .68rem !important; letter-spacing: .05em; line-height: 1.2 !important; white-space: nowrap; }
+@media (max-width: 560px) {
+  .ficha .fh-hero-copy.is-active .fh-hero-copy-acts { flex: 1 1 100%; justify-content: flex-start; padding-left: 28px; }
+}

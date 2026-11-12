@@ -187,6 +187,7 @@ const SheetHero = ({
   onLeaveCampaign = null,
   busyLeaveId = null,
   onManageCampaigns = null,
+  onDeleteCopy = null,
   onLogin = null,
   campaignsList = [],
   campFoldOpen = false,
@@ -258,7 +259,7 @@ const SheetHero = ({
             {!preview && (
               <HeroCampaignBar copies={copies} lang={lang} open={!!campFoldOpen} setOpen={setCampFoldOpen}
                 char={char} campaignsList={campaignsList} onOpen={onOpenCopy}
-                onLeave={onLeaveCampaign} busyLeaveId={busyLeaveId} onManage={onManageCampaigns} onLogin={onLogin} />
+                onLeave={onLeaveCampaign} busyLeaveId={busyLeaveId} onManage={onManageCampaigns} onLogin={onLogin} onDeleteCopy={onDeleteCopy} />
             )}
             {preview && versionChip}
 
@@ -305,7 +306,6 @@ const SheetHero = ({
               return (
                 <>
                   {(align || speciesBg) && <div className="fh-hero-row">{[align, speciesBg].filter(Boolean).join(', ')}</div>}
-                  {classes.length > 0 && <div className="fh-hero-row is-classes">{classes.join(', ')}</div>}
                   {langs.length > 0 && <div className="fh-hero-row is-langs">{pt ? 'Fala ' : 'Speaks '}{langs.join(', ')}</div>}
                   <div className="fh-hero-row is-rest fh-hero-rest no-print" data-version-hide="">
                     <RestButtons char={char} lang={lang} update={update} />
@@ -327,7 +327,7 @@ const SheetHero = ({
 // Barra única da campanha + lista das cópias da ficha (original + uma por campanha), uma
 // linha cada. A cópia aberta mostra, também em uma linha por campanha, o modo da mesa,
 // quem vê as rolagens e "Sair"; as outras cópias trocam a ficha inteira ao tocar.
-const HeroCampaignBar = ({ copies, lang, open, setOpen, char, campaignsList = [], onOpen, onLeave, busyLeaveId, onManage, onLogin }) => {
+const HeroCampaignBar = ({ copies, lang, open, setOpen, char, campaignsList = [], onOpen, onLeave, busyLeaveId, onManage, onLogin, onDeleteCopy }) => {
   const pt = lang === 'pt';
   const current = campaignsList[0]?.name || char.versionCampaign?.name || '';
   const label = current || (pt ? 'Fora de campanha' : 'Not in a campaign');
@@ -345,14 +345,21 @@ const HeroCampaignBar = ({ copies, lang, open, setOpen, char, campaignsList = []
         <ul className="fh-hero-copies" role="list">
           {list.map(c => (c.active ? (
             (campaignsList.length ? campaignsList : [null]).map((camp, i) => (
-              <li key={`${c.id}-${camp?.id ?? 'none'}`} className="fh-hero-copy is-active">
+              <li key={`${c.id}-${camp?.id ?? 'none'}`} className={`fh-hero-copy is-active${camp?.coverUrl ? ' has-cover' : ''}`}
+                style={camp?.coverUrl ? { backgroundImage: `linear-gradient(90deg, rgba(14,10,8,.92), rgba(14,10,8,.72)), url(${camp.coverUrl})` } : undefined}>
                 <span className="fh-hero-copy-ico" aria-hidden="true">{camp ? '🏰' : '📜'}</span>
-                <span className="fh-hero-copy-name">{camp ? camp.name : (pt ? 'Fora de campanha' : 'Not in a campaign')}</span>
-                {camp && <span className="fh-hero-copy-tag">{mode(camp)}</span>}
-                {camp?.sponsored && <span className="fh-hero-copy-tag">{pt ? 'Vaga da mesa' : 'Table seat'}</span>}
-                {i === 0 && c.level ? <span className="fh-hero-copy-lv">{pt ? 'Nv.' : 'Lv'} {c.level}</span> : null}
+                <span className="fh-hero-copy-main">
+                  <span className="fh-hero-copy-name">{camp ? camp.name : (pt ? 'Fora de campanha' : 'Not in a campaign')}</span>
+                  <span className="fh-hero-copy-tags">
+                    {camp && <span className="fh-hero-copy-tag">{mode(camp)}</span>}
+                    {camp && <span className={`fh-hero-copy-tag is-${camp.isNpc ? 'npc' : 'pc'}`}>{camp.isNpc ? 'NPC' : (pt ? 'PJ' : 'PC')}</span>}
+                    {camp?.sponsored && <span className="fh-hero-copy-tag">{pt ? 'Vaga da mesa' : 'Table seat'}</span>}
+                    {camp?.status === 'closed' && <span className="fh-hero-copy-tag">{pt ? 'Encerrada' : 'Closed'}</span>}
+                    {i === 0 && c.level ? <span className="fh-hero-copy-lv">{pt ? 'Nv.' : 'Lv'} {c.level}</span> : null}
+                  </span>
+                </span>
                 <span className="fh-hero-copy-acts">
-                  {camp && typeof char.id === 'number' && camp.status !== 'closed' && <SheetRollTarget lang={lang} />}
+                  {camp && typeof char.id === 'number' && camp.status !== 'closed' && <SheetRollTarget lang={lang} compact />}
                   {camp && onLeave && (
                     <button type="button" className="btn btn-ghost btn-xs" disabled={busyLeaveId === camp.id}
                       onClick={() => onLeave(camp)} title={pt ? `Sair da campanha "${camp.name}"` : `Leave campaign "${camp.name}"`}>
@@ -361,6 +368,12 @@ const HeroCampaignBar = ({ copies, lang, open, setOpen, char, campaignsList = []
                   )}
                   {!camp && onManage && <button type="button" className="btn btn-primary btn-xs" onClick={onManage}>+ {pt ? 'Atrelar' : 'Link'}</button>}
                   {!camp && !onManage && typeof char.id !== 'number' && onLogin && <button type="button" className="btn btn-primary btn-xs" onClick={onLogin}>{pt ? 'Entrar' : 'Log in'}</button>}
+                  {i === 0 && c.kind !== 'template' && onDeleteCopy && (
+                    <button type="button" className="btn btn-ghost btn-xs btn-danger" onClick={onDeleteCopy}
+                      title={pt ? 'Excluir esta cópia da ficha (a original fica)' : 'Delete this copy of the sheet (the original stays)'}>
+                      🗑 {pt ? 'Excluir' : 'Delete'}
+                    </button>
+                  )}
                 </span>
               </li>
             ))
@@ -729,6 +742,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         onLeaveCampaign={leaveCampaign}
         busyLeaveId={busyLeaveId}
         onManageCampaigns={typeof char.id === 'number' ? () => setVersionsOpen(true) : null}
+        onDeleteCopy={isForkSheet && onDelete ? onDelete : null}
         onLogin={onLogin}
         campaignBanner={preview ? null :
           <CampaignModeBanner
@@ -922,19 +936,26 @@ const HeroChoicesFold = ({ char, lang, update }) => {
   }).filter(r => r.eligible);
   let speciesPending = 0;
   try { speciesPending = Utils.speciesChoiceIssues(char).filter(i => !(char.inCampaign && (i.key === 'feat' || i.key === 'asi'))).length; } catch { /* sem espécie */ }
-  if (!rows.length && !speciesPending) return null;
+  if (!entries.length) return null;
   const pending = rows.some(r => !r.name) || speciesPending > 0;
-  const names = rows.filter(r => r.name).map(r => r.name).join(' · ');
+  // Classes da ficha, uma vez só: "Bruxo 9 (O Corruptor) · Feiticeiro 3" — o nível e a classe
+  // primeiro; a subclasse entre parênteses quando escolhida (substitui a linha de classes do topo).
+  const label = entries.map(e => {
+    const r = rows.find(x => x.e === e);
+    const sub = r?.name || null;
+    return `${tName('class', e.id, lang)} ${e.level}${sub ? ` (${sub})` : ''}`;
+  }).join(' · ');
+  const hasBody = rows.length > 0 || speciesPending > 0;
   return (
     <details className={`fh-hero-fold no-print${pending ? ' is-pending' : ''}`} open={pending}>
       <summary>
-        <span className="fh-hero-fold-k">⚜ {pt ? 'Subclasses' : 'Subclasses'}</span>
-        <span className="fh-hero-fold-v">{names || (pt ? 'escolha pendente' : 'choice pending')}{pending && <span className="fh-hero-fold-dot" aria-label={pt ? 'pendente' : 'pending'} />}</span>
+        <span className="fh-hero-fold-k">⚜ {entries.length > 1 ? (pt ? 'Classes' : 'Classes') : (pt ? 'Classe' : 'Class')}</span>
+        <span className="fh-hero-fold-v">{label}{pending && <span className="fh-hero-fold-dot" aria-label={pt ? 'pendente' : 'pending'} />}</span>
       </summary>
-      <div className="fh-hero-fold-body">
+      {hasBody && <div className="fh-hero-fold-body">
         <SubclassBanner char={char} lang={lang} update={update} />
         <SpeciesBanner char={char} lang={lang} update={update} />
-      </div>
+      </div>}
     </details>
   );
 };

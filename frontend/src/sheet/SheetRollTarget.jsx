@@ -10,7 +10,7 @@ import { getSheetRolls, setSheetSecret, subscribeSheetRolls } from '../dice/shee
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
-export default function SheetRollTarget({ lang }) {
+export default function SheetRollTarget({ lang, compact = false }) {
   const ctx = useSyncExternalStore(subscribeSheetRolls, getSheetRolls, getSheetRolls);
   if (!ctx || ctx.blocked) return null;
   const value = ctx.secret ? 'secret' : 'shown';
@@ -23,6 +23,16 @@ export default function SheetRollTarget({ lang }) {
         : ctx.mode === 'crits'
           ? L(lang, 'Na sessão ao vivo, a Tela da mesa mostra só os 20 e 1 naturais que você rola aqui (regra do mestre).', 'During the live session, the table screen shows only the natural 20s and 1s you roll here (the GM’s rule).')
         : L(lang, 'Na sessão ao vivo, a Tela da mesa mostra o que você rola aqui (perícias, ataques, dano…).', 'During the live session, the table screen shows what you roll here (skills, attacks, damage…).');
+  // Compacto (linha da campanha no cabeçalho): um botão só que alterna, com o porquê no título.
+  if (compact) {
+    const secret = value === 'secret';
+    return (
+      <button type="button" className={`btn btn-ghost btn-xs fh-camp-rolls-toggle${secret ? ' is-secret' : ''}`} aria-pressed={secret}
+        title={why} onClick={() => setSheetSecret(!secret)}>
+        {secret ? L(lang, '🔒 Rolagens só eu', '🔒 Rolls: only me') : L(lang, '📺 Rolagens na Tela', '📺 Rolls on screen')}
+      </button>
+    );
+  }
   return (
     <div className="fh-camp-rolls">
       <span className="fh-camp-rolls-title" id="fh-camp-rolls-t">🎲 {L(lang, 'Suas rolagens', 'Your rolls')}</span>
