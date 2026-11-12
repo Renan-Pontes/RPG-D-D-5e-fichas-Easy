@@ -415,12 +415,18 @@
             {
               "id": "druidic",
               "name": "Druídico",
-              "desc": "Você conhece o idioma secreto dos druidas."
+              "desc": "Você conhece o idioma secreto dos druidas.",
+              "nameEn": "Druidic",
+              "descEn": "You know Druidic, the secret language of druids. You can speak the language and use it to leave hidden messages. You and others who know this language automatically spot such a message. Others spot the message's presence with a successful DC 15 Wisdom (Perception) check but can't decipher it without magic.",
+              "srd51": true
             },
             {
               "id": "spellcasting",
               "name": "Conjuração",
-              "desc": "2 truques. Prepare WIS + nível magias."
+              "desc": "2 truques. Prepare WIS + nível magias.",
+              "nameEn": "Spellcasting",
+              "descEn": "Drawing on the divine essence of nature itself, you can cast spells to shape that essence to your will.",
+              "srd51": true
             }
           ]
         },
@@ -430,7 +436,10 @@
             {
               "id": "wildShape",
               "name": "Forma Selvagem",
-              "desc": "Ação: transforme-se em fera. 2 usos por descanso curto. ND ¼ sem voo nem natação; ½ sem voo no 4; 1 no 8."
+              "desc": "Ação: transforme-se em fera. 2 usos por descanso curto. ND ¼ sem voo nem natação; ½ sem voo no 4; 1 no 8.",
+              "nameEn": "Wild Shape",
+              "descEn": "Starting at 2nd level, you can use your action to magically assume the shape of a beast that you have seen before. You can use this feature twice. You regain expended uses when you finish a short or long rest.\n\nYour druid level determines the beasts you can transform into, as shown in the Beast Shapes table. At 2nd level, for example, you can transform into any beast that has a challenge rating of 1/4 or lower that doesn't have a flying or swimming speed.\n\nTable- Beast Shapes\n\n| Level | Max. CR | Limitations                 | Example     |\n|-------|---------|-----------------------------|-------------|\n| 2nd   | 1/4     | No flying or swimming speed | Wolf        |\n| 4th   | 1/2     | No flying speed             | Crocodile   |\n| 8th   | 1       | -                           | Giant eagle |\n|       |         |                             |             |\n\nYou can stay in a beast shape for a number of hours equal to half your druid level (rounded down). You then revert to your normal form unless you expend another use of this feature. You can revert to your normal form earlier by using a bonus action on your turn. You automatically revert if you fall unconscious, drop to 0 hit points, or die.\n\nWhile you are transformed, the following rules apply:\n\n- Your game statistics are replaced by the statistics of the beast, but you retain your alignment, personality, and Intelligence, Wisdom, and Charisma scores. You also retain all of your skill and saving throw proficiencies, in addition to gaining those of the creature. If the creature has the same proficiency as you and the bonus in its stat block is higher than yours, use the creature's bonus instead of yours. If the creature has any legendary or lair actions, you can't use them.\n- When you transform, you assume the beast's hit points and Hit Dice. When you revert to your normal form, you return to the number of hit points you had before you transformed. However, if you revert as a result of dropping to 0 hit points, any excess damage carries over to your normal form. For example, if you take 10 damage in animal form and have only 1 hit point left, you revert and take 9 damage. As long as the excess damage doesn't reduce your normal form to 0 hit points, you aren't knocked unconscious.\n- You can't cast spells, and your ability to speak or take any action that requires hands is limited to the capabilities of your beast form. Transforming doesn't break your concentration on a spell you've already cast, however, or prevent you from taking actions that are part of a spell, such as call lightning, that you've already cast.\n- You retain the benefit of any features from your class, race, or other source and can use them if the new form is physically capable of doing so. However, you can't use any of your special senses, such as darkvision, unless your new form also has that sense.\n- You choose whether your equipment falls to the ground in your space, merges into your new form, or is worn by it. Worn equipment functions as normal, but the GM decides whether it is practical for the new form to wear a piece of equipment, based on the creature's shape and size. Your equipment doesn't change size or shape to match the new form, and any equipment that the new form can't wear must either fall to the ground or merge with it. Equipment that merges with the form has no effect until you leave the form.",
+              "srd51": true
             }
           ]
         },
@@ -474,12 +483,18 @@
             {
               "id": "timelessBody",
               "name": "Corpo Atemporal",
-              "desc": "Envelhece 1 ano a cada 10."
+              "desc": "Envelhece 1 ano a cada 10.",
+              "nameEn": "Timeless Body",
+              "descEn": "Starting at 18th level, the primal magic that you wield causes you to age more slowly. For every 10 years that pass, your body ages only 1 year.",
+              "srd51": true
             },
             {
               "id": "beastSpells",
               "name": "Magias de Besta",
-              "desc": "Pode lançar magias em Forma Selvagem (componentes V/S; sem material)."
+              "desc": "Pode lançar magias em Forma Selvagem (componentes V/S; sem material).",
+              "nameEn": "Beast Spells",
+              "descEn": "Beginning at 18th level, you can cast many of your druid spells in any shape you assume using Wild Shape. You can perform the somatic and verbal components of a druid spell while in a beast shape, but you aren't able to provide material components.",
+              "srd51": true
             }
           ]
         },
@@ -491,7 +506,10 @@
             {
               "id": "archdruid",
               "name": "Arquidruida",
-              "desc": "Forma Selvagem ilimitada; ignore componentes V/S e materiais sem custo das magias de druida."
+              "desc": "Forma Selvagem ilimitada; ignore componentes V/S e materiais sem custo das magias de druida.",
+              "nameEn": "Archdruid",
+              "descEn": "At 20th level, you can use your Wild Shape an unlimited number of times.\n\nAdditionally, you can ignore the verbal and somatic components of your druid spells, as well as any material components that lack a cost and aren't consumed by a spell. You gain this benefit in both your normal shape and your beast shape from Wild Shape.",
+              "srd51": true
             }
           ]
         }
@@ -546,12 +564,18 @@
               {
                 "id": "bonusCantrip",
                 "name": "Truque Bônus",
-                "desc": "+1 truque de druida à sua escolha."
+                "desc": "+1 truque de druida à sua escolha.",
+                "nameEn": "Bonus Cantrip",
+                "descEn": "When you choose this circle at 2nd level, you learn one additional druid cantrip of your choice.",
+                "srd51": true
               },
               {
                 "id": "naturalRecovery",
                 "name": "Recuperação Natural",
-                "desc": "1×/descanso longo, em descanso curto: recupere espaços somando até metade do nível de druida (arred. para cima), nenhum de 6º+."
+                "desc": "1×/descanso longo, em descanso curto: recupere espaços somando até metade do nível de druida (arred. para cima), nenhum de 6º+.",
+                "nameEn": "Natural Recovery",
+                "descEn": "Starting at 2nd level, you can regain some of your magical energy by sitting in meditation and communing with nature. During a short rest, you choose expended spell slots to recover. The spell slots can have a combined level that is equal to or less than half your druid level (rounded up), and none of the slots can be 6th level or higher. You can't use this feature again until you finish a long rest.\n\nFor example, when you are a 4th-level druid, you can recover up to two levels worth of spell slots. You can recover either a 2nd-level slot or two 1st-level slots.",
+                "srd51": true
               }
             ]
           },
@@ -560,7 +584,10 @@
               {
                 "id": "circleSpells",
                 "name": "Magias de Círculo",
-                "desc": "Terreno escolhido no nível 2: 2 magias sempre preparadas nos níveis 3, 5, 7 e 9."
+                "desc": "Terreno escolhido no nível 2: 2 magias sempre preparadas nos níveis 3, 5, 7 e 9.",
+                "nameEn": "Circle Spells",
+                "descEn": "Your mystical connection to the land infuses you with the ability to cast certain spells. At 3rd, 5th, 7th, and 9th level you gain access to circle spells connected to the land where you became a druid. Choose that land-arctic, coast, desert, forest, grassland, mountain, or swamp-and consult the associated list of spells.\n\nOnce you gain access to a circle spell, you always have it prepared, and it doesn't count against the number of spells you can prepare each day. If you gain access to a spell that doesn't appear on the druid spell list, the spell is nonetheless a druid spell for you.\n\nTable- Arctic Circle Spells\n\n| Druid Level | Circle Spells                     |\n|-------------|-----------------------------------|\n| 3rd         | hold person, spike growth         |\n| 5th         | sleet storm, slow                 |\n| 7th         | freedom of movement, ice storm    |\n| 9th         | commune with nature, cone of cold |\n|             |                                   |\n\nTable- Coast Circle Spells\n\n| Druid Level | Circle Spells                      |\n|-------------|------------------------------------|\n| 3rd         | mirror image, misty step           |\n| 5th         | water breathing, water walk        |\n| 7th         | control water, freedom of movement |\n| 9th         | conjure elemental, scrying         |\n|             |                                    |\n\nTable- Desert Circle Spells\n\n| Druid Level | Circle Spells                                 |\n|-------------|-----------------------------------------------|\n| 3rd         | blur, silence                                 |\n| 5th         | create food and water, protection from energy |\n| 7th         | blight, hallucinatory terrain                 |\n| 9th         | insect plague, wall of stone                  |\n|             |                                               |\n\nTable- Forest Circle Spells\n\n| Druid Level | Circle Spells                    |\n|-------------|----------------------------------|\n| 3rd         | barkskin, spider climb           |\n| 5th         | call lightning, plant growth     |\n| 7th         | divination, freedom of movement  |\n| 9th         | commune with nature, tree stride |\n|\n\nTable- Forest Circle Spells\n\n| Druid Level | Circle Spells                    |\n|-------------|----------------------------------|\n| 3rd         | barkskin, spider climb           |\n| 5th         | call lightning, plant growth     |\n| 7th         | divination, freedom of movement  |\n| 9th         | commune with nature, tree stride |\n|             |                                  |\n\nTable- Grassland Circle Spells\n\n| Druid Level | Circle Spells                    |\n|-------------|----------------------------------|\n| 3rd         | invisibility, pass without trace |\n| 5th         | daylight, haste                  |\n| 7th         | divination, freedom of movement  |\n| 9th         | dream, insect plague             |\n|             |                                  |\n\nTable- Mountain Circle Spells\n\n| Druid Level | Circle Spells                   |\n|-------------|---------------------------------|\n| 3rd         | spider climb, spike growth      |\n| 5th         | lightning bolt, meld into stone |\n| 7th         | stone shape, stoneskin          |\n| 9th         | passwall, wall of stone         |\n|             |                                 |\n\nTable- Swamp Circle Spells\n\n| Druid Level | Circle Spells                        |\n|-------------|--------------------------------------|\n| 3rd         | acid arrow, darkness                 |\n| 5th         | water walk, stinking cloud           |\n| 7th         | freedom of movement, locate creature |\n| 9th         | insect plague, scrying               |\n|             |                                      |",
+                "srd51": true
               }
             ]
           },
@@ -569,7 +596,10 @@
               {
                 "id": "landsStride",
                 "name": "Passos da Terra",
-                "desc": "Terreno difícil não mágico não custa movimento extra; vantagem em salvaguardas contra plantas mágicas que impedem movimento."
+                "desc": "Terreno difícil não mágico não custa movimento extra; vantagem em salvaguardas contra plantas mágicas que impedem movimento.",
+                "nameEn": "Land's Stride",
+                "descEn": "Starting at 6th level, moving through nonmagical difficult terrain costs you no extra movement. You can also pass through nonmagical plants without being slowed by them and without taking damage from them if they have thorns, spines, or a similar hazard.\n\nIn addition, you have advantage on saving throws against plants that are magically created or manipulated to impede movement, such those created by the entangle spell.",
+                "srd51": true
               }
             ]
           },
@@ -578,7 +608,10 @@
               {
                 "id": "naturesWard",
                 "name": "Proteção da Natureza",
-                "desc": "Não pode ser enfeitiçado nem amedrontado por elementais ou feéricos; imune a veneno e doença."
+                "desc": "Não pode ser enfeitiçado nem amedrontado por elementais ou feéricos; imune a veneno e doença.",
+                "nameEn": "Nature's Ward",
+                "descEn": "When you reach 10th level, you can't be charmed or frightened by elementals or fey, and you are immune to poison and disease.",
+                "srd51": true
               }
             ]
           },
@@ -587,7 +620,10 @@
               {
                 "id": "naturesSanctuary",
                 "name": "Santuário da Natureza",
-                "desc": "Fera ou planta que o ataque faz SAL SAB ou escolhe outro alvo."
+                "desc": "Fera ou planta que o ataque faz SAL SAB ou escolhe outro alvo.",
+                "nameEn": "Nature's Sanctuary",
+                "descEn": "When you reach 14th level, creatures of the natural world sense your connection to nature and become hesitant to attack you. When a beast or plant creature attacks you, that creature must make a Wisdom saving throw against your druid spell save DC. On a failed save, the creature must choose a different target, or the attack automatically misses. On a successful save, the creature is immune to this effect for 24 hours.\n\nThe creature is aware of this effect before it makes its attack against you.\n\n>Sacred Plants and Wood\n>\n>A druid holds certain plants to be sacred, particularly alder, ash, birch, elder, hazel, holly, juniper, mistletoe, oak, rowan, willow, and yew. Druids often use such plants as part of a spellcasting focus, incorporating lengths of oak or yew or sprigs of mistletoe.\n>\n>Similarly, a druid uses such woods to make other objects, such as weapons and shields. Yew is associated with death and rebirth, so weapon handles for scimitars or sickles might be fashioned from it. Ash is associated with life and oak with strength. These woods make excellent hafts or whole weapons, such as clubs or quarterstaffs, as well as shields. Alder is associated with air, and it might be used for thrown weapons, such as darts or javelins.\n>\nd with death and rebirth, so weapon handles for scimitars or sickles might be fashioned from it. Ash is associated with life and oak with strength. These woods make excellent hafts or whole weapons, such as clubs or quarterstaffs, as well as shields. Alder is associated with air, and it might be used for thrown weapons, such as darts or javelins.\n>\n>Druids from regions that lack the plants described here have chosen other plants to take on similar uses. For instance, a druid of a desert region might value the yucca tree and cactus plants.\n>\n>Druids and the Gods\n>\n>Some druids venerate the forces of nature themselves, but most druids are devoted to one of the many nature deities worshiped in the multiverse (the lists of gods in appendix B include many such deities). The worship of these deities is often considered a more ancient tradition than the faiths of clerics and urbanized peoples.",
+                "srd51": true
               }
             ]
           },
@@ -978,7 +1014,10 @@
             {
               "id": "secondWind",
               "name": "Segundo Fôlego",
-              "desc": "Ação bônus: 1d10+nível HP. 1×/descanso curto."
+              "desc": "Ação bônus: 1d10+nível HP. 1×/descanso curto.",
+              "nameEn": "Second Wind",
+              "descEn": "You have a limited well of stamina that you can draw on to protect yourself from harm. On your turn, you can use a bonus action to regain hit points equal to 1d10 + your fighter level. Once you use this feature, you must finish a short or long rest before you can use it again.",
+              "srd51": true
             }
           ]
         },
@@ -987,7 +1026,10 @@
             {
               "id": "actionSurge",
               "name": "Surto de Ação",
-              "desc": "Ação extra. 1×/descanso curto (2× no nível 17)."
+              "desc": "Ação extra. 1×/descanso curto (2× no nível 17).",
+              "nameEn": "Action Surge",
+              "descEn": "Starting at 2nd level, you can push yourself beyond your normal limits for a moment. On your turn, you can take one additional action on top of your regular action and a possible bonus action.\n\nOnce you use this feature, you must finish a short or long rest before you can use it again. Starting at 17th level, you can use it twice before a rest, but only once on the same turn.",
+              "srd51": true
             }
           ]
         },
@@ -1003,7 +1045,10 @@
             {
               "id": "extraAttack",
               "name": "Ataque Extra",
-              "desc": "Ataque duas vezes na ação Atacar."
+              "desc": "Ataque duas vezes na ação Atacar.",
+              "nameEn": "Extra Attack",
+              "descEn": "Beginning at 5th level, you can attack twice, instead of once, whenever you take the Attack action on your turn.\n\nThe number of attacks increases to three when you reach 11th level in this class and to four when you reach 20th level in this class.",
+              "srd51": true
             }
           ]
         },
@@ -1021,7 +1066,10 @@
             {
               "id": "indomitable",
               "name": "Indomável",
-              "desc": "Refaça um teste de salvamento falho 1×/descanso longo (2 usos no 13, 3 no 17)."
+              "desc": "Refaça um teste de salvamento falho 1×/descanso longo (2 usos no 13, 3 no 17).",
+              "nameEn": "Indomitable",
+              "descEn": "Beginning at 9th level, you can reroll a saving throw that you fail. If you do so, you must use the new roll, and you can't use this feature again until you finish a long rest.\n\nYou can use this feature twice between long rests starting at 13th level and three times between long rests starting at 17th level.",
+              "srd51": true
             }
           ]
         },
@@ -1039,7 +1087,10 @@
             {
               "id": "indomitable2",
               "name": "Indomável (2 usos)",
-              "desc": "2 usos por descanso longo."
+              "desc": "2 usos por descanso longo.",
+              "nameEn": "Indomitable",
+              "descEn": "Beginning at 9th level, you can reroll a saving throw that you fail. If you do so, you must use the new roll, and you can't use this feature again until you finish a long rest.\n\nYou can use this feature twice between long rests starting at 13th level and three times between long rests starting at 17th level.",
+              "srd51": true
             }
           ]
         },
@@ -1057,12 +1108,18 @@
             {
               "id": "actionSurge2",
               "name": "Surto de Ação (2 usos)",
-              "desc": "2 usos por descanso curto, só 1 por turno."
+              "desc": "2 usos por descanso curto, só 1 por turno.",
+              "nameEn": "Action Surge",
+              "descEn": "Starting at 2nd level, you can push yourself beyond your normal limits for a moment. On your turn, you can take one additional action on top of your regular action and a possible bonus action.\n\nOnce you use this feature, you must finish a short or long rest before you can use it again. Starting at 17th level, you can use it twice before a rest, but only once on the same turn.",
+              "srd51": true
             },
             {
               "id": "indomitable3",
               "name": "Indomável (3 usos)",
-              "desc": "3 usos por descanso longo."
+              "desc": "3 usos por descanso longo.",
+              "nameEn": "Indomitable",
+              "descEn": "Beginning at 9th level, you can reroll a saving throw that you fail. If you do so, you must use the new roll, and you can't use this feature again until you finish a long rest.\n\nYou can use this feature twice between long rests starting at 13th level and three times between long rests starting at 17th level.",
+              "srd51": true
             }
           ]
         },
@@ -1083,7 +1140,10 @@
               {
                 "id": "improvedCritical",
                 "name": "Crítico Aprimorado",
-                "desc": "Crítico em 19-20."
+                "desc": "Crítico em 19-20.",
+                "nameEn": "Improved Critical",
+                "descEn": "Beginning when you choose this archetype at 3rd level, your weapon attacks score a critical hit on a roll of 19 or 20.",
+                "srd51": true
               }
             ]
           },
@@ -1092,7 +1152,10 @@
               {
                 "id": "remarkableAthlete",
                 "name": "Atleta Notável",
-                "desc": "+metade prof em STR/DEX/CON sem prof."
+                "desc": "+metade prof em STR/DEX/CON sem prof.",
+                "nameEn": "Remarkable Athlete",
+                "descEn": "Starting at 7th level, you can add half your proficiency bonus (round up) to any Strength, Dexterity, or Constitution check you make that doesn't already use your proficiency bonus.\n\nIn addition, when you make a running long jump, the distance you can cover increases by a number of feet equal to your Strength modifier.",
+                "srd51": true
               }
             ]
           },
@@ -1104,7 +1167,8 @@
                 "name": "Estilo de Combate Adicional",
                 "desc": "Escolha mais um estilo de combate.",
                 "nameEn": "Additional Fighting Style",
-                "descEn": "Choose one additional Fighting Style."
+                "descEn": "At 10th level, you can choose a second option from the Fighting Style class feature.",
+                "srd51": true
               }
             ]
           },
@@ -1113,7 +1177,10 @@
               {
                 "id": "superiorCritical",
                 "name": "Crítico Superior",
-                "desc": "Crítico em 18-20."
+                "desc": "Crítico em 18-20.",
+                "nameEn": "Superior Critical",
+                "descEn": "Starting at 15th level, your weapon attacks score a critical hit on a roll of 18-20.",
+                "srd51": true
               }
             ]
           },
@@ -1122,7 +1189,10 @@
               {
                 "id": "survivor",
                 "name": "Sobrevivente",
-                "desc": "Recupere 5+CON HP/turno se ≤ ½ máximo."
+                "desc": "Recupere 5+CON HP/turno se ≤ ½ máximo.",
+                "nameEn": "Survivor",
+                "descEn": "At 18th level, you attain the pinnacle of resilience in battle. At the start of each of your turns, you regain hit points equal to 5 + your Constitution modifier if you have no more than half of your hit points left. You don't gain this benefit if you have 0 hit points.",
+                "srd51": true
               }
             ]
           }
@@ -1320,12 +1390,18 @@
             {
               "id": "spellbook",
               "name": "Livro de Magias",
-              "desc": "6 magias de 1° nível. Aprenda 2/nível. Prepare INT + nível magias."
+              "desc": "6 magias de 1° nível. Aprenda 2/nível. Prepare INT + nível magias.",
+              "nameEn": "Spellbook",
+              "descEn": "At 1st level, you have a spellbook containing six 1st- level wizard spells of your choice. Your spellbook is the repository of the wizard spells you know, except your cantrips, which are fixed in your mind.",
+              "srd51": true
             },
             {
               "id": "arcaneRecovery",
               "name": "Recuperação Arcana",
-              "desc": "1×/dia, em descanso curto: recupere espaços somando até metade do nível de mago (arred. para cima), nenhum de 6º+."
+              "desc": "1×/dia, em descanso curto: recupere espaços somando até metade do nível de mago (arred. para cima), nenhum de 6º+.",
+              "nameEn": "Arcane Recovery",
+              "descEn": "You have learned to regain some of your magical energy by studying your spellbook. Once per day when you finish a short rest, you can choose expended spell slots to recover. The spell slots can have a combined level that is equal to or less than half your wizard level (rounded up), and none of the slots can be 6th level or higher.\n\nFor example, if you're a 4th-level wizard, you can recover up to two levels worth of spell slots. You can recover either a 2nd-level spell slot or two 1st-level spell slots.",
+              "srd51": true
             }
           ]
         },
@@ -1368,7 +1444,10 @@
             {
               "id": "spellMastery",
               "name": "Mestria em Magia",
-              "desc": "Escolha 1 magia de 1º e 1 de 2º nível: lance-as no menor nível sem gastar espaço."
+              "desc": "Escolha 1 magia de 1º e 1 de 2º nível: lance-as no menor nível sem gastar espaço.",
+              "nameEn": "Spell Mastery",
+              "descEn": "At 18th level, you have achieved such mastery over certain spells that you can cast them at will. Choose a 1st-level wizard spell and a 2nd-level wizard spell that are in your spellbook. You can cast those spells at their lowest level without expending a spell slot when you have them prepared. If you want to cast either spell at a higher level, you must expend a spell slot as normal.\n\nBy spending 8 hours in study, you can exchange one or both of the spells you chose for different spells of the same levels.",
+              "srd51": true
             }
           ]
         },
@@ -1380,7 +1459,10 @@
             {
               "id": "signatureSpells",
               "name": "Magias Características",
-              "desc": "Escolha 2 magias de 3° nível: sempre preparadas; 1×/desc curto cada uma sem espaço."
+              "desc": "Escolha 2 magias de 3° nível: sempre preparadas; 1×/desc curto cada uma sem espaço.",
+              "nameEn": "Signature Spells",
+              "descEn": "When you reach 20th level, you gain mastery over two powerful spells and can cast them with little effort. Choose two 3rd-level wizard spells in your spellbook as your signature spells. You always have these spells prepared, they don't count against the number of spells you have prepared, and you can cast each of them once at 3rd level without expending a spell slot. When you do so, you can't do so again until you finish a short or long rest.\n\nIf you want to cast either spell at a higher level, you must expend a spell slot as normal.",
+              "srd51": true
             }
           ]
         }
@@ -1392,12 +1474,18 @@
               {
                 "id": "evocationSavant",
                 "name": "Sábio de Evocação",
-                "desc": "Metade do ouro e do tempo para copiar evocação no livro."
+                "desc": "Metade do ouro e do tempo para copiar evocação no livro.",
+                "nameEn": "Evocation Savant",
+                "descEn": "Beginning when you select this school at 2nd level, the gold and time you must spend to copy an evocation spell into your spellbook is halved.",
+                "srd51": true
               },
               {
                 "id": "sculptSpells",
                 "name": "Esculpir Magias",
-                "desc": "Evocação em área: 1 + nível da magia criaturas escolhidas passam automaticamente na SAL e sofrem 0 de dano em vez de metade."
+                "desc": "Evocação em área: 1 + nível da magia criaturas escolhidas passam automaticamente na SAL e sofrem 0 de dano em vez de metade.",
+                "nameEn": "Sculpt Spells",
+                "descEn": "Beginning at 2nd level, you can create pockets of relative safety within the effects of your evocation spells. When you cast an evocation spell that affects other creatures that you can see, you can choose a number of them equal to 1 + the spell's level. The chosen creatures automatically succeed on their saving throws against the spell, and they take no damage if they would normally take half damage on a successful save.",
+                "srd51": true
               }
             ]
           },
@@ -1406,7 +1494,10 @@
               {
                 "id": "potentCantrip",
                 "name": "Truque Potente",
-                "desc": "Metade do dano mesmo se SAL passar."
+                "desc": "Metade do dano mesmo se SAL passar.",
+                "nameEn": "Potent Cantrip",
+                "descEn": "Starting at 6th level, your damaging cantrips affect even creatures that avoid the brunt of the effect. When a creature succeeds on a saving throw against your cantrip, the creature takes half the cantrip's damage (if any) but suffers no additional effect from the cantrip.",
+                "srd51": true
               }
             ]
           },
@@ -1415,7 +1506,10 @@
               {
                 "id": "empoweredEvocation",
                 "name": "Evocação Aprimorada",
-                "desc": "+INT em uma rolagem de dano de magia de evocação de mago."
+                "desc": "+INT em uma rolagem de dano de magia de evocação de mago.",
+                "nameEn": "Empowered Evocation",
+                "descEn": "Beginning at 10th level, you can add your Intelligence modifier to one damage roll of any wizard evocation spell you cast.",
+                "srd51": true
               }
             ]
           },
@@ -1424,7 +1518,10 @@
               {
                 "id": "overchannel",
                 "name": "Sobrecarga",
-                "desc": "Maximize o dano de magia de 1º a 5º. Usos extras antes do descanso longo: 2d12 necrótico por nível da magia, +1d12 por nível a cada uso seguinte."
+                "desc": "Maximize o dano de magia de 1º a 5º. Usos extras antes do descanso longo: 2d12 necrótico por nível da magia, +1d12 por nível a cada uso seguinte.",
+                "nameEn": "Overchannel",
+                "descEn": "Starting at 14th level, you can increase the power of your simpler spells. When you cast a wizard spell of 1st through 5th level that deals damage, you can deal maximum damage with that spell.\n\nThe first time you do so, you suffer no adverse effect. If you use this feature again before you finish a long rest, you take 2d12 necrotic damage for each level of the spell, immediately after you cast it. Each time you use this feature again before finishing a long rest, the necrotic damage per spell level increases by 1d12. This damage ignores resistance and immunity.\n\n>Your Spellbook\n>\n>The spells that you add to your spellbook as you gain levels reflect the arcane research you conduct on your own, as well as intellectual breakthroughs you have had about the nature of the multiverse. You might find other spells during your adventures. You could discover a spell recorded on a scroll in an evil wizard's chest, for example, or in a dusty tome in an ancient library.\n>\n>Copying a Spell into the Book. When you find a wizard spell of 1st level or higher, you can add it to your spellbook if it is of a spell level you can prepare and if you can spare the time to decipher and copy it.\n>\n>Copying that spell into your spellbook involves reproducing the basic form of the spell, then deciphering the unique system of notation used by the wizard who wrote it. You must practice the spell until you understand the sounds or gestures required, then transcribe it into your spellbook using your own notation.\n>\n>For each level of the spell, the process takes 2 hours and costs 50 gp. The cost represents material components you expend as you experiment with the spell to master it, as well as the fine inks you need to record it. Once you have spent this time and money, you can prepare the spell just like your other spells.\n>\nllbook using your own notation.\n>\n>For each level of the spell, the process takes 2 hours and costs 50 gp. The cost represents material components you expend as you experiment with the spell to master it, as well as the fine inks you need to record it. Once you have spent this time and money, you can prepare the spell just like your other spells.\n>\n>Replacing the Book. You can copy a spell from your own spellbook into another book-for example, if you want to make a backup copy of your spellbook. This is just like copying a new spell into your spellbook, but faster and easier, since you understand your own notation and already know how to cast the spell. You need spend only 1 hour and 10 gp for each level of the copied spell.\n>\n>*If you lose your spellbook, you can use the same procedure to transcribe the spells that you have prepared into a new spellbook. Filling out the remainder of your spellbook requires you to find new spells to do so, as normal. For this reason, many wizards keep backup spellbooks in a safe place.\n>\n>The Book's Appearance. Your spellbook is a unique compilation of spells, with its own decorative flourishes and margin notes. It might be a plain, functional leather volume that you received as a gift from your master, a finely bound gilt-edged tome you found in an ancient library, or even a loose collection of notes scrounged together after you lost your previous spellbook in a mishap.",
+                "srd51": true
               }
             ]
           }
@@ -1719,7 +1816,10 @@
             {
               "id": "spellcasting",
               "name": "Conjuração",
-              "desc": "3 truques. Prepare WIS + nível magias."
+              "desc": "3 truques. Prepare WIS + nível magias.",
+              "nameEn": "Spellcasting",
+              "descEn": "As a conduit for divine power, you can cast cleric spells.",
+              "srd51": true
             }
           ],
           "subclass_choice": true
@@ -1729,7 +1829,10 @@
             {
               "id": "channelDivinity",
               "name": "Canalizar Divindade",
-              "desc": "1 uso. Turn Undead + domínio."
+              "desc": "1 uso. Turn Undead + domínio.",
+              "nameEn": "Channel Divinity",
+              "descEn": "At 2nd level, you gain the ability to channel divine energy directly from your deity, using that energy to fuel magical effects. You start with two such effects: Turn Undead and an effect determined by your domain. Some domains grant you additional effects as you advance in levels, as noted in the domain description.\n\nWhen you use your Channel Divinity, you choose which effect to create. You must then finish a short or long rest to use your Channel Divinity again.\n\nSome Channel Divinity effects require saving throws. When you use such an effect from this class, the DC equals your cleric spell save DC.\n\nBeginning at 6th level, you can use your Channel Divinity twice between rests, and beginning at 18th level, you can use it three times between rests. When you finish a short or long rest, you regain your expended uses.",
+              "srd51": true
             }
           ]
         },
@@ -1743,7 +1846,10 @@
             {
               "id": "destroyUndead",
               "name": "Destruir Mortos-Vivos",
-              "desc": "Expulsar Mortos-Vivos destrói ND ≤ ½ (1 no 8, 2 no 11, 3 no 14, 4 no 17)."
+              "desc": "Expulsar Mortos-Vivos destrói ND ≤ ½ (1 no 8, 2 no 11, 3 no 14, 4 no 17).",
+              "nameEn": "Destroy Undead",
+              "descEn": "Starting at 5th level, when an undead fails its saving throw against your Turn Undead feature, the creature is instantly destroyed if its challenge rating is at or below a certain threshold, as shown in the Destroy Undead table.\n\nTable- Destroy Undead\n\n| Cleric Level | Destroys Undead of CR ... |\n|--------------|---------------------------|\n| 5th          | 1/2 or lower              |\n| 8th          | 1 or lower                |\n| 11th         | 2 or lower                |\n| 14th         | 3 or lower                |\n| 17th         | 4 or lower                |\n|              |                           |",
+              "srd51": true
             }
           ]
         },
@@ -1752,7 +1858,10 @@
             {
               "id": "channelDivinity2",
               "name": "Canalizar Divindade (2 usos)",
-              "desc": "2 usos/descanso curto."
+              "desc": "2 usos/descanso curto.",
+              "nameEn": "Channel Divinity",
+              "descEn": "At 2nd level, you gain the ability to channel divine energy directly from your deity, using that energy to fuel magical effects. You start with two such effects: Turn Undead and an effect determined by your domain. Some domains grant you additional effects as you advance in levels, as noted in the domain description.\n\nWhen you use your Channel Divinity, you choose which effect to create. You must then finish a short or long rest to use your Channel Divinity again.\n\nSome Channel Divinity effects require saving throws. When you use such an effect from this class, the DC equals your cleric spell save DC.\n\nBeginning at 6th level, you can use your Channel Divinity twice between rests, and beginning at 18th level, you can use it three times between rests. When you finish a short or long rest, you regain your expended uses.",
+              "srd51": true
             }
           ],
           "subclassFeatures": true
@@ -1769,7 +1878,10 @@
             {
               "id": "divineIntervention",
               "name": "Intervenção Divina",
-              "desc": "Pedido divino: sucesso se d100 ≤ nível de clérigo; após sucesso, 7 dias até tentar de novo (senão, após descanso longo)."
+              "desc": "Pedido divino: sucesso se d100 ≤ nível de clérigo; após sucesso, 7 dias até tentar de novo (senão, após descanso longo).",
+              "nameEn": "Divine Intervention",
+              "descEn": "Beginning at 10th level, you can call on your deity to intervene on your behalf when your need is great.\n\nImploring your deity's aid requires you to use your action. Describe the assistance you seek, and roll percentile dice. If you roll a number equal to or lower than your cleric level, your deity intervenes. The GM chooses the nature of the intervention; the effect of any cleric spell or cleric domain spell would be appropriate.\n\nIf your deity intervenes, you can't use this feature again for 7 days. Otherwise, you can use it again after you finish a long rest.\n\nAt 20th level, your call for intervention succeeds automatically, no roll required.",
+              "srd51": true
             }
           ]
         },
@@ -1791,7 +1903,10 @@
             {
               "id": "channelDivinity3",
               "name": "Canalizar Divindade (3 usos)",
-              "desc": "3 usos/descanso curto."
+              "desc": "3 usos/descanso curto.",
+              "nameEn": "Channel Divinity",
+              "descEn": "At 2nd level, you gain the ability to channel divine energy directly from your deity, using that energy to fuel magical effects. You start with two such effects: Turn Undead and an effect determined by your domain. Some domains grant you additional effects as you advance in levels, as noted in the domain description.\n\nWhen you use your Channel Divinity, you choose which effect to create. You must then finish a short or long rest to use your Channel Divinity again.\n\nSome Channel Divinity effects require saving throws. When you use such an effect from this class, the DC equals your cleric spell save DC.\n\nBeginning at 6th level, you can use your Channel Divinity twice between rests, and beginning at 18th level, you can use it three times between rests. When you finish a short or long rest, you regain your expended uses.",
+              "srd51": true
             }
           ]
         },
@@ -1803,7 +1918,10 @@
             {
               "id": "divineInterventionImproved",
               "name": "Intervenção Divina Aprimorada",
-              "desc": "Intervenção sempre bem-sucedida."
+              "desc": "Intervenção sempre bem-sucedida.",
+              "nameEn": "Divine Intervention",
+              "descEn": "Beginning at 10th level, you can call on your deity to intervene on your behalf when your need is great.\n\nImploring your deity's aid requires you to use your action. Describe the assistance you seek, and roll percentile dice. If you roll a number equal to or lower than your cleric level, your deity intervenes. The GM chooses the nature of the intervention; the effect of any cleric spell or cleric domain spell would be appropriate.\n\nIf your deity intervenes, you can't use this feature again for 7 days. Otherwise, you can use it again after you finish a long rest.\n\nAt 20th level, your call for intervention succeeds automatically, no roll required.",
+              "srd51": true
             }
           ]
         }
@@ -1819,12 +1937,18 @@
               {
                 "id": "discipleOfLife",
                 "name": "Discípulo da Vida",
-                "desc": "Magias de cura: +2+nível HP."
+                "desc": "Magias de cura: +2+nível HP.",
+                "nameEn": "Disciple of Life",
+                "descEn": "Also starting at 1st level, your healing spells are more effective. Whenever you use a spell of 1st level or higher to restore hit points to a creature, the creature regains additional hit points equal to 2 + the spell's level.",
+                "srd51": true
               },
               {
                 "id": "heavyArmorProficiency",
                 "name": "Proficiência com Armadura Pesada",
-                "desc": "Você ganha proficiência com armaduras pesadas."
+                "desc": "Você ganha proficiência com armaduras pesadas.",
+                "nameEn": "Bonus Proficiency",
+                "descEn": "When you choose this domain at 1st level, you gain proficiency with heavy armor.",
+                "srd51": true
               }
             ]
           },
@@ -1833,7 +1957,10 @@
               {
                 "id": "preserveLife",
                 "name": "Preservar a Vida",
-                "desc": "CD: cure 5×nível HP em 30 pés."
+                "desc": "CD: cure 5×nível HP em 30 pés.",
+                "nameEn": "Channel Divinity: Preserve Life",
+                "descEn": "Starting at 2nd level, you can use your Channel Divinity to heal the badly injured.\n\nAs an action, you present your holy symbol and evoke healing energy that can restore a number of hit points equal to five times your cleric level. Choose any creatures within 30 feet of you, and divide those hit points among them. This feature can restore a creature to no more than half of its hit point maximum. You can't use this feature on an undead or a construct.",
+                "srd51": true
               }
             ]
           },
@@ -1854,7 +1981,10 @@
               {
                 "id": "blessedHealer",
                 "name": "Curandeiro Abençoado",
-                "desc": "Ao curar outro, cure-se 2+nível."
+                "desc": "Ao curar outro, cure-se 2+nível.",
+                "nameEn": "Blessed Healer",
+                "descEn": "Beginning at 6th level, the healing spells you cast on others heal you as well. When you cast a spell of 1st level or higher that restores hit points to a creature other than you, you regain hit points equal to 2 + the spell's level.",
+                "srd51": true
               }
             ]
           },
@@ -1869,7 +1999,10 @@
               {
                 "id": "divineStrike",
                 "name": "Golpe Divino",
-                "desc": "+1d8 radiante em arma (2d8 no 14)."
+                "desc": "+1d8 radiante em arma (2d8 no 14).",
+                "nameEn": "Divine Strike",
+                "descEn": "At 8th level, you gain the ability to infuse your weapon strikes with divine energy. Once on each of your turns when you hit a creature with a weapon attack, you can cause the attack to deal an extra 1d8 radiant damage to the target. When you reach 14th level, the extra damage increases to 2d8.",
+                "srd51": true
               }
             ]
           },
@@ -1884,7 +2017,10 @@
               {
                 "id": "supremeHealing",
                 "name": "Cura Suprema",
-                "desc": "Dados de cura → valor máximo."
+                "desc": "Dados de cura → valor máximo.",
+                "nameEn": "Supreme Healing",
+                "descEn": "Starting at 17th level, when you would normally roll one or more dice to restore hit points with a spell, you instead use the highest number possible for each die. For example, instead of restoring 2d6 hit points to a creature, you restore 12.",
+                "srd51": true
               }
             ]
           }
@@ -2335,17 +2471,26 @@
             {
               "id": "expertise",
               "name": "Especialização",
-              "desc": "Dobre o bônus de proficiência em 2 perícias (ou 1 perícia + ferramentas de ladrão); mais 2 no nível 6."
+              "desc": "Dobre o bônus de proficiência em 2 perícias (ou 1 perícia + ferramentas de ladrão); mais 2 no nível 6.",
+              "nameEn": "Expertise",
+              "descEn": "At 1st level, choose two of your skill proficiencies, or one of your skill proficiencies and your proficiency with thieves' tools. Your proficiency bonus is doubled for any ability check you make that uses either of the chosen proficiencies.\n\nAt 6th level, you can choose two more of your proficiencies (in skills or with thieves' tools) to gain this benefit.",
+              "srd51": true
             },
             {
               "id": "sneakAttack",
               "name": "Ataque Furtivo",
-              "desc": "+1d6 dano 1×/turno (cresce com nível)."
+              "desc": "+1d6 dano 1×/turno (cresce com nível).",
+              "nameEn": "Sneak Attack",
+              "descEn": "Beginning at 1st level, you know how to strike subtly and exploit a foe's distraction. Once per turn, you can deal an extra 1d6 damage to one creature you hit with an attack if you have advantage on the attack roll. The attack must use a finesse or a ranged weapon.\n\nYou don't need advantage on the attack roll if another enemy of the target is within 5 feet of it, that enemy isn't incapacitated, and you don't have disadvantage on the attack roll.\n\nThe amount of the extra damage increases as you gain levels in this class, as shown in the Sneak Attack column of the Rogue table.",
+              "srd51": true
             },
             {
               "id": "thievesCant",
               "name": "Gíria de Ladrões",
-              "desc": "Jargão secreto."
+              "desc": "Jargão secreto.",
+              "nameEn": "Thieves' Cant",
+              "descEn": "During your rogue training you learned thieves' cant, a secret mix of dialect, jargon, and code that allows you to hide messages in seemingly normal conversation. Only another creature that knows thieves' cant understands such messages. It takes four times longer to convey such a message than it does to speak the same idea plainly.\n\nIn addition, you understand a set of secret signs and symbols used to convey short, simple messages, such as whether an area is dangerous or the territory of a thieves' guild, whether loot is nearby, or whether the people in an area are easy marks or will provide a safe house for thieves on the run.",
+              "srd51": true
             }
           ]
         },
@@ -2354,7 +2499,10 @@
             {
               "id": "cunningAction",
               "name": "Ação Astuta",
-              "desc": "Ação bônus: Correr, Desengajar ou Esconder."
+              "desc": "Ação bônus: Correr, Desengajar ou Esconder.",
+              "nameEn": "Cunning Action",
+              "descEn": "Starting at 2nd level, your quick thinking and agility allow you to move and act quickly. You can take a bonus action on each of your turns in combat. This action can be used only to take the Dash, Disengage, or Hide action.",
+              "srd51": true
             }
           ]
         },
@@ -2369,7 +2517,10 @@
             {
               "id": "uncannyDodge",
               "name": "Esquiva Sobrenatural",
-              "desc": "Reação: metade do dano de ataque que veja."
+              "desc": "Reação: metade do dano de ataque que veja.",
+              "nameEn": "Uncanny Dodge",
+              "descEn": "Starting at 5th level, when an attacker that you can see hits you with an attack, you can use your reaction to halve the attack's damage against you.",
+              "srd51": true
             }
           ]
         },
@@ -2381,7 +2532,10 @@
             {
               "id": "evasion",
               "name": "Evasão",
-              "desc": "SAL DEST passar → 0 dano (metade se falhar)."
+              "desc": "SAL DEST passar → 0 dano (metade se falhar).",
+              "nameEn": "Evasion",
+              "descEn": "Beginning at 7th level, you can nimbly dodge out of the way of certain area effects, such as a red dragon's fiery breath or an ice storm spell. When you are subjected to an effect that allows you to make a Dexterity saving throw to take only half damage, you instead take no damage if you succeed on the saving throw, and only half damage if you fail.",
+              "srd51": true
             }
           ]
         },
@@ -2399,7 +2553,10 @@
             {
               "id": "reliableTalent",
               "name": "Talento Confiável",
-              "desc": "Rolagens proficientes ≤9 viram 10."
+              "desc": "Rolagens proficientes ≤9 viram 10.",
+              "nameEn": "Reliable Talent",
+              "descEn": "By 11th level, you have refined your chosen skills until they approach perfection. Whenever you make an ability check that lets you add your proficiency bonus, you can treat a d20 roll of 9 or lower as a 10.",
+              "srd51": true
             }
           ]
         },
@@ -2414,7 +2571,10 @@
             {
               "id": "blindsense",
               "name": "Sentido Cego",
-              "desc": "Se puder ouvir, sabe a posição de criaturas escondidas ou invisíveis a 10 pés."
+              "desc": "Se puder ouvir, sabe a posição de criaturas escondidas ou invisíveis a 10 pés.",
+              "nameEn": "Blindsense",
+              "descEn": "Starting at 14th level, if you are able to hear, you are aware of the location of any hidden or invisible creature within 10 feet of you.",
+              "srd51": true
             }
           ]
         },
@@ -2423,7 +2583,10 @@
             {
               "id": "slipperyMind",
               "name": "Mente Esquiva",
-              "desc": "Proficiência em SAL SAB."
+              "desc": "Proficiência em SAL SAB.",
+              "nameEn": "Slippery Mind",
+              "descEn": "By 15th level, you have acquired greater mental strength. You gain proficiency in Wisdom saving throws.",
+              "srd51": true
             }
           ]
         },
@@ -2438,7 +2601,10 @@
             {
               "id": "elusive",
               "name": "Esquivo",
-              "desc": "Ataques contra você não têm vantagem se não incapacitado."
+              "desc": "Ataques contra você não têm vantagem se não incapacitado.",
+              "nameEn": "Elusive",
+              "descEn": "Beginning at 18th level, you are so evasive that attackers rarely gain the upper hand against you. No attack roll has advantage against you while you aren't incapacitated.",
+              "srd51": true
             }
           ]
         },
@@ -2450,7 +2616,10 @@
             {
               "id": "strokeOfLuck",
               "name": "Golpe de Sorte",
-              "desc": "1×/desc curto: um ataque que erraria acerta, ou um teste de atributo falho vira 20 no d20."
+              "desc": "1×/desc curto: um ataque que erraria acerta, ou um teste de atributo falho vira 20 no d20.",
+              "nameEn": "Stroke of Luck",
+              "descEn": "At 20th level, you have an uncanny knack for succeeding when you need to. If your attack misses a target within range, you can turn the miss into a hit. Alternatively, if you fail an ability check, you can treat the d20 roll as a 20.\n\nOnce you use this feature, you can't use it again until you finish a short or long rest.",
+              "srd51": true
             }
           ]
         }
@@ -2462,12 +2631,18 @@
               {
                 "id": "fastHands",
                 "name": "Mãos Rápidas",
-                "desc": "Ação Astuta: teste de Prestidigitação, usar ferramentas de ladrão (desarmar armadilha, abrir fechadura) ou Usar um Objeto."
+                "desc": "Ação Astuta: teste de Prestidigitação, usar ferramentas de ladrão (desarmar armadilha, abrir fechadura) ou Usar um Objeto.",
+                "nameEn": "Fast Hands",
+                "descEn": "Starting at 3rd level, you can use the bonus action granted by your Cunning Action to make a Dexterity (Sleight of Hand) check, use your thieves' tools to disarm a trap or open a lock, or take the Use an Object action.",
+                "srd51": true
               },
               {
                 "id": "secondStoryWork",
                 "name": "Trabalho de Segundo Andar",
-                "desc": "Escalar não custa extra; salto com corrida +DEX pés."
+                "desc": "Escalar não custa extra; salto com corrida +DEX pés.",
+                "nameEn": "Second-Story Work",
+                "descEn": "When you choose this archetype at 3rd level, you gain the ability to climb faster than normal; climbing no longer costs you extra movement.\n\nIn addition, when you make a running jump, the distance you cover increases by a number of feet equal to your Dexterity modifier.",
+                "srd51": true
               }
             ]
           },
@@ -2476,7 +2651,10 @@
               {
                 "id": "supremeSneak",
                 "name": "Furtividade Suprema",
-                "desc": "Vantagem em Furtividade se mover ≤ metade."
+                "desc": "Vantagem em Furtividade se mover ≤ metade.",
+                "nameEn": "Supreme Sneak",
+                "descEn": "Starting at 9th level, you have advantage on a Dexterity (Stealth) check if you move no more than half your speed on the same turn.",
+                "srd51": true
               }
             ]
           },
@@ -2485,7 +2663,10 @@
               {
                 "id": "useMagicDevice",
                 "name": "Usar Item Mágico",
-                "desc": "Ignore requisitos de classe/raça/nível para itens."
+                "desc": "Ignore requisitos de classe/raça/nível para itens.",
+                "nameEn": "Use Magic Device",
+                "descEn": "By 13th level, you have learned enough about the workings of magic that you can improvise the use of items even when they are not intended for you. You ignore all class, race, and level requirements on the use of magic items.",
+                "srd51": true
               }
             ]
           },
@@ -2494,7 +2675,10 @@
               {
                 "id": "thiefsReflexes",
                 "name": "Reflexos de Ladrão",
-                "desc": "Na 1ª rodada de combate, 2 turnos: o normal e outro na iniciativa −10. Não funciona se surpreendido."
+                "desc": "Na 1ª rodada de combate, 2 turnos: o normal e outro na iniciativa −10. Não funciona se surpreendido.",
+                "nameEn": "Thief's Reflexes",
+                "descEn": "When you reach 17th level, you have become adept at laying ambushes and quickly escaping danger. You can take two turns during the first round of any combat. You take your first turn at your normal initiative and your second turn at your initiative minus 10. You can't use this feature when you are surprised.",
+                "srd51": true
               }
             ]
           }
@@ -2718,12 +2902,18 @@
             {
               "id": "rage",
               "name": "Fúria",
-              "desc": "Ação bônus, 1 min: vantagem em FOR, +2 de dano corpo a corpo com FOR (+3 no 9, +4 no 16), resistência a B/P/S. Usos por descanso longo: 2 (3 no 3, 4 no 6, 5 no 12, 6 no 17, ilimitado no 20)."
+              "desc": "Ação bônus, 1 min: vantagem em FOR, +2 de dano corpo a corpo com FOR (+3 no 9, +4 no 16), resistência a B/P/S. Usos por descanso longo: 2 (3 no 3, 4 no 6, 5 no 12, 6 no 17, ilimitado no 20).",
+              "nameEn": "Rage",
+              "descEn": "In battle, you fight with primal ferocity. On your turn, you can enter a rage as a bonus action.\n\nWhile raging, you gain the following benefits if you aren't wearing heavy armor:\n\n- You have advantage on Strength checks and Strength saving throws.\n- When you make a melee weapon attack using Strength, you gain a bonus to the damage roll that increases as you gain levels as a barbarian, as shown in the Rage Damage column of the Barbarian table.\n- You have resistance to bludgeoning, piercing, and slashing damage.\n\nIf you are able to cast spells, you can't cast them or concentrate on them while raging.\n\nYour rage lasts for 1 minute. It ends early if you are knocked unconscious or if your turn ends and you haven't attacked a hostile creature since your last turn or taken damage since then. You can also end your rage on your turn as a bonus action.\n\nOnce you have raged the number of times shown for your barbarian level in the Rages column of the Barbarian table, you must finish a long rest before you can rage again.",
+              "srd51": true
             },
             {
               "id": "unarmoredDefense",
               "name": "Defesa sem Armadura",
-              "desc": "CA = 10 + DEX + CON."
+              "desc": "CA = 10 + DEX + CON.",
+              "nameEn": "Unarmored Defense",
+              "descEn": "While you are not wearing any armor, your Armor Class equals 10 + your Dexterity modifier + your Constitution modifier. You can use a shield and still gain this benefit.",
+              "srd51": true
             }
           ]
         },
@@ -2732,12 +2922,18 @@
             {
               "id": "recklessAttack",
               "name": "Ataque Imprudente",
-              "desc": "Vantagem em ataques FOR; ataques contra você têm vantagem."
+              "desc": "Vantagem em ataques FOR; ataques contra você têm vantagem.",
+              "nameEn": "Reckless Attack",
+              "descEn": "Starting at 2nd level, you can throw aside all concern for defense to attack with fierce desperation. When you make your first attack on your turn, you can decide to attack recklessly. Doing so gives you advantage on melee weapon attack rolls using Strength during this turn, but attack rolls against you have advantage until your next turn.",
+              "srd51": true
             },
             {
               "id": "dangerSense",
               "name": "Sentido de Perigo",
-              "desc": "Vantagem em SAL DES contra efeitos que você vê; não funciona cego, surdo ou incapacitado."
+              "desc": "Vantagem em SAL DES contra efeitos que você vê; não funciona cego, surdo ou incapacitado.",
+              "nameEn": "Danger Sense",
+              "descEn": "At 2nd level, you gain an uncanny sense of when things nearby aren't as they should be, giving you an edge when you dodge away from danger.\n\nYou have advantage on Dexterity saving throws against effects that you can see, such as traps and spells. To gain this benefit, you can't be blinded, deafened, or incapacitated.",
+              "srd51": true
             }
           ]
         },
@@ -2753,7 +2949,10 @@
             {
               "id": "fastMovement",
               "name": "Movimento Rápido",
-              "desc": "+10 pés deslocamento sem armadura pesada."
+              "desc": "+10 pés deslocamento sem armadura pesada.",
+              "nameEn": "Fast Movement",
+              "descEn": "Starting at 5th level, your speed increases by 10 feet while you aren't wearing heavy armor.",
+              "srd51": true
             }
           ]
         },
@@ -2765,7 +2964,10 @@
             {
               "id": "feralInstinct",
               "name": "Instinto Feral",
-              "desc": "Vantagem em iniciativa; se surpreendido, pode agir no 1º turno se entrar em Fúria."
+              "desc": "Vantagem em iniciativa; se surpreendido, pode agir no 1º turno se entrar em Fúria.",
+              "nameEn": "Feral Instinct",
+              "descEn": "By 7th level, your instincts are so honed that you have advantage on initiative rolls.\n\nAdditionally, if you are surprised at the beginning of combat and aren't incapacitated, you can act normally on your first turn, but only if you enter your rage before doing anything else on that turn.",
+              "srd51": true
             }
           ]
         },
@@ -2777,7 +2979,10 @@
             {
               "id": "brutalCritical",
               "name": "Crítico Brutal",
-              "desc": "+1 dado de dano da arma em críticos corpo a corpo (2 no 13, 3 no 17)."
+              "desc": "+1 dado de dano da arma em críticos corpo a corpo (2 no 13, 3 no 17).",
+              "nameEn": "Brutal Critical",
+              "descEn": "Beginning at 9th level, you can roll one additional weapon damage die when determining the extra damage for a critical hit with a melee attack.\n\nThis increases to two additional dice at 13th level and three additional dice at 17th level.",
+              "srd51": true
             }
           ]
         },
@@ -2789,7 +2994,10 @@
             {
               "id": "relentlessRage",
               "name": "Fúria Implacável",
-              "desc": "Em Fúria, ao cair a 0 PV: SAL CON CD 10 (+5 por uso, volta a 10 no descanso) para ficar com 1 PV."
+              "desc": "Em Fúria, ao cair a 0 PV: SAL CON CD 10 (+5 por uso, volta a 10 no descanso) para ficar com 1 PV.",
+              "nameEn": "Relentless Rage",
+              "descEn": "Starting at 11th level, your rage can keep you fighting despite grievous wounds. If you drop to 0 hit points while you're raging and don't die outright, you can make a DC 10 Constitution saving throw. If you succeed, you drop to 1 hit point instead.\n\nEach time you use this feature after the first, the DC increases by 5. When you finish a short or long rest, the DC resets to 10.",
+              "srd51": true
             }
           ]
         },
@@ -2801,7 +3009,10 @@
             {
               "id": "brutalCritical2",
               "name": "Crítico Brutal (2 dados)",
-              "desc": "+2 dados de dano da arma em críticos corpo a corpo."
+              "desc": "+2 dados de dano da arma em críticos corpo a corpo.",
+              "nameEn": "Brutal Critical",
+              "descEn": "Beginning at 9th level, you can roll one additional weapon damage die when determining the extra damage for a critical hit with a melee attack.\n\nThis increases to two additional dice at 13th level and three additional dice at 17th level.",
+              "srd51": true
             }
           ]
         },
@@ -2813,7 +3024,10 @@
             {
               "id": "persistentRage",
               "name": "Fúria Persistente",
-              "desc": "A Fúria só termina se você ficar inconsciente ou quiser."
+              "desc": "A Fúria só termina se você ficar inconsciente ou quiser.",
+              "nameEn": "Persistent Rage",
+              "descEn": "Beginning at 15th level, your rage is so fierce that it ends early only if you fall unconscious or if you choose to end it.",
+              "srd51": true
             }
           ]
         },
@@ -2825,7 +3039,10 @@
             {
               "id": "brutalCritical3",
               "name": "Crítico Brutal (3 dados)",
-              "desc": "+3 dados de dano da arma em críticos corpo a corpo."
+              "desc": "+3 dados de dano da arma em críticos corpo a corpo.",
+              "nameEn": "Brutal Critical",
+              "descEn": "Beginning at 9th level, you can roll one additional weapon damage die when determining the extra damage for a critical hit with a melee attack.\n\nThis increases to two additional dice at 13th level and three additional dice at 17th level.",
+              "srd51": true
             }
           ]
         },
@@ -2834,7 +3051,10 @@
             {
               "id": "indomitableMight",
               "name": "Poderio Indomável",
-              "desc": "Testes FOR ≤ FOR viram FOR."
+              "desc": "Testes FOR ≤ FOR viram FOR.",
+              "nameEn": "Indomitable Might",
+              "descEn": "Beginning at 18th level, if your total for a Strength check is less than your Strength score, you can use that score in place of the total.",
+              "srd51": true
             }
           ]
         },
@@ -2846,7 +3066,10 @@
             {
               "id": "primalChampion",
               "name": "Campeão Primitivo",
-              "desc": "+4 FOR e CON (máx 24). Fúria ilimitada."
+              "desc": "+4 FOR e CON (máx 24). Fúria ilimitada.",
+              "nameEn": "Primal Champion",
+              "descEn": "At 20th level, you embody the power of the wilds. Your Strength and Constitution scores increase by 4. Your maximum for those scores is now 24.",
+              "srd51": true
             }
           ]
         }
@@ -2858,7 +3081,10 @@
               {
                 "id": "frenzy",
                 "name": "Frenesi",
-                "desc": "Ao entrar em Fúria: ataque corpo a corpo como ação bônus a cada turno. Ao fim da Fúria: 1 nível de exaustão."
+                "desc": "Ao entrar em Fúria: ataque corpo a corpo como ação bônus a cada turno. Ao fim da Fúria: 1 nível de exaustão.",
+                "nameEn": "Frenzy",
+                "descEn": "Starting when you choose this path at 3rd level, you can go into a frenzy when you rage. If you do so, for the duration of your rage you can make a single melee weapon attack as a bonus action on each of your turns after this one. When your rage ends, you suffer one level of exhaustion (as described in appendix A).",
+                "srd51": true
               }
             ]
           },
@@ -2867,7 +3093,10 @@
               {
                 "id": "mindlessRage",
                 "name": "Fúria Insensata",
-                "desc": "Em Fúria: imune a enfeitiçado e amedrontado (efeitos suspensos)."
+                "desc": "Em Fúria: imune a enfeitiçado e amedrontado (efeitos suspensos).",
+                "nameEn": "Mindless Rage",
+                "descEn": "Beginning at 6th level, you can't be charmed or frightened while raging. If you are charmed or frightened when you enter your rage, the effect is suspended for the duration of the rage.",
+                "srd51": true
               }
             ]
           },
@@ -2876,7 +3105,10 @@
               {
                 "id": "intimidatingPresence",
                 "name": "Presença Intimidadora",
-                "desc": "Ação: criatura a 30 pés faz SAL SAB (CD 8+PB+CAR) ou fica amedrontada até o fim do seu próximo turno; ação para estender."
+                "desc": "Ação: criatura a 30 pés faz SAL SAB (CD 8+PB+CAR) ou fica amedrontada até o fim do seu próximo turno; ação para estender.",
+                "nameEn": "Intimidating Presence",
+                "descEn": "Beginning at 10th level, you can use your action to frighten someone with your menacing presence. When you do so, choose one creature that you can see within 30 feet of you. If the creature can see or hear you, it must succeed on a Wisdom saving throw (DC equal to 8 + your proficiency bonus + your Charisma modifier) or be frightened of you until the end of your next turn. On subsequent turns, you can use your action to extend the duration of this effect on the frightened creature until the end of your next turn. This effect ends if the creature ends its turn out of line of sight or more than 60 feet away from you.\n\nIf the creature succeeds on its saving throw, you can't use this feature on that creature again for 24 hours.",
+                "srd51": true
               }
             ]
           },
@@ -2885,7 +3117,10 @@
               {
                 "id": "retaliation",
                 "name": "Retaliação",
-                "desc": "Reação: ataque ao sofrer dano em 5 pés."
+                "desc": "Reação: ataque ao sofrer dano em 5 pés.",
+                "nameEn": "Retaliation",
+                "descEn": "Starting at 14th level, when you take damage from a creature that is within 5 feet of you, you can use your reaction to make a melee weapon attack against that creature.",
+                "srd51": true
               }
             ]
           }
@@ -2974,12 +3209,18 @@
             {
               "id": "divineSense",
               "name": "Sentido Divino",
-              "desc": "Ação: detecte celestiais, corruptores e mortos-vivos a 60 pés. 1 + CAR usos por descanso longo."
+              "desc": "Ação: detecte celestiais, corruptores e mortos-vivos a 60 pés. 1 + CAR usos por descanso longo.",
+              "nameEn": "Divine Sense",
+              "descEn": "The presence of strong evil registers on your senses like a noxious odor, and powerful good rings like heavenly music in your ears. As an action, you can open your awareness to detect such forces. Until the end of your next turn, you know the location of any celestial, fiend, or undead within 60 feet of you that is not behind total cover. You know the type (celestial, fiend, or undead) of any being whose presence you sense, but not its identity (the vampire Count Strahd von Zarovich, for instance). Within the same radius, you also detect the presence of any place or object that has been consecrated or desecrated, as with the hallow spell.\n\nYou can use this feature a number of times equal to 1 + your Charisma modifier. When you finish a long rest, you regain all expended uses.",
+              "srd51": true
             },
             {
               "id": "layOnHands",
               "name": "Imposição de Mãos",
-              "desc": "Pool 5×nível HP. Cure veneno/doença por 5 HP."
+              "desc": "Pool 5×nível HP. Cure veneno/doença por 5 HP.",
+              "nameEn": "Lay on Hands",
+              "descEn": "Your blessed touch can heal wounds. You have a pool of healing power that replenishes when you take a long rest. With that pool, you can restore a total number of hit points equal to your paladin level × 5.\n\nAs an action, you can touch a creature and draw power from the pool to restore a number of hit points to that creature, up to the maximum amount remaining in your pool.\n\nAlternatively, you can expend 5 hit points from your pool of healing to cure the target of one disease or neutralize one poison affecting it. You can cure multiple diseases and neutralize multiple poisons with a single use of Lay on Hands, expending hit points separately for each one.\n\nThis feature has no effect on undead and constructs.",
+              "srd51": true
             }
           ]
         },
@@ -2992,12 +3233,18 @@
             {
               "id": "spellcasting",
               "name": "Conjuração",
-              "desc": "Prepare CHA + ½ nível magias."
+              "desc": "Prepare CHA + ½ nível magias.",
+              "nameEn": "Spellcasting",
+              "descEn": "By 2nd level, you have learned to draw on divine magic through meditation and prayer to cast spells as a cleric does.",
+              "srd51": true
             },
             {
               "id": "divineSmite",
               "name": "Golpe Divino",
-              "desc": "Após acerto corpo a corpo: gaste slot para +2d8 radiante (1° nível, +1d8 por nível adicional, máx. 5d8; +1d8 contra corruptor ou morto-vivo)."
+              "desc": "Após acerto corpo a corpo: gaste slot para +2d8 radiante (1° nível, +1d8 por nível adicional, máx. 5d8; +1d8 contra corruptor ou morto-vivo).",
+              "nameEn": "Divine Smite",
+              "descEn": "Starting at 2nd level, when you hit a creature with a melee weapon attack, you can expend one spell slot to deal radiant damage to the target, in addition to the weapon's damage. The extra damage is 2d8 for a 1st-level spell slot, plus 1d8 for each spell level higher than 1st, to a maximum of 5d8. The damage increases by 1d8 if the target is an undead or a fiend, to a maximum of 6d8.",
+              "srd51": true
             }
           ]
         },
@@ -3007,7 +3254,10 @@
             {
               "id": "divineHealth",
               "name": "Saúde Divina",
-              "desc": "Imune a doenças."
+              "desc": "Imune a doenças.",
+              "nameEn": "Divine Health",
+              "descEn": "By 3rd level, the divine magic flowing through you makes you immune to disease.",
+              "srd51": true
             }
           ]
         },
@@ -3022,7 +3272,10 @@
             {
               "id": "auraOfProtection",
               "name": "Aura de Proteção",
-              "desc": "Aliados em 10 pés +CHA em SAL."
+              "desc": "Aliados em 10 pés +CHA em SAL.",
+              "nameEn": "Aura of Protection",
+              "descEn": "Starting at 6th level, whenever you or a friendly creature within 10 feet of you must make a saving throw, the creature gains a bonus to the saving throw equal to your Charisma modifier (with a minimum bonus of +1). You must be conscious to grant this bonus.\n\nAt 18th level, the range of this aura increases to 30 feet.",
+              "srd51": true
             }
           ]
         },
@@ -3038,7 +3291,10 @@
             {
               "id": "auraOfCourage",
               "name": "Aura da Coragem",
-              "desc": "Aliados em 10 pés imunes a medo."
+              "desc": "Aliados em 10 pés imunes a medo.",
+              "nameEn": "Aura of Courage",
+              "descEn": "Starting at 10th level, you and friendly creatures within 10 feet of you can't be frightened while you are conscious.\n\nAt 18th level, the range of this aura increases to 30 feet.",
+              "srd51": true
             }
           ]
         },
@@ -3047,7 +3303,10 @@
             {
               "id": "improvedDivineSmite",
               "name": "Golpe Divino Aprimorado",
-              "desc": "+1d8 radiante em todo acerto com arma corpo a corpo."
+              "desc": "+1d8 radiante em todo acerto com arma corpo a corpo.",
+              "nameEn": "Improved Divine Smite",
+              "descEn": "By 11th level, you are so suffused with righteous might that all your melee weapon strikes carry divine power with them. Whenever you hit a creature with a melee weapon, the creature takes an extra 1d8 radiant damage. If you also use your Divine Smite with an attack, you add this damage to the extra damage of your Divine Smite.",
+              "srd51": true
             }
           ]
         },
@@ -3060,7 +3319,10 @@
             {
               "id": "cleansingTouch",
               "name": "Toque Purificador",
-              "desc": "Termine magia: CHA usos/desc longo."
+              "desc": "Termine magia: CHA usos/desc longo.",
+              "nameEn": "Cleansing Touch",
+              "descEn": "Beginning at 14th level, you can use your action to end one spell on yourself or on one willing creature that you touch.\n\nYou can use this feature a number of times equal to your Charisma modifier (a minimum of once). You regain expended uses when you finish a long rest.",
+              "srd51": true
             }
           ]
         },
@@ -3076,7 +3338,10 @@
             {
               "id": "auraImprovements",
               "name": "Auras de 30 pés",
-              "desc": "Auras crescem para 30 pés."
+              "desc": "Auras crescem para 30 pés.",
+              "nameEn": "Aura of Protection",
+              "descEn": "Starting at 6th level, whenever you or a friendly creature within 10 feet of you must make a saving throw, the creature gains a bonus to the saving throw equal to your Charisma modifier (with a minimum bonus of +1). You must be conscious to grant this bonus.\n\nAt 18th level, the range of this aura increases to 30 feet.",
+              "srd51": true
             }
           ]
         },
@@ -3098,12 +3363,18 @@
               {
                 "id": "sacredWeapon",
                 "name": "Arma Sagrada",
-                "desc": "CD, 1 min: arma +CAR (mín. +1) nas jogadas de ataque, conta como mágica, luz 20 pés."
+                "desc": "CD, 1 min: arma +CAR (mín. +1) nas jogadas de ataque, conta como mágica, luz 20 pés.",
+                "nameEn": "Sacred Weapon",
+                "descEn": "As an action, you can imbue one weapon that you are holding with positive energy, using your Channel Divinity. For 1 minute, you add your Charisma modifier to attack rolls made with that weapon (with a minimum bonus of +1). The weapon also emits bright light in a 20-foot radius and dim light 20 feet beyond that. If the weapon is not already magical, it becomes magical for the duration.",
+                "srd51": true
               },
               {
                 "id": "turnUnholy",
                 "name": "Expulsar os Profanos",
-                "desc": "CD: corruptores e mortos-vivos a 30 pés fazem SAL SAB ou ficam expulsos por 1 min."
+                "desc": "CD: corruptores e mortos-vivos a 30 pés fazem SAL SAB ou ficam expulsos por 1 min.",
+                "nameEn": "Turn the Unholy",
+                "descEn": "As an action, you present your holy symbol and speak a prayer censuring fiends and undead, using your Channel Divinity. Each fiend or undead that can see or hear you within 30 feet of you must make a Wisdom saving throw. If the creature fails its saving throw, it is turned for 1 minute or until it takes damage.\n\nA turned creature must spend its turns trying to move as far away from you as it can, and it can't willingly move to a space within 30 feet of you. It also can't take reactions. For its action, it can use only the Dash action or try to escape from an effect that prevents it from moving. If there's nowhere to move, the creature can use the Dodge action.",
+                "srd51": true
               }
             ]
           },
@@ -3118,7 +3389,10 @@
               {
                 "id": "auraOfDevotion",
                 "name": "Aura da Devoção",
-                "desc": "Você e aliados a 10 pés (30 no 18) não podem ser enfeitiçados enquanto você estiver consciente."
+                "desc": "Você e aliados a 10 pés (30 no 18) não podem ser enfeitiçados enquanto você estiver consciente.",
+                "nameEn": "Aura of Devotion",
+                "descEn": "Starting at 7th level, you and friendly creatures within 10 feet of you can't be charmed while you are conscious.\nyou. It also can't take reactions. For its action, it can use only the Dash action or try to escape from an effect that prevents it from moving. If there's nowhere to move, the creature can use the Dodge action.",
+                "srd51": true
               }
             ]
           },
@@ -3139,7 +3413,10 @@
               {
                 "id": "purityOfSpirit",
                 "name": "Pureza de Espírito",
-                "desc": "Protection from Evil and Good sempre ativa."
+                "desc": "Protection from Evil and Good sempre ativa.",
+                "nameEn": "Purity of Spirit",
+                "descEn": "Beginning at 15th level, you are always under the effects of a protection from evil and good spell.",
+                "srd51": true
               }
             ]
           },
@@ -3154,7 +3431,10 @@
               {
                 "id": "holyNimbus",
                 "name": "Nimbo Sagrado",
-                "desc": "1×/desc longo, ação, 1 min: luz solar 30 pés; inimigo que começa o turno nela sofre 10 radiante; vantagem em SAL contra magias de corruptores e mortos-vivos."
+                "desc": "1×/desc longo, ação, 1 min: luz solar 30 pés; inimigo que começa o turno nela sofre 10 radiante; vantagem em SAL contra magias de corruptores e mortos-vivos.",
+                "nameEn": "Holy Nimbus",
+                "descEn": "At 20th level, as an action, you can emanate an aura of sunlight. For 1 minute, bright light shines from you in a 30-foot radius, and dim light shines 30 feet beyond that.\n\nWhenever an enemy creature starts its turn in the bright light, the creature takes 10 radiant damage.\n\nIn addition, for the duration, you have advantage on saving throws against spells cast by fiends or undead.\n\nOnce you use this feature, you can't use it again until you finish a long rest.\n\n>Breaking Your Oath\n>\n>A paladin tries to hold to the highest standards of conduct, but even the most virtuous paladin is fallible. Sometimes the right path proves too demanding, sometimes a situation calls for the lesser of two evils, and sometimes the heat of emotion causes a paladin to transgress his or her oath.\n>\n>A paladin who has broken a vow typically seeks absolution from a cleric who shares his or her faith or from another paladin of the same order. The paladin might spend an all- night vigil in prayer as a sign of penitence, or undertake a fast or similar act of self-denial. After a rite of confession and forgiveness, the paladin starts fresh.\n>\n>If a paladin willfully violates his or her oath and shows no sign of repentance, the consequences can be more serious. At the GM's discretion, an impenitent paladin might be forced to abandon this class and adopt another.",
+                "srd51": true
               }
             ]
           }
@@ -3293,12 +3573,18 @@
             {
               "id": "favoredEnemy",
               "name": "Inimigo Favorito",
-              "desc": "Escolha um tipo (ou 2 raças humanoides) e aprenda 1 idioma dele: vantagem em Sobrevivência para rastreá-lo e em INT para lembrar informações. +1 tipo no 6 e no 14."
+              "desc": "Escolha um tipo (ou 2 raças humanoides) e aprenda 1 idioma dele: vantagem em Sobrevivência para rastreá-lo e em INT para lembrar informações. +1 tipo no 6 e no 14.",
+              "nameEn": "Favored Enemy",
+              "descEn": "Beginning at 1st level, you have significant experience studying, tracking, hunting, and even talking to a certain type of enemy.\n\nChoose a type of favored enemy: aberrations, beasts, celestials, constructs, dragons, elementals, fey, fiends, giants, monstrosities, oozes, plants, or undead. Alternatively, you can select two races of humanoid (such as gnolls and orcs) as favored enemies.\n\nYou have advantage on Wisdom (Survival) checks to track your favored enemies, as well as on Intelligence checks to recall information about them.\n\nWhen you gain this feature, you also learn one language of your choice that is spoken by your favored enemies, if they speak one at all.\n\nYou choose one additional favored enemy, as well as an associated language, at 6th and 14th level. As you gain levels, your choices should reflect the types of monsters you have encountered on your adventures.",
+              "srd51": true
             },
             {
               "id": "naturalExplorer",
               "name": "Explorador Natural",
-              "desc": "Terreno favorito: proficiência dobrada em INT/SAB ligados a ele e vantagens de viagem. +1 terreno no 6 e no 10."
+              "desc": "Terreno favorito: proficiência dobrada em INT/SAB ligados a ele e vantagens de viagem. +1 terreno no 6 e no 10.",
+              "nameEn": "Natural Explorer",
+              "descEn": "You are particularly familiar with one type of natural environment and are adept at traveling and surviving in such regions. Choose one type of favored terrain: arctic, coast, desert, forest, grassland, mountain, or swamp. When you make an Intelligence or Wisdom check related to your favored terrain, your proficiency bonus is doubled if you are using a skill that you're proficient in.\n\nWhile traveling for an hour or more in your favored terrain, you gain the following benefits:\n\n- Difficult terrain doesn't slow your group's travel.\n- Your group can't become lost except by magical means.\n- Even when you are engaged in another activity while traveling (such as foraging, navigating, or tracking), you remain alert to danger.\n- If you are traveling alone, you can move stealthily at a normal pace.\n- When you forage, you find twice as much food as you normally would.\n- While tracking other creatures, you also learn their exact number, their sizes, and how long ago they passed through the area.\n\nYou choose additional favored terrain types at 6th and 10th level.",
+              "srd51": true
             }
           ],
           "spells_known": 0
@@ -3309,7 +3595,10 @@
             {
               "id": "spellcasting",
               "name": "Conjuração",
-              "desc": "Magias conhecidas de patrulheiro (2 no nível 2), atributo SAB."
+              "desc": "Magias conhecidas de patrulheiro (2 no nível 2), atributo SAB.",
+              "nameEn": "Spellcasting",
+              "descEn": "By the time you reach 2nd level, you have learned to use the magical essence of nature to cast spells, much as a druid does. See the general rules for spellcasting and the ranger spell list.",
+              "srd51": true
             }
           ],
           "spells_known": 2
@@ -3320,7 +3609,10 @@
             {
               "id": "primevalAwareness",
               "name": "Consciência Primitiva",
-              "desc": "Gaste um espaço: por 1 min por nível do espaço, sinta aberrações, celestiais, dragões, elementais, feéricos, corruptores e mortos-vivos a 1 milha (6 em terreno favorito)."
+              "desc": "Gaste um espaço: por 1 min por nível do espaço, sinta aberrações, celestiais, dragões, elementais, feéricos, corruptores e mortos-vivos a 1 milha (6 em terreno favorito).",
+              "nameEn": "Primeval Awareness",
+              "descEn": "Beginning at 3rd level, you can use your action and expend one ranger spell slot to focus your awareness on the region around you. For 1 minute per level of the spell slot you expend, you can sense whether the following types of creatures are present within 1 mile of you (or within up to 6 miles if you are in your favored terrain): aberrations, celestials, dragons, elementals, fey, fiends, and undead. This feature doesn't reveal the creatures' location or number.",
+              "srd51": true
             }
           ],
           "spells_known": 3
@@ -3338,7 +3630,10 @@
             {
               "id": "favoredEnemyImprovement",
               "name": "Inimigo Favorito e Explorador Natural (melhoria)",
-              "desc": "+1 inimigo favorito (com idioma) e +1 terreno favorito."
+              "desc": "+1 inimigo favorito (com idioma) e +1 terreno favorito.",
+              "nameEn": "Favored Enemy",
+              "descEn": "Beginning at 1st level, you have significant experience studying, tracking, hunting, and even talking to a certain type of enemy.\n\nChoose a type of favored enemy: aberrations, beasts, celestials, constructs, dragons, elementals, fey, fiends, giants, monstrosities, oozes, plants, or undead. Alternatively, you can select two races of humanoid (such as gnolls and orcs) as favored enemies.\n\nYou have advantage on Wisdom (Survival) checks to track your favored enemies, as well as on Intelligence checks to recall information about them.\n\nWhen you gain this feature, you also learn one language of your choice that is spoken by your favored enemies, if they speak one at all.\n\nYou choose one additional favored enemy, as well as an associated language, at 6th and 14th level. As you gain levels, your choices should reflect the types of monsters you have encountered on your adventures.",
+              "srd51": true
             }
           ],
           "spells_known": 4
@@ -3353,7 +3648,10 @@
             {
               "id": "landsStride",
               "name": "Passos da Terra",
-              "desc": "Terreno difícil natural não custa extra."
+              "desc": "Terreno difícil natural não custa extra.",
+              "nameEn": "Land's Stride",
+              "descEn": "Starting at 8th level, moving through nonmagical difficult terrain costs you no extra movement. You can also pass through nonmagical plants without being slowed by them and without taking damage from them if they have thorns, spines, or a similar hazard.\n\nIn addition, you have advantage on saving throws against plants that are magically created or manipulated to impede movement, such those created by the entangle spell.",
+              "srd51": true
             }
           ],
           "spells_known": 5
@@ -3366,12 +3664,18 @@
             {
               "id": "hideInPlainSight",
               "name": "Esconder à Vista",
-              "desc": "1 min preparando camuflagem: +10 em Furtividade enquanto ficar parado encostado numa superfície sólida."
+              "desc": "1 min preparando camuflagem: +10 em Furtividade enquanto ficar parado encostado numa superfície sólida.",
+              "nameEn": "Hide in Plain Sight",
+              "descEn": "Starting at 10th level, you can spend 1 minute creating camouflage for yourself. You must have access to fresh mud, dirt, plants, soot, and other naturally occurring materials with which to create your camouflage.\n\nOnce you are camouflaged in this way, you can try to hide by pressing yourself up against a solid surface, such as a tree or wall, that is at least as tall and wide as you are. You gain a +10 bonus to Dexterity (Stealth) checks as long as you remain there without moving or taking actions. Once you move or take an action or a reaction, you must camouflage yourself again to gain this benefit.",
+              "srd51": true
             },
             {
               "id": "naturalExplorer3",
               "name": "Explorador Natural (3º terreno)",
-              "desc": "+1 terreno favorito."
+              "desc": "+1 terreno favorito.",
+              "nameEn": "Natural Explorer",
+              "descEn": "You are particularly familiar with one type of natural environment and are adept at traveling and surviving in such regions. Choose one type of favored terrain: arctic, coast, desert, forest, grassland, mountain, or swamp. When you make an Intelligence or Wisdom check related to your favored terrain, your proficiency bonus is doubled if you are using a skill that you're proficient in.\n\nWhile traveling for an hour or more in your favored terrain, you gain the following benefits:\n\n- Difficult terrain doesn't slow your group's travel.\n- Your group can't become lost except by magical means.\n- Even when you are engaged in another activity while traveling (such as foraging, navigating, or tracking), you remain alert to danger.\n- If you are traveling alone, you can move stealthily at a normal pace.\n- When you forage, you find twice as much food as you normally would.\n- While tracking other creatures, you also learn their exact number, their sizes, and how long ago they passed through the area.\n\nYou choose additional favored terrain types at 6th and 10th level.",
+              "srd51": true
             }
           ],
           "spells_known": 6
@@ -3392,12 +3696,18 @@
             {
               "id": "vanish",
               "name": "Desaparecer",
-              "desc": "Esconder como ação bônus; não pode ser rastreado por meios não mágicos, salvo se quiser."
+              "desc": "Esconder como ação bônus; não pode ser rastreado por meios não mágicos, salvo se quiser.",
+              "nameEn": "Vanish",
+              "descEn": "Starting at 14th level, you can use the Hide action as a bonus action on your turn. Also, you can't be tracked by nonmagical means, unless you choose to leave a trail.",
+              "srd51": true
             },
             {
               "id": "favoredEnemy3",
               "name": "Inimigo Favorito (3º tipo)",
-              "desc": "+1 inimigo favorito (com idioma)."
+              "desc": "+1 inimigo favorito (com idioma).",
+              "nameEn": "Favored Enemy",
+              "descEn": "Beginning at 1st level, you have significant experience studying, tracking, hunting, and even talking to a certain type of enemy.\n\nChoose a type of favored enemy: aberrations, beasts, celestials, constructs, dragons, elementals, fey, fiends, giants, monstrosities, oozes, plants, or undead. Alternatively, you can select two races of humanoid (such as gnolls and orcs) as favored enemies.\n\nYou have advantage on Wisdom (Survival) checks to track your favored enemies, as well as on Intelligence checks to recall information about them.\n\nWhen you gain this feature, you also learn one language of your choice that is spoken by your favored enemies, if they speak one at all.\n\nYou choose one additional favored enemy, as well as an associated language, at 6th and 14th level. As you gain levels, your choices should reflect the types of monsters you have encountered on your adventures.",
+              "srd51": true
             }
           ],
           "spells_known": 8
@@ -3418,7 +3728,10 @@
             {
               "id": "feralSenses",
               "name": "Sentidos Selvagens",
-              "desc": "Sem desvantagem ao atacar criatura que não vê; percebe criaturas invisíveis a 30 pés se não estiver cego nem surdo."
+              "desc": "Sem desvantagem ao atacar criatura que não vê; percebe criaturas invisíveis a 30 pés se não estiver cego nem surdo.",
+              "nameEn": "Feral Senses",
+              "descEn": "At 18th level, you gain preternatural senses that help you fight creatures you can't see. When you attack a creature you can't see, your inability to see it doesn't impose disadvantage on your attack rolls against it.\n\nYou are also aware of the location of any invisible creature within 30 feet of you, provided that the creature isn't hidden from you and you aren't blinded or deafened.",
+              "srd51": true
             }
           ],
           "spells_known": 10
@@ -3432,7 +3745,10 @@
             {
               "id": "foeSlayer",
               "name": "Matador de Inimigos",
-              "desc": "1×/turno: +SAB no ataque ou no dano contra um inimigo favorito."
+              "desc": "1×/turno: +SAB no ataque ou no dano contra um inimigo favorito.",
+              "nameEn": "Foe Slayer",
+              "descEn": "At 20th level, you become an unparalleled hunter of your enemies. Once on each of your turns, you can add your Wisdom modifier to the attack roll or the damage roll of an attack you make against one of your favored enemies. You can choose to use this feature before or after the roll, but before any effects of the roll are applied.",
+              "srd51": true
             }
           ],
           "spells_known": 11
@@ -3445,7 +3761,10 @@
               {
                 "id": "huntersPrey",
                 "name": "Presa do Caçador",
-                "desc": "Escolha: Colossus Slayer, Giant Killer ou Horde Breaker."
+                "desc": "Escolha: Colossus Slayer, Giant Killer ou Horde Breaker.",
+                "nameEn": "Hunter's Prey",
+                "descEn": "At 3rd level, you gain one of the following features of your choice.\n\nColossus Slayer. Your tenacity can wear down the most potent foes. When you hit a creature with a weapon attack, the creature takes an extra 1d8 damage if it's below its hit point maximum. You can deal this extra damage only once per turn.\n\nGiant Killer. When a Large or larger creature within 5 feet of you hits or misses you with an attack, you can use your reaction to attack that creature immediately after its attack, provided that you can see the creature.\n\nHorde Breaker. Once on each of your turns when you make a weapon attack, you can make another attack with the same weapon against a different creature that is within 5 feet of the original target and within range of your weapon.",
+                "srd51": true
               }
             ]
           },
@@ -3454,7 +3773,10 @@
               {
                 "id": "defensiveTactics",
                 "name": "Táticas Defensivas",
-                "desc": "Escolha: Escape the Horde, Multiattack Defense, Steel Will."
+                "desc": "Escolha: Escape the Horde, Multiattack Defense, Steel Will.",
+                "nameEn": "Defensive Tactics",
+                "descEn": "At 7th level, you gain one of the following features of your choice.\n\nEscape the Horde. Opportunity attacks against you are made with disadvantage.\n\nMultiattack Defense. When a creature hits you with an attack, you gain a +4 bonus to AC against all subsequent attacks made by that creature for the rest of the turn.\n\nSteel Will. You have advantage on saving throws against being frightened.",
+                "srd51": true
               }
             ]
           },
@@ -3463,7 +3785,10 @@
               {
                 "id": "multiattack",
                 "name": "Multiataque",
-                "desc": "Escolha: Volley ou Whirlwind Attack."
+                "desc": "Escolha: Volley ou Whirlwind Attack.",
+                "nameEn": "Multiattack",
+                "descEn": "At 11th level, you gain one of the following features of your choice.\n\nVolley. You can use your action to make a ranged attack against any number of creatures within 10 feet of a point you can see within your weapon's range. You must have ammunition for each target, as normal, and you make a separate attack roll for each target.\n\nWhirlwind Attack. You can use your action to make a melee attack against any number of creatures within 5 feet of you, with a separate attack roll for each target.",
+                "srd51": true
               }
             ]
           },
@@ -3472,7 +3797,10 @@
               {
                 "id": "superiorHuntersDefense",
                 "name": "Defesa Superior do Caçador",
-                "desc": "Escolha: Evasion, Stand Against the Tide ou Uncanny Dodge."
+                "desc": "Escolha: Evasion, Stand Against the Tide ou Uncanny Dodge.",
+                "nameEn": "Superior Hunter's Defense",
+                "descEn": "At 15th level, you gain one of the following features of your choice.\n\nEvasion. When you are subjected to an effect, such as a red dragon's fiery breath or a lightning bolt spell, that allows you to make a Dexterity saving throw to take only half damage, you instead take no damage if you succeed on the saving throw, and only half damage if you fail.\n\nStand Against the Tide. When a hostile creature misses you with a melee attack, you can use your reaction to force that creature to repeat the same attack against another creature (other than itself) of your choice.\n\nUncanny Dodge. When an attacker that you can see hits you with an attack, you can use your reaction to halve the attack's damage against you.",
+                "srd51": true
               }
             ]
           }
@@ -3553,12 +3881,18 @@
             {
               "id": "spellcasting",
               "name": "Conjuração",
-              "desc": "2 truques + 4 magias de 1°. CHA."
+              "desc": "2 truques + 4 magias de 1°. CHA.",
+              "nameEn": "Spellcasting",
+              "descEn": "You have learned to untangle and reshape the fabric of reality in harmony with your wishes and music.\n\nYour spells are part of your vast repertoire, magic that you can tune to different situations.",
+              "srd51": true
             },
             {
               "id": "bardicInspiration",
               "name": "Inspiração Bárdica",
-              "desc": "Ação bônus: dê d6 a aliado (d8 no 5, d10 no 10, d12 no 15). CAR usos (mín. 1) por descanso longo."
+              "desc": "Ação bônus: dê d6 a aliado (d8 no 5, d10 no 10, d12 no 15). CAR usos (mín. 1) por descanso longo.",
+              "nameEn": "Bardic Inspiration",
+              "descEn": "You can inspire others through stirring words or music. To do so, you use a bonus action on your turn to choose one creature other than yourself within 60 feet of you who can hear you. That creature gains one Bardic Inspiration die, a d6.\n\nOnce within the next 10 minutes, the creature can roll the die and add the number rolled to one ability check, attack roll, or saving throw it makes. The creature can wait until after it rolls the d20 before deciding to use the Bardic Inspiration die, but must decide before the GM says whether the roll succeeds or fails. Once the Bardic Inspiration die is rolled, it is lost. A creature can have only one Bardic Inspiration die at a time.\n\nYou can use this feature a number of times equal to your Charisma modifier (a minimum of once). You regain any expended uses when you finish a long rest.\n\nYour Bardic Inspiration die changes when you reach certain levels in this class. The die becomes a d8 at 5th level, a d10 at 10th level, and a d12 at 15th level.",
+              "srd51": true
             }
           ]
         },
@@ -3567,12 +3901,18 @@
             {
               "id": "jackOfAllTrades",
               "name": "Pau pra Toda Obra",
-              "desc": "+½ prof em testes sem prof."
+              "desc": "+½ prof em testes sem prof.",
+              "nameEn": "Jack of All Trades",
+              "descEn": "Starting at 2nd level, you can add half your proficiency bonus, rounded down, to any ability check you make that doesn't already include your proficiency bonus.",
+              "srd51": true
             },
             {
               "id": "songOfRest",
               "name": "Canção do Descanso",
-              "desc": "Aliados que gastam Dados de Vida em descanso curto curam +1d6 (d8 no 9, d10 no 13, d12 no 17)."
+              "desc": "Aliados que gastam Dados de Vida em descanso curto curam +1d6 (d8 no 9, d10 no 13, d12 no 17).",
+              "nameEn": "Song of Rest",
+              "descEn": "Beginning at 2nd level, you can use soothing music or oration to help revitalize your wounded allies during a short rest. If you or any friendly creatures who can hear your performance regain hit points at the end of the short rest by spending one or more Hit Dice, each of those creatures regains an extra 1d6 hit points.\n\nThe extra hit points increase when you reach certain levels in this class: to 1d8 at 9th level, to 1d10 at 13th level, and to 1d12 at 17th level.",
+              "srd51": true
             }
           ],
           "spells_known": 5
@@ -3592,12 +3932,18 @@
             {
               "id": "bardicInspirationD8",
               "name": "Inspiração Bárdica (d8)",
-              "desc": "O dado de Inspiração Bárdica passa a d8."
+              "desc": "O dado de Inspiração Bárdica passa a d8.",
+              "nameEn": "Bardic Inspiration",
+              "descEn": "You can inspire others through stirring words or music. To do so, you use a bonus action on your turn to choose one creature other than yourself within 60 feet of you who can hear you. That creature gains one Bardic Inspiration die, a d6.\n\nOnce within the next 10 minutes, the creature can roll the die and add the number rolled to one ability check, attack roll, or saving throw it makes. The creature can wait until after it rolls the d20 before deciding to use the Bardic Inspiration die, but must decide before the GM says whether the roll succeeds or fails. Once the Bardic Inspiration die is rolled, it is lost. A creature can have only one Bardic Inspiration die at a time.\n\nYou can use this feature a number of times equal to your Charisma modifier (a minimum of once). You regain any expended uses when you finish a long rest.\n\nYour Bardic Inspiration die changes when you reach certain levels in this class. The die becomes a d8 at 5th level, a d10 at 10th level, and a d12 at 15th level.",
+              "srd51": true
             },
             {
               "id": "fontOfInspiration",
               "name": "Fonte de Inspiração",
-              "desc": "Inspiração Bárdica recarrega em descanso curto ou longo."
+              "desc": "Inspiração Bárdica recarrega em descanso curto ou longo.",
+              "nameEn": "Font of Inspiration",
+              "descEn": "Beginning when you reach 5th level, you regain all of your expended uses of Bardic Inspiration when you finish a short or long rest.",
+              "srd51": true
             }
           ],
           "spells_known": 8
@@ -3608,7 +3954,10 @@
             {
               "id": "countercharm",
               "name": "Contraencanto",
-              "desc": "Ação: até o fim do seu próximo turno, você e aliados a 30 pés que ouçam têm vantagem em SAL contra amedrontado e enfeitiçado."
+              "desc": "Ação: até o fim do seu próximo turno, você e aliados a 30 pés que ouçam têm vantagem em SAL contra amedrontado e enfeitiçado.",
+              "nameEn": "Countercharm",
+              "descEn": "At 6th level, you gain the ability to use musical notes or words of power to disrupt mind-influencing effects. As an action, you can start a performance that lasts until the end of your next turn. During that time, you and any friendly creatures within 30 feet of you have advantage on saving throws against being frightened or charmed. A creature must be able to hear you to gain this benefit. The performance ends early if you are incapacitated or silenced or if you voluntarily end it (no action required).",
+              "srd51": true
             }
           ],
           "spells_known": 9
@@ -3630,12 +3979,18 @@
             {
               "id": "bardicInspirationD10",
               "name": "Inspiração Bárdica (d10)",
-              "desc": "O dado de Inspiração Bárdica passa a d10."
+              "desc": "O dado de Inspiração Bárdica passa a d10.",
+              "nameEn": "Bardic Inspiration",
+              "descEn": "You can inspire others through stirring words or music. To do so, you use a bonus action on your turn to choose one creature other than yourself within 60 feet of you who can hear you. That creature gains one Bardic Inspiration die, a d6.\n\nOnce within the next 10 minutes, the creature can roll the die and add the number rolled to one ability check, attack roll, or saving throw it makes. The creature can wait until after it rolls the d20 before deciding to use the Bardic Inspiration die, but must decide before the GM says whether the roll succeeds or fails. Once the Bardic Inspiration die is rolled, it is lost. A creature can have only one Bardic Inspiration die at a time.\n\nYou can use this feature a number of times equal to your Charisma modifier (a minimum of once). You regain any expended uses when you finish a long rest.\n\nYour Bardic Inspiration die changes when you reach certain levels in this class. The die becomes a d8 at 5th level, a d10 at 10th level, and a d12 at 15th level.",
+              "srd51": true
             },
             {
               "id": "magicalSecrets",
               "name": "Segredos Mágicos",
-              "desc": "Aprenda 2 magias de qualquer classe."
+              "desc": "Aprenda 2 magias de qualquer classe.",
+              "nameEn": "Magical Secrets",
+              "descEn": "By 10th level, you have plundered magical knowledge from a wide spectrum of disciplines. Choose two spells from any classes, including this one. A spell you choose must be of a level you can cast, as shown on the Bard table, or a cantrip.\n\nThe chosen spells count as bard spells for you and are included in the number in the Spells Known column of the Bard table.\n\nYou learn two additional spells from any classes at 14th level and again at 18th level.",
+              "srd51": true
             }
           ],
           "spells_known": 14
@@ -3656,7 +4011,10 @@
             {
               "id": "magicalSecrets",
               "name": "Segredos Mágicos (mais 2)",
-              "desc": "+2 magias."
+              "desc": "+2 magias.",
+              "nameEn": "Magical Secrets",
+              "descEn": "By 10th level, you have plundered magical knowledge from a wide spectrum of disciplines. Choose two spells from any classes, including this one. A spell you choose must be of a level you can cast, as shown on the Bard table, or a cantrip.\n\nThe chosen spells count as bard spells for you and are included in the number in the Spells Known column of the Bard table.\n\nYou learn two additional spells from any classes at 14th level and again at 18th level.",
+              "srd51": true
             }
           ],
           "spells_known": 18
@@ -3666,7 +4024,10 @@
             {
               "id": "bardicInspirationD12",
               "name": "Inspiração Bárdica (d12)",
-              "desc": "O dado de Inspiração Bárdica passa a d12."
+              "desc": "O dado de Inspiração Bárdica passa a d12.",
+              "nameEn": "Bardic Inspiration",
+              "descEn": "You can inspire others through stirring words or music. To do so, you use a bonus action on your turn to choose one creature other than yourself within 60 feet of you who can hear you. That creature gains one Bardic Inspiration die, a d6.\n\nOnce within the next 10 minutes, the creature can roll the die and add the number rolled to one ability check, attack roll, or saving throw it makes. The creature can wait until after it rolls the d20 before deciding to use the Bardic Inspiration die, but must decide before the GM says whether the roll succeeds or fails. Once the Bardic Inspiration die is rolled, it is lost. A creature can have only one Bardic Inspiration die at a time.\n\nYou can use this feature a number of times equal to your Charisma modifier (a minimum of once). You regain any expended uses when you finish a long rest.\n\nYour Bardic Inspiration die changes when you reach certain levels in this class. The die becomes a d8 at 5th level, a d10 at 10th level, and a d12 at 15th level.",
+              "srd51": true
             }
           ],
           "spells_known": 19
@@ -3683,7 +4044,10 @@
             {
               "id": "magicalSecrets",
               "name": "Segredos Mágicos (mais 2)",
-              "desc": "+2 magias."
+              "desc": "+2 magias.",
+              "nameEn": "Magical Secrets",
+              "descEn": "By 10th level, you have plundered magical knowledge from a wide spectrum of disciplines. Choose two spells from any classes, including this one. A spell you choose must be of a level you can cast, as shown on the Bard table, or a cantrip.\n\nThe chosen spells count as bard spells for you and are included in the number in the Spells Known column of the Bard table.\n\nYou learn two additional spells from any classes at 14th level and again at 18th level.",
+              "srd51": true
             }
           ],
           "spells_known": 22
@@ -3697,7 +4061,10 @@
             {
               "id": "superiorInspiration",
               "name": "Inspiração Superior",
-              "desc": "Comece combate com 1 Inspiração se nenhum disponível."
+              "desc": "Comece combate com 1 Inspiração se nenhum disponível.",
+              "nameEn": "Superior Inspiration",
+              "descEn": "At 20th level, when you roll initiative and have no uses of Bardic Inspiration left, you regain one use.",
+              "srd51": true
             }
           ],
           "spells_known": 22
@@ -3710,12 +4077,18 @@
               {
                 "id": "bonusProficiencies",
                 "name": "Proficiências Bônus",
-                "desc": "3 perícias."
+                "desc": "3 perícias.",
+                "nameEn": "Bonus Proficiencies",
+                "descEn": "When you join the College of Lore at 3rd level, you gain proficiency with three skills of your choice.",
+                "srd51": true
               },
               {
                 "id": "cuttingWords",
                 "name": "Palavras Cortantes",
-                "desc": "Reação: gaste 1 Inspiração e subtraia o dado de Inspiração do ataque, teste de atributo ou dano de criatura a 60 pés."
+                "desc": "Reação: gaste 1 Inspiração e subtraia o dado de Inspiração do ataque, teste de atributo ou dano de criatura a 60 pés.",
+                "nameEn": "Cutting Words",
+                "descEn": "Also at 3rd level, you learn how to use your wit to distract, confuse, and otherwise sap the confidence and competence of others. When a creature that you can see within 60 feet of you makes an attack roll, an ability check, or a damage roll, you can use your reaction to expend one of your uses of Bardic Inspiration, rolling a Bardic Inspiration die and subtracting the number rolled from the creature's roll. You can choose to use this feature after the creature makes its roll, but before the GM determines whether the attack roll or ability check succeeds or fails, or before the creature deals its damage. The creature is immune if it can't hear you or if it's immune to being charmed.",
+                "srd51": true
               }
             ]
           },
@@ -3724,7 +4097,10 @@
               {
                 "id": "additionalMagicalSecrets",
                 "name": "Segredos Mágicos Adicionais",
-                "desc": "+2 magias de qualquer classe (contam como de bardo, fora do total de conhecidas)."
+                "desc": "+2 magias de qualquer classe (contam como de bardo, fora do total de conhecidas).",
+                "nameEn": "Additional Magical Secrets",
+                "descEn": "At 6th level, you learn two spells of your choice from any class. A spell you choose must be of a level you can cast, as shown on the Bard table, or a cantrip. The chosen spells count as bard spells for you but don't count against the number of bard spells you know.",
+                "srd51": true
               }
             ]
           },
@@ -3733,7 +4109,10 @@
               {
                 "id": "peerlessSkill",
                 "name": "Perícia Inigualável",
-                "desc": "Em um teste de atributo seu, gaste 1 Inspiração e some o dado."
+                "desc": "Em um teste de atributo seu, gaste 1 Inspiração e some o dado.",
+                "nameEn": "Peerless Skill",
+                "descEn": "Starting at 14th level, when you make an ability check, you can expend one use of Bardic Inspiration. Roll a Bardic Inspiration die and add the number rolled to your ability check. You can choose to do so after you roll the die for the ability check, but before the GM tells you whether you succeed or fail.",
+                "srd51": true
               }
             ]
           }
@@ -3843,7 +4222,10 @@
             {
               "id": "spellcasting",
               "name": "Conjuração",
-              "desc": "4 truques + 2 magias 1°. CHA."
+              "desc": "4 truques + 2 magias 1°. CHA.",
+              "nameEn": "Spellcasting",
+              "descEn": "An event in your past, or in the life of a parent or ancestor, left an indelible mark on you, infusing you with arcane magic. This font of magic, whatever its origin, fuels your spells.",
+              "srd51": true
             }
           ]
         },
@@ -3852,7 +4234,10 @@
             {
               "id": "fontOfMagic",
               "name": "Fonte de Magia",
-              "desc": "Sorcery Points = nível. Converta SP ↔ slots."
+              "desc": "Sorcery Points = nível. Converta SP ↔ slots.",
+              "nameEn": "Font of Magic",
+              "descEn": "At 2nd level, you tap into a deep wellspring of magic within yourself. This wellspring is represented by sorcery points, which allow you to create a variety of magical effects.",
+              "srd51": true
             }
           ],
           "spells_known": 3
@@ -3862,7 +4247,10 @@
             {
               "id": "metamagic",
               "name": "Metamagia",
-              "desc": "2 opções de Metamagia (+1 no 10 e no 17); só uma por magia, salvo Magia Empoderada."
+              "desc": "2 opções de Metamagia (+1 no 10 e no 17); só uma por magia, salvo Magia Empoderada.",
+              "nameEn": "Metamagic",
+              "descEn": "At 3rd level, you gain the ability to twist your spells to suit your needs. You gain two of the following Metamagic options of your choice. You gain another one at 10th and 17th level.\n\nYou can use only one Metamagic option on a spell when you cast it, unless otherwise noted.",
+              "srd51": true
             }
           ],
           "spells_known": 4
@@ -3895,7 +4283,10 @@
             {
               "id": "metamagic",
               "name": "Metamagia (+1)",
-              "desc": "+1 opção."
+              "desc": "+1 opção.",
+              "nameEn": "Metamagic",
+              "descEn": "At 3rd level, you gain the ability to twist your spells to suit your needs. You gain two of the following Metamagic options of your choice. You gain another one at 10th and 17th level.\n\nYou can use only one Metamagic option on a spell when you cast it, unless otherwise noted.",
+              "srd51": true
             }
           ],
           "spells_known": 11
@@ -3926,7 +4317,10 @@
             {
               "id": "metamagic",
               "name": "Metamagia (+1)",
-              "desc": "+1 opção."
+              "desc": "+1 opção.",
+              "nameEn": "Metamagic",
+              "descEn": "At 3rd level, you gain the ability to twist your spells to suit your needs. You gain two of the following Metamagic options of your choice. You gain another one at 10th and 17th level.\n\nYou can use only one Metamagic option on a spell when you cast it, unless otherwise noted.",
+              "srd51": true
             }
           ],
           "spells_known": 15
@@ -3944,7 +4338,10 @@
             {
               "id": "sorcerousRestoration",
               "name": "Restauração Feiticeira",
-              "desc": "4 SP em desc curto."
+              "desc": "4 SP em desc curto.",
+              "nameEn": "Sorcerous Restoration",
+              "descEn": "At 20th level, you regain 4 expended sorcery points whenever you finish a short rest.",
+              "srd51": true
             }
           ],
           "spells_known": 15
@@ -3957,12 +4354,18 @@
               {
                 "id": "dragonAncestor",
                 "name": "Ancestral Dracônico",
-                "desc": "Escolha um tipo de dragão. Fala, lê e escreve Dracônico; proficiência dobrada em testes de CAR com dragões."
+                "desc": "Escolha um tipo de dragão. Fala, lê e escreve Dracônico; proficiência dobrada em testes de CAR com dragões.",
+                "nameEn": "Dragon Ancestor",
+                "descEn": "At 1st level, you choose one type of dragon as your ancestor. The damage type associated with each dragon is used by features you gain later.\n\nTable- Draconic Ancestry\n\n| Dragon | Damage Type |\n|--------|-------------|\n| Black  | Acid        |\n| Blue   | Lightning   |\n| Brass  | Fire        |\n| Bronze | Lightning   |\n| Copper | Acid        |\n| Gold   | Fire        |\n| Green  | Poison      |\n| Red    | Fire        |\n| Silver | Cold        |\n| White  | Cold        |\n|        |             |\n\nYou can speak, read, and write Draconic. Additionally, whenever you make a Charisma check when interacting with dragons, your proficiency bonus is doubled if it applies to the check.",
+                "srd51": true
               },
               {
                 "id": "draconicResilience",
                 "name": "Resiliência Dracônica",
-                "desc": "+1 HP/nível; CA sem armadura = 13+DEX."
+                "desc": "+1 HP/nível; CA sem armadura = 13+DEX.",
+                "nameEn": "Draconic Resilience",
+                "descEn": "As magic flows through your body, it causes physical traits of your dragon ancestors to emerge. At 1st level, your hit point maximum increases by 1 and increases by 1 again whenever you gain a level in this class.\n\nAdditionally, parts of your skin are covered by a thin sheen of dragon-like scales. When you aren't wearing armor, your AC equals 13 + your Dexterity modifier.",
+                "srd51": true
               }
             ]
           },
@@ -3971,7 +4374,10 @@
               {
                 "id": "elementalAffinity",
                 "name": "Afinidade Elemental",
-                "desc": "+CHA no dano do tipo escolhido; SP: resistência por 1h."
+                "desc": "+CHA no dano do tipo escolhido; SP: resistência por 1h.",
+                "nameEn": "Elemental Affinity",
+                "descEn": "Starting at 6th level, when you cast a spell that deals damage of the type associated with your draconic ancestry, you can add your Charisma modifier to one damage roll of that spell. At the same time, you can spend 1 sorcery point to gain resistance to that damage type for 1 hour.",
+                "srd51": true
               }
             ]
           },
@@ -3980,7 +4386,10 @@
               {
                 "id": "dragonWings",
                 "name": "Asas Dracônicas",
-                "desc": "Asas: voo = deslocamento."
+                "desc": "Asas: voo = deslocamento.",
+                "nameEn": "Dragon Wings",
+                "descEn": "At 14th level, you gain the ability to sprout a pair of dragon wings from your back, gaining a flying speed equal to your current speed. You can create these wings as a bonus action on your turn. They last until you dismiss them as a bonus action on your turn.\n\nYou can't manifest your wings while wearing armor unless the armor is made to accommodate them, and clothing not made to accommodate your wings might be destroyed when you manifest them.",
+                "srd51": true
               }
             ]
           },
@@ -3989,7 +4398,10 @@
               {
                 "id": "draconicPresence",
                 "name": "Presença Dracônica",
-                "desc": "5 SP: aura 60 pés, SAL SAB ou amedrontado/encantado por 1 min."
+                "desc": "5 SP: aura 60 pés, SAL SAB ou amedrontado/encantado por 1 min.",
+                "nameEn": "Draconic Presence",
+                "descEn": "Beginning at 18th level, you can channel the dread presence of your dragon ancestor, causing those around you to become awestruck or frightened. As an action, you can spend 5 sorcery points to draw on this power and exude an aura of awe or fear (your choice) to a distance of 60 feet. For 1 minute or until you lose your concentration (as if you were casting a concentration spell), each hostile creature that starts its turn in this aura must succeed on a Wisdom saving throw or be charmed (if you chose awe) or frightened (if you chose fear) until the aura ends. A creature that succeeds on this saving throw is immune to your aura for 24 hours.",
+                "srd51": true
               }
             ]
           }
@@ -4128,12 +4540,18 @@
             {
               "id": "unarmoredDefense",
               "name": "Defesa sem Armadura",
-              "desc": "CA = 10 + DEX + WIS."
+              "desc": "CA = 10 + DEX + WIS.",
+              "nameEn": "Unarmored Defense",
+              "descEn": "Beginning at 1st level, while you are wearing no armor and not wielding a shield, your AC equals 10 + your Dexterity modifier + your Wisdom modifier.",
+              "srd51": true
             },
             {
               "id": "martialArts",
               "name": "Artes Marciais",
-              "desc": "Dado marcial 1d4 (cresce). DEX em ataques marciais."
+              "desc": "Dado marcial 1d4 (cresce). DEX em ataques marciais.",
+              "nameEn": "Martial Arts",
+              "descEn": "At 1st level, your practice of martial arts gives you mastery of combat styles that use unarmed strikes and monk weapons, which are shortswords and any simple melee weapons that don't have the two- handed or heavy property.\n\nYou gain the following benefits while you are unarmed or wielding only monk weapons and you aren't wearing armor or wielding a shield:\n\n- You can use Dexterity instead of Strength for the attack and damage rolls of your unarmed strikes and monk weapons.\n- You can roll a d4 in place of the normal damage of your unarmed strike or monk weapon. This die changes as you gain monk levels, as shown in the Martial Arts column of the Monk table.\n- When you use the Attack action with an unarmed strike or a monk weapon on your turn, you can make one unarmed strike as a bonus action. For example, if you take the Attack action and attack with a quarterstaff, you can also make an unarmed strike as a bonus action, assuming you haven't already taken a bonus action this turn.\n\nCertain monasteries use specialized forms of the monk weapons. For example, you might use a club that is two lengths of wood connected by a short chain (called a nunchaku) or a sickle with a shorter, straighter blade (called a kama). Whatever name you use for a monk weapon, you can use the game statistics provided for the weapon.",
+              "srd51": true
             }
           ]
         },
@@ -4142,12 +4560,18 @@
             {
               "id": "ki",
               "name": "Ki",
-              "desc": "Pontos de ki = nível (descanso curto). Rajada de Golpes, Defesa Paciente, Passo do Vento."
+              "desc": "Pontos de ki = nível (descanso curto). Rajada de Golpes, Defesa Paciente, Passo do Vento.",
+              "nameEn": "Ki",
+              "descEn": "Starting at 2nd level, your training allows you to harness the mystic energy of ki. Your access to this energy is represented by a number of ki points. Your monk level determines the number of points you have, as shown in the Ki Points column of the Monk table.\n\nYou can spend these points to fuel various ki features. You start knowing three such features: Flurry of Blows, Patient Defense, and Step of the Wind. You learn more ki features as you gain levels in this class.\n\nWhen you spend a ki point, it is unavailable until you finish a short or long rest, at the end of which you draw all of your expended ki back into yourself. You must spend at least 30 minutes of the rest meditating to regain your ki points.\n\nSome of your ki features require your target to make a saving throw to resist the feature's effects. The saving throw DC is calculated as follows:\n\nKi save DC = 8 + your proficiency bonus + your Wisdom modifier",
+              "srd51": true
             },
             {
               "id": "unarmoredMovement",
               "name": "Movimento sem Armadura",
-              "desc": "Sem armadura e sem escudo: +10 pés (+15 no 6, +20 no 10, +25 no 14, +30 no 18)."
+              "desc": "Sem armadura e sem escudo: +10 pés (+15 no 6, +20 no 10, +25 no 14, +30 no 18).",
+              "nameEn": "Unarmored Movement",
+              "descEn": "Starting at 2nd level, your speed increases by 10 feet while you are not wearing armor or wielding a shield. This bonus increases when you reach certain monk levels, as shown in the Monk table.\n\nAt 9th level, you gain the ability to move along vertical surfaces and across liquids on your turn without falling during the move.",
+              "srd51": true
             }
           ]
         },
@@ -4157,7 +4581,10 @@
             {
               "id": "deflectMissiles",
               "name": "Aparar Projéteis",
-              "desc": "Reação: reduza dano à distância."
+              "desc": "Reação: reduza dano à distância.",
+              "nameEn": "Deflect Missiles",
+              "descEn": "Starting at 3rd level, you can use your reaction to deflect or catch the missile when you are hit by a ranged weapon attack. When you do so, the damage you take from the attack is reduced by 1d10 + your Dexterity modifier + your monk level.\n\nIf you reduce the damage to 0, you can catch the missile if it is small enough for you to hold in one hand and you have at least one hand free. If you catch a missile in this way, you can spend 1 ki point to make a ranged attack with the weapon or piece of ammunition you just caught, as part of the same reaction. You make this attack with proficiency, regardless of your weapon proficiencies, and the missile counts as a monk weapon for the attack, which has a normal range of 20 feet and a long range of 60 feet.",
+              "srd51": true
             }
           ]
         },
@@ -4167,7 +4594,10 @@
             {
               "id": "slowFall",
               "name": "Queda Lenta",
-              "desc": "Reação: -5×nível dano de queda."
+              "desc": "Reação: -5×nível dano de queda.",
+              "nameEn": "Slow Fall",
+              "descEn": "Beginning at 4th level, you can use your reaction when you fall to reduce any falling damage you take by an amount equal to five times your monk level.",
+              "srd51": true
             }
           ]
         },
@@ -4177,7 +4607,10 @@
             {
               "id": "stunningStrike",
               "name": "Golpe Atordoante",
-              "desc": "Após acerto: 1 Ki → SAL CON ou atordoado."
+              "desc": "Após acerto: 1 Ki → SAL CON ou atordoado.",
+              "nameEn": "Stunning Strike",
+              "descEn": "Starting at 5th level, you can interfere with the flow of ki in an opponent's body. When you hit another creature with a melee weapon attack, you can spend 1 ki point to attempt a stunning strike. The target must succeed on a Constitution saving throw or be stunned until the end of your next turn.",
+              "srd51": true
             }
           ]
         },
@@ -4186,7 +4619,10 @@
             {
               "id": "kiEmpoweredStrikes",
               "name": "Golpes Imbuídos de Ki",
-              "desc": "Ataques desarmados contam como mágicos."
+              "desc": "Ataques desarmados contam como mágicos.",
+              "nameEn": "Ki-Empowered Strikes",
+              "descEn": "Starting at 6th level, your unarmed strikes count as magical for the purpose of overcoming resistance and immunity to nonmagical attacks and damage.",
+              "srd51": true
             }
           ]
         },
@@ -4195,12 +4631,18 @@
             {
               "id": "evasion",
               "name": "Evasão",
-              "desc": "SAL DEX passa → 0 dano."
+              "desc": "SAL DEX passa → 0 dano.",
+              "nameEn": "Evasion",
+              "descEn": "At 7th level, your instinctive agility lets you dodge out of the way of certain area effects, such as a blue dragon's lightning breath or a fireball spell. When you are subjected to an effect that allows you to make a Dexterity saving throw to take only half damage, you instead take no damage if you succeed on the saving throw, and only half damage if you fail.",
+              "srd51": true
             },
             {
               "id": "stillnessOfMind",
               "name": "Quietude da Mente",
-              "desc": "Ação: termine encanto ou medo em si."
+              "desc": "Ação: termine encanto ou medo em si.",
+              "nameEn": "Stillness of Mind",
+              "descEn": "Starting at 7th level, you can use your action to end one effect on yourself that is causing you to be charmed or frightened.",
+              "srd51": true
             }
           ]
         },
@@ -4212,7 +4654,10 @@
             {
               "id": "unarmoredMovementImproved",
               "name": "Movimento Aprimorado",
-              "desc": "Corra em paredes e líquidos."
+              "desc": "Corra em paredes e líquidos.",
+              "nameEn": "Unarmored Movement",
+              "descEn": "Starting at 2nd level, your speed increases by 10 feet while you are not wearing armor or wielding a shield. This bonus increases when you reach certain monk levels, as shown in the Monk table.\n\nAt 9th level, you gain the ability to move along vertical surfaces and across liquids on your turn without falling during the move.",
+              "srd51": true
             }
           ]
         },
@@ -4221,7 +4666,10 @@
             {
               "id": "purityOfBody",
               "name": "Pureza do Corpo",
-              "desc": "Imune a doenças e venenos."
+              "desc": "Imune a doenças e venenos.",
+              "nameEn": "Purity of Body",
+              "descEn": "At 10th level, your mastery of the ki flowing through you makes you immune to disease and poison.",
+              "srd51": true
             }
           ]
         },
@@ -4236,7 +4684,10 @@
             {
               "id": "tongueOfSunAndMoon",
               "name": "Língua do Sol e Lua",
-              "desc": "Entenda todas as línguas faladas."
+              "desc": "Entenda todas as línguas faladas.",
+              "nameEn": "Tongue of the Sun and Moon",
+              "descEn": "Starting at 13th level, you learn to touch the ki of other minds so that you understand all spoken languages. Moreover, any creature that can understand a language can understand what you say.",
+              "srd51": true
             }
           ]
         },
@@ -4245,7 +4696,10 @@
             {
               "id": "diamondSoul",
               "name": "Alma de Diamante",
-              "desc": "Prof em todos SAL. Refaça SAL falho por 1 Ki."
+              "desc": "Prof em todos SAL. Refaça SAL falho por 1 Ki.",
+              "nameEn": "Diamond Soul",
+              "descEn": "Beginning at 14th level, your mastery of ki grants you proficiency in all saving throws.\n\nAdditionally, whenever you make a saving throw and fail, you can spend 1 ki point to reroll it and take the second result.",
+              "srd51": true
             }
           ]
         },
@@ -4254,7 +4708,10 @@
             {
               "id": "timelessBody",
               "name": "Corpo Atemporal",
-              "desc": "Não envelhece; sem comida/água."
+              "desc": "Não envelhece; sem comida/água.",
+              "nameEn": "Timeless Body",
+              "descEn": "At 15th level, your ki sustains you so that you suffer none of the frailty of old age, and you can't be aged magically. You can still die of old age, however. In addition, you no longer need food or water.",
+              "srd51": true
             }
           ]
         },
@@ -4269,7 +4726,10 @@
             {
               "id": "emptyBody",
               "name": "Corpo Vazio",
-              "desc": "4 Ki: invisível 1 min. 8 Ki: Astral Projection."
+              "desc": "4 Ki: invisível 1 min. 8 Ki: Astral Projection.",
+              "nameEn": "Empty Body",
+              "descEn": "Beginning at 18th level, you can use your action to spend 4 ki points to become invisible for 1 minute. During that time, you also have resistance to all damage but force damage.\n\nAdditionally, you can spend 8 ki points to cast the astral projection spell, without needing material components. When you do so, you can't take any other creatures with you.",
+              "srd51": true
             }
           ]
         },
@@ -4281,7 +4741,10 @@
             {
               "id": "perfectSelf",
               "name": "Eu Perfeito",
-              "desc": "Inicie combate com 4 Ki se estiver com 0."
+              "desc": "Inicie combate com 4 Ki se estiver com 0.",
+              "nameEn": "Perfect Self",
+              "descEn": "At 20th level, when you roll for initiative and have no ki points remaining, you regain 4 ki points.",
+              "srd51": true
             }
           ]
         }
@@ -4293,7 +4756,10 @@
               {
                 "id": "openHandTechnique",
                 "name": "Técnica da Mão Aberta",
-                "desc": "Flurry of Blows com opções: derrubar/empurrar/negar reações."
+                "desc": "Flurry of Blows com opções: derrubar/empurrar/negar reações.",
+                "nameEn": "Open Hand Technique",
+                "descEn": "Starting when you choose this tradition at 3rd level, you can manipulate your enemy's ki when you harness your own. Whenever you hit a creature with one of the attacks granted by your Flurry of Blows, you can impose one of the following effects on that target:\n\n- It must succeed on a Dexterity saving throw or be knocked prone.\n- It must make a Strength saving throw. If it fails, you can push it up to 15 feet away from you.\n- It can't take reactions until the end of your next turn.",
+                "srd51": true
               }
             ]
           },
@@ -4302,7 +4768,10 @@
               {
                 "id": "wholenessOfBody",
                 "name": "Inteireza do Corpo",
-                "desc": "Ação: cure 3×nível HP. 1×/desc longo."
+                "desc": "Ação: cure 3×nível HP. 1×/desc longo.",
+                "nameEn": "Wholeness of Body",
+                "descEn": "At 6th level, you gain the ability to heal yourself. As an action, you can regain hit points equal to three times your monk level. You must finish a long rest before you can use this feature again.",
+                "srd51": true
               }
             ]
           },
@@ -4311,7 +4780,10 @@
               {
                 "id": "tranquility",
                 "name": "Tranquilidade",
-                "desc": "Após desc longo: efeito Sanctuary até primeiro ataque."
+                "desc": "Após desc longo: efeito Sanctuary até primeiro ataque.",
+                "nameEn": "Tranquility",
+                "descEn": "Beginning at 11th level, you can enter a special meditation that surrounds you with an aura of peace. At the end of a long rest, you gain the effect of a sanctuary spell that lasts until the start of your next long rest (the spell can end early as normal). The saving throw DC for the spell equals 8 + your Wisdom modifier + your proficiency bonus.",
+                "srd51": true
               }
             ]
           },
@@ -4320,7 +4792,10 @@
               {
                 "id": "quiveringPalm",
                 "name": "Palma Trêmula",
-                "desc": "Ao acertar desarmado, 3 ki: vibrações por dias = nível de monge. Ação para encerrá-las: SAL CON; falha = 0 PV, sucesso = 10d10 necrótico."
+                "desc": "Ao acertar desarmado, 3 ki: vibrações por dias = nível de monge. Ação para encerrá-las: SAL CON; falha = 0 PV, sucesso = 10d10 necrótico.",
+                "nameEn": "Quivering Palm",
+                "descEn": "At 17th level, you gain the ability to set up lethal vibrations in someone's body. When you hit a creature with an unarmed strike, you can spend 3 ki points to start these imperceptible vibrations, which last for a number of days equal to your monk level. The vibrations are harmless unless you use your action to end them. To do so, you and the target must be on the same plane of existence. When you use this action, the creature must make a Constitution saving throw. If it fails, it is reduced to 0 hit points. If it succeeds, it takes 10d10 necrotic damage.\n\nYou can have only one creature under the effect of this feature at a time. You can choose to end the vibrations harmlessly without using an action.",
+                "srd51": true
               }
             ]
           }
@@ -4331,7 +4806,10 @@
               {
                 "id": "openHandTechnique",
                 "name": "Técnica da Mão Aberta",
-                "desc": "Flurry of Blows com opções: derrubar/empurrar/negar reações."
+                "desc": "Flurry of Blows com opções: derrubar/empurrar/negar reações.",
+                "nameEn": "Open Hand Technique",
+                "descEn": "Starting when you choose this tradition at 3rd level, you can manipulate your enemy's ki when you harness your own. Whenever you hit a creature with one of the attacks granted by your Flurry of Blows, you can impose one of the following effects on that target:\n\n- It must succeed on a Dexterity saving throw or be knocked prone.\n- It must make a Strength saving throw. If it fails, you can push it up to 15 feet away from you.\n- It can't take reactions until the end of your next turn.",
+                "srd51": true
               }
             ]
           },
@@ -4340,7 +4818,10 @@
               {
                 "id": "wholenessOfBody",
                 "name": "Inteireza do Corpo",
-                "desc": "Ação: cure 3×nível HP. 1×/desc longo."
+                "desc": "Ação: cure 3×nível HP. 1×/desc longo.",
+                "nameEn": "Wholeness of Body",
+                "descEn": "At 6th level, you gain the ability to heal yourself. As an action, you can regain hit points equal to three times your monk level. You must finish a long rest before you can use this feature again.",
+                "srd51": true
               }
             ]
           },
@@ -4349,7 +4830,10 @@
               {
                 "id": "tranquility",
                 "name": "Tranquilidade",
-                "desc": "Após desc longo: efeito Sanctuary até primeiro ataque."
+                "desc": "Após desc longo: efeito Sanctuary até primeiro ataque.",
+                "nameEn": "Tranquility",
+                "descEn": "Beginning at 11th level, you can enter a special meditation that surrounds you with an aura of peace. At the end of a long rest, you gain the effect of a sanctuary spell that lasts until the start of your next long rest (the spell can end early as normal). The saving throw DC for the spell equals 8 + your Wisdom modifier + your proficiency bonus.",
+                "srd51": true
               }
             ]
           },
@@ -4358,7 +4842,10 @@
               {
                 "id": "quiveringPalm",
                 "name": "Palma Trêmula",
-                "desc": "Ao acertar desarmado, 3 ki: vibrações por dias = nível de monge. Ação para encerrá-las: SAL CON; falha = 0 PV, sucesso = 10d10 necrótico."
+                "desc": "Ao acertar desarmado, 3 ki: vibrações por dias = nível de monge. Ação para encerrá-las: SAL CON; falha = 0 PV, sucesso = 10d10 necrótico.",
+                "nameEn": "Quivering Palm",
+                "descEn": "At 17th level, you gain the ability to set up lethal vibrations in someone's body. When you hit a creature with an unarmed strike, you can spend 3 ki points to start these imperceptible vibrations, which last for a number of days equal to your monk level. The vibrations are harmless unless you use your action to end them. To do so, you and the target must be on the same plane of existence. When you use this action, the creature must make a Constitution saving throw. If it fails, it is reduced to 0 hit points. If it succeeds, it takes 10d10 necrotic damage.\n\nYou can have only one creature under the effect of this feature at a time. You can choose to end the vibrations harmlessly without using an action.",
+                "srd51": true
               }
             ]
           }
@@ -4489,7 +4976,10 @@
             {
               "id": "pactMagic",
               "name": "Magia do Pacto",
-              "desc": "2 truques + 2 magias 1°. Slots recarregam em desc curto."
+              "desc": "2 truques + 2 magias 1°. Slots recarregam em desc curto.",
+              "nameEn": "Pact Magic",
+              "descEn": "Your arcane research and the magic bestowed on you by your patron have given you facility with spells.",
+              "srd51": true
             }
           ]
         },
@@ -4498,7 +4988,10 @@
             {
               "id": "eldritchInvocations",
               "name": "Invocações Místicas",
-              "desc": "2 invocações iniciais."
+              "desc": "2 invocações iniciais.",
+              "nameEn": "Eldritch Invocations",
+              "descEn": "In your study of occult lore, you have unearthed eldritch invocations, fragments of forbidden knowledge that imbue you with an abiding magical ability.\n\nAt 2nd level, you gain two eldritch invocations of your choice. Your invocation options are detailed at the end of the class description. When you gain certain warlock levels, you gain additional invocations of your choice, as shown in the Invocations Known column of the Warlock table.\n\nAdditionally, when you gain a level in this class, you can choose one of the invocations you know and replace it with another invocation that you could learn at that level.",
+              "srd51": true
             }
           ],
           "spells_known": 3
@@ -4508,7 +5001,10 @@
             {
               "id": "pactBoon",
               "name": "Dádiva do Pacto",
-              "desc": "Pacto da Corrente, da Lâmina ou do Tomo."
+              "desc": "Pacto da Corrente, da Lâmina ou do Tomo.",
+              "nameEn": "Pact Boon",
+              "descEn": "At 3rd level, your otherworldly patron bestows a gift upon you for your loyal service. You gain one of the following features of your choice.",
+              "srd51": true
             }
           ],
           "spells_known": 4
@@ -4545,7 +5041,10 @@
             {
               "id": "mysticArcanum6",
               "name": "Arcano Místico (6°)",
-              "desc": "1 magia de 6° 1×/desc longo."
+              "desc": "1 magia de 6° 1×/desc longo.",
+              "nameEn": "Mystic Arcanum",
+              "descEn": "At 11th level, your patron bestows upon you a magical secret called an arcanum. Choose one 6th- level spell from the warlock spell list as this arcanum.\n\nYou can cast your arcanum spell once without expending a spell slot. You must finish a long rest before you can do so again.\n\nAt higher levels, you gain more warlock spells of your choice that can be cast in this way: one 7th- level spell at 13th level, one 8th-level spell at 15th level, and one 9th-level spell at 17th level. You regain all uses of your Mystic Arcanum when you finish a long rest.",
+              "srd51": true
             }
           ],
           "spells_known": 11
@@ -4559,7 +5058,10 @@
             {
               "id": "mysticArcanum7",
               "name": "Arcano Místico (7°)",
-              "desc": "1 magia de 7° 1×/desc longo."
+              "desc": "1 magia de 7° 1×/desc longo.",
+              "nameEn": "Mystic Arcanum",
+              "descEn": "At 11th level, your patron bestows upon you a magical secret called an arcanum. Choose one 6th- level spell from the warlock spell list as this arcanum.\n\nYou can cast your arcanum spell once without expending a spell slot. You must finish a long rest before you can do so again.\n\nAt higher levels, you gain more warlock spells of your choice that can be cast in this way: one 7th- level spell at 13th level, one 8th-level spell at 15th level, and one 9th-level spell at 17th level. You regain all uses of your Mystic Arcanum when you finish a long rest.",
+              "srd51": true
             }
           ],
           "spells_known": 12
@@ -4573,7 +5075,10 @@
             {
               "id": "mysticArcanum8",
               "name": "Arcano Místico (8°)",
-              "desc": "1 magia de 8° 1×/desc longo."
+              "desc": "1 magia de 8° 1×/desc longo.",
+              "nameEn": "Mystic Arcanum",
+              "descEn": "At 11th level, your patron bestows upon you a magical secret called an arcanum. Choose one 6th- level spell from the warlock spell list as this arcanum.\n\nYou can cast your arcanum spell once without expending a spell slot. You must finish a long rest before you can do so again.\n\nAt higher levels, you gain more warlock spells of your choice that can be cast in this way: one 7th- level spell at 13th level, one 8th-level spell at 15th level, and one 9th-level spell at 17th level. You regain all uses of your Mystic Arcanum when you finish a long rest.",
+              "srd51": true
             }
           ],
           "spells_known": 13
@@ -4587,7 +5092,10 @@
             {
               "id": "mysticArcanum9",
               "name": "Arcano Místico (9°)",
-              "desc": "1 magia de 9° 1×/desc longo."
+              "desc": "1 magia de 9° 1×/desc longo.",
+              "nameEn": "Mystic Arcanum",
+              "descEn": "At 11th level, your patron bestows upon you a magical secret called an arcanum. Choose one 6th- level spell from the warlock spell list as this arcanum.\n\nYou can cast your arcanum spell once without expending a spell slot. You must finish a long rest before you can do so again.\n\nAt higher levels, you gain more warlock spells of your choice that can be cast in this way: one 7th- level spell at 13th level, one 8th-level spell at 15th level, and one 9th-level spell at 17th level. You regain all uses of your Mystic Arcanum when you finish a long rest.",
+              "srd51": true
             }
           ],
           "spells_known": 14
@@ -4604,7 +5112,10 @@
             {
               "id": "eldritchMaster",
               "name": "Mestre Místico",
-              "desc": "1×/desc longo: 1 min de súplica recupera todos os espaços da Magia do Pacto."
+              "desc": "1×/desc longo: 1 min de súplica recupera todos os espaços da Magia do Pacto.",
+              "nameEn": "Eldritch Master",
+              "descEn": "At 20th level, you can draw on your inner reserve of mystical power while entreating your patron to regain expended spell slots. You can spend 1 minute entreating your patron for aid to regain all your expended spell slots from your Pact Magic feature. Once you regain spell slots with this feature, you must finish a long rest before you can do so again.",
+              "srd51": true
             }
           ],
           "spells_known": 15
@@ -4621,7 +5132,10 @@
               {
                 "id": "darkOnesBlessing",
                 "name": "Bênção do Tenebroso",
-                "desc": "Ao reduzir criatura hostil a 0 PV: CAR + nível de bruxo PV temp. (mín. 1)."
+                "desc": "Ao reduzir criatura hostil a 0 PV: CAR + nível de bruxo PV temp. (mín. 1).",
+                "nameEn": "Dark One's Blessing",
+                "descEn": "Starting at 1st level, when you reduce a hostile creature to 0 hit points, you gain temporary hit points equal to your Charisma modifier + your warlock level (minimum of 1).",
+                "srd51": true
               }
             ]
           },
@@ -4642,7 +5156,10 @@
               {
                 "id": "darkOnesOwnLuck",
                 "name": "Sorte do Tenebroso",
-                "desc": "+1d10 em teste de atributo ou SAL, após ver o d20 e antes do resultado. 1×/desc curto."
+                "desc": "+1d10 em teste de atributo ou SAL, após ver o d20 e antes do resultado. 1×/desc curto.",
+                "nameEn": "Dark One's Own Luck",
+                "descEn": "Starting at 6th level, you can call on your patron to alter fate in your favor. When you make an ability check or a saving throw, you can use this feature to add a d10 to your roll. You can do so after seeing the initial roll but before any of the roll's effects occur.\n\nOnce you use this feature, you can't use it again until you finish a short or long rest.",
+                "srd51": true
               }
             ]
           },
@@ -4663,7 +5180,10 @@
               {
                 "id": "fiendishResilience",
                 "name": "Resiliência Demoníaca",
-                "desc": "Escolha tipo de dano: resistência. Pode mudar em desc."
+                "desc": "Escolha tipo de dano: resistência. Pode mudar em desc.",
+                "nameEn": "Fiendish Resilience",
+                "descEn": "Starting at 10th level, you can choose one damage type when you finish a short or long rest. You gain resistance to that damage type until you choose a different one with this feature. Damage from magical weapons or silver weapons ignores this resistance.",
+                "srd51": true
               }
             ]
           },
@@ -4672,7 +5192,10 @@
               {
                 "id": "hurlThroughHell",
                 "name": "Arremessar pelo Inferno",
-                "desc": "1×/desc longo, ao acertar um ataque: o alvo some para os planos inferiores até o fim do seu próximo turno e, se não for corruptor, sofre 10d10 psíquico ao voltar (sem salvaguarda)."
+                "desc": "1×/desc longo, ao acertar um ataque: o alvo some para os planos inferiores até o fim do seu próximo turno e, se não for corruptor, sofre 10d10 psíquico ao voltar (sem salvaguarda).",
+                "nameEn": "Hurl Through Hell",
+                "descEn": "Starting at 14th level, when you hit a creature with an attack, you can use this feature to instantly transport the target through the lower planes. The creature disappears and hurtles through a nightmare landscape.\n\nAt the end of your next turn, the target returns to the space it previously occupied, or the nearest unoccupied space. If the target is not a fiend, it takes 10d10 psychic damage as it reels from its horrific experience.\n\nOnce you use this feature, you can't use it again until you finish a long rest.\n\n>Your Pact Boon\n>\n>Each Pact Boon option produces a special creature or an object that reflects your patron's nature.\n>\n>Pact of the Chain. Your familiar is more cunning than a typical familiar. Its default form can be a reflection of your patron, with sprites and pseudodragons tied to the Archfey and imps and quasits tied to the Fiend. Because the Great Old One's nature is inscrutable, any familiar form is suitable for it.\n>\n>Pact of the Blade. If your patron is the Archfey, your weapon might be a slender blade wrapped in leafy vines. If you serve the Fiend, your weapon could be an axe made of black metal and adorned with decorative flames. If your patron is the Great Old One, your weapon might be an ancient-looking spear, with a gemstone embedded in its head, carved to look like a terrible unblinking eye.\n>\ne Archfey, your weapon might be a slender blade wrapped in leafy vines. If you serve the Fiend, your weapon could be an axe made of black metal and adorned with decorative flames. If your patron is the Great Old One, your weapon might be an ancient-looking spear, with a gemstone embedded in its head, carved to look like a terrible unblinking eye.\n>\n>Pact of the Tome. Your Book of Shadows might be a fine, gilt-edged tome with spells of enchantment and illusion, gifted to you by the lordly Archfey. It could be a weighty tome bound in demon hide studded with iron, holding spells of conjuration and a wealth of forbidden lore about the sinister regions of the cosmos, a gift of the Fiend. Or it could be the tattered diary of a lunatic driven mad by contact with the Great Old One, holding scraps of spells that only your own burgeoning insanity allows you to understand and cast.",
+                "srd51": true
               }
             ]
           }

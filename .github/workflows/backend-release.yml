@@ -37,6 +37,12 @@ jobs:
           npm ci --no-audit --no-fund
           node ./node_modules/vite/bin/vite.js build
 
+      # O backend valida level-ups com um snapshot das regras do frontend
+      # (backend/api/progression/catalog.json). Snapshot velho não sai no pacote.
+      - name: Snapshot de regras em dia
+        working-directory: frontend
+        run: npm run -s check:rules
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
