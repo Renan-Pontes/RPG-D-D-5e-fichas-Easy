@@ -294,6 +294,22 @@ const UnifiedSpellsHUD = ({ char, lang, update, slots, casters, spellAb: propSpe
   );
 };
 
+// Mesmo bloco do topo do painel Conjuração da aba Magias (CD, ataque e espaços), para a
+// aba Jogar mostrar o mesmo painel. null para quem não conjura pela classe.
+export const SpellcastingSummary = ({ char, lang, update, slots }) => {
+  const multi = Utils.isMulticlass(char);
+  const single = !!Utils.spellcastingAbility(char) && (Utils.casterViews(char).length > 0 || Utils.spellSlots(char).some(Boolean));
+  const casters = multi ? Utils.casterViews(char) : (single ? [char] : []);
+  if (!casters.length) return null;
+  return (
+    <section className="fh-panel fh-spells fh-spellcasting">
+      <FhMedalDefs />
+      <FhTitle>{lang === 'pt' ? 'Conjuração' : 'Spellcasting'}</FhTitle>
+      <UnifiedSpellsHUD char={char} lang={lang} update={update} slots={slots} casters={casters} />
+    </section>
+  );
+};
+
 // Aba Magias: espaços (compartilhados entre as classes) e uma seção por classe
 // conjuradora — em multiclasse cada uma tem atributo, CD, limites e lista próprios.
 // `placed` (src/sheet/feature-placement.js): os traços de magia e de truques de cada classe

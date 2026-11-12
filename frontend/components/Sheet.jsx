@@ -43,7 +43,7 @@ import FhTitle from '../src/sheet/FhTitle.jsx';
 import FhAttackRow from '../src/sheet/FhAttack.jsx';
 import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
 import { FhHex, FhSkillRow, FhProfLegend, FhTapToRoll } from '../src/sheet/FhChecks.jsx';
-import { SpeciesTraits } from './SheetTabs.jsx';
+import { SpeciesTraits, SpellcastingSummary } from './SheetTabs.jsx';
 import { hpState, hpStateLabel, useHpFeedback } from '../src/sheet/hp-feedback.js';
 import { slotCircleLabel, gemLabel, lockedSlotTitle, slotSpent, slotTap, slotTapTitle } from '../src/sheet/gem-text.js';
 import { condClasses, FhConditionFx, FhConditionArt } from '../src/sheet/FhConditions.jsx';
@@ -1974,45 +1974,8 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
     slots && slots.length > 0 && {
       h: PLAY_H.slots + PLAY_H.slotRow * slotLevels,
       el: (
-        /* Spell slots quick tracker */
-        <section key="slots" className="fh-panel">
-          <FhTitle>{t('slots', lang)}</FhTitle>
-          {slots.map((max, idx) => {
-            const lvl = idx + 1;
-            if (!max) return null;
-            const used = (char.spellSlotsUsed && char.spellSlotsUsed[idx]) || 0;
-            const circle = slotCircleLabel(lvl, lang);
-            return (
-              <div key={lvl} className="slot-row fh-slot-line">
-                <div className="slot-level">{circle}</div>
-                <div className="slot-pips">
-                  {Array.from({ length: max }).map((_, i) => {
-                    // Gasta da direita para a esquerda; tocar de novo devolve (toque errado).
-                    // Em campanha trava: o gasto é pelo "Conjurar".
-                    const locked = !!char.inCampaign;
-                    const spent = slotSpent(i, max, used);
-                    return (
-                      <button
-                        key={i} type="button"
-                        className={`slot-pip ${spent ? 'used' : ''} ${locked ? 'locked' : ''}`}
-                        disabled={locked}
-                        aria-label={gemLabel(circle, i, max, spent, lang)}
-                        title={locked ? lockedSlotTitle(true, lang) : slotTapTitle(spent, lang)}
-                        onClick={locked ? undefined : () => {
-                          const arr = [...(char.spellSlotsUsed || [])];
-                          while (arr.length <= idx) arr.push(0);
-                          arr[idx] = slotTap(used, max, spent);
-                          update({ spellSlotsUsed: arr });
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-                <span className="fh-gem-count">{max - used}/{max}</span>
-              </div>
-            );
-          })}
-        </section>
+        /* Mesmo painel da aba Magias: CD, ataque de magia e espaços por círculo */
+        <SpellcastingSummary key="slots" char={char} lang={lang} update={update} slots={slots} />
       ),
     },
     { h: (resourceCount || resFeats.length) ? PLAY_H.resources + PLAY_H.resourceRow * resourceCount + PLAY_H.trait * resFeats.length : 0, el: (

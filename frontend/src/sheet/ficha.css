@@ -6605,3 +6605,14 @@
 .ficha .fh-tl-cls { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; font: 600 0.78rem/1.4 var(--body); color: rgba(237, 220, 180, 0.6); border: 1px solid rgba(184, 145, 74, 0.25); border-radius: 999px; }
 .ficha .fh-tl-cls.is-up { color: var(--gold-bright); border-color: var(--gold); background: rgba(201, 162, 74, 0.12); }
 .ficha .fh-tl-up { width: 10px; height: 12px; fill: var(--gold-bright); filter: drop-shadow(0 0 3px rgba(237, 203, 122, 0.7)); }
+
+/* Progressão (aba Jogar) com a mesma linha do tempo da aba Características */
+.ficha .prog-tl { margin-top: 12px; }
+.ficha .prog-tl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 7px 10px; margin-bottom: 4px; background: rgba(255,255,255,.025); border-radius: 4px; }
+.ficha details.prog-tl-row { display: block; }
+.ficha .prog-tl-row summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; }
+.ficha .prog-tl-row summary::-webkit-details-marker { display: none; }
+.ficha .prog-tl-name { flex: 1; min-width: 0; font-family: var(--display); font-size: .95rem; color: var(--ink-primary); }
+.ficha .prog-tl-desc { padding: 6px 0 2px; font-size: .85rem; color: var(--ink-secondary); }
+.ficha .prog-tl-row.is-pending { border: 1px dashed rgba(201,162,74,.55); background: rgba(201,162,74,.06); }
+.ficha .fh-tl-tag.is-pending { color: var(--amber, #e0a64a); border-color: currentColor; }

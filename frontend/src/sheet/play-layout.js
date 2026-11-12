@@ -11,7 +11,7 @@ export const PLAY_H = {
   hp: 450,                                  // PV, PV temp e os 6 medalhões
   attacks: 70, attackRow: 80, attackNote: 50, // título; uma linha por arma (+ Golpe Desarmado); cada aviso/maestria
   styles: 70, style: 60, styleExtra: 40,    // título; por estilo; sentidos e reações
-  slots: 70, slotRow: 65,                   // título; por círculo com espaços
+  slots: 190, slotRow: 65,                  // título; por círculo com espaços
   resources: 90, resourceRow: 68,           // título e aviso; por recurso
   conditions: 160,                          // fixo: as condições ligadas não mudam a divisão
   wild: 330, starry: 180,                   // Forma Selvagem; Forma Estelar (Círculo das Estrelas)
