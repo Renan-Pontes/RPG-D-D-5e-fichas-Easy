@@ -9,6 +9,7 @@
  */
 import { FEATS, findFeat } from '../../data/feats.js';
 import { profBonus } from './rules.js';
+import { CLASS_OPTIONS } from '../../data/class-options/index.js';
 
 const ABILITIES = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 
@@ -210,8 +211,19 @@ export function originFeatFromText(text) {
  * { spells, cantrips, skills, expertise, languages, tools, saves }.
  * Perícia/ferramenta são distinguidas pelo catálogo de perícias.
  */
+// Sub-escolha do talento → pool de opções de classe de onde ela vem.
+const FEAT_OPTION_POOLS = {
+  fightingStyle: ['fighter', ['fightingStyle']],
+  weaponMastery: ['fighter', ['weaponMastery']],
+  invocation: ['warlock', ['invocation']],
+  metamagic: ['sorcerer', ['metamagic', 'metamagic2014']],
+  maneuver: ['fighter', ['maneuver']],
+};
+// Talentos cujo tipo de dano escolhido vira Resistência.
+const RESIST_FEATS = new Set(['boonOfEnergyResistance']);
+
 export function featGrants(character, skillIds = []) {
-  const g = { spells: [], cantrips: [], skills: [], expertise: [], languages: [], tools: [], saves: [] };
+  const g = { spells: [], cantrips: [], skills: [], expertise: [], languages: [], tools: [], saves: [], weapons: [], resistances: [], options: [] };
   const isSkill = (id) => skillIds.includes(id);
   const list = (v) => (Array.isArray(v) ? v : v != null && v !== '' ? [v] : []);
   for (const entry of character?.feats || []) {
@@ -229,6 +241,19 @@ export function featGrants(character, skillIds = []) {
     for (const id of list(p.skillProfOrExpertise)) g.skills.push(id); // a ficha promove a expertise se já era proficiente
     g.cantrips.push(...list(p.cantrip));
     g.spells.push(...list(p.spell));
+    g.weapons.push(...list(p.weapon));
+    if (RESIST_FEATS.has(feat.base || feat.id)) g.resistances.push(...list(p.damageType));
+    // Opções de classe escolhidas pelo talento (Iniciado em Combate, Adepto Místico…):
+    // contam como as da classe para efeitos e magias, sem ocupar vaga da classe.
+    for (const [key, [classId, pools]] of Object.entries(FEAT_OPTION_POOLS)) {
+      for (const id of list(p[key])) {
+        const pool = pools.find(pl => CLASS_OPTIONS[classId]?.pools?.[pl]?.options?.some(o => o.id === id)) || pools[0];
+        g.options.push({ classId, pool, id, feat: feat.id });
+        const opt = CLASS_OPTIONS[classId]?.pools?.[pool]?.options?.find(o => o.id === id);
+        g.spells.push(...list(opt?.grants?.spells));
+        g.cantrips.push(...list(opt?.grants?.cantrips));
+      }
+    }
   }
   return g;
 }

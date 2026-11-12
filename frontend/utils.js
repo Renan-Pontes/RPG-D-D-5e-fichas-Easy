@@ -290,7 +290,7 @@ function classGrants(char) {
     const g = { ...(char.className ? computeProgression(char).grants || {} : {}) };
     // Talentos (fixos e sub-escolhas): perícias, expertise, idiomas, ferramentas, salvaguardas.
     const f = featGrants(char, SRD.SKILLS.map(k => k.id));
-    for (const k of ['skills', 'expertise', 'languages', 'tools', 'saves']) if (f[k].length) g[k] = [...(g[k] || []), ...f[k]];
+    for (const k of ['skills', 'expertise', 'languages', 'tools', 'saves', 'weapons', 'resistances']) if (f[k].length) g[k] = [...(g[k] || []), ...f[k]];
     // Espécie: perícias escolhidas (Humano Habilidoso, Sentidos Aguçados…) e fixas.
     const s = Species.speciesGrants(char);
     if (s.skills.length) g.skills = [...(g.skills || []), ...s.skills];

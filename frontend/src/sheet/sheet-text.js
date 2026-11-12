@@ -10,6 +10,7 @@ import { computeProgression } from '../progression/engine.js';
 import { findOption, optionPool } from '../progression/options.js';
 import { pickLabel } from '../progression/options-catalog.js';
 import { armorTraining, weaponTraining, backgroundStart, toolName, TOOLS } from '../creator/start-data.js';
+import { CLASS_OPTIONS } from '../../data/class-options/index.js';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const txt = (v, lang) => (v && typeof v === 'object' ? (lang === 'pt' ? v.pt : v.en) ?? v.pt ?? '' : (v || ''));
@@ -74,12 +75,25 @@ const PICK_LABEL = {
   expertise: ['Especialização', 'Expertise'], tool: ['Ferramentas', 'Tools'], instrument: ['Instrumentos musicais', 'Musical instruments'],
   language: ['Idiomas', 'Languages'], weapon: ['Armas', 'Weapons'], weaponMastery: ['Maestria em arma', 'Weapon mastery'],
   damageType: ['Tipo de dano', 'Damage type'], fightingStyle: ['Estilo de Luta', 'Fighting Style'], variant: ['Variante', 'Variant'],
+  invocation: ['Invocação Mística', 'Eldritch Invocation'], metamagic: ['Metamagia', 'Metamagic'], maneuver: ['Manobras', 'Maneuvers'],
 };
 const ABILITY_LABEL = {
   str: ['Força', 'Strength'], dex: ['Destreza', 'Dexterity'], con: ['Constituição', 'Constitution'],
   int: ['Inteligência', 'Intelligence'], wis: ['Sabedoria', 'Wisdom'], cha: ['Carisma', 'Charisma'],
 };
 const humanize = (id) => String(id).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase());
+
+// Nome da opção de classe escolhida por um talento (Estilo de Luta, Invocação, Metamagia, Manobra).
+const OPTION_POOLS = { fightingStyle: ['fighter', 'fightingStyle'], invocation: ['warlock', 'invocation'],
+  metamagic: ['sorcerer', 'metamagic', 'metamagic2014'], maneuver: ['fighter', 'maneuver'] };
+function optionName(key, id) {
+  const [classId, ...pools] = OPTION_POOLS[key] || [];
+  for (const pool of pools) {
+    const o = CLASS_OPTIONS[classId]?.pools?.[pool]?.options?.find(x => x.id === id);
+    if (o?.name) return o.name;
+  }
+  return null;
+}
 
 /** Sub-escolhas de um talento ({ spellList, spellAbility, cantrip, spell, skill… }) em texto. */
 export function featPicksText(picks, lang = 'pt') {
@@ -92,6 +106,8 @@ export function featPicksText(picks, lang = 'pt') {
     if (key === 'damageType') return Utils.damageLabel(v, lang);
     if (TOOLS[v]) return toolName(v, lang);
     if (key === 'weapon' || key === 'weaponMastery') return tName('weapon', v, lang) || humanize(v);
+    const opt = optionName(key, v);
+    if (opt) return opt[lang] || opt.en;
     return humanize(v);
   };
   return Object.entries(picks)

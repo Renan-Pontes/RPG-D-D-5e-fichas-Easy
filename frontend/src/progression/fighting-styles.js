@@ -13,14 +13,17 @@
 import SRD from '../../data/srd.js';
 import { SHARED } from '../../data/class-options/shared.js';
 import { findOption } from './options.js';
+import { featGrants } from './feat-rules.js';
 
 const b = (pt, en) => ({ pt, en });
 const SHARED_STYLE = new Map(SHARED.fightingStyle.options.map(o => [o.id, o]));
 const MASTERY_WEAPON = new Map(SHARED.weaponMastery.options.map(o => [o.id, o]));
 const norm = (s) => String(s || '').trim().toLowerCase();
 
-const picks = (character, pool) => (Array.isArray(character?.classOptions) ? character.classOptions : [])
-  .filter(p => p && p.pool === pool && typeof p.id === 'string');
+const picks = (character, pool) => [
+  ...(Array.isArray(character?.classOptions) ? character.classOptions : []),
+  ...featGrants(character).options, // Iniciado em Combate, Mestre de Armas (2024)
+].filter(p => p && p.pool === pool && typeof p.id === 'string');
 
 /** Estilos de luta ativos: [{ id, classId, name, desc, effect }], sem repetir id. */
 export function activeFightingStyles(character) {
