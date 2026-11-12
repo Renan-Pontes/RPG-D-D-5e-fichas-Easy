@@ -1845,11 +1845,11 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             </div>
             {/* demais medalhões na mesma fileira, por precedência: Deslocamento, Iniciativa,
                 Percepção, Investigação e Intuição passivas e Bônus de Proficiência */}
-            <FhMedal shape="speed" value={Utils.speedLabel(speed, lang).split(' ')[0]} unit={lang === 'pt' ? 'm' : 'ft'}
+            <FhMedal shape="speed" value={Utils.speedLabel(speed, lang).split(' ')[0]}
               label={t('speed', lang)}
               sub={speedBonuses.length > 0
                 ? <span title={speedBonuses.map(x => x.name[lang] || x.name.pt).join(', ')}>{Utils.speedBonusText(speedBonuses, lang)}</span>
-                : null} />
+                : (lang === 'pt' ? 'metros' : 'feet')} />
             <FhMedal shape="d20" value={Utils.fmtMod(initBonus)} label={t('initiative', lang)}
               sub={<FhTapToRoll lang={lang} short />}
               onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} />

@@ -407,3 +407,13 @@
 .ficha .fh-hp .fh-hp-row > :nth-child(2) { order: 6; }
 .ficha .fh-hp .fh-hp-row > :nth-child(3) { order: 7; }
 .ficha .fh-hp .fh-hp-row > :nth-child(4) { order: 8; }
+
+/* v1.0.78: um só tamanho de número em todos os medalhões do cabeçalho (sem exceções por
+   forma, comprimento ou PV), e o Deslocamento sem a unidade dentro da forma (vai na legenda) */
+.ficha .fh-hp .fh-hp-row .fh-medal-shape .fh-medal-val,
+.ficha .fh-hp .fh-hp-row .fh-medal-shape .fh-medal-val *,
+.ficha .fh-hp .fh-hp-row .fh-hp-heart .hp-current {
+  font-family: var(--display); font-size: 1.15rem !important; font-weight: 700; line-height: 1 !important;
+  letter-spacing: 0; font-variant-numeric: lining-nums tabular-nums;
+}
+.ficha .fh-hp-row .fh-medal-shape.is-speed { --cx: 30; }
