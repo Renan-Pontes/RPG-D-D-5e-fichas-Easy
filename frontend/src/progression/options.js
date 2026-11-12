@@ -265,7 +265,7 @@ export function validateOptionPicks(character, classId, { adds = [], swaps = [] 
   for (const s of swaps) swapsPerPool[s.pool] = (swapsPerPool[s.pool] || 0) + 1;
   for (const [pool, n] of Object.entries(swapsPerPool)) {
     const def = data.pools[pool];
-    if (def && !def.freeSwap && n > (def.swapOnLevelUp || 0)) issues.push('Trocas demais neste nível');
+    if (def && !def.freeSwap && !anySwap && n > (def.swapOnLevelUp || 0)) issues.push('Trocas demais neste nível');
   }
 
   for (const a of adds) {

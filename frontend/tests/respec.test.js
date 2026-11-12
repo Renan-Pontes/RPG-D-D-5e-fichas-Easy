@@ -55,3 +55,9 @@ test('pending respecs: only this character, only open requests', () => {
   ];
   assert.deepEqual(pendingRespecs(list, 7).map(a => a.id), [1]);
 });
+
+test('anySwap: pools without level-up swaps (fighting style) are not capped', () => {
+  const c = { ...base, classOptions: [{ classId: 'fighter', pool: 'fightingStyle', id: 'defense' }] };
+  const r = validateClassOptions(c, 'fighter', { swaps: [{ pool: 'fightingStyle', from: 'defense', to: 'archery' }] }, { anySwap: true });
+  assert.deepEqual(r.issues, []);
+});
