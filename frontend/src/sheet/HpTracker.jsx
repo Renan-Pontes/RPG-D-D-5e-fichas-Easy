@@ -14,6 +14,31 @@ import { useRestMode } from './rest-mode.jsx';
 import { survivalStatus, stepDays, breathLabel, frigidMinutes } from './survival.js';
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
+
+// ── Silhueta dos medidores: pontas chanfradas e um vinco em V (em cima e embaixo) em cada
+// divisão. O mesmo polígono, em %, recorta o conteúdo (clip-path) e vira o contorno dourado
+// (SVG esticado): como todos os medidores têm a mesma largura e altura, o desenho bate.
+const CH = 1.6, NW = 0.9, ND = 26;   // chanfro das pontas (% da largura), meia-boca do vinco (% larg.), fundura (% altura)
+export function gaugePoints(n) {
+  const xs = Array.from({ length: Math.max(0, n - 1) }, (_, i) => ((i + 1) / n) * 100);
+  const top = [[CH, 0], ...xs.flatMap(x => [[x - NW, 0], [x, ND], [x + NW, 0]]), [100 - CH, 0]];
+  const bot = [[100 - CH, 100], ...xs.slice().reverse().flatMap(x => [[x + NW, 100], [x, 100 - ND], [x - NW, 100]]), [CH, 100]];
+  return [...top, [100, 50], ...bot, [0, 50]];
+}
+const clipOf = (n) => `polygon(${gaugePoints(n).map(([x, y]) => `${x.toFixed(2)}% ${y}%`).join(', ')})`;
+/** Contorno dourado + vincos; vai por cima do conteúdo do medidor (não pega toque). */
+function GaugeFrame({ n }) {
+  const pts = gaugePoints(n).map(([x, y]) => `${x},${y}`).join(' ');
+  const xs = Array.from({ length: Math.max(0, n - 1) }, (_, i) => ((i + 1) / n) * 100);
+  return (
+    <svg className="fh-gauge-frame" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      {xs.map(x => <line key={x} className="fh-gauge-crease" x1={x} y1={ND} x2={x} y2={100 - ND} vectorEffect="non-scaling-stroke" />)}
+      <polygon className="fh-gauge-edge" points={pts} vectorEffect="non-scaling-stroke" />
+      <polygon className="fh-gauge-shine" points={pts} vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+const gaugeStyle = (n) => ({ clipPath: clipOf(n), WebkitClipPath: clipOf(n) });
 const d = (n) => 1 + Math.floor(Math.random() * n);
 
 /**
@@ -21,7 +46,7 @@ const d = (n) => 1 + Math.floor(Math.random() * n);
  * { label, tone } para a lente (ou null = nada); `commit(dx)` aplica ao soltar.
  * Teclado: setas acumulam o arrasto em passos, Enter aplica, Esc desfaz.
  */
-function DragBar({ className, pct, label, valueText, read, commit, disabled, children, knob = 18, grow = false }) {
+function DragBar({ className, pct, label, valueText, read, commit, disabled, children, knob = 16, grow = false }) {
   const ref = useRef(null);
   const start = useRef(null);
   const [dx, setDx] = useState(0);
@@ -78,11 +103,14 @@ function DragBar({ className, pct, label, valueText, read, commit, disabled, chi
 /** Fileira de fatias clicáveis. `reverse`: acende da direita para a esquerda (falhas). */
 function Pips({ n, on, kind, label, onPick, reverse, inside }) {
   return (
-    <span className={`fh-pips is-${kind}${reverse ? ' is-reverse' : ''}`} role="group" aria-label={label} data-label={inside || undefined}>
+    <span className="fh-gauge-wrap fh-pips-wrap">
+    <span className={`fh-pips fh-gauge is-${kind}${reverse ? ' is-reverse' : ''}`} style={gaugeStyle(n)} role="group" aria-label={label} data-label={inside || undefined}>
       {Array.from({ length: n }, (_, i) => (
         <button key={i} type="button" className={`fh-pip${i < on ? ' is-on' : ''}`}
           aria-pressed={i < on} aria-label={`${label}: ${i + 1}`} onClick={() => onPick(toggleTo(on, i))} />
       ))}
+    </span>
+    <GaugeFrame n={n} />
     </span>
   );
 }
@@ -185,13 +213,16 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
 
   return (
     <div className={`fh-hpt${short ? ' is-short-rest' : ''}`}>
-      <DragBar className="is-temp" knob={12} grow pct={Math.min(100, (temp / max) * 100)}
+      <DragBar className="is-temp" knob={16} grow pct={Math.min(100, (temp / max) * 100)}
         label={L(lang, 'PV temporários: arraste para a direita para ganhar', 'Temporary HP: drag right to gain')} valueText={String(temp)}
         read={readTemp} commit={commitTemp}>
         {(fill) => (
           <>
-            <div className="fh-hpt-temp" aria-hidden="true">
-              <div className="fh-hpt-temp-fill" style={{ width: `${fill}%` }} />
+            <div className="fh-gauge-wrap">
+              <div className="fh-hpt-temp fh-gauge" style={gaugeStyle(SLICES)} aria-hidden="true">
+                <div className="fh-hpt-temp-fill" style={{ width: `${fill}%` }} />
+              </div>
+              <GaugeFrame n={SLICES} />
             </div>
             <span className="fh-hpt-temp-tag" aria-hidden="true">{temp ? `+${temp} ${L(lang, 'temp', 'temp')}` : L(lang, 'temp', 'temp')}{hints.temp}</span>
           </>
@@ -204,7 +235,8 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
           : L(lang, 'Pontos de Vida: arraste para a esquerda para dano, para a direita para cura', 'Hit points: drag left for damage, right for healing')}
         valueText={`${char.currentHp}`} read={readHp} commit={commitHp}>
         {(fill) => (
-          <div className={`hp-bar fh-hpt-bar${bloodied ? ' is-bloodied' : ''}`} aria-hidden="true">
+          <div className="fh-gauge-wrap">
+          <div className={`hp-bar fh-hpt-bar fh-gauge${bloodied ? ' is-bloodied' : ''}`} style={gaugeStyle(SLICES)} aria-hidden="true">
             {/* "Sangrando" escondido sob o preenchimento, na metade esquerda: aparece aos
                 poucos conforme os PV descem abaixo de 50% */}
             <span className="fh-hpt-bloodied" aria-hidden="true">{L(lang, 'Sangrando', 'Bloodied')}</span>
@@ -216,6 +248,8 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
             {down && char.stabilized?.hours && (
               <span className="fh-hpt-bar-text">{L(lang, `Estabilizado · ${char.stabilized.hours} h para recuperar 1 PV`, `Stabilized · ${char.stabilized.hours} h to regain 1 HP`)}</span>
             )}
+          </div>
+          <GaugeFrame n={SLICES} />
           </div>
         )}
       </DragBar>

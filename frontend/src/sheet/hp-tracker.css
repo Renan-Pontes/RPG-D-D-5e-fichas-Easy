@@ -295,3 +295,35 @@
 .ficha .fh-hp .hp-bar.fh-hpt-bar { border-radius: 2px; border: 1px solid var(--fh-gauge-frame); background: var(--fh-gauge-bed); }
 .ficha .fh-hp .hp-bar.fh-hpt-bar.is-bloodied { border-color: #c4553f; }
 .ficha .fh-hpt.is-short-rest .fh-dragbar.is-hp .hp-bar.fh-hpt-bar { border-color: var(--gold-bright); }
+
+/* ── v1.0.70: silhueta com vincos (src/sheet/HpTracker.jsx: gaugePoints/GaugeFrame) ──
+   Todos os medidores: mesma altura (16px) e mesma largura; o contorno é o dourado do escudo. */
+.ficha .fh-hp { --fh-gauge-h: 16px; }
+.ficha .fh-gauge-wrap { position: relative; display: block; width: 100%; height: var(--fh-gauge-h); filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.8)); }
+.ficha .fh-gauge-wrap > .fh-gauge,
+.ficha .fh-hp .fh-gauge-wrap > .hp-bar.fh-hpt-bar,
+.ficha .fh-hpt-row .fh-gauge-wrap > .fh-pips {
+  height: 100%; width: 100%; border: 0; border-radius: 0; box-shadow: none;
+  background: linear-gradient(180deg, #050303, #120b08 55%, #070404);
+}
+.ficha .fh-hp .fh-gauge-wrap > .hp-bar.fh-hpt-bar.is-bloodied { box-shadow: none; }
+.ficha .fh-hpt-temp { height: 100%; }
+/* contorno: gilt do escudo (#fh-gilt-stroke) + um fio claro de brilho por cima */
+.ficha .fh-gauge-frame { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 4; }
+.ficha .fh-gauge-edge { fill: none; stroke: url(#fh-gilt-stroke) #d6b064; stroke-width: 2; stroke-linejoin: miter; }
+.ficha .fh-gauge-shine { fill: none; stroke: rgba(255, 240, 200, 0.55); stroke-width: 0.6; stroke-linejoin: miter; transform: translateY(-0.6px); }
+.ficha .fh-gauge-crease { stroke: url(#fh-gilt-stroke) #d6b064; stroke-width: 1.2; opacity: 0.85; }
+/* vinco: o lado da dobra fica mais escuro (sombra) do que o outro */
+.ficha .fh-hpt-bar.is-bloodied ~ .fh-gauge-frame .fh-gauge-edge { stroke: #d9644d; }
+.ficha .fh-hpt.is-short-rest .fh-dragbar.is-hp .fh-gauge-edge { stroke: #ffe29a; }
+/* os traços diagonais antigos saem: quem divide agora é o vinco */
+.ficha .fh-hpt-slices span + span::before, .ficha .fh-hpt-row .fh-pip + .fh-pip::after { display: none; }
+.ficha .fh-hpt-row .fh-pip::before { left: 0; right: 0; clip-path: none; }
+/* o botão de arrastar fica sobre o contorno */
+.ficha .fh-dragbar .fh-knob { z-index: 5; }
+.ficha .fh-dragbar.is-temp .fh-knob { width: 16px; height: 16px; }
+.ficha .fh-dragbar.is-temp { margin-top: 14px; }
+/* linhas: exaustão e morte com a mesma largura útil das barras */
+.ficha .fh-hpt-row { min-height: var(--fh-gauge-h); }
+.ficha .fh-hpt-row .fh-pips-wrap { flex: 1; min-width: 0; }
+.ficha .fh-death-die { width: 28px; height: 28px; padding: 4px; }
