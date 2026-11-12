@@ -34,6 +34,7 @@ import * as Forks from '../src/sheet/forks.js';
 import HpTracker from '../src/sheet/HpTracker.jsx';
 import { RestModeContext } from '../src/sheet/rest-mode.jsx';
 import { hpFormula, hitDicePools, hitDiceLeftLabel } from '../src/sheet/hp-logic.js';
+import { attachPlaySnap } from '../src/sheet/play-snap.js';
 import { buildTimeline, byLevel, byTier, tierOf, classesAt, charLevelOf } from '../src/sheet/feature-timeline.js';
 import { computeProgression } from '../src/progression/engine.js';
 import { subclassLevelOf } from '../src/progression/subclass-lock.js';
@@ -2017,6 +2018,9 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
 
   ].filter(Boolean);
   const split = splitColumns(panels.map(p => p.h));
+  // Deslize vertical no celular encaixa no painel mais próximo (src/sheet/play-snap.js)
+  const playRef = useRef(null);
+  useEffect(() => attachPlaySnap(() => [...(playRef.current?.querySelectorAll('.fh-play-col > *') || [])]), []);
 
   return (
     <>
@@ -2027,7 +2031,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
 
       {/* Duas colunas a partir de 1024px (ficha.css: .fh-play). Abaixo disso, ou com o
           rolador lateral aberto e pouca largura, viram uma coluna só, na mesma ordem. */}
-      <div className="fh-play">
+      <div className="fh-play" ref={playRef}>
         <div className="fh-play-col">{panels.slice(0, split).map(p => p.el)}</div>
         <div className="fh-play-col">{panels.slice(split).map(p => p.el)}</div>
       </div>
