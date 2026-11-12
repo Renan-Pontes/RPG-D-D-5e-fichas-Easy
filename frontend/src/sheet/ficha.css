@@ -6692,3 +6692,26 @@
 /* Linha do nome: selos de nível e inspiração à esquerda do nome */
 .ficha .fh-hero-name-row { display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap; }
 .ficha .fh-hero-name-row > .hero-name { flex: 0 1 auto; min-width: 0; margin: 0 !important; text-align: left !important; }
+
+/* Barra única da campanha (acima do nome) + lista de cópias, uma linha cada */
+.ficha .fh-hero-campbar { display: grid; gap: 6px; width: 100%; }
+.ficha .fh-hero-campbar-head {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 14px; cursor: pointer;
+  border: 1px solid var(--gold, #c9a24a); border-radius: 999px; background: rgba(12, 8, 6, .55);
+  color: var(--gold-bright, #edcb7a); font: 600 .82rem/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; text-align: left;
+}
+.ficha .fh-hero-campbar.is-solo .fh-hero-campbar-head { color: var(--ink-muted, #b9a); border-color: rgba(201, 162, 74, .45); }
+.ficha .fh-hero-campbar-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ficha .fh-hero-campbar-n { flex: none; min-width: 20px; padding: 0 6px; border-radius: 9px; background: rgba(201, 162, 74, .2); text-align: center; font-size: .72rem; }
+.ficha .fh-hero-campbar-caret { flex: none; }
+.ficha .fh-hero-copy { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 12px; }
+.ficha .fh-hero-copy > .fh-hero-copy-head { padding: 4px 0; flex: 1 1 auto; }
+.ficha .fh-hero-copy:not(.is-active) { padding: 0 12px; }
+.ficha .fh-hero-copy.is-active .fh-hero-copy-name { font: 600 .9rem/1.2 var(--display); letter-spacing: .06em; }
+.ficha .fh-hero-copy-tag { flex: none; padding: 1px 6px; border: 1px solid rgba(214, 176, 100, .4); border-radius: 3px; background: rgba(214, 176, 100, .15); font-size: .7rem; color: #f3e6cb; }
+.ficha .fh-hero-copy-acts { margin-left: auto; flex: none; display: flex; align-items: center; gap: 6px; }
+.ficha .fh-hero-copy-acts .fh-roll-target, .ficha .fh-hero-copy-acts > * { flex: none; }
+.ficha .fh-hero-copy.is-add .fh-hero-copy-head { color: var(--gold, #c9a24a); font-size: .82rem; }
+@media (max-width: 560px) {
+  .ficha .fh-hero-copy.is-active { flex-wrap: wrap; row-gap: 4px; }
+}

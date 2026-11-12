@@ -183,6 +183,11 @@ const SheetHero = ({
   campaignBanner,
   copies = [],
   onOpenCopy = null,
+  preview = null,
+  onLeaveCampaign = null,
+  busyLeaveId = null,
+  onManageCampaigns = null,
+  onLogin = null,
   campaignsList = [],
   campFoldOpen = false,
   setCampFoldOpen,
@@ -248,32 +253,30 @@ const SheetHero = ({
         <div className="fh-hero-body">
           {/* Header Row: Medalhas Top-Left + Nome do Personagem imediatamente adjacente */}
           <div className="fh-hero-header-row is-stacked">
-            <div className="fh-hero-top-left-cluster no-print">
-              <div className="fh-hero-portrait-medal" title={pt ? 'Foto do personagem' : 'Character portrait'}>
-                <AvatarUpload
-                  value={char.avatar}
-                  onChange={onAvatar}
-                  position={char.avatarPosition}
-                  onPositionChange={onAvatarPosition}
-                  lang={lang}
-                  size={48}
-                  letter={letter}
-                />
-                <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={10}/></span>
-              </div>
-              <CampaignSealButton count={campaignsList.length} campFoldOpen={campFoldOpen} onToggle={() => setCampFoldOpen?.(v => !v)} lang={lang} />
-            </div>
-            {/* Cópias da ficha por campanha (mesma ficha-raiz): tocar uma carrega a ficha dela.
-                A cópia aberta fica expandida com os dados da campanha dela. */}
-            {campFoldOpen && (
-              <HeroCopiesAccordion copies={copies} lang={lang} onOpen={onOpenCopy}>
-                {campaignBanner}
-              </HeroCopiesAccordion>
+            {/* Uma barra só, em cima do nome: a campanha da cópia aberta (ou "Fora de campanha").
+                Tocar abre a lista de cópias da ficha, uma linha por campanha. */}
+            {!preview && (
+              <HeroCampaignBar copies={copies} lang={lang} open={!!campFoldOpen} setOpen={setCampFoldOpen}
+                char={char} campaignsList={campaignsList} onOpen={onOpenCopy}
+                onLeave={onLeaveCampaign} busyLeaveId={busyLeaveId} onManage={onManageCampaigns} onLogin={onLogin} />
             )}
+            {preview && versionChip}
 
-            {/* Linha de baixo: nível e inspiração (mudam de campanha para campanha) à esquerda do nome */}
+            {/* Linha do nome: retrato, nível e inspiração (mudam de campanha para campanha) */}
             <div className="fh-hero-name-row">
               <div className="fh-hero-top-left-cluster fh-hero-name-seals no-print">
+                <div className="fh-hero-portrait-medal" title={pt ? 'Foto do personagem' : 'Character portrait'}>
+                  <AvatarUpload
+                    value={char.avatar}
+                    onChange={onAvatar}
+                    position={char.avatarPosition}
+                    onPositionChange={onAvatarPosition}
+                    lang={lang}
+                    size={48}
+                    letter={letter}
+                  />
+                  <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={10}/></span>
+                </div>
                 <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
                 <InspirationSealButton inspired={!!char.inspiration} onToggle={onInspiration} lang={lang} />
               </div>
@@ -282,7 +285,6 @@ const SheetHero = ({
               </div>
             </div>
           </div>
-          {versionChip}
           <div className="hero-sub fh-hero-rows">
             {(() => {
               const speciesName = race ? tName('race', race.id, lang) : (char.race || '');
@@ -313,8 +315,7 @@ const SheetHero = ({
             })()}
           </div>
 
-          {/* Status/faixa da campanha: dentro da cópia aberta no acordeão (acima) quando ele está aberto */}
-          {!campFoldOpen && campaignBanner}
+
         </div>
         {update && <HeroChoicesFold char={char} lang={lang} update={update} />}
       </div>
@@ -323,26 +324,62 @@ const SheetHero = ({
 };
 
 
-// Acordeão das cópias da ficha (original + uma por campanha). Linha ativa expandida com
-// `children` (dados da campanha); as outras trocam a ficha inteira para aquela cópia.
-const HeroCopiesAccordion = ({ copies, lang, onOpen, children }) => {
+// Barra única da campanha + lista das cópias da ficha (original + uma por campanha), uma
+// linha cada. A cópia aberta mostra, também em uma linha por campanha, o modo da mesa,
+// quem vê as rolagens e "Sair"; as outras cópias trocam a ficha inteira ao tocar.
+const HeroCampaignBar = ({ copies, lang, open, setOpen, char, campaignsList = [], onOpen, onLeave, busyLeaveId, onManage, onLogin }) => {
   const pt = lang === 'pt';
-  const list = copies.length ? copies : [{ id: 'self', active: true, label: pt ? 'Esta ficha' : 'This sheet' }];
+  const current = campaignsList[0]?.name || char.versionCampaign?.name || '';
+  const label = current || (pt ? 'Fora de campanha' : 'Not in a campaign');
+  const list = copies.length ? copies : [{ id: char.id ?? 'self', active: true, kind: 'template', label: pt ? 'Esta ficha' : 'This sheet', level: char.level }];
+  const mode = (camp) => (camp.levelingMode === 'xp' ? (camp.xp ? `${camp.xp} XP` : 'XP') : (pt ? 'Marcos' : 'Milestones'));
   return (
-    <ul className="fh-hero-copies no-print" role="list" aria-label={pt ? 'Versões da ficha por campanha' : 'Sheet versions per campaign'}>
-      {list.map(c => (
-        <li key={c.id} className={`fh-hero-copy${c.active ? ' is-active' : ''}`}>
-          <button type="button" className="fh-hero-copy-head" aria-expanded={!!c.active} aria-current={c.active ? 'true' : undefined}
-            disabled={c.active || !onOpen} onClick={() => onOpen && !c.active && onOpen(c.id)}>
-            <span className="fh-hero-copy-ico" aria-hidden="true">{c.kind === 'template' ? '📜' : c.kind === 'oneshot' ? '🎲' : '🏰'}</span>
-            <span className="fh-hero-copy-name">{c.label}</span>
-            {c.level ? <span className="fh-hero-copy-lv">{pt ? 'Nv.' : 'Lv'} {c.level}</span> : null}
-            <span className="fh-hero-copy-caret" aria-hidden="true">{c.active ? '▾' : '▸'}</span>
-          </button>
-          {c.active && <div className="fh-hero-copy-body">{children}</div>}
-        </li>
-      ))}
-    </ul>
+    <div className={`fh-hero-campbar no-print${open ? ' is-open' : ''}${current ? '' : ' is-solo'}`}>
+      <button type="button" className="fh-hero-campbar-head" aria-expanded={open} onClick={() => setOpen?.(v => !v)}>
+        <span aria-hidden="true">{current ? '🏰' : '📜'}</span>
+        <span className="fh-hero-campbar-name">{label}</span>
+        {list.length > 1 && <span className="fh-hero-campbar-n">{list.length}</span>}
+        <span className="fh-hero-campbar-caret" aria-hidden="true">{open ? '▴' : '▾'}</span>
+      </button>
+      {open && (
+        <ul className="fh-hero-copies" role="list">
+          {list.map(c => (c.active ? (
+            (campaignsList.length ? campaignsList : [null]).map((camp, i) => (
+              <li key={`${c.id}-${camp?.id ?? 'none'}`} className="fh-hero-copy is-active">
+                <span className="fh-hero-copy-ico" aria-hidden="true">{camp ? '🏰' : '📜'}</span>
+                <span className="fh-hero-copy-name">{camp ? camp.name : (pt ? 'Fora de campanha' : 'Not in a campaign')}</span>
+                {camp && <span className="fh-hero-copy-tag">{mode(camp)}</span>}
+                {camp?.sponsored && <span className="fh-hero-copy-tag">{pt ? 'Vaga da mesa' : 'Table seat'}</span>}
+                {i === 0 && c.level ? <span className="fh-hero-copy-lv">{pt ? 'Nv.' : 'Lv'} {c.level}</span> : null}
+                <span className="fh-hero-copy-acts">
+                  {camp && typeof char.id === 'number' && camp.status !== 'closed' && <SheetRollTarget lang={lang} />}
+                  {camp && onLeave && (
+                    <button type="button" className="btn btn-ghost btn-xs" disabled={busyLeaveId === camp.id}
+                      onClick={() => onLeave(camp)} title={pt ? `Sair da campanha "${camp.name}"` : `Leave campaign "${camp.name}"`}>
+                      {busyLeaveId === camp.id ? '…' : (pt ? '🚪 Sair' : '🚪 Leave')}
+                    </button>
+                  )}
+                  {!camp && onManage && <button type="button" className="btn btn-primary btn-xs" onClick={onManage}>+ {pt ? 'Atrelar' : 'Link'}</button>}
+                  {!camp && !onManage && typeof char.id !== 'number' && onLogin && <button type="button" className="btn btn-primary btn-xs" onClick={onLogin}>{pt ? 'Entrar' : 'Log in'}</button>}
+                </span>
+              </li>
+            ))
+          ) : (
+            <li key={c.id} className="fh-hero-copy">
+              <button type="button" className="fh-hero-copy-head" onClick={() => onOpen && onOpen(c.id)} title={pt ? 'Abrir esta cópia' : 'Open this copy'}>
+                <span className="fh-hero-copy-ico" aria-hidden="true">{c.kind === 'template' ? '📜' : c.kind === 'oneshot' ? '🎲' : '🏰'}</span>
+                <span className="fh-hero-copy-name">{c.label}</span>
+                {c.level ? <span className="fh-hero-copy-lv">{pt ? 'Nv.' : 'Lv'} {c.level}</span> : null}
+                <span className="fh-hero-copy-caret" aria-hidden="true">›</span>
+              </button>
+            </li>
+          )))}
+          {campaignsList.length > 0 && onManage && (
+            <li className="fh-hero-copy is-add"><button type="button" className="fh-hero-copy-head" onClick={onManage}>+ {pt ? 'Atrelar a outra campanha' : 'Link to another campaign'}</button></li>
+          )}
+        </ul>
+      )}
+    </div>
   );
 };
 
@@ -688,6 +725,11 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
           label: Forks.isFork(c) ? (c.versionCampaign?.name || Forks.forkLabel(c, lang)) : (pt ? 'Ficha original' : 'Original sheet'),
         }))}
         onOpenCopy={onOpenSheet}
+        preview={preview}
+        onLeaveCampaign={leaveCampaign}
+        busyLeaveId={busyLeaveId}
+        onManageCampaigns={typeof char.id === 'number' ? () => setVersionsOpen(true) : null}
+        onLogin={onLogin}
         campaignBanner={preview ? null :
           <CampaignModeBanner
             char={char}

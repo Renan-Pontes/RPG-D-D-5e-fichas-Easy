@@ -67,16 +67,16 @@ test('Inspiração no topo: selo circular 48px, sem rótulo de texto, alinhado e
   // Sem rótulo de texto como "INSPIRATION" dentro ou abaixo
   assert.ok(!sheetSrc.includes('<span className="fh-insp-label">'));
 
-  // Linha de cima: Retrato -> Campanhas. Linha do nome: Nível -> Inspiração -> Nome
-  // (nível e inspiração mudam de campanha para campanha, ficam junto do nome).
-  const clusterStart = sheetSrc.indexOf('className="fh-hero-top-left-cluster');
-  const heroNameStart = sheetSrc.indexOf('className={char.name ?', clusterStart);
-  const clusterContent = sheetSrc.slice(clusterStart, heroNameStart);
-  const rowStart = clusterContent.indexOf('fh-hero-name-row');
-
-  assert.ok(clusterContent.indexOf('CampaignSealButton') > 0 && clusterContent.indexOf('CampaignSealButton') < rowStart);
-  assert.ok(clusterContent.indexOf('LevelUpButton') > rowStart);
-  assert.ok(clusterContent.indexOf('InspirationSealButton') > clusterContent.indexOf('LevelUpButton'));
+  // Barra da campanha em cima do nome; linha do nome: Retrato -> Nível -> Inspiração -> Nome
+  // (tudo o que muda de campanha para campanha fica junto do nome).
+  const barIdx = sheetSrc.indexOf('<HeroCampaignBar');
+  const rowIdx = sheetSrc.indexOf('fh-hero-name-row', barIdx);
+  const nameIdx = sheetSrc.indexOf('className={char.name ?', rowIdx);
+  const row = sheetSrc.slice(rowIdx, nameIdx);
+  assert.ok(barIdx > 0 && rowIdx > barIdx);
+  assert.ok(row.indexOf('fh-hero-portrait-medal') > 0);
+  assert.ok(row.indexOf('LevelUpButton') > row.indexOf('fh-hero-portrait-medal'));
+  assert.ok(row.indexOf('InspirationSealButton') > row.indexOf('LevelUpButton'));
 
   // CSS: escala 48px e pip no quadrilátero tangente
   assert.match(css, /\.ficha \.fh-seal\.hero-insp/);
