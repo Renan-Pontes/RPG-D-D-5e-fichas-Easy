@@ -2020,7 +2020,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
   const split = splitColumns(panels.map(p => p.h));
   // Deslize vertical no celular encaixa no painel mais próximo (src/sheet/play-snap.js)
   const playRef = useRef(null);
-  useEffect(() => attachPlaySnap(() => [...(playRef.current?.querySelectorAll('.fh-play-col > *') || [])]), []);
+  useEffect(() => attachPlaySnap(() => [...(playRef.current?.querySelectorAll('.fh-play-col > *') || [])], { area: () => playRef.current }), []);
 
   return (
     <>

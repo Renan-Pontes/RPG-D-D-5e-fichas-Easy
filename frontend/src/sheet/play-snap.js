@@ -54,59 +54,86 @@ export function topInset() {
   return bottom;
 }
 
-/** Liga os gestos (devolve a função que desliga). */
-export function attachPlaySnap(getPanels, { maxWidth = 1023 } = {}) {
+/** Liga os gestos (devolve a função que desliga).
+ *  A rolagem vertical que COMEÇA na área dos painéis é conduzida aqui, não pelo navegador:
+ *  o arrasto move a página 1:1 sob o dedo (controle fino, sem inércia), e só o arremesso
+ *  anima até o painel. Assim a inércia nativa nunca se mistura ao encaixe. Gesto horizontal
+ *  (trocar de aba), multitoque e controles que se arrastam (barras, sliders) seguem nativos. */
+export function attachPlaySnap(getPanels, { maxWidth = 1023, area = null } = {}) {
   if (typeof window === 'undefined') return () => {};
-  let samples = [], anim = 0, holdStart = 0, stuckInset = 0;
+  let samples = [], anim = 0, stuckInset = 0;
+  let g = null;                                   // gesto atual: { x0, y0, s0, mode }
   const stop = () => { if (anim) { cancelAnimationFrame(anim); anim = 0; } };
-  const onStart = (e) => {
-    stop();
-    holdStart = performance.now();
-    samples = [{ y: e.touches[0].clientY, t: holdStart }];
-  };
-  const onMove = (e) => {
-    const t = performance.now();
-    samples.push({ y: e.touches[0].clientY, t });
-    if (samples.length > 12) samples.shift();
-  };
-  const onEnd = () => {
-    if (window.innerWidth > maxWidth || e_multi) return;
-    const dir = flickDir(samples);
-    samples = [];
-    if (!dir) return;
-    const rects = getPanels().map(el => el.getBoundingClientRect()).filter(r => r.height > 0);
-    if (!rects.length || rects[0].top > window.innerHeight || rects[rects.length - 1].bottom < 0) return;
-    // alvo em coordenada ABSOLUTA da página, medido no instante em que o dedo solta: a
-    // inércia nativa que ainda vier não muda o destino (cada quadro sobrescreve a rolagem)
-    const inset = Math.max(topInset(), stuckInset);
-    const d = flickDelta(rects, window.innerHeight, dir, FLICK, inset);
-    if (!d) return;
-    const to = Math.max(0, window.scrollY + d);
+  const skip = (t) => !!t?.closest?.('input, textarea, select, [role="slider"], [data-no-snap], .fh-dragbar, .hp-drag');
+
+  const animateTo = (to, speed) => {
+    const from = window.scrollY;
+    const dist = Math.abs(to - from);
+    if (dist < 1) return;
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (reduce) { window.scrollTo(0, to); return; }
-    const from = window.scrollY;
+    // duração casada com a velocidade do dedo: arremesso forte chega mais rápido
+    const ms = Math.max(120, Math.min(FLICK.ms + 80, dist / Math.max(0.6, speed * 1.4)));
     const t0 = performance.now();
     const step = (now) => {
-      const k = Math.min(1, (now - t0) / FLICK.ms);
+      const k = Math.min(1, (now - t0) / ms);
       window.scrollTo(0, from + (to - from) * ease(k));
       if (k < 1) anim = requestAnimationFrame(step);
-      else {
-        anim = 0; stuckInset = Math.max(stuckInset, topInset());
-        // inércia que sobrou depois do fim: um último acerto
-        setTimeout(() => { if (!anim && Math.abs(window.scrollY - to) > 2) window.scrollTo(0, to); }, 90);
-      }
+      else { anim = 0; stuckInset = Math.max(stuckInset, topInset()); }
     };
     anim = requestAnimationFrame(step);
   };
-  let e_multi = false;
-  const onStartWrap = (e) => { e_multi = e.touches.length > 1; if (!e_multi) onStart(e); };
-  window.addEventListener('touchstart', onStartWrap, { passive: true });
-  window.addEventListener('touchmove', onMove, { passive: true });
+
+  const onStart = (e) => {
+    stop();
+    g = null;
+    if (e.touches.length !== 1 || window.innerWidth > maxWidth) return;
+    const t = e.touches[0];
+    const el = area?.();
+    if (el && !el.contains(e.target)) return;
+    if (skip(e.target)) return;
+    g = { x0: t.clientX, y0: t.clientY, s0: window.scrollY, mode: null };
+    samples = [{ y: t.clientY, t: performance.now() }];
+  };
+  const onMove = (e) => {
+    if (!g) return;
+    if (e.touches.length !== 1) { g = null; return; }
+    const t = e.touches[0];
+    const dx = t.clientX - g.x0, dy = t.clientY - g.y0;
+    if (!g.mode) {
+      if (Math.abs(dy) > 6 && Math.abs(dy) > Math.abs(dx)) g.mode = 'v';
+      else if (Math.abs(dx) > 6) { g = null; return; }     // horizontal: navegador/abas
+      else return;
+    }
+    e.preventDefault();                                     // sem rolagem (nem inércia) nativa
+    window.scrollTo(0, g.s0 - dy);
+    samples.push({ y: t.clientY, t: performance.now() });
+    if (samples.length > 16) samples.shift();
+  };
+  const onEnd = () => {
+    const was = g; g = null;
+    if (!was || was.mode !== 'v') return;
+    const dir = flickDir(samples);
+    const last = samples[samples.length - 1], prev = samples.find(s => last.t - s.t <= FLICK.window) || samples[0];
+    const speed = Math.abs((prev.y - last.y) / Math.max(1, last.t - prev.t));
+    samples = [];
+    if (!dir) return;                                       // arrasto: fica onde o dedo deixou
+    const rects = getPanels().map(el => el.getBoundingClientRect()).filter(r => r.height > 0);
+    if (!rects.length) return;
+    const inset = Math.max(topInset(), stuckInset);
+    const d = flickDelta(rects, window.innerHeight, dir, FLICK, inset);
+    if (d) animateTo(Math.max(0, window.scrollY + d), speed);
+  };
+  const opts = { passive: false };
+  window.addEventListener('touchstart', onStart, { passive: true });
+  window.addEventListener('touchmove', onMove, opts);
   window.addEventListener('touchend', onEnd, { passive: true });
+  window.addEventListener('touchcancel', onEnd, { passive: true });
   return () => {
     stop();
-    window.removeEventListener('touchstart', onStartWrap);
-    window.removeEventListener('touchmove', onMove);
+    window.removeEventListener('touchstart', onStart);
+    window.removeEventListener('touchmove', onMove, opts);
     window.removeEventListener('touchend', onEnd);
+    window.removeEventListener('touchcancel', onEnd);
   };
 }
