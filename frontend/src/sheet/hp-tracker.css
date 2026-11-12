@@ -353,3 +353,32 @@
 .ficha .fh-hp-heart .fh-medal-sub { display: grid; gap: 2px; justify-items: center; }
 .ficha .fh-hp-hd-left { font-family: var(--body, Georgia, serif); font-size: 0.74rem; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-secondary); text-transform: none; font-variant: normal; white-space: nowrap; }
 .ficha .fh-hp-heart .fh-medal { width: auto; min-width: 96px; }
+
+/* v1.0.76: uma fileira só, alinhada à esquerda — CA, PV e os demais medalhões no mesmo
+   ritmo (célula 84px, forma 64×70, rótulo e legenda na mesma linha de base) */
+.ficha .fh-hp .fh-hp-row { justify-content: flex-start; align-items: flex-start; flex-wrap: wrap; gap: 14px 10px; }
+.ficha .fh-hp-row > .fh-medal { flex: 0 0 84px; width: 84px; }
+.ficha .fh-hp-row .fh-medal-label { font-size: 0.68rem; white-space: nowrap; }
+.ficha .fh-medal-shape .fh-facet { fill: none !important; stroke-width: 1 !important; opacity: 0.5; }
+.ficha .fh-medal-shape.is-lens .fh-medal-val { margin: -8px 8px 0 0; }
+.ficha .fh-medal-shape.is-flame .fh-medal-val { margin-top: 12px; }
+.ficha .fh-medal-shape.is-speed .fh-medal-val { margin-left: -4px; }
+.ficha .fh-medal-shape.is-star .fh-medal-val { font-size: 1.25rem; }
+.ficha .fh-medal-shape.is-d20 .fh-medal-val { margin-top: 6px; text-shadow: 0 0 6px #160f0b, 0 0 3px #160f0b; }
+.ficha .fh-hp .fh-hp-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(58px, 1fr)); gap: 12px 4px; justify-items: center; }
+.ficha .fh-hp-row > .fh-medal, .ficha .fh-hp-ac .fh-medal, .ficha .fh-hp-heart .fh-medal { flex: none; width: 100%; max-width: 84px; }
+.ficha .fh-hp-ac, .ficha .fh-hp-heart { flex: none; width: 100%; }
+.ficha .fh-hp-row .fh-medal-shape, .ficha .fh-hp-ac .fh-medal-shape, .ficha .fh-hp-heart .fh-medal-shape { width: 58px; height: 63px; margin-top: 0; }
+.ficha .fh-hp-row .fh-medal-val, .ficha .fh-hp-ac .fh-medal-val, .ficha .fh-hp-heart .fh-medal-val { font-size: 1.3rem; }
+.ficha .fh-hp-ac .fh-medal-val, .ficha .fh-hp-heart .fh-medal-val { margin-top: -5px; }
+.ficha .fh-hp-row .fh-medal-label { font-size: 0.6rem; letter-spacing: 0.06em; white-space: normal; line-height: 1.15; min-height: 1.2em; }
+.ficha .fh-hp-row .fh-medal-sub { font-size: 0.66rem; line-height: 1.2; }
+.ficha .fh-hp-heart .fh-hp-formula { font-size: 0.66rem; white-space: nowrap; }
+.ficha .fh-hp-heart .fh-medal { max-width: none; }
+/* duas fileiras de 4 células iguais: CA · PV · Deslocamento · Iniciativa / Percepção · Investigação · Intuição · Proficiência */
+.ficha .fh-hp .fh-hp-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 6px; align-items: start; }
+.ficha .fh-hp-row > *, .ficha .fh-hp-row .fh-medal { width: 100% !important; max-width: none !important; margin: 0 !important; }
+.ficha .fh-hp-row .fh-medal-label { font-size: 0.66rem; white-space: nowrap; }
+.ficha .fh-hp-row .fh-medal-shape, .ficha .fh-hp-ac .fh-medal-shape, .ficha .fh-hp-heart .fh-medal-shape { width: 62px; height: 67px; }
+.ficha .fh-hp-heart .fh-hp-formula { white-space: normal; }
+@media (max-width: 480px) { .ficha .fh-hp-row .fh-medal-label { font-size: 0.58rem; letter-spacing: 0.02em; } .ficha .fh-hp-row .fh-medal-label .grimoire-hint, .ficha .fh-hp-row .fh-medal-label button { transform: scale(.8); } }

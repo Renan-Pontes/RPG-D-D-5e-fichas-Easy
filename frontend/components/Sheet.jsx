@@ -1843,6 +1843,24 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
                 </span>
               )}
             </div>
+            {/* demais medalhões na mesma fileira, por precedência: Deslocamento, Iniciativa,
+                Percepção, Investigação e Intuição passivas e Bônus de Proficiência */}
+            <FhMedal shape="speed" value={Utils.speedLabel(speed, lang).split(' ')[0]} unit={lang === 'pt' ? 'm' : 'ft'}
+              label={t('speed', lang)}
+              sub={speedBonuses.length > 0
+                ? <span title={speedBonuses.map(x => x.name[lang] || x.name.pt).join(', ')}>{Utils.speedBonusText(speedBonuses, lang)}</span>
+                : null} />
+            <FhMedal shape="d20" value={Utils.fmtMod(initBonus)} label={t('initiative', lang)}
+              sub={<FhTapToRoll lang={lang} short />}
+              onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} />
+            <FhMedal shape="eye" value={passPerc} label={lang === 'pt' ? 'Percepção' : 'Perception'}
+              hint={<GrimoireHint id="valor-passivo" lang={lang} />} sub={lang === 'pt' ? 'passiva' : 'passive'} />
+            <FhMedal shape="lens" value={10 + Utils.skillBonus(char, 'investigation')} label={lang === 'pt' ? 'Investigação' : 'Investigation'}
+              sub={lang === 'pt' ? 'passiva' : 'passive'} />
+            <FhMedal shape="flame" value={10 + Utils.skillBonus(char, 'insight')} label={lang === 'pt' ? 'Intuição' : 'Insight'}
+              sub={lang === 'pt' ? 'passiva' : 'passive'} />
+            <FhMedal shape="star" value={Utils.fmtMod(profB)} label={lang === 'pt' ? 'Proficiência' : 'Proficiency'}
+              sub={lang === 'pt' ? 'bônus' : 'bonus'} />
           </div>
           {/* Barras e controles condensados (src/sheet/HpTracker.jsx): PV temporários, PV em 10
               fatias, Exaustão, Testes contra a Morte, arrastar para dano/cura e Dados de Vida */}
@@ -1855,21 +1873,6 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
               hitDice: <GrimoireHint id="dados-de-vida" lang={lang} />,
             }} />
 
-          {/* Defesa em medalhões: CA, Iniciativa (toque rola), Deslocamento, Prof., Perc. passiva
-              e Dados de Vida (as antigas grades .combat-grid desta aba) */}
-          <div className="fh-defense">
-            <FhMedal shape="circle" value={Utils.fmtMod(initBonus)} label={t('initiative', lang)}
-              sub={<FhTapToRoll lang={lang} short />}
-              onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} />
-            <FhMedal shape="circle" value={Utils.speedLabel(speed, lang).split(' ')[0]} unit={lang === 'pt' ? 'm' : 'ft'}
-              label={t('speed', lang)}
-              sub={speedBonuses.length > 0
-                ? <span title={speedBonuses.map(x => x.name[lang] || x.name.pt).join(', ')}>{Utils.speedBonusText(speedBonuses, lang)}</span>
-                : null} />
-            <FhMedal shape="diamond" value={Utils.fmtMod(profB)} label={lang === 'pt' ? 'Prof.' : 'Prof.'} />
-            <FhMedal shape="diamond" value={passPerc} label={lang === 'pt' ? 'Perc.' : 'Perc.'}
-              hint={<GrimoireHint id="valor-passivo" lang={lang} />} sub={lang === 'pt' ? 'passiva' : 'passive'} />
-          </div>
           <FhFeatures items={feats.defense} multi={placed.multi} lang={lang} place="defense" />
           <FhFeatures items={feats.movement} multi={placed.multi} lang={lang} place="movement" />
         </section>
