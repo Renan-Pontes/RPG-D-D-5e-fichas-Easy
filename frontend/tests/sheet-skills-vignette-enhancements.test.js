@@ -147,8 +147,7 @@ test('Item 9: Grade de perícias dobrável/recolhível por ação e aba Ferramen
 
 test('Item 10: Enquadramento e reposicionamento configurável do banner e avatar do personagem', () => {
   const sheetSrc = read('../components/Sheet.jsx');
-  assert.match(sheetSrc, /char\.avatarPosition\?\.x/);
-  assert.match(sheetSrc, /char\.avatarPosition\?\.y/);
+  assert.match(sheetSrc, /<FramedImg key=\{portrait\}[^>]*pos=\{char\.avatar \? char\.avatarPosition : null\}/);
   assert.match(sheetSrc, /onAvatarPosition=/);
 
   const sharedSrc = read('../components/Shared.jsx');
@@ -158,7 +157,9 @@ test('Item 10: Enquadramento e reposicionamento configurável do banner e avatar
   assert.match(sharedSrc, /onPointerDown=\{down\}/);
   assert.match(sharedSrc, /className="is-banner"/);
   assert.match(sharedSrc, /round className="is-token"/);
-  assert.match(sharedSrc, /setPreset/);
+  // 50% de folga no arraste e zoom de redução
+  assert.match(sharedSrc, /AVATAR_POS_MIN = -25, AVATAR_POS_MAX = 125, AVATAR_ZOOM_MIN = 0\.4/);
+  assert.match(sharedSrc, /className="avatar-zoom"/);
 });
 
 test('Item 11: Aba Características (SheetFeatures) importa DiceText e renderiza traços sem quebrar a página', () => {

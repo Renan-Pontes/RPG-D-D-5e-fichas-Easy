@@ -1,5 +1,5 @@
 /* Shared UI components */
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import Icon from './Icons.jsx';
 import './header.css';
 
@@ -122,34 +122,86 @@ const compressAvatar = (file) => new Promise((resolve, reject) => {
 });
 
 // Enquadramento WYSIWYG: a moldura tem a proporção real do banner do herói; arrastar a foto
-// (mouse ou dedo) move o recorte. object-position em %: com object-fit cover, só o eixo que
-// sobra pode andar; 1px arrastado = 100/sobra %.
+// (mouse ou dedo) move o recorte. Posição por eixo em %: 0…100 percorre a sobra como
+// object-position; −25…125 é a folga de 50% (meia moldura a mais) para cabeças e pés
+// colados na borda. Zoom z (0.4…1) reduz a foto a partir do tamanho que cobre a moldura,
+// mostrando mais dela. FramedImg aplica o mesmo cálculo na ficha, no selo e aqui.
+export const AVATAR_POS_MIN = -25, AVATAR_POS_MAX = 125, AVATAR_ZOOM_MIN = 0.4;
+const clampPos = (v) => Math.max(AVATAR_POS_MIN, Math.min(AVATAR_POS_MAX, Math.round(v * 10) / 10));
+export const avatarZoom = (pos) => { const z = Number(pos?.z); return z >= AVATAR_ZOOM_MIN && z <= 1 ? z : 1; };
+const posXY = (pos, dx = 50, dy = 22) => ({ x: typeof pos?.x === 'number' ? pos.x : dx, y: typeof pos?.y === 'number' ? pos.y : dy });
+/** Deslocamento em px de um eixo: f = moldura, w = foto, x = posição em %. */
+export const frameAxisPx = (x, f, w) => {
+  const free = f - w, s = free > 0 ? 1 : -1;
+  if (x < 0) return s * x * f / 100;
+  if (x > 100) return free + s * (x - 100) * f / 100;
+  return free * x / 100;
+};
+/** Inverso de frameAxisPx: px → posição em %. */
+export const frameAxisPos = (L, f, w) => {
+  const free = f - w, s = free > 0 ? 1 : -1;
+  const before = s > 0 ? L < 0 : L > 0;
+  const after = s > 0 ? L > free : L < free;
+  if (before) return (L / (s * f)) * 100;
+  if (after) return 100 + ((L - free) / (s * f)) * 100;
+  return free ? (L / free) * 100 : 0;
+};
+/** Estilo da foto dentro da moldura medida (geo = {fw, fh, nw, nh}); sem medida, cover simples. */
+export const framedStyle = (pos, geo, dx, dy) => {
+  const { x, y } = posXY(pos, dx, dy);
+  if (!geo?.fw || !geo?.nw) return { objectPosition: `${Math.max(0, Math.min(100, x))}% ${Math.max(0, Math.min(100, y))}%` };
+  const k = Math.max(geo.fw / geo.nw, geo.fh / geo.nh) * avatarZoom(pos);
+  const w = geo.nw * k, h = geo.nh * k;
+  return { position: 'absolute', inset: 'auto', left: frameAxisPx(x, geo.fw, w), top: frameAxisPx(y, geo.fh, h), width: w, height: h, objectFit: 'fill', maxWidth: 'none', maxHeight: 'none' };
+};
+const useFrameGeo = (src) => {
+  const ref = useRef(null);
+  const [geo, setGeo] = useState(null);
+  const measure = () => {
+    const img = ref.current, box = img?.parentElement;
+    if (!img || !box || !img.naturalWidth) return;
+    const g = { fw: box.clientWidth, fh: box.clientHeight, nw: img.naturalWidth, nh: img.naturalHeight };
+    setGeo(o => (o && o.fw === g.fw && o.fh === g.fh && o.nw === g.nw && o.nh === g.nh ? o : g));
+  };
+  useLayoutEffect(() => {
+    const box = ref.current?.parentElement;
+    measure();
+    if (!box || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [src]);
+  return { ref, geo, measure };
+};
+/** <img> enquadrada pela posição/zoom da ficha; o pai precisa ser posicionado com overflow oculto. */
+export const FramedImg = ({ src, pos, dx, dy, style, onLoad, alt = '', ...rest }) => {
+  const { ref, geo, measure } = useFrameGeo(src);
+  return <img ref={ref} src={src} alt={alt} {...rest}
+    onLoad={(e) => { measure(); onLoad && onLoad(e); }}
+    style={{ ...framedStyle(pos, geo, dx, dy), ...style }} />;
+};
 const ratioOf = (a) => { const [w, h] = String(a).split('/').map(Number); return w > 0 && h > 0 ? +(w / h).toFixed(4) : 1.7778; };
 const FrameDrag = ({ src, pos, onPos, aspect, round = false, className = '', label }) => {
-  const box = useRef(null);
-  const [nat, setNat] = useState(null);
+  const { ref, geo, measure } = useFrameGeo(src);
   const drag = useRef(null);
-  const overflow = () => {
-    const el = box.current;
-    if (!el || !nat) return { x: 0, y: 0 };
-    const fw = el.clientWidth, fh = el.clientHeight;
-    const k = Math.max(fw / nat.w, fh / nat.h);
-    return { x: nat.w * k - fw, y: nat.h * k - fh };
+  const size = () => {
+    if (!geo) return null;
+    const k = Math.max(geo.fw / geo.nw, geo.fh / geo.nh) * avatarZoom(pos);
+    return { w: geo.nw * k, h: geo.nh * k };
   };
   const down = (e) => {
     e.preventDefault();
-    box.current?.setPointerCapture?.(e.pointerId);
-    drag.current = { x: e.clientX, y: e.clientY, px: pos.x, py: pos.y };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const sz = size();
+    if (!sz) return;
+    drag.current = { x: e.clientX, y: e.clientY, lx: frameAxisPx(pos.x, geo.fw, sz.w), ly: frameAxisPx(pos.y, geo.fh, sz.h), sz };
   };
   const move = (e) => {
     const d = drag.current;
     if (!d) return;
-    const o = overflow();
-    const clamp = (v) => Math.max(0, Math.min(100, Math.round(v * 10) / 10));
-    onPos({
-      x: o.x > 0 ? clamp(d.px - ((e.clientX - d.x) / o.x) * 100) : d.px,
-      y: o.y > 0 ? clamp(d.py - ((e.clientY - d.y) / o.y) * 100) : d.py,
-    });
+    onPos({ ...pos,
+      x: clampPos(frameAxisPos(d.lx + e.clientX - d.x, geo.fw, d.sz.w)),
+      y: clampPos(frameAxisPos(d.ly + e.clientY - d.y, geo.fh, d.sz.h)) });
   };
   const up = () => { drag.current = null; };
   const key = (e) => {
@@ -157,15 +209,14 @@ const FrameDrag = ({ src, pos, onPos, aspect, round = false, className = '', lab
     const m = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
     if (!m) return;
     e.preventDefault();
-    onPos({ x: Math.max(0, Math.min(100, pos.x + m[0])), y: Math.max(0, Math.min(100, pos.y + m[1])) });
+    onPos({ ...pos, x: clampPos(pos.x + m[0]), y: clampPos(pos.y + m[1]) });
   };
   return (
-    <div ref={box} className={`avatar-frame ${round ? 'is-round' : ''} ${className}`}
+    <div className={`avatar-frame ${round ? 'is-round' : ''} ${className}`}
       style={{ aspectRatio: aspect, ...(round ? {} : { width: `min(100%, calc(48vh * ${ratioOf(aspect)}))`, marginInline: 'auto' }) }}
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
       tabIndex={0} role="slider" aria-label={label} aria-valuetext={`${pos.x}% · ${pos.y}%`} onKeyDown={key}>
-      <img src={src} alt="" draggable={false} onLoad={(e) => setNat({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
-        style={{ objectPosition: `${pos.x}% ${pos.y}%` }} />
+      <img ref={ref} src={src} alt="" draggable={false} onLoad={measure} style={framedStyle(pos, geo)} />
     </div>
   );
 };
@@ -184,6 +235,9 @@ const AvatarUpload = ({
   const pt = lang === 'pt';
   const posX = typeof position?.x === 'number' ? position.x : 50;
   const posY = typeof position?.y === 'number' ? position.y : 22;
+  const zoom = avatarZoom(position);
+  const fpos = { x: posX, y: posY, ...(zoom < 1 ? { z: zoom } : {}) };
+  const setPos = (p) => { if (!onPositionChange) return; const { z, ...rest } = p; onPositionChange(z != null && z < 1 ? { ...rest, z } : rest); };
 
   const pick = () => fileRef.current && fileRef.current.click();
   const handle = async (e) => {
@@ -197,17 +251,6 @@ const AvatarUpload = ({
     } catch { /* arquivo não é imagem legível — ignora */ }
   };
 
-  const handlePosX = (newX) => {
-    if (onPositionChange) onPositionChange({ x: Number(newX), y: posY });
-  };
-  const handlePosY = (newY) => {
-    if (onPositionChange) onPositionChange({ x: posX, y: Number(newY) });
-  };
-  const setPreset = (x, y) => {
-    if (onPositionChange) onPositionChange({ x, y });
-  };
-
-  const objPos = `${posX}% ${posY}%`;
   // Proporção real do banner do herói (moldura WYSIWYG); sem a ficha na tela, 16:9.
   const bannerAspect = (() => {
     if (!viewing || typeof document === 'undefined') return '16 / 9';
@@ -225,7 +268,7 @@ const AvatarUpload = ({
         title={value ? (pt ? 'Ver e enquadrar foto' : 'View & frame photo') : (pt ? 'Adicionar foto' : 'Add photo')}
       >
         {value
-          ? <img src={value} alt="" style={{ objectPosition: objPos }} />
+          ? <FramedImg src={value} pos={fpos} />
           : <span className="hero-avatar-letter">{letter || '?'}</span>}
       </div>
       <input ref={fileRef} type="file" accept="image/*" onChange={handle} style={{ display: 'none' }} />
@@ -236,14 +279,20 @@ const AvatarUpload = ({
               {pt ? 'Enquadrar o retrato' : 'Frame the portrait'}
             </h3>
             <p className="avatar-frame-hint">{pt ? 'Arraste a imagem dentro da moldura (mouse ou dedo). É exatamente o que aparece na ficha.' : 'Drag the image inside the frame (mouse or finger). This is exactly what the sheet shows.'}</p>
-            <FrameDrag src={value} pos={{ x: posX, y: posY }} onPos={(p) => onPositionChange && onPositionChange(p)}
+            <FrameDrag src={value} pos={fpos} onPos={setPos}
               aspect={bannerAspect} className="is-banner" label={pt ? 'Enquadramento do banner' : 'Banner framing'} />
             <div className="avatar-frame-row">
-              <FrameDrag src={value} pos={{ x: posX, y: posY }} onPos={(p) => onPositionChange && onPositionChange(p)}
+              <FrameDrag src={value} pos={fpos} onPos={setPos}
                 aspect="1 / 1" round className="is-token" label={pt ? 'Enquadramento do retrato redondo' : 'Round portrait framing'} />
               <div className="avatar-frame-meta">
                 <span>{pt ? 'Retrato redondo: mesmo recorte.' : 'Round portrait: same crop.'}</span>
-                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPreset(50, 22)}>↺ {pt ? 'Centralizar' : 'Recenter'}</button>
+                <label className="avatar-zoom">
+                  <span>{pt ? 'Zoom' : 'Zoom'} {Math.round(zoom * 100)}%</span>
+                  <input type="range" min={AVATAR_ZOOM_MIN} max={1} step={0.01} value={zoom}
+                    aria-label={pt ? 'Zoom da foto' : 'Photo zoom'}
+                    onChange={(e) => setPos({ ...fpos, z: Number(e.target.value) })} />
+                </label>
+                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPos({ x: 50, y: 22 })}>↺ {pt ? 'Centralizar' : 'Recenter'}</button>
               </div>
             </div>
 

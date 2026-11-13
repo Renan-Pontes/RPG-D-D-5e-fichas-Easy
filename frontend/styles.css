@@ -2606,11 +2606,13 @@ body:has(.wizard-footer) .dice-fab { bottom: calc(92px + env(safe-area-inset-bot
 .avatar-frame { position: relative; width: 100%; overflow: hidden; border: 1px solid var(--gold-deep); border-radius: 8px; background: #000; cursor: grab; touch-action: none; user-select: none; outline: none; }
 .avatar-frame:active { cursor: grabbing; }
 .avatar-frame:focus-visible { box-shadow: 0 0 0 2px var(--gold-bright); }
-.avatar-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; display: block; }
+.avatar-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; display: block; border: 0; border-radius: 0; aspect-ratio: auto; }
 .avatar-frame.is-banner { max-height: 46vh; }
 .avatar-frame.is-banner::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 0 1px rgba(237,203,122,.25), inset 0 -40px 50px -30px rgba(0,0,0,.6); }
 .avatar-frame-row { display: flex; align-items: center; gap: 14px; }
 .avatar-frame.is-token { width: 72px; flex: none; border-radius: 50%; border: 2px solid var(--gold-bright); box-shadow: 0 0 12px rgba(224,181,94,.4); }
+.avatar-zoom { display: flex; flex-direction: column; gap: 2px; font-size: .78rem; color: var(--ink-secondary); }
+.avatar-zoom input { width: 100%; min-width: 140px; accent-color: var(--gold-bright); }
 .avatar-frame-meta { display: grid; gap: 6px; justify-items: start; font-size: .8rem; color: var(--ink-secondary); }
 .avatar-viewer.is-wysiwyg { width: 100%; min-width: 0; }
 .avatar-frame.is-banner { max-height: none; }

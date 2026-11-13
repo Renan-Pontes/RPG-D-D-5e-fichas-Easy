@@ -18,7 +18,7 @@ import { t, tName } from '../data/i18n.js';
 import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
 import Icon from './Icons.jsx';
 import ScrollTabs from './ScrollTabs.jsx';
-import { Filigree, Modal, NumStepper, Pips, AvatarUpload } from './Shared.jsx';
+import { Filigree, Modal, NumStepper, Pips, AvatarUpload, FramedImg } from './Shared.jsx';
 import { SheetSpells, SheetInventory, SheetStory, SheetNotes, RestButtons } from './SheetTabs.jsx';
 import { api, ApiError } from '../src/api/client.js';
 import CombatActionPanel, { useCombatPanel } from '../src/campaigns/CombatActionPanel.jsx';
@@ -198,9 +198,6 @@ const SheetHero = ({
   const pt = lang === 'pt';
   const letter = (char.name || '?').charAt(0).toUpperCase();
   const portrait = char.avatar || speciesArt(char.race) || classArt(char.className);
-  const heroArtPos = {
-    objectPosition: `${char.avatarPosition?.x ?? 50}% ${char.avatarPosition?.y ?? 22}%`
-  };
 
   const currentSubclassName = useMemo(() => {
     const subs = subclassesFor(char);
@@ -227,7 +224,7 @@ const SheetHero = ({
       <div className="sheet-hero fh-hero">
         <div className="fh-hero-art" aria-hidden="true">
           <span className="fh-hero-mono">{letter}</span>
-          {portrait && <img key={portrait} src={portrait} alt="" onError={hideBrokenImg} style={heroArtPos} />}
+          {portrait && <FramedImg key={portrait} src={portrait} onError={hideBrokenImg} pos={char.avatar ? char.avatarPosition : null} />}
           <FhConditionArt conditions={char.conditions} down={char.currentHp === 0} />
         </div>
         {/* Ações discretas no canto superior direito: Cheat -> Edit -> Export */}
