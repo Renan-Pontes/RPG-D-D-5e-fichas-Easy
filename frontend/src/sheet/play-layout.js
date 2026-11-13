@@ -15,7 +15,7 @@ export const PLAY_H = {
   resources: 90, resourceRow: 68,           // título e aviso; por recurso
   conditions: 160,                          // fixo: as condições ligadas não mudam a divisão
   wild: 330, starry: 180,                   // Forma Selvagem; Forma Estelar (Círculo das Estrelas)
-  abilities: 300,
+  abilities: 420,
   rest: 115,
   progression: 1200,                        // painel Progressão (linha do tempo) vindo de fora da ficha
   traitHead: 30, trait: 45,                 // traços de classe de um painel: rótulo; por traço (fechado)

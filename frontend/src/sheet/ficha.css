@@ -6861,11 +6861,30 @@
 .ficha .fh-hero-classfold > summary > .fh-seal .hero-level-num { font-size: 17px !important; line-height: 1 !important; }
 .ficha .fh-hero-classfold > summary > .fh-seal .fh-seal-core { display: flex !important; flex-direction: column; align-items: center; justify-content: center; }
 
-/* v1.0.125 — colmeia só de atributos (aba Jogar): mesmos hexágonos do cinto, duas fileiras
-   encaixadas — a de baixo sobe o "encaixe" do favo e desliza meio hexágono para a direita. */
-.ficha .fh-belt.is-hive-only { --belt-w: clamp(76px, 21vw, 104px); --belt-gap: 4px; padding: 6px 0 10px; }
-.ficha .fh-belt.is-hive-only .fh-belt-hive-row.is-bottom {
-  margin-top: calc(var(--belt-row-overlap) * -1);
-  transform: translateX(calc((var(--belt-w) + var(--belt-gap)) / 2));
+/* v1.0.126 — colmeia da aba Jogar: favo exato, aresta com aresta. Hexágono de ponta para
+   cima, largura w, folga g igual em todas as arestas: a fileira seguinte desce
+   (w + g)·sen60° e encaixa meio hexágono para o lado → sobreposição h − (w+g)·0,866 =
+   0,2887w − 0,866g. Do meio ficam os hexágonos de ataque; ímpar, desliza meio passo. */
+.ficha .fh-belt.is-hive-only { --belt-w: clamp(84px, 27vw, 112px); --belt-gap: 4px; padding: 6px 0 10px;
+  --hive-overlap: calc(var(--belt-w) * 0.288675 - var(--belt-gap) * 0.866025); }
+.ficha .fh-belt.is-hive-only .fh-belt-hive-row { gap: var(--belt-gap); }
+.ficha .fh-belt.is-hive-only .fh-belt-hive-row.is-mid { margin: calc(var(--hive-overlap) * -1) 0; z-index: 5; }
+.ficha .fh-belt.is-hive-only .fh-belt-hive-row.is-mid.is-odd { transform: translateX(calc((var(--belt-w) + var(--belt-gap)) / -2)); }
+/* O retângulo de cada peça passa por baixo dos vizinhos: só o hexágono recortado recebe o toque. */
+.ficha .fh-belt.is-hive-only .fh-belt-hex-wrap,
+.ficha .fh-belt.is-hive-only .fh-belt-glow-svg { pointer-events: none; }
+.ficha .fh-belt.is-hive-only .fh-belt-hex { pointer-events: auto; }
+.ficha .fh-belt-header.is-static { cursor: default; }
+.ficha .fh-honey-halves.is-single { grid-template-columns: 1fr; }
+.ficha .fh-honey-cap { display: block; order: 2; font-size: .5rem; letter-spacing: .08em; text-transform: uppercase; line-height: 1; opacity: .75; margin-top: 2px; }
+.ficha .fh-honey-half { flex-direction: column; }
+.ficha .fh-belt-hex-wrap.tone-attack {
+  --hex-gem: #a8a29e; --hex-gem-glow: rgba(214, 211, 209, 0.7);
+  --hex-gem-bg: linear-gradient(180deg, #57534e 0%, #292524 100%);
+  --hex-parchment-top: #f8f7f5; --hex-rim: #44403c; --hex-checkered: rgba(120, 113, 108, 0.08); --hex-shield-rim: #57534e;
 }
-.ficha .fh-belt.is-hive-only .fh-belt-hive-row.is-top { transform: translateX(calc((var(--belt-w) + var(--belt-gap)) / -2)); }
+.ficha .fh-belt-hex-wrap.tone-spell {
+  --hex-gem: #a78bfa; --hex-gem-glow: rgba(167, 139, 250, 0.75);
+  --hex-gem-bg: linear-gradient(180deg, #4c1d95 0%, #2e1065 100%);
+  --hex-parchment-top: #f8f5ff; --hex-rim: #4c1d95; --hex-checkered: rgba(124, 58, 237, 0.08); --hex-shield-rim: #5b21b6;
+}

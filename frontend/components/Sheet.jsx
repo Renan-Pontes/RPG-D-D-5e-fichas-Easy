@@ -2276,7 +2276,7 @@ const BELT_ABBR = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', 
 // rápido não rola; arrastar cancela. Enquanto segura, o botão "carrega" (.is-charging-roll).
 const BELT_HOLD_MS = 220;
 const beltHoldToRoll = (fn) => {
-  let t0 = 0; let x0 = 0; let y0 = 0; let moved = false; let timer = null; let el = null;
+  let t0 = 0; let x0 = 0; let y0 = 0; let moved = false; let timer = null; let el = null; let fired = false;
   const clear = () => { clearTimeout(timer); timer = null; el?.classList.remove('is-charging-roll'); };
   return {
     onPointerDown: (e) => {
@@ -2285,12 +2285,17 @@ const beltHoldToRoll = (fn) => {
       timer = setTimeout(() => { el?.classList.add('is-charging-roll'); if (navigator.vibrate) navigator.vibrate(12); }, BELT_HOLD_MS);
     },
     onPointerMove: (e) => { if (t0 && Math.hypot(e.clientX - x0, e.clientY - y0) > 12) { moved = true; clear(); } },
-    onPointerUp: () => { const held = t0 && !moved && Date.now() - t0 >= BELT_HOLD_MS; t0 = 0; clear(); if (held) fn(); },
+    onPointerUp: () => { const held = t0 && !moved && Date.now() - t0 >= BELT_HOLD_MS; t0 = 0; clear(); fired = !!held; if (held) fn(); },
     onPointerCancel: () => { t0 = 0; clear(); },
+    // No toque, o "click" sintético vem depois do pointerup e cai na tela de rolagem que
+    // acabou de abrir, fechando-a na hora. Cancelar o touchend da rolagem evita esse clique.
+    onTouchEnd: (e) => { if (fired) { e.preventDefault(); fired = false; } },
     onContextMenu: (e) => e.preventDefault(),
   };
 };
-const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag }) => {
+// spec (opcional): hexágono de ação com a mesma peça e os mesmos gestos do de atributo —
+// { abbr, tone, center, halves: [{ mod, label, cls, aria }] }. Sem spec, é o atributo k.
+const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag, spec = null }) => {
   const [advMode, setAdvMode] = useState('normal'); // 'normal' | 'adv' | 'dis'
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
@@ -2298,11 +2303,12 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
   const hexRef = useRef(null);
   const hoodGestureRef = useRef({ startX: 0, startY: 0, moved: false, timer: null, pointerId: null });
 
-  const score = Utils.abilityWithRace(char, k);
-  const checkMod = Utils.abilityMod(char, k);
-  const saveMod = Utils.saveBonus(char, k);
-  const isProf = Utils.hasSaveProf(char, k);
   const pt = lang === 'pt';
+  const isAbility = !spec;
+  const score = spec ? spec.center : Utils.abilityWithRace(char, k);
+  const checkMod = isAbility ? Utils.abilityMod(char, k) : 0;
+  const saveMod = isAbility ? Utils.saveBonus(char, k) : 0;
+  const isProf = isAbility && Utils.hasSaveProf(char, k);
 
   const onRollHalf = (mod, label, isSave = false) => {
     roll({ die: 20, mod, label, advMode, isSave });
@@ -2464,7 +2470,14 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
   };
 
   const meta = HONEY_ABILITY_META[k] || { zone: 'physical', tone: 'strength' };
-  const abbr = BELT_ABBR[k] || k.toUpperCase();
+  const abbr = spec ? spec.abbr : (BELT_ABBR[k] || k.toUpperCase());
+  const advTxt = advMode === 'adv' ? (pt ? ' (com vantagem)' : ' (with advantage)') : advMode === 'dis' ? (pt ? ' (com desvantagem)' : ' (with disadvantage)') : '';
+  const halves = spec ? spec.halves : [
+    { cls: 'is-check', mod: checkMod, label: `${t(k, lang)} ${t('abilityCheck', lang)}`,
+      aria: pt ? `${t(k, lang)}: teste ${Utils.fmtMod(checkMod)}` : `${t(k, lang)}: check ${Utils.fmtMod(checkMod)}` },
+    { cls: `is-save${isProf ? ' is-prof' : ''}`, mod: saveMod, isSave: true, label: `${t(k, lang)} ${t('saveRoll', lang)}`,
+      aria: pt ? `${t(k, lang)}: resistência ${Utils.fmtMod(saveMod)}${isProf ? ' (proficiente)' : ''}` : `${t(k, lang)}: save ${Utils.fmtMod(saveMod)}${isProf ? ' (proficient)' : ''}` },
+  ];
 
   const boundStyle = isAssigned ? {
     '--slot-bound-neon': 'var(--slot-bound-neon, #edcb7a)',
@@ -2473,7 +2486,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
 
   return (
     <div
-      className={`fh-belt-hex-wrap is-${meta.zone} tone-${k}${isBound ? ' is-bound' : ''}${isAssigned ? ' is-assigned' : ''} adv-${advMode}`}
+      className={`fh-belt-hex-wrap is-${spec ? 'action' : meta.zone} tone-${spec ? spec.tone : k}${isBound ? ' is-bound' : ''}${isAssigned ? ' is-assigned' : ''} adv-${advMode}`}
       style={boundStyle}
     >
       {/* Glowing Edge Feedback SVG */}
@@ -2505,7 +2518,9 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
         className="fh-belt-hex"
       >
         {/* Top Header / Hood: Press & hold (>= 110ms) or drag to assign ability to belt slot; tap to toggle bind */}
-        <button
+        {spec ? (
+          <div className="fh-belt-header is-static"><span className="fh-honey-abbr">{abbr}</span></div>
+        ) : <button
           type="button"
           className="fh-belt-header"
           onPointerDown={onHoodPointerDown}
@@ -2520,7 +2535,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
             : `${t(k, lang)}: hold/drag the hood to bind to belt · tap for active slot`}
         >
           <span className="fh-honey-abbr">{abbr}</span>
-        </button>
+        </button>}
 
         {/* Vertical Slider Track recessed into the hexad face */}
         <div className="fh-belt-badge-track" aria-hidden="true" />
@@ -2554,37 +2569,25 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
           <span className="fh-badge-arrow is-down" aria-hidden="true">▼</span>
         </button>
 
-        <div className="fh-honey-halves">
-          <button
-            type="button"
-            className="fh-honey-half is-check"
-            {...beltHoldToRoll(() => onRollHalf(checkMod, `${t(k, lang)} ${t('abilityCheck', lang)}`))}
-            onKeyDown={(e) => {
-              if (!isActionKey(e)) return;
-              e.preventDefault();
-              onRollHalf(checkMod, `${t(k, lang)} ${t('abilityCheck', lang)}`);
-            }}
-            aria-label={pt
-              ? `${t(k, lang)}: teste ${Utils.fmtMod(checkMod)}${advMode === 'adv' ? ' (com vantagem)' : advMode === 'dis' ? ' (com desvantagem)' : ''}`
-              : `${t(k, lang)}: check ${Utils.fmtMod(checkMod)}${advMode === 'adv' ? ' (with advantage)' : advMode === 'dis' ? ' (with disadvantage)' : ''}`}
-          >
-            <span className="fh-honey-val">{Utils.fmtMod(checkMod)}</span>
-          </button>
-          <button
-            type="button"
-            className={`fh-honey-half is-save${isProf ? ' is-prof' : ''}`}
-            {...beltHoldToRoll(() => onRollHalf(saveMod, `${t(k, lang)} ${t('saveRoll', lang)}`, true))}
-            onKeyDown={(e) => {
-              if (!isActionKey(e)) return;
-              e.preventDefault();
-              onRollHalf(saveMod, `${t(k, lang)} ${t('saveRoll', lang)}`, true);
-            }}
-            aria-label={pt
-              ? `${t(k, lang)}: resistência ${Utils.fmtMod(saveMod)}${isProf ? ' (proficiente)' : ''}${advMode === 'adv' ? ' (com vantagem)' : advMode === 'dis' ? ' (com desvantagem)' : ''}`
-              : `${t(k, lang)}: save ${Utils.fmtMod(saveMod)}${isProf ? ' (proficient)' : ''}${advMode === 'adv' ? ' (with advantage)' : advMode === 'dis' ? ' (with disadvantage)' : ''}`}
-          >
-            <span className="fh-honey-val">{Utils.fmtMod(saveMod)}</span>
-          </button>
+        <div className={`fh-honey-halves${halves.length === 1 ? ' is-single' : ''}`}>
+          {halves.map((hf, i) => (
+            <button
+              key={i}
+              type="button"
+              className={`fh-honey-half ${hf.cls}`}
+              {...beltHoldToRoll(() => onRollHalf(hf.mod, hf.label, !!hf.isSave))}
+              onKeyDown={(e) => {
+                if (!isActionKey(e)) return;
+                e.preventDefault();
+                onRollHalf(hf.mod, hf.label, !!hf.isSave);
+              }}
+              aria-label={`${hf.aria}${advTxt}`}
+              title={hf.aria}
+            >
+              {hf.cap && <span className="fh-honey-cap">{hf.cap}</span>}
+              <span className="fh-honey-val">{Utils.fmtMod(hf.mod)}</span>
+            </button>
+          ))}
         </div>
       </article>
     </div>
@@ -3625,22 +3628,49 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
   );
 };
 
-// Colmeia só dos atributos: os mesmos hexágonos do cinto de rolagem (BeltHex), sem a
-// fileira de dados no meio. Duas fileiras encaixadas (a de baixo meio hexágono para o lado),
-// na ordem do cinto. Sem cinto, tocar no capuz não vincula nada.
-const ABILITY_HIVE_ROWS = [['str', 'con', 'dex'], ['int', 'cha', 'wis']];
+// Colmeia da aba Jogar: os mesmos hexágonos do cinto (BeltHex) em favo, sem a fileira de
+// dados — atributos em cima e embaixo; no meio, encaixados nos vãos, os de ataque
+// (corpo a corpo | à distância) e o de ataque mágico, se a ficha conjura.
 const noBind = () => {};
-export const AbilityHive = ({ char, lang, roll }) => (
-  <div className="fh-belt is-hive-only" data-fab-pass="">
-    {ABILITY_HIVE_ROWS.map((row, i) => (
-      <div key={i} className={`fh-belt-hive-row ${i ? 'is-bottom' : 'is-top'}`}>
-        {row.map(k => (
-          <BeltHex key={k} k={k} char={char} lang={lang} roll={roll} onBind={noBind} isBound={false} isAssigned={false} />
-        ))}
+export const actionHexSpecs = (char, lang) => {
+  const pt = lang === 'pt';
+  const pb = Utils.profBonus(char);
+  const melee = Utils.abilityMod(char, 'str') + pb;
+  const ranged = Utils.abilityMod(char, 'dex') + pb;
+  const out = [{
+    key: 'attack', abbr: pt ? 'ATAQUE' : 'ATTACK', tone: 'attack', center: '⚔',
+    halves: [
+      { cls: 'is-melee', cap: pt ? 'C.a.C.' : 'Melee', mod: melee, label: pt ? 'Ataque corpo a corpo' : 'Melee attack roll',
+        aria: pt ? `Ataque corpo a corpo ${Utils.fmtMod(melee)} (FOR + prof.)` : `Melee attack roll ${Utils.fmtMod(melee)} (STR + prof.)` },
+      { cls: 'is-ranged', cap: pt ? 'Dist.' : 'Ranged', mod: ranged, label: pt ? 'Ataque à distância' : 'Ranged attack roll',
+        aria: pt ? `Ataque à distância ${Utils.fmtMod(ranged)} (DES + prof.)` : `Ranged attack roll ${Utils.fmtMod(ranged)} (DEX + prof.)` },
+    ],
+  }];
+  const ab = Utils.spellcastingAbility(char);
+  const sa = Utils.spellAttackBonus(char);
+  if (ab && sa != null) {
+    const abName = BELT_ABBR[ab] || ab.toUpperCase();
+    out.push({
+      key: 'spell', abbr: pt ? 'MAGIA' : 'SPELL', tone: 'spell', center: '✦',
+      halves: [{ cls: 'is-spell', cap: abName, mod: sa, label: pt ? 'Ataque mágico' : 'Spell attack',
+        aria: pt ? `Ataque mágico ${Utils.fmtMod(sa)} (${abName} + prof.)` : `Spell attack ${Utils.fmtMod(sa)} (${abName} + prof.)` }],
+    });
+  }
+  return out;
+};
+export const AbilityHive = ({ char, lang, roll }) => {
+  const actions = actionHexSpecs(char, lang);
+  const abil = (k) => <BeltHex key={k} k={k} char={char} lang={lang} roll={roll} onBind={noBind} isBound={false} isAssigned={false} />;
+  return (
+    <div className="fh-belt is-hive-only" data-fab-pass="">
+      <div className="fh-belt-hive-row is-top">{['str', 'con', 'dex'].map(abil)}</div>
+      <div className={`fh-belt-hive-row is-mid${actions.length % 2 ? ' is-odd' : ''}`}>
+        {actions.map(sp => <BeltHex key={sp.key} k={sp.key} spec={sp} char={char} lang={lang} roll={roll} />)}
       </div>
-    ))}
-  </div>
-);
+      <div className="fh-belt-hive-row is-bottom">{['int', 'cha', 'wis'].map(abil)}</div>
+    </div>
+  );
+};
 
 export const SheetAbilities = ({ char, lang, update, profB, roll }) => {
   const pt = lang === 'pt';
