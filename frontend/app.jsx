@@ -360,16 +360,15 @@ const App = () => {
   const handlePickPregen = async (pregen) => {
     let avatar = pregen.character.avatar || '';
     if (avatar && !avatar.startsWith('data:')) {
-      // JPEG 400px, como as fotos enviadas (o PDF só embute JPEG/PNG).
+      // JPEG como as fotos enviadas (o PDF só embute JPEG/PNG): mantém o formato, só reduz o lado maior.
       try {
         avatar = await new Promise((ok, fail) => {
           const img = new Image();
           img.onload = () => {
-            const side = Math.min(img.width, img.height, 400);
+            const k = Math.min(1, 800 / Math.max(img.width, img.height));
             const c = document.createElement('canvas');
-            c.width = c.height = side;
-            const s = Math.min(img.width, img.height);
-            c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, side, side);
+            c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
             ok(c.toDataURL('image/jpeg', 0.82));
           };
           img.onerror = fail;
