@@ -2040,7 +2040,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         /* Abilities at a glance */
         <section key="abilities" className="fh-panel">
           <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{t('tabStats', lang)}</FhTitle>
-          <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang) + ' ' + t('abilityCheck', lang)} />
+          <AbilityHive char={char} lang={lang} roll={roll} />
         </section>
     ) },
     slots && slots.length > 0 && {
@@ -3624,6 +3624,23 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
     </div>
   );
 };
+
+// Colmeia só dos atributos: os mesmos hexágonos do cinto de rolagem (BeltHex), sem a
+// fileira de dados no meio. Duas fileiras encaixadas (a de baixo meio hexágono para o lado),
+// na ordem do cinto. Sem cinto, tocar no capuz não vincula nada.
+const ABILITY_HIVE_ROWS = [['str', 'con', 'dex'], ['int', 'cha', 'wis']];
+const noBind = () => {};
+export const AbilityHive = ({ char, lang, roll }) => (
+  <div className="fh-belt is-hive-only" data-fab-pass="">
+    {ABILITY_HIVE_ROWS.map((row, i) => (
+      <div key={i} className={`fh-belt-hive-row ${i ? 'is-bottom' : 'is-top'}`}>
+        {row.map(k => (
+          <BeltHex key={k} k={k} char={char} lang={lang} roll={roll} onBind={noBind} isBound={false} isAssigned={false} />
+        ))}
+      </div>
+    ))}
+  </div>
+);
 
 export const SheetAbilities = ({ char, lang, update, profB, roll }) => {
   const pt = lang === 'pt';

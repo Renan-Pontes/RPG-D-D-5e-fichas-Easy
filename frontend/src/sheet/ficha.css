@@ -6860,3 +6860,12 @@
 .ficha .fh-hero-classfold > summary > .fh-seal .hero-level-label { font-size: 6.5px !important; letter-spacing: .08em !important; line-height: 1 !important; margin: 0 0 1px !important; }
 .ficha .fh-hero-classfold > summary > .fh-seal .hero-level-num { font-size: 17px !important; line-height: 1 !important; }
 .ficha .fh-hero-classfold > summary > .fh-seal .fh-seal-core { display: flex !important; flex-direction: column; align-items: center; justify-content: center; }
+
+/* v1.0.125 — colmeia só de atributos (aba Jogar): mesmos hexágonos do cinto, duas fileiras
+   encaixadas — a de baixo sobe o "encaixe" do favo e desliza meio hexágono para a direita. */
+.ficha .fh-belt.is-hive-only { --belt-w: clamp(76px, 21vw, 104px); --belt-gap: 4px; padding: 6px 0 10px; }
+.ficha .fh-belt.is-hive-only .fh-belt-hive-row.is-bottom {
+  margin-top: calc(var(--belt-row-overlap) * -1);
+  transform: translateX(calc((var(--belt-w) + var(--belt-gap)) / 2));
+}
+.ficha .fh-belt.is-hive-only .fh-belt-hive-row.is-top { transform: translateX(calc((var(--belt-w) + var(--belt-gap)) / -2)); }
