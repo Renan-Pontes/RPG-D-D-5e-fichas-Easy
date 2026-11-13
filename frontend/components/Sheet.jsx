@@ -2584,8 +2584,8 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
               aria-label={`${hf.aria}${advTxt}`}
               title={hf.aria}
             >
-              {hf.cap && <span className="fh-honey-cap">{hf.cap}</span>}
               <span className="fh-honey-val">{Utils.fmtMod(hf.mod)}</span>
+              {hf.cap && <span className="fh-honey-cap">{hf.cap}</span>}
             </button>
           ))}
         </div>
@@ -3635,26 +3635,23 @@ const noBind = () => {};
 export const actionHexSpecs = (char, lang) => {
   const pt = lang === 'pt';
   const pb = Utils.profBonus(char);
-  const melee = Utils.abilityMod(char, 'str') + pb;
-  const ranged = Utils.abilityMod(char, 'dex') + pb;
+  const half = (ab, mod, label) => {
+    const abName = BELT_ABBR[ab] || ab.toUpperCase();
+    return { ab, cls: `is-ab ab-${ab}`, cap: abName, mod, label,
+      aria: `${label} ${Utils.fmtMod(mod)} (${abName} + ${pt ? 'prof.' : 'prof.'})` };
+  };
   const out = [{
-    key: 'attack', abbr: pt ? 'ATAQUE' : 'ATTACK', tone: 'attack', center: '⚔',
+    key: 'weapon', abbr: pt ? 'ARMA' : 'WEAPON', tone: 'weapon', center: '⚔',
     halves: [
-      { cls: 'is-melee', cap: pt ? 'C.a.C.' : 'Melee', mod: melee, label: pt ? 'Ataque corpo a corpo' : 'Melee attack roll',
-        aria: pt ? `Ataque corpo a corpo ${Utils.fmtMod(melee)} (FOR + prof.)` : `Melee attack roll ${Utils.fmtMod(melee)} (STR + prof.)` },
-      { cls: 'is-ranged', cap: pt ? 'Dist.' : 'Ranged', mod: ranged, label: pt ? 'Ataque à distância' : 'Ranged attack roll',
-        aria: pt ? `Ataque à distância ${Utils.fmtMod(ranged)} (DES + prof.)` : `Ranged attack roll ${Utils.fmtMod(ranged)} (DEX + prof.)` },
+      half('str', Utils.abilityMod(char, 'str') + pb, pt ? 'Ataque com arma (FOR)' : 'Weapon attack (STR)'),
+      half('dex', Utils.abilityMod(char, 'dex') + pb, pt ? 'Ataque com arma (DES)' : 'Weapon attack (DEX)'),
     ],
   }];
   const ab = Utils.spellcastingAbility(char);
   const sa = Utils.spellAttackBonus(char);
   if (ab && sa != null) {
-    const abName = BELT_ABBR[ab] || ab.toUpperCase();
-    out.push({
-      key: 'spell', abbr: pt ? 'MAGIA' : 'SPELL', tone: 'spell', center: '✦',
-      halves: [{ cls: 'is-spell', cap: abName, mod: sa, label: pt ? 'Ataque mágico' : 'Spell attack',
-        aria: pt ? `Ataque mágico ${Utils.fmtMod(sa)} (${abName} + prof.)` : `Spell attack ${Utils.fmtMod(sa)} (${abName} + prof.)` }],
-    });
+    out.push({ key: 'spell', abbr: pt ? 'MAGIA' : 'SPELL', tone: ab, center: '✦',
+      halves: [half(ab, sa, pt ? 'Ataque mágico' : 'Spell attack')] });
   }
   return out;
 };

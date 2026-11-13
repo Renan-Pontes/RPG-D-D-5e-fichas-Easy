@@ -6876,15 +6876,26 @@
 .ficha .fh-belt.is-hive-only .fh-belt-hex { pointer-events: auto; }
 .ficha .fh-belt-header.is-static { cursor: default; }
 .ficha .fh-honey-halves.is-single { grid-template-columns: 1fr; }
-.ficha .fh-honey-cap { display: block; order: 2; font-size: .5rem; letter-spacing: .08em; text-transform: uppercase; line-height: 1; opacity: .75; margin-top: 2px; }
-.ficha .fh-honey-half { flex-direction: column; }
-.ficha .fh-belt-hex-wrap.tone-attack {
+/* Hexágonos de ação: o número desce abaixo do selo central e a sigla do atributo fica
+   embaixo dele, com respiro — nada encosta no selo nem na borda. Cada metade usa a cor
+   do atributo que soma (FOR vermelho, DES verde…). */
+.ficha .fh-belt-hex-wrap.is-action .fh-honey-half { flex-direction: column; justify-content: center; gap: 4px; padding: 0 2px 22%; }
+.ficha .fh-belt-hex-wrap.is-action .fh-honey-halves.is-single .fh-honey-half { padding: 26% 2px 18%; }
+.ficha .fh-belt-hex-wrap.is-action .fh-honey-abbr { font-size: clamp(.62rem, 1.3vw, .78rem); letter-spacing: .08em; }
+.ficha .fh-belt-hex-wrap.is-action .fh-honey-val { font-size: clamp(1.1rem, 2vw, 1.35rem); line-height: 1; color: var(--half-c, inherit); }
+.ficha .fh-honey-cap { display: block; font: 700 .58rem/1 var(--display, inherit); letter-spacing: .12em; text-transform: uppercase; color: var(--half-c, inherit); opacity: .9; }
+.ficha .fh-honey-half.ab-str { --half-c: #c22626; background: linear-gradient(180deg, transparent 30%, rgba(224, 49, 49, .10)); }
+.ficha .fh-honey-half.ab-dex { --half-c: #1d7a45; background: linear-gradient(180deg, transparent 30%, rgba(36, 148, 84, .10)); }
+.ficha .fh-honey-half.ab-con { --half-c: #b45a12; background: linear-gradient(180deg, transparent 30%, rgba(212, 107, 25, .10)); }
+.ficha .fh-honey-half.ab-int { --half-c: #1d62ad; background: linear-gradient(180deg, transparent 30%, rgba(34, 114, 199, .10)); }
+.ficha .fh-honey-half.ab-wis { --half-c: #74329f; background: linear-gradient(180deg, transparent 30%, rgba(134, 60, 184, .10)); }
+.ficha .fh-honey-half.ab-cha { --half-c: #9c720f; background: linear-gradient(180deg, transparent 30%, rgba(196, 144, 24, .12)); }
+.ficha .fh-belt-hex-wrap.tone-weapon {
   --hex-gem: #a8a29e; --hex-gem-glow: rgba(214, 211, 209, 0.7);
   --hex-gem-bg: linear-gradient(180deg, #57534e 0%, #292524 100%);
   --hex-parchment-top: #f8f7f5; --hex-rim: #44403c; --hex-checkered: rgba(120, 113, 108, 0.08); --hex-shield-rim: #57534e;
 }
-.ficha .fh-belt-hex-wrap.tone-spell {
-  --hex-gem: #a78bfa; --hex-gem-glow: rgba(167, 139, 250, 0.75);
-  --hex-gem-bg: linear-gradient(180deg, #4c1d95 0%, #2e1065 100%);
-  --hex-parchment-top: #f8f5ff; --hex-rim: #4c1d95; --hex-checkered: rgba(124, 58, 237, 0.08); --hex-shield-rim: #5b21b6;
-}
+
+/* Respiro em volta do selo central: cada metade empurra o conteúdo para fora do selo. */
+.ficha .fh-belt.is-hive-only .fh-honey-halves:not(.is-single) .fh-honey-half:first-child { padding-right: 17%; }
+.ficha .fh-belt.is-hive-only .fh-honey-halves:not(.is-single) .fh-honey-half:last-child { padding-left: 17%; }
