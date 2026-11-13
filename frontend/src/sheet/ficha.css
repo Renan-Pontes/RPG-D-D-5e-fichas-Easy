@@ -6775,3 +6775,26 @@
   flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; padding: 0; cursor: pointer;
   border: 1px solid var(--gold-deep, #9a7231); background: #140e0b; color: var(--gold-bright, #edcb7a); font-size: .75rem; align-self: center;
 }
+
+/* v1.0.121 — mobile: nada estoura nem corta; textos longos quebram em linhas de tamanho
+   parecido (text-wrap: balance) em vez de reticências ou uma palavra sozinha embaixo. */
+.ficha .fh-hero-campbar, .ficha .fh-hero-campbar-head { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.ficha .fh-hero .hero-name, .ficha .fh-hero-copy-name { text-wrap: balance; overflow-wrap: anywhere; }
+.ficha .fh-hero-fold-v { text-wrap: balance; }
+@media (max-width: 719px) {
+  .ficha .fh-hero-campbar-head { align-items: center; }
+  .ficha .fh-hero-campbar-name {
+    white-space: normal; text-overflow: clip; text-wrap: balance; line-height: 1.25;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; letter-spacing: .06em;
+  }
+  .ficha .fh-hero-fold > summary { align-items: flex-start; }
+  .ficha .fh-hero-fold > summary::after { margin-top: 6px; }
+  .ficha .fh-hero-fold-v { white-space: normal; overflow: visible; display: block; line-height: 1.3; }
+}
+.ficha .fh-bal { display: inline; }
+@media (max-width: 719px) {
+  .ficha .fh-hero-campbar-head { border-radius: 18px; }
+  .ficha .fh-hero-campbar-name, .ficha .fh-hero-fold-v { text-align: left; }
+  .ficha .fh-hero-campbar-name { display: block; -webkit-line-clamp: unset; }
+  .ficha .fh-bal { display: inline-block; max-width: 100%; white-space: normal; text-wrap: balance; }
+}

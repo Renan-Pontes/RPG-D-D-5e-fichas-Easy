@@ -4,6 +4,7 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef, useContext, lazy
 import { RespecContext } from '../src/progression/respec.js';
 import { createPortal } from 'react-dom';
 import SRD from '../data/srd.js';
+import { balanceSplit } from '../src/sheet/balance-text.js';
 import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
 import { subclassLock, guardSealedPatch, sealHint } from '../src/progression/subclass-lock.js';
@@ -324,6 +325,14 @@ const SheetHero = ({
 // Barra única da campanha + lista das cópias da ficha (original + uma por campanha), uma
 // linha cada. A cópia aberta mostra, também em uma linha por campanha, o modo da mesa,
 // quem vê as rolagens e "Sair"; as outras cópias trocam a ficha inteira ao tocar.
+// Texto longo em duas metades parecidas (src/sheet/balance-text.js): cada metade só quebra
+// por dentro se ainda não couber.
+const Balanced = ({ text }) => {
+  const parts = balanceSplit(text);
+  if (parts.length < 2) return text;
+  return <><span className="fh-bal">{parts[0]}</span>{' '}<span className="fh-bal">{parts[1]}</span></>;
+};
+
 const HeroCampaignBar = ({ copies, lang, open, setOpen, char, campaignsList = [], onOpen, onLeave, busyLeaveId, onManage, onLogin, onDeleteCopy }) => {
   const pt = lang === 'pt';
   const current = campaignsList[0]?.name || char.versionCampaign?.name || '';
@@ -946,7 +955,7 @@ const HeroChoicesFold = ({ char, lang, update }) => {
   return (
     <details className={`fh-hero-fold no-print${pending ? ' is-pending' : ''}`} open={pending}>
       <summary>
-        <span className="fh-hero-fold-v">{label}{pending && <span className="fh-hero-fold-dot" aria-label={pt ? 'pendente' : 'pending'} />}</span>
+        <span className="fh-hero-fold-v"><Balanced text={label} />{pending && <span className="fh-hero-fold-dot" aria-label={pt ? 'pendente' : 'pending'} />}</span>
       </summary>
       {hasBody && <div className="fh-hero-fold-body">
         <SubclassBanner char={char} lang={lang} update={update} />
