@@ -232,6 +232,16 @@ const AvatarUpload = ({
 }) => {
   const fileRef = useRef(null);
   const [viewing, setViewing] = useState(false);
+  // Fotos enviadas antes da v1.0.115 foram salvas recortadas em quadrado; o original não existe mais.
+  const [square, setSquare] = useState(false);
+  useEffect(() => {
+    if (!value || !viewing) return undefined;
+    let live = true;
+    const im = new Image();
+    im.onload = () => { if (live) setSquare(im.naturalWidth > 0 && im.naturalWidth === im.naturalHeight); };
+    im.src = value;
+    return () => { live = false; };
+  }, [value, viewing]);
   const pt = lang === 'pt';
   const posX = typeof position?.x === 'number' ? position.x : 50;
   const posY = typeof position?.y === 'number' ? position.y : 22;
@@ -279,6 +289,13 @@ const AvatarUpload = ({
               {pt ? 'Enquadrar o retrato' : 'Frame the portrait'}
             </h3>
             <p className="avatar-frame-hint">{pt ? 'Arraste a imagem dentro da moldura (mouse ou dedo). É exatamente o que aparece na ficha.' : 'Drag the image inside the frame (mouse or finger). This is exactly what the sheet shows.'}</p>
+            {square && (
+              <p className="avatar-frame-warn" role="status">
+                {pt
+                  ? 'Esta foto foi salva cortada em quadrado por uma versão antiga, e as bordas originais não estão mais guardadas. Use "Alterar foto" e envie a imagem de novo para ter ela inteira.'
+                  : 'An older version saved this photo cut to a square, so its original edges are gone. Use "Change photo" and upload the image again to get all of it.'}
+              </p>
+            )}
             <FrameDrag src={value} pos={fpos} onPos={setPos}
               aspect={bannerAspect} className="is-banner" label={pt ? 'Enquadramento do banner' : 'Banner framing'} />
             <div className="avatar-frame-row">
