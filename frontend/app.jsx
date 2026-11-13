@@ -392,7 +392,15 @@ const App = () => {
     const my = ++saveSeq.current;
     const job = saveChain.current.then(() => storage.save(withAutos));
     saveChain.current = job.catch(() => {});
-    await job;
+    try {
+      await job;
+    } catch (e) {
+      // Sem isso a tela fica com a mudança otimista (ex.: foto nova) até a próxima recarga,
+      // que traz de volta o que o servidor guardou, sem aviso nenhum.
+      if (!showPlanLimit(e)) setToast(errorMessage(e, lang));
+      await refreshCharacters().catch(() => {});
+      throw e;
+    }
     if (my === saveSeq.current) await refreshCharacters();
   };
 
