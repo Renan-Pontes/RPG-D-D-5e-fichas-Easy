@@ -6821,3 +6821,10 @@
   position: absolute; right: -4px; bottom: -4px; width: 14px; height: 14px; border-radius: 50%;
   background: #f5ead2; border: 1px solid #1a120a; font-size: 9px; line-height: 12px; text-align: center; color: #1a120a;
 }
+
+/* v1.0.123 — trapaça, editar e exportar no canto de baixo à direita do painel */
+.ficha .fh-hero .fh-hero-tools { top: auto; bottom: 12px; right: 14px; }
+@media (max-width: 719px) {
+  .ficha .fh-hero .fh-hero-tools { bottom: 10px; right: 12px; }
+  .ficha .fh-hero .fh-hero-rows { padding-bottom: 44px; }
+}

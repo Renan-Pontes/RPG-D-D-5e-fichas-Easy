@@ -960,13 +960,13 @@ const HeroChoicesFold = ({ char, lang, update, onLevelUp }) => {
             const cname = tName('class', e.id, lang);
             return (
               <span key={e.id} className="fh-hero-classchip">
-                <button type="button" className={`fh-hero-classlv${can ? ' can' : ''}`} disabled={!can}
+                {entries.length > 1 && <button type="button" className={`fh-hero-classlv${can ? ' can' : ''}`} disabled={!can}
                   onClick={stop(() => onLevelUp(e.id))}
                   title={can ? (pt ? `Subir um nível de ${cname}` : `Level up ${cname}`) : (pt ? 'Ainda não dá para subir' : 'Cannot level up yet')}
                   aria-label={pt ? `${cname} nível ${e.level}${can ? ', subir' : ''}` : `${cname} level ${e.level}${can ? ', level up' : ''}`}>
                   <span className="fh-hero-classlv-n">{e.level}</span>
                   {can && <span className="fh-hero-classlv-up" aria-hidden="true">↑</span>}
-                </button>
+                </button>}
                 <span className="fh-hero-classchip-name">{cname}{r?.name ? <span className="fh-hero-classchip-sub"> ({r.name})</span> : null}</span>
               </span>
             );
