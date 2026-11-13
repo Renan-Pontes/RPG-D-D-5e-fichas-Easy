@@ -6828,3 +6828,35 @@
   .ficha .fh-hero .fh-hero-tools { bottom: 10px; right: 12px; }
   .ficha .fh-hero .fh-hero-rows { padding-bottom: 44px; }
 }
+
+/* v1.0.124 — selos coerentes: campanha, nível e linha do nome com o mesmo selo de 48px,
+   ícone orbitando embaixo à direita, e os três centros na mesma vertical
+   (borda 1px + respiro 6px das faixas = recuo de 7px na linha do nome). */
+.ficha .fh-hero-campbar-head { border-radius: 6px !important; padding: 6px 12px 6px 6px !important; gap: 12px; min-height: 62px; }
+.ficha .fh-hero-campbar-head > .fh-hero-campseal,
+.ficha .fh-hero-classfold > summary > .fh-seal {
+  position: relative !important; flex: none !important; width: 48px !important; height: 48px !important;
+  min-width: 48px; margin: 0 !important; top: auto !important; right: auto !important; justify-self: auto !important;
+  display: grid; place-items: center;
+}
+.ficha .fh-hero-campseal .fh-seal-ring,
+.ficha .fh-hero-classfold > summary > .fh-seal .fh-seal-ring { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+.ficha .fh-hero-campseal .fh-seal-core,
+.ficha .fh-hero-classfold > summary > .fh-seal .fh-seal-core { width: 38px !important; height: 38px !important; }
+.ficha .fh-hero-campseal .fh-seal-core { display: grid; place-items: center; font-size: 18px; letter-spacing: 0; }
+.ficha .fh-hero-campseal .hero-level-up,
+.ficha .fh-hero-classfold > summary > .fh-seal .hero-level-up,
+.ficha .fh-hero-classlv-up {
+  position: absolute !important; top: auto !important; left: auto !important; right: -3px !important; bottom: -3px !important;
+  width: 18px !important; height: 18px !important; border-radius: 50% !important; display: grid !important; place-items: center !important;
+  font-size: 10px !important; line-height: 1 !important; z-index: 2; letter-spacing: 0;
+  border: 2px solid #140e0b !important; box-shadow: 0 0 6px rgba(237, 203, 122, .45) !important;
+}
+.ficha .fh-hero-campseal-orbit { background: #140e0b !important; color: var(--gold-bright, #edcb7a) !important; border-color: var(--gold-deep, #9a7231) !important; font-weight: 700; }
+.ficha .fh-hero-classlv-up { width: 14px !important; height: 14px !important; font-size: 8px !important; right: -4px !important; bottom: -4px !important; }
+.ficha .fh-hero-name-seals { padding-left: 7px !important; }
+.ficha .fh-hero-classfold > summary { gap: 12px; }
+@media (max-width: 719px) { .ficha .fh-hero-campbar-head { border-radius: 6px !important; } }
+.ficha .fh-hero-classfold > summary > .fh-seal .hero-level-label { font-size: 6.5px !important; letter-spacing: .08em !important; line-height: 1 !important; margin: 0 0 1px !important; }
+.ficha .fh-hero-classfold > summary > .fh-seal .hero-level-num { font-size: 17px !important; line-height: 1 !important; }
+.ficha .fh-hero-classfold > summary > .fh-seal .fh-seal-core { display: flex !important; flex-direction: column; align-items: center; justify-content: center; }

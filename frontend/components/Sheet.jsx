@@ -339,10 +339,18 @@ const HeroCampaignBar = ({ copies, lang, open, setOpen, char, campaignsList = []
   return (
     <div className={`fh-hero-campbar no-print${open ? ' is-open' : ''}${current ? '' : ' is-solo'}`}>
       <button type="button" className="fh-hero-campbar-head" aria-expanded={open} onClick={() => setOpen?.(v => !v)}>
-        <span aria-hidden="true">{current ? '🏰' : '📜'}</span>
+        {/* Selo da campanha: mesmo desenho dos outros selos (anel tracejado, núcleo dourado,
+            ícone orbitando no canto de baixo à direita), na mesma coluna do selo de nível. */}
+        <span className="fh-seal fh-hero-campseal" aria-hidden="true">
+          <svg className="fh-seal-ring" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="30" fill="none" stroke="#e0b55e" strokeWidth="1.2" strokeDasharray="2 4"/>
+            <circle cx="32" cy="32" r="27" fill="none" stroke="#9a7231" strokeWidth="0.8"/>
+          </svg>
+          <span className="fh-seal-core">{current ? '🏰' : '📜'}</span>
+          <span className="hero-level-up fh-hero-campseal-orbit">{list.length > 1 ? list.length : (open ? '▴' : '▾')}</span>
+        </span>
         <span className="fh-hero-campbar-name">{label}</span>
-        {list.length > 1 && <span className="fh-hero-campbar-n">{list.length}</span>}
-        <span className="fh-hero-campbar-caret" aria-hidden="true">{open ? '▴' : '▾'}</span>
+        {list.length > 1 && <span className="fh-hero-campbar-caret" aria-hidden="true">{open ? '▴' : '▾'}</span>}
       </button>
       {open && (
         <ul className="fh-hero-copies" role="list">
