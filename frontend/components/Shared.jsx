@@ -235,18 +235,19 @@ const AvatarUpload = ({
   // Fotos enviadas antes da v1.0.115 foram salvas recortadas em quadrado; o original não existe mais.
   const [square, setSquare] = useState(false);
   useEffect(() => {
-    if (!value || !viewing) return undefined;
+    // Envio novo (marcado full) guarda a imagem inteira: um quadrado ali é o formato do próprio arquivo.
+    if (!value || !viewing || position?.full) { setSquare(false); return undefined; }
     let live = true;
     const im = new Image();
     im.onload = () => { if (live) setSquare(im.naturalWidth > 0 && im.naturalWidth === im.naturalHeight); };
     im.src = value;
     return () => { live = false; };
-  }, [value, viewing]);
+  }, [value, viewing, position?.full]);
   const pt = lang === 'pt';
   const posX = typeof position?.x === 'number' ? position.x : 50;
   const posY = typeof position?.y === 'number' ? position.y : 22;
   const zoom = avatarZoom(position);
-  const fpos = { x: posX, y: posY, ...(zoom < 1 ? { z: zoom } : {}) };
+  const fpos = { x: posX, y: posY, ...(zoom < 1 ? { z: zoom } : {}), ...(position?.full ? { full: true } : {}) };
   const setPos = (p) => { if (!onPositionChange) return; const { z, ...rest } = p; onPositionChange(z != null && z < 1 ? { ...rest, z } : rest); };
 
   const pick = () => fileRef.current && fileRef.current.click();
@@ -256,7 +257,7 @@ const AvatarUpload = ({
     if (!f) return;
     try {
       onChange(await compressAvatar(f));
-      if (onPositionChange) onPositionChange({ x: 50, y: 22 });
+      if (onPositionChange) onPositionChange({ x: 50, y: 22, full: true });
       setViewing(true);
     } catch { /* arquivo não é imagem legível — ignora */ }
   };
@@ -309,7 +310,7 @@ const AvatarUpload = ({
                     aria-label={pt ? 'Zoom da foto' : 'Photo zoom'}
                     onChange={(e) => setPos({ ...fpos, z: Number(e.target.value) })} />
                 </label>
-                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPos({ x: 50, y: 22 })}>↺ {pt ? 'Centralizar' : 'Recenter'}</button>
+                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPos({ x: 50, y: 22, ...(fpos.full ? { full: true } : {}) })}>↺ {pt ? 'Centralizar' : 'Recenter'}</button>
               </div>
             </div>
 
