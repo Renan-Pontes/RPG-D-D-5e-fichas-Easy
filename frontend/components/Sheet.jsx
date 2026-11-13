@@ -4,7 +4,6 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef, useContext, lazy
 import { RespecContext } from '../src/progression/respec.js';
 import { createPortal } from 'react-dom';
 import SRD from '../data/srd.js';
-import { balanceSplit } from '../src/sheet/balance-text.js';
 import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
 import { subclassLock, guardSealedPatch, sealHint } from '../src/progression/subclass-lock.js';
@@ -82,20 +81,24 @@ export const SHEET_TABS = [
 
 // Mesmo fluxo do painel de Progressão: fora de campanha abre a subida guiada;
 // em campanha pede liberação ao mestre.
-const LevelUpButton = ({ char, lang, onLevelUp }) => {
+const XP_THRESHOLDS = [0,300,900,2700,6500,14000,23000,34000,48000,64000,85000,100000,120000,140000,165000,195000,225000,265000,305000,355000];
+export const canLevelUp = (char) => {
   const mode = Utils.levelingMode(char);
-  const XP_THRESHOLDS = [0,300,900,2700,6500,14000,23000,34000,48000,64000,85000,100000,120000,140000,165000,195000,225000,265000,305000,355000];
   const canLevelXp = mode === 'xp' && char.level < 20 && (char.xp || 0) >= (XP_THRESHOLDS[char.level] || Infinity);
-  const canLevel = char.level < 20 && (mode === 'milestone' || canLevelXp || char.cheatMode);
+  return char.level < 20 && (mode === 'milestone' || canLevelXp || char.cheatMode);
+};
+const stop = (fn) => (e) => { e.preventDefault(); e.stopPropagation(); fn(); };
+const LevelUpButton = ({ char, lang, onLevelUp }) => {
+  const canLevel = canLevelUp(char);
 
   // Selo de nível: anel tracejado + núcleo dourado. Com `can`, o anel gira devagar
   // (nunca com movimento reduzido) e o selinho ↑ continua no canto.
   return (
     <button
       className={`hero-level fh-seal no-print ${canLevel ? 'can' : ''}`}
-      onClick={() => onLevelUp && onLevelUp()}
+      onClick={stop(() => onLevelUp && onLevelUp())}
       disabled={!canLevel || !onLevelUp}
-      title={canLevel ? (lang === 'pt' ? 'Subir de nível' : 'Level up') : (lang === 'pt' ? 'XP insuficiente' : 'Not enough XP')}
+      title={canLevel ? (lang === 'pt' ? 'Subir de nível (escolher a classe, inclusive uma nova)' : 'Level up (pick the class, including a new one)') : (lang === 'pt' ? 'XP insuficiente' : 'Not enough XP')}
     >
       <svg className="fh-seal-ring" viewBox="0 0 64 64" aria-hidden="true">
         <circle cx="32" cy="32" r="30" fill="none" stroke="#e0b55e" strokeWidth="1.2" strokeDasharray="2 4"/>
@@ -261,6 +264,10 @@ const SheetHero = ({
             )}
             {preview && versionChip}
 
+            {/* Classes + nível numa faixa só: selo do nível total (sobe escolhendo qualquer
+                classe, inclusive nova) e um selinho por classe (sobe direto nela). */}
+            <HeroChoicesFold char={char} lang={lang} update={update} onLevelUp={onLevelUp} />
+
             {/* Linha do nome: retrato, nível e inspiração (mudam de campanha para campanha) */}
             <div className="fh-hero-name-row">
               <div className="fh-hero-top-left-cluster fh-hero-name-seals no-print">
@@ -276,7 +283,6 @@ const SheetHero = ({
                   />
                   <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={10}/></span>
                 </div>
-                <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
                 <InspirationSealButton inspired={!!char.inspiration} onToggle={onInspiration} lang={lang} />
                 <span className="fh-hero-rest-seals" data-version-hide="">
                   <RestButtons char={char} lang={lang} update={update} seals />
@@ -315,7 +321,6 @@ const SheetHero = ({
 
 
         </div>
-        {update && <HeroChoicesFold char={char} lang={lang} update={update} />}
       </div>
     </>
   );
@@ -325,14 +330,6 @@ const SheetHero = ({
 // Barra única da campanha + lista das cópias da ficha (original + uma por campanha), uma
 // linha cada. A cópia aberta mostra, também em uma linha por campanha, o modo da mesa,
 // quem vê as rolagens e "Sair"; as outras cópias trocam a ficha inteira ao tocar.
-// Texto longo em duas metades parecidas (src/sheet/balance-text.js): cada metade só quebra
-// por dentro se ainda não couber.
-const Balanced = ({ text }) => {
-  const parts = balanceSplit(text);
-  if (parts.length < 2) return text;
-  return <><span className="fh-bal">{parts[0]}</span>{' '}<span className="fh-bal">{parts[1]}</span></>;
-};
-
 const HeroCampaignBar = ({ copies, lang, open, setOpen, char, campaignsList = [], onOpen, onLeave, busyLeaveId, onManage, onLogin, onDeleteCopy }) => {
   const pt = lang === 'pt';
   const current = campaignsList[0]?.name || char.versionCampaign?.name || '';
@@ -930,7 +927,7 @@ const SUBCLASS_LABEL = {
 
 // Escolhas de subclasse (e de espécie pendentes) dobradas no pé do painel do personagem:
 // o resumo diz o que já foi escolhido; abre sozinho quando falta escolher algo.
-const HeroChoicesFold = ({ char, lang, update }) => {
+const HeroChoicesFold = ({ char, lang, update, onLevelUp }) => {
   const pt = lang === 'pt';
   const entries = (() => { try { return Utils.classEntries(char); } catch { return []; } })();
   const rows = entries.map(e => {
@@ -951,11 +948,31 @@ const HeroChoicesFold = ({ char, lang, update }) => {
     const sub = r?.name || null;
     return `${tName('class', e.id, lang)} ${e.level}${sub ? ` (${sub})` : ''}`;
   }).join(' · ');
-  const hasBody = rows.length > 0 || speciesPending > 0;
+  const hasBody = !!update && (rows.length > 0 || speciesPending > 0);
+  const can = !!onLevelUp && canLevelUp(char);
   return (
-    <details className={`fh-hero-fold no-print${pending ? ' is-pending' : ''}`} open={pending}>
-      <summary>
-        <span className="fh-hero-fold-v"><Balanced text={label} />{pending && <span className="fh-hero-fold-dot" aria-label={pt ? 'pendente' : 'pending'} />}</span>
+    <details className={`fh-hero-fold fh-hero-classfold no-print${pending ? ' is-pending' : ''}${hasBody ? '' : ' is-flat'}`} open={pending && hasBody} aria-label={label}>
+      <summary onClick={hasBody ? undefined : (e) => e.preventDefault()}>
+        <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
+        <span className="fh-hero-classchips">
+          {entries.map(e => {
+            const r = rows.find(x => x.e === e);
+            const cname = tName('class', e.id, lang);
+            return (
+              <span key={e.id} className="fh-hero-classchip">
+                <button type="button" className={`fh-hero-classlv${can ? ' can' : ''}`} disabled={!can}
+                  onClick={stop(() => onLevelUp(e.id))}
+                  title={can ? (pt ? `Subir um nível de ${cname}` : `Level up ${cname}`) : (pt ? 'Ainda não dá para subir' : 'Cannot level up yet')}
+                  aria-label={pt ? `${cname} nível ${e.level}${can ? ', subir' : ''}` : `${cname} level ${e.level}${can ? ', level up' : ''}`}>
+                  <span className="fh-hero-classlv-n">{e.level}</span>
+                  {can && <span className="fh-hero-classlv-up" aria-hidden="true">↑</span>}
+                </button>
+                <span className="fh-hero-classchip-name">{cname}{r?.name ? <span className="fh-hero-classchip-sub"> ({r.name})</span> : null}</span>
+              </span>
+            );
+          })}
+        </span>
+        {pending && <span className="fh-hero-fold-dot" aria-label={pt ? 'pendente' : 'pending'} />}
       </summary>
       {hasBody && <div className="fh-hero-fold-body">
         <SubclassBanner char={char} lang={lang} update={update} />

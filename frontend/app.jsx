@@ -693,15 +693,16 @@ const App = () => {
     setToast(lang === 'pt' ? 'Escolhas registradas ✨' : 'Choices saved ✨');
   };
 
-  const handleLevelUpRequest = async () => {
+  const handleLevelUpRequest = async (classId = null) => {
     if (!active) return;
+    if (typeof classId !== 'string') classId = null;
 
     // Já liberado pelo mestre: vai direto pra subida guiada.
-    if (unlockedLevelup) { setLevelUpFlow({ mode: 'consume' }); return; }
+    if (unlockedLevelup) { setLevelUpFlow({ mode: 'consume', classId }); return; }
 
     // Fora de campanha (ou sem login) — sobe direto, com escolhas.
     if (!auth.user || !active.inCampaign) {
-      setLevelUpFlow({ mode: 'local' });
+      setLevelUpFlow({ mode: 'local', classId });
       return;
     }
 
@@ -716,7 +717,7 @@ const App = () => {
 
     // Sem campanha — sobe com escolhas (storage remoto se logado).
     if (camps.length === 0) {
-      setLevelUpFlow({ mode: 'local' });
+      setLevelUpFlow({ mode: 'local', classId });
       return;
     }
 
@@ -726,7 +727,7 @@ const App = () => {
       await api.createApproval(targetCamp.id, {
         characterId: active.id,
         type: 'levelup',
-        payload: { toLevel: (active.level || 1) + 1 },
+        payload: { toLevel: (active.level || 1) + 1, ...(classId ? { classId } : {}) },
         note: lang === 'pt' ? `Solicitação automática de subida de nível.` : `Automated level-up request.`,
       });
       setToast(lang === 'pt'
@@ -971,6 +972,7 @@ const App = () => {
               lang={lang}
               onlyChoiceLevel={levelUpFlow.mode === 'choice' || levelUpFlow.mode === 'changeLevel' ? levelUpFlow.level : null}
               allowMulticlass={levelUpFlow.mode === 'consume' ? unlockedLevelup?.allowMulticlass !== false : true}
+              initialClass={levelUpFlow.classId || null}
               onConfirm={handleLevelUpConfirm}
               onClose={() => setLevelUpFlow(null)}
             />

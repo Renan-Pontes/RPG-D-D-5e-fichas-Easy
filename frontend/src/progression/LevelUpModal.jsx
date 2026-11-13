@@ -130,12 +130,12 @@ const ClassStep = ({ char, lang, classId, setClassId, allowMulticlass, cheat }) 
   );
 };
 
-export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoiceLevel = null, allowMulticlass = true }) {
+export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoiceLevel = null, allowMulticlass = true, initialClass = null }) {
   const cheat = !!char.cheatMode;
   const choiceOnly = onlyChoiceLevel != null;
   const newLevel = choiceOnly ? onlyChoiceLevel : (char.level || 1) + 1;
   // Padrão: a classe do último nível ganho (continua o caminho atual).
-  const [classId, setClassId] = useState(() => Utils.classSequence(char).at(-1) || char.className);
+  const [classId, setClassId] = useState(() => (initialClass && Utils.classEntries(char).some(e => e.id === initialClass) ? initialClass : null) || Utils.classSequence(char).at(-1) || char.className);
   const isNewClass = !Utils.classEntries(char).some(e => e.id === classId);
   const after = choiceOnly ? char : { ...withClassLevel(char, classId), level: newLevel };
   const kind = levelChoiceKind(after, newLevel);
@@ -209,7 +209,8 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
   if (hasOptionStep) steps.push('options');
   if (isCaster && (cheat || cantripRoom + spellRoom + bookRoom > 0)) steps.push('spells');
   if (!choiceOnly) steps.push('review');
-  const [step, setStep] = useState(0);
+  // Veio do selinho de uma classe: já começa depois da escolha da classe ("Voltar" reabre).
+  const [step, setStep] = useState(() => (showClassStep && initialClass && initialClass === classId ? 1 : 0));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 

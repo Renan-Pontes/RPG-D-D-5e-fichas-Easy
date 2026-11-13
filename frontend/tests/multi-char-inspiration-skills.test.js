@@ -67,16 +67,18 @@ test('Inspiração no topo: selo circular 48px, sem rótulo de texto, alinhado e
   // Sem rótulo de texto como "INSPIRATION" dentro ou abaixo
   assert.ok(!sheetSrc.includes('<span className="fh-insp-label">'));
 
-  // Barra da campanha em cima do nome; linha do nome: Retrato -> Nível -> Inspiração -> Nome
-  // (tudo o que muda de campanha para campanha fica junto do nome).
+  // Barra da campanha em cima; logo abaixo a faixa de classes com o selo de nível;
+  // linha do nome: Retrato -> Inspiração -> Nome.
   const barIdx = sheetSrc.indexOf('<HeroCampaignBar');
   const rowIdx = sheetSrc.indexOf('fh-hero-name-row', barIdx);
   const nameIdx = sheetSrc.indexOf('className={char.name ?', rowIdx);
   const row = sheetSrc.slice(rowIdx, nameIdx);
   assert.ok(barIdx > 0 && rowIdx > barIdx);
   assert.ok(row.indexOf('fh-hero-portrait-medal') > 0);
-  assert.ok(row.indexOf('LevelUpButton') > row.indexOf('fh-hero-portrait-medal'));
-  assert.ok(row.indexOf('InspirationSealButton') > row.indexOf('LevelUpButton'));
+  const foldIdx = sheetSrc.indexOf('<HeroChoicesFold', barIdx);
+  assert.ok(foldIdx > barIdx && foldIdx < rowIdx);
+  assert.ok(!row.includes('LevelUpButton'));
+  assert.ok(row.indexOf('InspirationSealButton') > row.indexOf('fh-hero-portrait-medal'));
 
   // CSS: escala 48px e pip no quadrilátero tangente
   assert.match(css, /\.ficha \.fh-seal\.hero-insp/);

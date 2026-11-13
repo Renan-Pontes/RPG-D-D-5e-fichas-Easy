@@ -6798,3 +6798,26 @@
   .ficha .fh-hero-campbar-name { display: block; -webkit-line-clamp: unset; }
   .ficha .fh-bal { display: inline-block; max-width: 100%; white-space: normal; text-wrap: balance; }
 }
+
+/* v1.0.122 — faixa de classes sob a campanha: selo do nível total + selinho por classe */
+.ficha .fh-hero-fold.fh-hero-classfold { margin: 0; width: 100%; box-sizing: border-box; }
+.ficha .fh-hero-classfold > summary { gap: 12px; padding: 6px 12px 6px 6px; align-items: center; flex-wrap: nowrap; }
+.ficha .fh-hero-classfold.is-flat > summary { cursor: default; }
+.ficha .fh-hero-classfold.is-flat > summary::after { display: none; }
+.ficha .fh-hero-classfold > summary > .hero-level { flex: none; }
+.ficha .fh-hero-classchips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; min-width: 0; flex: 1 1 auto; }
+.ficha .fh-hero-classchip { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+.ficha .fh-hero-classchip-name { font-family: var(--display, inherit); color: var(--gold-bright, #edcb7a); line-height: 1.2; text-wrap: balance; }
+.ficha .fh-hero-classchip-sub { color: var(--ink-secondary, #cbb991); }
+.ficha .fh-hero-classlv {
+  position: relative; flex: none; width: 30px; height: 30px; padding: 0; border-radius: 50%;
+  border: 1px dashed #e0b55e; background: radial-gradient(circle at 35% 30%, #f5d78e, #b8862f 70%, #7a5520);
+  color: #1a120a; font: 700 .9rem/1 var(--display, inherit); display: grid; place-items: center; cursor: default;
+}
+.ficha .fh-hero-classlv.can { cursor: pointer; box-shadow: 0 0 0 2px rgba(224,181,94,.25); }
+.ficha .fh-hero-classlv.can:hover, .ficha .fh-hero-classlv.can:focus-visible { box-shadow: 0 0 0 3px rgba(245,215,142,.55); outline: none; }
+.ficha .fh-hero-classlv:disabled { opacity: .8; }
+.ficha .fh-hero-classlv-up {
+  position: absolute; right: -4px; bottom: -4px; width: 14px; height: 14px; border-radius: 50%;
+  background: #f5ead2; border: 1px solid #1a120a; font-size: 9px; line-height: 12px; text-align: center; color: #1a120a;
+}
