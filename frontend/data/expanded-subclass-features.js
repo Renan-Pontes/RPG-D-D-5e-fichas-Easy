@@ -5,6 +5,8 @@
  *
  * Formato: classe → subclasse → [[nível, nomeEN, nomePT, resumoEN, resumoPT], …]
  */
+import { CLASS_OPTIONS } from './class-options/index.js';
+
 const F = {
   barbarian: {
     battlerager: [
@@ -536,4 +538,29 @@ export const EXPANDED_SUBCLASS_FEATURES = Object.fromEntries(Object.entries(F).m
     level, name: { pt, en }, desc: { pt: dPt, en: dEn },
   }))])),
 ]));
+
+// Playtests (UA) e o Cartógrafo só existem no formato 2024 (data/class-options): a ficha 2014
+// reaproveita esses mesmos traços, trazendo o nível de entrada da subclasse para o da classe
+// em 2014 (druida no 2, clérigo e feiticeiro no 1); os níveis seguintes já coincidem.
+const FROM_2024 = [
+  ['druid', 'titan', { 3: 2 }],
+  ['cleric', 'pestilence', { 3: 1 }],
+  ['sorcerer', 'demonic', { 3: 1 }],
+  ['fighter', 'hellknight', {}],
+  ['artificer', 'cartographer', {}],
+];
+for (const [cls, sub, remap] of FROM_2024) {
+  const levels = CLASS_OPTIONS[cls]?.subclasses?.[sub]?.levels || {};
+  const rows = [];
+  for (const [lv, node] of Object.entries(levels)) {
+    for (const f of node?.features || []) {
+      if (!f?.name) continue;
+      // Clérigo 2014: a dádiva de Canalizar Divindade chega no 2, não no 1.
+      const level = cls === 'cleric' && /Blessing/.test(f.name.en || '') ? 2 : (remap[lv] ?? +lv);
+      rows.push({ level, name: { pt: f.name.pt || f.name.en, en: f.name.en || f.name.pt },
+        desc: { pt: f.desc?.pt || f.desc?.en || '', en: f.desc?.en || f.desc?.pt || '' } });
+    }
+  }
+  if (rows.length) ((EXPANDED_SUBCLASS_FEATURES[cls] ||= {})[sub] = rows.sort((a, b) => a.level - b.level));
+}
 export default EXPANDED_SUBCLASS_FEATURES;
