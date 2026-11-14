@@ -1,3 +1,4 @@
+import { EXPANDED_SUBCLASS_FEATURES } from './expanded-subclass-features.js';
 // 2014-compatible options. Short original descriptions, not book text.
 // Supplemental options identify their source and require table adjudication.
 const bilingual = (pt, en) => ({ pt, en });
@@ -204,5 +205,6 @@ const subclasses = {
 
 export const EXTRA_SUBCLASSES = Object.fromEntries(Object.entries(subclasses).map(([classId, rows]) => [classId,
   rows.map(([id, pt, en, source, descPt, descEn]) => ({ id, name: bilingual(pt, en), source,
-    desc: bilingual(descPt, descEn), features: [], manualFeatures: true })),
+    desc: bilingual(descPt, descEn), features: EXPANDED_SUBCLASS_FEATURES[classId]?.[id] || [],
+    manualFeatures: !EXPANDED_SUBCLASS_FEATURES[classId]?.[id] })),
 ]));

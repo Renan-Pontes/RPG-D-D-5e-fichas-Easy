@@ -40,6 +40,7 @@ import { computeResources } from '../progression/resources.js';
 import { findOption, optionPool } from '../progression/options.js';
 import { pickLabel } from '../progression/options-catalog.js';
 import { CLASS_OPTIONS } from '../../data/class-options/index.js';
+import { EXPANDED_SUBCLASS_FEATURES } from '../../data/expanded-subclass-features.js';
 import { t, tName } from '../../data/i18n.js';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
@@ -743,6 +744,33 @@ for (const [place, byClass] of Object.entries(PLACE_IDS)) {
 }
 const ANCHOR_OF = new Map();
 for (const [target, list] of Object.entries(ANCHOR_IDS)) for (const id of words(list)) ANCHOR_OF.set(id, target.split('|'));
+// Subclasses 2014 fora do SRD (data/expanded-subclass-features.js): o id é gerado em
+// rules.js (`sub_nível_i`). O lugar sai do nome; traço de recurso fica sob a linha do
+// recurso da classe que ele gasta, e sem recurso conhecido vai para "outros traços".
+const EXPANDED_ANCHORS = [
+  [/Channel Divinity/i, ['channelDivinity']], [/\bRag(e|ing)\b/i, ['rage']], [/\bki\b|Flurry/i, ['ki']],
+  [/Wild Shape|Titanic Form/i, ['wildShape']], [/Inspiration|Flourish|Psychic Blades|Mote|Tales/i, ['bardicInspiration']],
+  [/sorcery points|Revelation|Psionic Sorcery/i, ['sorceryPoints']],
+];
+for (const [classId, subs] of Object.entries(EXPANDED_SUBCLASS_FEATURES)) {
+  for (const [sub, rows] of Object.entries(subs)) {
+    const perLevel = new Map();
+    for (const f of rows) {
+      const i = perLevel.get(f.level) || 0;
+      perLevel.set(f.level, i + 1);
+      const id = `${sub}_${f.level}_${i}`;
+      // Mesmo id já usado pela versão 2024 da subclasse: o lugar 2014 vai por contexto.
+      const shared = PLACE_OF.has(id);
+      let place = placeByKeywords(f.name.en);
+      if (place === 'resources' && !/Bolstering Magic/.test(f.name.en)) {
+        const hit = EXPANDED_ANCHORS.find(([re]) => re.test(`${f.name.en} ${f.desc.en}`));
+        if (hit) (shared ? (CONTEXT_ANCHORS[`${classId}:${id}`] ||= hit[1]) : ANCHOR_OF.set(id, hit[1])); else place = 'other';
+      } else if (place === 'resources') place = 'other';
+      if (shared) CONTEXT_PLACES[`2014:${id}`] ||= place;
+      else PLACE_OF.set(id, place);
+    }
+  }
+}
 
 /** Ids com lugar definido no mapa (o teste confere que cobrem todos os traços). */
 export const knownFeatureIds = () => new Set(PLACE_OF.keys());
