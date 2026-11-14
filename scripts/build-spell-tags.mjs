@@ -24,6 +24,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import SRD from '../frontend/data/srd.js';
 import { SPELLS_2024 } from '../frontend/data/rules2024.js';
+// A ficha carrega só o resumo das magias 2024; as etiquetas leem o texto integral.
+const FULL_2024 = Object.fromEntries(JSON.parse(readFileSync(new URL('../frontend/data/srd2024-spells.json', import.meta.url), 'utf8')).map(s => [s.id, s.desc?.en || '']));
 import { localizeLegacySpells } from '../frontend/data/spells-extra.js';
 
 // O catálogo 2014 como o app o usa (resumos 2014 nas cópias de magias 2024): a ficha
@@ -102,7 +104,7 @@ const FIX = {
   banishingSmite: { rider: 1, dmg: ['force'] }, shiningSmite: { rider: 1, dmg: ['radiant'] }, trueStrike: { rider: 1, dmg: ['radiant'] },
   shillelagh: { rider: 1 }, crusadersMantle: { rider: 1 }, flameArrows: { rider: 1 }, holyWeapon: { rider: 1 },
   fountOfMoonlight: { rider: 1 }, armorOfAgathys: { rider: 1 }, divineFavor: { rider: 1 },
-  boomingBlade: { rider: 1, dmg: ['thunder'], avg: null, area: null, reach: null }, greenFlameBlade: { rider: 1, dmg: ['fire'], avg: null, area: null, reach: null },
+  boomingBlade: { rider: 1, dmg: ['thunder'] }, greenFlameBlade: { rider: 1, dmg: ['fire'] },
   // Mísseis Mágicos: 3 dardos que sempre acertam
   magicMissile: { avg: 10.5, atk: null, save: null, auto: 1 },
 };
@@ -123,7 +125,7 @@ const r1 = (v) => Math.round(v * 10) / 10;
 
 /** Primeira leitura do texto (a mesma do protótipo do Raio-X). */
 function read(sp) {
-  const en = String(sp?.desc?.en || '').replace(/\s+/g, ' ');
+  const en = String((SPELLS_2024.includes(sp) && FULL_2024[sp.id]) || sp?.desc?.en || '').replace(/\s+/g, ' ');
   const types = new Set();
   for (const m of en.matchAll(RE_DMG_TYPE)) types.add(m[1].toLowerCase());
   const dmgHit = RE_DMG.exec(en);
@@ -203,7 +205,7 @@ export function buildSpellTags() {
 }
 
 const output = new URL('../frontend/data/spell-tags.json', import.meta.url);
-if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split(/[/\\]/).pop())) {
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop())) {
   const text = JSON.stringify(buildSpellTags()) + '\n';
   if (process.argv.includes('--check')) {
     if (readFileSync(output, 'utf8') !== text) throw new Error('Run node scripts/build-spell-tags.mjs to update spell-tags.json.');

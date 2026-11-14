@@ -2285,7 +2285,30 @@ const beltHoldToRoll = (fn) => {
       timer = setTimeout(() => { el?.classList.add('is-charging-roll'); if (navigator.vibrate) navigator.vibrate(12); }, BELT_HOLD_MS);
     },
     onPointerMove: (e) => { if (t0 && Math.hypot(e.clientX - x0, e.clientY - y0) > 12) { moved = true; clear(); } },
-    onPointerUp: () => { const held = t0 && !moved && Date.now() - t0 >= BELT_HOLD_MS; t0 = 0; clear(); fired = !!held; if (held) fn(); },
+    onPointerUp: () => {
+      const tapped = t0 && !moved;
+      const held = tapped && Date.now() - t0 >= BELT_HOLD_MS; t0 = 0; clear(); fired = !!held;
+      if (held) { fn(); return; }
+      // Toque curto: a metade "pulsa" (sinal de que o toque chegou) e, nas 3 primeiras
+      // vezes neste aparelho, mostra "segure" por um instante. Depois só o pulso.
+      if (tapped && el) {
+        const node = el;
+        let seen = 0;
+        try { seen = +localStorage.getItem('fh.holdHint') || 0; } catch { /* sem storage */ }
+        // a etiqueta fica no conjunto das duas metades (centro do hexágono), não na metade
+        const box = node.parentElement;
+        node.classList.remove('is-tap-pulse');
+        void node.offsetWidth; // reinicia a animação
+        node.classList.add('is-tap-pulse');
+        if (seen < 3 && box) {
+          box.dataset.hint = node.dataset.hint || 'hold';
+          box.classList.remove('is-hold-hint'); void box.offsetWidth; box.classList.add('is-hold-hint');
+          try { localStorage.setItem('fh.holdHint', String(seen + 1)); } catch { /* idem */ }
+          setTimeout(() => box.classList.remove('is-hold-hint'), 1100);
+        }
+        setTimeout(() => node.classList.remove('is-tap-pulse'), 600);
+      }
+    },
     onPointerCancel: () => { t0 = 0; clear(); },
     // No toque, o "click" sintético vem depois do pointerup e cai na tela de rolagem que
     // acabou de abrir, fechando-a na hora. Cancelar o touchend da rolagem evita esse clique.
@@ -2575,6 +2598,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
               key={i}
               type="button"
               className={`fh-honey-half ${hf.cls}`}
+              data-hint={pt ? 'segure' : 'hold'}
               {...beltHoldToRoll(() => onRollHalf(hf.mod, hf.label, !!hf.isSave))}
               onKeyDown={(e) => {
                 if (!isActionKey(e)) return;

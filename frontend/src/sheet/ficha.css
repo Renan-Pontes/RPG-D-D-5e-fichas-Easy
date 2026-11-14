@@ -6930,3 +6930,38 @@
   .ficha .fh-cf-item > details > summary { position: relative; padding-right: 24px; }
   .ficha .fh-cf-item > details > summary::after { position: absolute; right: 4px; top: 20px; }
 }
+
+/* v1.0.133 — alvos de toque de 44px sem mudar o desenho: só em telas de toque
+   (pointer: coarse), um ::after transparente amplia a área que o dedo acerta em volta
+   do controle pequeno. Em linhas de controles colados (pips, gemas) a ampliação é
+   vertical, para os vizinhos não roubarem o toque um do outro. */
+@media (pointer: coarse) {
+  .ficha :is(.fh-tl-node, .fh-sm-gem, .fh-hero-classlv, .fh-death-die, .fh-corner-chip, .fh-tl-fold, .fh-res-title) { position: relative; z-index: 2; }
+  .ficha :is(.fh-tl-node, .fh-sm-gem, .fh-hero-classlv, .fh-death-die, .fh-corner-chip, .fh-tl-fold, .fh-res-title)::after {
+    content: ''; position: absolute; background: transparent; pointer-events: auto; z-index: 1;
+  }
+  .ficha .fh-sm-gem::after { inset: -13px -3px; }
+  .ficha :is(.fh-tl-node, .fh-hero-classlv)::after { inset: -7px; border-radius: 50%; }
+  .ficha .fh-death-die::after { inset: -9px; border-radius: 50%; }
+  .ficha :is(.fh-corner-chip, .fh-res-title)::after { inset: -5px -2px; }
+  .ficha .fh-tl-fold::after { inset: -6px 0; }
+}
+
+/* v1.0.133 — rolar é segurar: um toque curto mostra que chegou (a metade pulsa e o número
+   sobe um pouco) e, nas 3 primeiras vezes, uma etiqueta "segure" aparece no pé da metade. */
+@keyframes fh-tap-pulse { 0% { box-shadow: inset 0 0 0 0 rgba(237, 203, 122, 0); } 35% { box-shadow: inset 0 0 0 2px rgba(237, 203, 122, .55); } 100% { box-shadow: inset 0 0 0 0 rgba(237, 203, 122, 0); } }
+@keyframes fh-hold-hint { 0% { opacity: 0; transform: translate(-50%, 4px); } 15%, 75% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -2px); } }
+.ficha .fh-honey-half.is-tap-pulse { animation: fh-tap-pulse .5s ease-out; }
+.ficha .fh-honey-half.is-tap-pulse .fh-honey-val { transform: scale(1.06); transition: transform .12s; }
+.ficha .fh-honey-halves { position: relative; }
+.ficha .fh-honey-halves.is-hold-hint::after {
+  content: '✋ ' attr(data-hint); position: absolute; left: 50%; bottom: 26%; transform: translateX(-50%);
+  padding: 2px 7px; border-radius: 999px; white-space: nowrap; pointer-events: none; z-index: 4;
+  font: 700 .56rem/1.3 var(--display, inherit); letter-spacing: .08em; text-transform: uppercase;
+  color: #1a120a; background: rgba(245, 215, 142, .96); box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+  animation: fh-hold-hint 1.1s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ficha .fh-honey-half.is-tap-pulse { animation: none; }
+  .ficha .fh-honey-halves.is-hold-hint::after { animation: none; }
+}
