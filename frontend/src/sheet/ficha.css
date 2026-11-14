@@ -6915,3 +6915,18 @@
 .ficha .fh-belt-hex-wrap.is-action .fh-honey-half { gap: 0; }
 .ficha .fh-belt-hex-wrap.is-action .fh-honey-val { line-height: .92; }
 .ficha .fh-belt-hex-wrap.is-action .fh-honey-cap { margin-top: 1px; line-height: .9; }
+
+/* v1.0.132 — o nome do traço nunca é espremido letra a letra: ele guarda uma largura
+   mínima legível e, se as etiquetas (classe, "Trocar"…) não couberem ao lado, elas descem
+   para a linha de baixo, alinhadas sob o nome. Palavras só quebram se não couberem sozinhas. */
+.ficha .fh-cf-item > details > summary { flex-wrap: wrap; row-gap: 6px; }
+.ficha .fh-cf-name { flex: 1 1 auto; min-width: min(8rem, 100%); overflow-wrap: break-word; word-break: normal; hyphens: manual; }
+.ficha .fh-cf-name + .fh-origin { flex: 0 1 auto; max-width: 100%; display: inline-flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; margin-left: auto; }
+.ficha .fh-cf-item > details > summary::after { flex: none; }
+.ficha .fh-cf-name + .fh-origin { flex-wrap: nowrap; align-items: center; }
+.ficha .fh-cf-name + .fh-origin > .fh-tl-tag { white-space: normal; text-align: right; line-height: 1.15; }
+.ficha .fh-cf-name + .fh-origin > .fh-tl-change { flex: none; white-space: nowrap; }
+@media (max-width: 600px) {
+  .ficha .fh-cf-item > details > summary { position: relative; padding-right: 24px; }
+  .ficha .fh-cf-item > details > summary::after { position: absolute; right: 4px; top: 20px; }
+}
