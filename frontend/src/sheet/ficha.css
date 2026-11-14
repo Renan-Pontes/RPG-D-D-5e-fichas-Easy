@@ -6879,11 +6879,11 @@
 /* Hexágonos de ação: o número desce abaixo do selo central e a sigla do atributo fica
    embaixo dele, com respiro — nada encosta no selo nem na borda. Cada metade usa a cor
    do atributo que soma (FOR vermelho, DES verde…). */
-.ficha .fh-belt-hex-wrap.is-action .fh-honey-half { flex-direction: column; justify-content: center; gap: 4px; padding: 0 2px 22%; }
-.ficha .fh-belt-hex-wrap.is-action .fh-honey-halves.is-single .fh-honey-half { padding: 26% 2px 18%; }
+.ficha .fh-belt-hex-wrap.is-action .fh-honey-half { flex-direction: column; justify-content: center; gap: 1px; padding: 0 2px 34%; }
+.ficha .fh-belt-hex-wrap.is-action .fh-honey-halves.is-single .fh-honey-half { padding: 27% 2px 4%; justify-content: flex-start; }
 .ficha .fh-belt-hex-wrap.is-action .fh-honey-abbr { font-size: clamp(.62rem, 1.3vw, .78rem); letter-spacing: .08em; }
 .ficha .fh-belt-hex-wrap.is-action .fh-honey-val { font-size: clamp(1.1rem, 2vw, 1.35rem); line-height: 1; color: var(--half-c, inherit); }
-.ficha .fh-honey-cap { display: block; font: 700 .58rem/1 var(--display, inherit); letter-spacing: .12em; text-transform: uppercase; color: var(--half-c, inherit); opacity: .9; }
+.ficha .fh-honey-cap { display: block; font: 700 .58rem/1 var(--display, inherit); letter-spacing: .1em; text-transform: uppercase; color: var(--half-c, inherit); opacity: .9; margin-top: -1px; }
 .ficha .fh-honey-half.ab-str { --half-c: #c22626; background: linear-gradient(180deg, transparent 30%, rgba(224, 49, 49, .10)); }
 .ficha .fh-honey-half.ab-dex { --half-c: #1d7a45; background: linear-gradient(180deg, transparent 30%, rgba(36, 148, 84, .10)); }
 .ficha .fh-honey-half.ab-con { --half-c: #b45a12; background: linear-gradient(180deg, transparent 30%, rgba(212, 107, 25, .10)); }
