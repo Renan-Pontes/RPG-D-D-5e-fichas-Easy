@@ -6899,3 +6899,19 @@
 /* Respiro em volta do selo central: cada metade empurra o conteúdo para fora do selo. */
 .ficha .fh-belt.is-hive-only .fh-honey-halves:not(.is-single) .fh-honey-half:first-child { padding-right: 17%; }
 .ficha .fh-belt.is-hive-only .fh-honey-halves:not(.is-single) .fh-honey-half:last-child { padding-left: 17%; }
+
+/* v1.0.131 — Arma dividida ao meio: capuz metade FOR (vermelho) | metade DES (verde), com a
+   mesma costura descendo pelo corpo; e a sigla do atributo encostada no bônus, com respiro
+   das bordas do hexágono. */
+.ficha .fh-belt-hex-wrap.tone-weapon {
+  --hex-gem-bg: linear-gradient(90deg, #781c1c 0, #6a1717 calc(50% - 1px), rgba(20, 14, 11, .85) calc(50% - 1px), rgba(20, 14, 11, .85) calc(50% + 1px), #186137 calc(50% + 1px), #0d381f 100%);
+  --hex-shield-rim: #3f2a17;
+}
+.ficha .fh-belt-hex-wrap.tone-weapon .fh-honey-halves::before {
+  content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-.5px);
+  background: linear-gradient(180deg, rgba(20, 14, 11, .45), rgba(20, 14, 11, 0)); pointer-events: none; z-index: 1;
+}
+.ficha .fh-belt-hex-wrap.tone-weapon .fh-honey-halves { position: relative; }
+.ficha .fh-belt-hex-wrap.is-action .fh-honey-half { gap: 0; }
+.ficha .fh-belt-hex-wrap.is-action .fh-honey-val { line-height: .92; }
+.ficha .fh-belt-hex-wrap.is-action .fh-honey-cap { margin-top: 1px; line-height: .9; }
