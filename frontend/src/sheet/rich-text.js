@@ -1,5 +1,7 @@
 /* Parser puro do texto de regra (sem React): usado por src/sheet/rich-text.jsx. */
-const SIZE = /^(Tiny|Small|Medium|Large|Huge|Gargantuan|Miúd[oa]|Pequen[oa]|Médi[oa]|Grande|Enorme|Imens[oa])\b[^.]{0,80}$/;
+const SIZE_W = '(Tiny|Small|Medium|Large|Huge|Gargantuan|Miúd[oa]|Pequen[oa]|Médi[oa]|Grande|Enorme|Imens[oa])';
+// "Tiny construct", "Medium Aberration, Neutral" e, em português, "Aberração Média, Neutro".
+const SIZE = new RegExp(`^(${SIZE_W}\\b[^.]{0,80}|[^.,]{2,30} ${SIZE_W}(,[^.]{0,40})?)$`, 'u');
 const MD_HEAD = /^#{1,6}\s+(.+)$/;
 export const BULLET = /^[•▪◦*-]\s+(.+)$/;
 const EYEBROW = /^(\d+(st|nd|rd|th)-level [^.]{2,40} feature|Característica d[aeo] [^.]{2,40} de \d+º nível)$/i;
@@ -14,7 +16,7 @@ const SB_LABELS = [
   'Iniciativa', 'Equipamento', 'CA', 'PV', 'ND', 'BP',
 ].sort((a, b) => b.length - a.length);
 // Começos de frase comuns: "You can." não é um nome em negrito.
-const NOT_LEAD = /^(you|the|a|an|if|when|at|as|this|it|its|each|on|in|for|while|once|until|you're|você|o|os|as|um|uma|se|quando|no|na|nos|nas|como|isso|isto|cada|ele|ela|enquanto|até|para|por|em|ao)\b/i;
+const NOT_LEAD = /^(you|the|a|an|if|when|at|as|this|it|its|each|on|in|for|while|once|until|you're|você|o|os|as|um|uma|se|quando|no|na|nos|nas|como|isso|isto|cada|ele|ela|enquanto|até|para|por|em|ao)(?=[\s,.]|$)/i;
 
 const isCaps = (s) => s.length <= 70 && /\p{Lu}.*\p{Lu}/u.test(s) && !/\p{Ll}/u.test(s) && !/[.!?:]$/.test(s) && !/^[\d\s|+–-]+$/.test(s);
 const isRow = (s) => s.includes('|') && s.split('|').filter(c => c.trim()).length >= 2;
@@ -27,13 +29,80 @@ export function splitLead(s) {
   const m = /^([\p{Lu}][^.!?:]{0,46}?[.:])\s+(?=[\p{Lu}\d(])/u.exec(s);
   if (!m) return null;
   const lead = m[1];
+  if (/^(At Higher Levels|Em Níveis Superiores|Usando um Espaço de Magia de Círculo Superior)\.$/.test(lead)) return [lead, s.slice(m[0].length)];
   if (lead.split(/\s+/).length > 7 || NOT_LEAD.test(lead) || /\d+(st|nd|rd|th)$/.test(lead.slice(0, -1))) return null;
   return [lead, s.slice(m[0].length)];
 }
 
 /** Texto do catálogo → blocos [{t:'p'|'h'|'ul'|'table'|'eyebrow'|'sb', …}]. */
+/** Tira o cabeçalho de exportação do Aurora ("Name: … Aurora ID: … Setters: … Description:")
+ *  que repetia nome, círculo, alcance e componentes já mostrados no cartão da magia, e junta
+ *  "At Higher Levels." sozinho na linha com o parágrafo seguinte. */
+export function cleanSpellText(text) {
+  let s = String(text ?? '').replace(/\r/g, '');
+  if (/Aurora ID:/.test(s)) {
+    const m = /(?:^|\n)\s*(?:Description|Descrição):\s*\n/.exec(s);
+    if (m) s = s.slice(m.index + m[0].length);
+  }
+  return s.replace(/(^|\n)((?:At Higher Levels|Em Níveis Superiores|Using a Higher-Level Spell Slot|Usando um Espaço de Magia de Círculo Superior)\.)\s*\n+/g, '$1$2 ');
+}
+
+const ABIL_KEY = { str: 'str', for: 'str', dex: 'dex', des: 'dex', con: 'con', int: 'int', wis: 'wis', sab: 'wis', cha: 'cha', car: 'cha' };
+const PROP_KEY = [
+  [/^(AC|Armor Class|CA|Classe de Armadura)$/, 'acText'], [/^(HP|Hit Points|PV|Pontos de Vida)$/, 'hpText'],
+  [/^(Speed|Deslocamento)$/, 'speedText'], [/^(Saving Throws|Salvaguardas|Testes de Resistência)$/, 'saveText'],
+  [/^(Skills|Perícias)$/, 'skillsRaw'], [/^(Damage Immunities|Immunities|Imunidades a Dano|Imunidades)$/, 'immuneText'],
+  [/^(Damage Resistances|Resistances|Resistências a Dano|Resistências)$/, 'resistText'],
+  [/^(Damage Vulnerabilities|Vulnerabilities|Vulnerabilidades a Dano|Vulnerabilidades)$/, 'vulnText'],
+  [/^(Condition Immunities|Imunidades a Condição)$/, 'conditionImmuneText'], [/^(Senses|Sentidos)$/, 'senses'],
+  [/^(Languages|Idiomas)$/, 'languages'], [/^(Challenge|CR|ND|Nível de Desafio)$/, 'cr'],
+  [/^(Proficiency Bonus|PB|BP|Bônus de Proficiência)$/, 'proficiencyBonus'],
+];
+const SECTION_KEY = (n) => (/^(traits|traços)$/i.test(n) ? 'traits' : /bonus|bônus/i.test(n) ? 'bonusActions' : /reac|reaç/i.test(n) ? 'reactions' : /lend|legend/i.test(n) ? 'legendary' : /action|aç/i.test(n) ? 'actions' : 'traits');
+
+/** Bloco 'sb' do parseRich → objeto no formato de src/combat/MonsterStatblock.jsx. */
+export function statblockToMonster(sb) {
+  const m = { name: sb.name, typeLine: sb.meta, abilities: {}, traits: [], actions: [], bonusActions: [], reactions: [], legendary: { actions: [] }, initiative: null };
+  const push = (list, e) => {
+    if (e.table) return;
+    if (e.lead) list.push({ name: e.lead.replace(/[.:]$/, ''), desc: e.text });
+    else if (list.length) list[list.length - 1].desc += `\n${e.text}`;
+    else list.push({ name: '', desc: e.text });
+  };
+  for (const p of sb.props) {
+    if (p.label) {
+      const k = PROP_KEY.find(([re]) => re.test(p.label))?.[1];
+      if (k) m[k] = p.text;
+    } else push(m.traits, p);
+  }
+  if (sb.abil) sb.abil.head.forEach((h, i) => {
+    const k = ABIL_KEY[h.slice(0, 3).toLowerCase()];
+    const v = parseInt(sb.abil.rows[0]?.[i], 10);
+    if (k && !Number.isNaN(v)) m.abilities[k] = v;
+  });
+  const saves = [];
+  for (const c of sb.abil2 || []) {
+    const r = /^(\S+)\s+(\d+)\s+([+−-]\d+)(?:\s+([+−-]\d+))?/.exec(c);
+    const k = r && ABIL_KEY[r[1].slice(0, 3).toLowerCase()];
+    if (!k) continue;
+    m.abilities[k] = +r[2];
+    if (r[4] && r[4] !== r[3]) saves.push(`${r[1]} ${r[4]}`);
+  }
+  if (saves.length && !m.saveText) m.saveText = saves.join(', ');
+  for (const s of sb.sections) {
+    const key = SECTION_KEY(s.name);
+    for (const e of s.entries) push(key === 'legendary' ? m.legendary.actions : m[key], e);
+  }
+  if (m.skillsRaw) { m.skillText = m.skillsRaw; delete m.skillsRaw; }
+  // "None (XP 0; PB equals your Proficiency Bonus)" → ND "None", BP do conjurador
+  if (m.cr && /\(/.test(m.cr)) m.cr = m.cr.split('(')[0].trim();
+  if (!m.proficiencyBonus) m.proficiencyBonus = 'PB';
+  if (m.initiative == null) delete m.initiative;
+  return m;
+}
+
 export function parseRich(text) {
-  let src = String(text ?? '').replace(/\r/g, '');
+  let src = cleanSpellText(text);
   // Texto achatado numa linha só: "… spells. #### Cantrips You know…" → quebra antes do "####".
   if (!src.includes('\n')) src = src.replace(/\s+(?=#{2,6}\s)/g, '\n');
   const lines = src.split(/\n+/).map(l => l.trim()).filter(Boolean);
@@ -85,8 +154,8 @@ function parseStatblock(name, meta, rest) {
       else sb.props.push({ table: rows });
       continue;
     }
+    if (/^MOD\s+(SAVE|SALVAGUARDA)$/i.test(l)) continue;
     if (SB_SECTION.test(l) || (isCaps(l) && l.length < 30 && !/\d/.test(l) && !SB_LABELS.some(lb => l.startsWith(lb + " ")))) { cur = { name: l, entries: [] }; sb.sections.push(cur); continue; }
-    if (/^MOD\s+SAVE$/i.test(l)) continue;
     // "Str 16 +3 +3 · Dex 10 +0 +0 · Con 15 +2 +2" (formato do SRD 5.2)
     if (/^(Str|Dex|Con|Int|Wis|Cha|For|Des|Sab|Car)\s+\d+/i.test(l) && l.includes('·')) {
       const row = l.split('·').map(c => c.trim());

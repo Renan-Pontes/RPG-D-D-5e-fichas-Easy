@@ -7087,3 +7087,32 @@
 @media (forced-colors: active) {
   .ficha .rt-ul > li::before { background: CanvasText; }
 }
+
+/* ---------- v1.0.135 · criatura dentro de magia/traço: botão que abre o bloco do combate ---------- */
+.ficha .rt-creature { display: grid; gap: 8px; }
+.ficha .rt-creature-toggle {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; min-height: 48px; padding: 8px 12px;
+  border: 1px solid rgba(224, 181, 94, 0.4);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(224, 181, 94, 0.1), rgba(224, 181, 94, 0.03));
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.ficha .rt-creature-toggle:hover { border-color: var(--gold); }
+.ficha .rt-creature-toggle:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+.ficha .rt-creature-glyph { color: var(--gold); font-size: 1.1rem; }
+.ficha .rt-creature-text { display: grid; flex: 1 1 auto; min-width: 0; }
+.ficha .rt-creature-name { font-family: var(--display); font-weight: 700; color: var(--gold-bright); }
+.ficha .rt-creature-meta { font-size: 0.8rem; font-style: italic; color: var(--ink-muted); }
+.ficha .rt-creature-hint { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); white-space: nowrap; }
+.ficha .rt-creature-chev { color: var(--gold); }
+.ficha .rt-creature.is-open .rt-creature-toggle { border-color: var(--gold); }
+.ficha .rt-creature-sb { max-width: 100%; }
+@media print { .ficha .rt-creature-toggle { display: none; } }
+.ficha .rt, .ficha .fh-spell-desc, .ficha .rt-creature { min-width: 0; max-width: 100%; }
+.ficha .rt-creature-sb { min-width: 0; max-width: 100%; overflow-x: auto; box-sizing: border-box; }
+.ficha .rt-creature-sb .statblock-abilities { min-width: 0; }
+@media (max-width: 520px) {
+  .ficha .rt-creature-sb .statblock-abilities { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

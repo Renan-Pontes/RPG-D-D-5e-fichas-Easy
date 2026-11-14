@@ -7,12 +7,41 @@
  *   "Healing. The drinker…"               → nome em negrito no começo do parágrafo
  * parseRich() é puro (testado em tests/rich-text.test.js); RichText desenha e passa cada
  * trecho pelo DiceText, então "2d4" continua rolável. CSS: src/sheet/ficha.css (.rt-). */
-import { Fragment } from 'react';
+import { Fragment, lazy, Suspense, useState } from 'react';
 import { DiceText } from '../dice/dice-text.jsx';
 
-import { parseRich, splitLead } from './rich-text.js';
+import { parseRich, splitLead, statblockToMonster } from './rich-text.js';
 
 export { parseRich, splitLead };
+
+// O mesmo bloco de criatura do combate do mestre (src/combat/MonsterStatblock.jsx), carregado
+// só quando alguém abre a criatura. O CSS dele já vem com a ficha (components/Sheet.jsx).
+const MonsterStatblock = lazy(() => import('../combat/MonsterStatblock.jsx'));
+
+/** Criatura dentro de uma magia ou traço (Espírito Aberrante, Homúnculo…): um botão com nome e
+ *  tipo que abre/fecha o bloco de criatura completo ali mesmo. */
+function CreatureFold({ b, lang, onRoll }) {
+  const [open, setOpen] = useState(false);
+  const pt = lang === 'pt';
+  return (
+    <div className={`rt-creature${open ? ' is-open' : ''}`}>
+      <button type="button" className="rt-creature-toggle" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+        <span className="rt-creature-glyph" aria-hidden="true">❖</span>
+        <span className="rt-creature-text">
+          <span className="rt-creature-name">{b.name}</span>
+          <span className="rt-creature-meta">{b.meta}</span>
+        </span>
+        <span className="rt-creature-hint">{open ? (pt ? 'fechar' : 'close') : (pt ? 'ver ficha' : 'stat block')}</span>
+        <span className="rt-creature-chev" aria-hidden="true">{open ? '▴' : '▾'}</span>
+      </button>
+      {open && (
+        <Suspense fallback={<Statblock b={b} lang={lang} onRoll={onRoll} />}>
+          <MonsterStatblock monster={statblockToMonster(b)} lang={lang} onRoll={onRoll} className="rt-creature-sb" />
+        </Suspense>
+      )}
+    </div>
+  );
+}
 
 function Inline({ text, lang, onRoll, lead = true }) {
   const parts = lead ? splitLead(text) : null;
@@ -106,7 +135,7 @@ export function RichText({ text, lang = 'pt', onRoll, className = '' }) {
         if (b.t === 'eyebrow') return <p key={i} className="rt-eyebrow">{b.text}</p>;
         if (b.t === 'ul') return <ul key={i} className="rt-ul">{b.items.map((it, j) => <li key={j}><Inline text={it} lang={lang} onRoll={onRoll} /></li>)}</ul>;
         if (b.t === 'table') return <Table key={i} {...b} lang={lang} onRoll={onRoll} />;
-        if (b.t === 'sb') return <Statblock key={i} b={b} lang={lang} onRoll={onRoll} />;
+        if (b.t === 'sb') return <CreatureFold key={i} b={b} lang={lang} onRoll={onRoll} />;
         return <p key={i} className="rt-p"><Inline text={b.text} lang={lang} onRoll={onRoll} /></p>;
       })}
     </div>

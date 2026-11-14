@@ -69,3 +69,20 @@ describe('nomes em inglês dos traços 2014', () => {
     expect(items.find(i => i.id === 'spellcasting').desc.pt).not.toMatch(/não a remove da sua lista de magias preparadas\.\n\nHABILIDADE/);
   });
 });
+
+import { cleanSpellText, statblockToMonster } from '../src/sheet/rich-text.js';
+describe('magias com criatura', () => {
+  it('tira o cabeçalho do Aurora', () => {
+    const t = cleanSpellText('Name: Spirit of Death\n\nType: Spell\n\nAurora ID: X\n\nSetters:\nlevel: 4\n\nDescription:\nYou call forth a spirit.\nAt Higher Levels.\nWhen you cast it.');
+    assert.equal(t, 'You call forth a spirit.\nAt Higher Levels. When you cast it.');
+  });
+  it('Espírito Aberrante vira monstro do bloco do combate', () => {
+    const sb = parseRich('Aberrant Spirit\n\nMedium Aberration, Neutral\n\nAC 11 + the spell’s level\nHP 40\nSpeed 30 ft.\n\nMOD SAVE\nStr 16 +3 +3 · Dex 10 +0 +0 · Con 15 +2 +2\nInt 16 +3 +3 · Wis 10 +0 +0 · Cha 6 -2 -2\n\nImmunities Psychic\nCR None (XP 0; PB equals your Proficiency Bonus)\n\nTraits\n\nRegeneration (Slaad Only). Regains 5 HP.\n\nActions\n\nMultiattack. Attacks.\n\nEye Ray (Beholderkin Only). Ranged.').find(x => x.t === 'sb');
+    const m = statblockToMonster(sb);
+    assert.equal(m.acText, '11 + the spell’s level');
+    assert.equal(m.abilities.str, 16); assert.equal(m.abilities.cha, 6);
+    assert.equal(m.immuneText, 'Psychic'); assert.equal(m.cr, 'None');
+    assert.deepEqual(m.traits.map(x => x.name), ['Regeneration (Slaad Only)']);
+    assert.deepEqual(m.actions.map(x => x.name), ['Multiattack', 'Eye Ray (Beholderkin Only)']);
+  });
+});
