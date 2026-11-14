@@ -35,6 +35,7 @@
  * concede (POOL_PARENTS); sem esse traço na ficha, no lugar de STANDALONE_POOLS
  * (ferramentas e instrumentos no painel de proficiências) ou no painel Outros traços.
  */
+import { featureNameEn, FEATURE_NAME_PT, FEATURE_DESC_EN } from '../../data/feature-names-en.js';
 import { computeProgression } from '../progression/engine.js';
 import { computeResources } from '../progression/resources.js';
 import { findOption, optionPool } from '../progression/options.js';
@@ -865,7 +866,8 @@ export function placeFeatures(char, prog = computeProgression(char || {})) {
     const res = place === 'resources' && !wild ? resourceFor(resources, classId, anchors) : null;
     const item = {
       key, id: f.id, classId, level: f.classLevel ?? f.level,
-      name: { pt: f.name, en: f.nameEn || f.name }, desc: { pt: f.desc || '', en: f.descEn || f.desc || '' },
+      name: { pt: FEATURE_NAME_PT[f.id] || f.name, en: f.nameEn || featureNameEn(classId, f.id) || f.name },
+      desc: { pt: f.desc || '', en: f.descEn || FEATURE_DESC_EN[f.id] || f.desc || '' },
       place, anchor: wild ? 'wildShape' : null, resourceKey: res?.key || null, resourceName: res?.name || null, picks: [],
     };
     out.items.push(item);

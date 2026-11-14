@@ -29,6 +29,7 @@ import FhTitle from '../src/sheet/FhTitle.jsx';
 import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
 import FhFeatures from '../src/sheet/FhFeatures.jsx';
 import { DiceText } from '../src/dice/dice-text.jsx';
+import { RichText } from '../src/sheet/rich-text.jsx';
 import { useSpellText, spellTextLoaded, ddbSpellUrl, spellMechanics, scaledDice, higherLevelText } from '../src/sheet/spell-text.js';
 import SPELL_TAGS from '../data/spell-tags.json';
 import { slotCircleLabel, gemLabel, lockedSlotTitle, slotSpent, slotTap, slotTapTitle } from '../src/sheet/gem-text.js';
@@ -1306,7 +1307,7 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
             <span className={`fh-chipline${sp.concentration ? ' conc' : ''}`}><span className="fh-chipline-k">{t('duration', lang)}:</span> {meta.duration}</span>
           </div>
           <div className="fh-spell-desc">
-            {(fullText?.[lang] || (lang === 'pt' && sp.desc?.pt) || fullText?.en || sp.desc[lang]).split(/\n+/).map((para, i) => <p key={i}><DiceText text={para} lang={lang} /></p>)}
+            <RichText text={fullText?.[lang] || (lang === 'pt' && sp.desc?.pt) || fullText?.en || sp.desc[lang]} lang={lang} />
           </div>
           {ddb && (
             <a className="fh-spell-ddb" href={ddb} target="_blank" rel="noopener noreferrer">
@@ -1563,7 +1564,7 @@ export const SpeciesTraits = ({ char, lang, update, race, hideTraits = false, em
                 <span>{trName}</span>
                 {tr.level ? <span className="fh-origin">{lang === 'pt' ? 'nível' : 'level'} {tr.level}</span> : null}
               </div>
-              <div className="fh-trait-text"><DiceText text={trDesc} lang={lang} /></div>
+              <RichText className="fh-trait-text" text={trDesc} lang={lang} />
             </div>
           );
         })}
@@ -1814,7 +1815,7 @@ function InventoryRow({ item, idx, lang, rulesVersion, inCampaign, onToggleEquip
           <div className="item-detail">
             <ArtThumb src={art} emoji={emoji} size={96} lang={lang} alt={item.name || ''} />
             {descText ? (
-              <div className="item-detail-text text-sm muted item-desc"><DiceText text={descText} lang={lang} /></div>
+              <RichText className="item-detail-text text-sm muted item-desc" text={descText} lang={lang} />
             ) : <div className="item-detail-text" />}
           </div>
           {item.weapon && (() => {

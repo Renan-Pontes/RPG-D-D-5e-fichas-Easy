@@ -562,9 +562,9 @@ const RANGER = {
   subclassPerLevel: {
     hunter: {
       3: { features: [{ id: 'huntersPrey', name: 'Presa do Caçador', desc: 'Escolha: Colossus Slayer, Giant Killer ou Horde Breaker.' }] },
-      7: { features: [{ id: 'defensiveTactics', name: 'Táticas Defensivas', desc: 'Escolha: Escape the Horde, Multiattack Defense, Steel Will.' }] },
+      7: { features: [{ id: 'defensiveTactics', name: 'Táticas Defensivas', desc: 'Escolha: Fuga da Horda, Defesa contra Ataques Múltiplos ou Vontade de Aço.' }] },
       11: { features: [{ id: 'multiattack', name: 'Multiataque', desc: 'Escolha: Volley ou Whirlwind Attack.' }] },
-      15: { features: [{ id: 'superiorHuntersDefense', name: 'Defesa Superior do Caçador', desc: 'Escolha: Evasion, Stand Against the Tide ou Uncanny Dodge.' }] },
+      15: { features: [{ id: 'superiorHuntersDefense', name: 'Defesa Superior do Caçador', desc: 'Escolha: Evasão, Resistir à Maré ou Esquiva Sobrenatural.' }] },
     },
   },
 };

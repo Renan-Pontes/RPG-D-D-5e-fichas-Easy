@@ -140,10 +140,10 @@ test('dice-text: DiceRoller, FhFeatures, and Sheet components integrate dice-tex
   assert.ok(rollerSrc.includes('rawFormula ? parseFormula(rawFormula)'), 'performRoll supports rawFormula strings and objects');
 
   const featuresSrc = readFileSync(resolve(__dirname, '../src/sheet/FhFeatures.jsx'), 'utf8');
-  assert.ok(featuresSrc.includes('DiceText'), 'FhFeatures wraps feature text in DiceText');
+  assert.ok(/DiceText|RichText/.test(featuresSrc), 'FhFeatures wraps feature text in DiceText');
 
   const tabsSrc = readFileSync(resolve(__dirname, '../components/SheetTabs.jsx'), 'utf8');
-  assert.ok(tabsSrc.includes('DiceText'), 'SheetTabs wraps spell and item descriptions in DiceText');
+  assert.ok(/DiceText|RichText/.test(tabsSrc), 'SheetTabs wraps spell and item descriptions in DiceText');
 
   const cssSrc = readFileSync(resolve(__dirname, '../src/dice/dice-styles.css'), 'utf8');
   assert.ok(cssSrc.includes('.fh-dice-inline-token'), 'dice-styles.css contains .fh-dice-inline-token styling');
