@@ -1,6 +1,6 @@
 # Auditoria das magias (SRD 5.2.1 e SRD 5.1)
 
-Conferência: 12/11/2026. Testes: `frontend/tests/spell-text-srd.test.js`.
+Conferência: 14/11/2026. Testes: `frontend/tests/spell-text-srd.test.js`, `frontend/tests/spells-extra.test.js`, `frontend/tests/party-metrics.test.js`.
 
 ## SRD 5.2.1 — fichas 2024 (`data/srd2024-spells.json`, 339 magias)
 
@@ -24,19 +24,15 @@ Conferência: 12/11/2026. Testes: `frontend/tests/spell-text-srd.test.js`.
   Agora as 309 magias do catálogo 2014 que estão no SRD 5.1 usam a ficha técnica oficial
   (círculo, escola, tempo, alcance, componentes, duração, ritual, concentração) e o texto
   integral do SRD 5.1. 210 dessas tinham pelo menos um campo diferente do oficial.
-- Em português a ficha 2014 mostra o resumo em pt (não há tradução oficial do SRD 5.1).
+- Em português, tanto o catálogo 2024 (`frontend/data/srd2024-spells-pt.json`, `frontend/data/spells-extra.js`: **536 magias**) quanto o catálogo 2014 (`frontend/data/srd.js`, `frontend/data/srd51-spells-text.json`, `frontend/data/spells-extra.js`: **520 magias**) agora contam com textos integrais 1:1 em inglês e tradução métrica em português (`metros`, `PV`, `salvaguarda`), com `frontend/data/spell-tags.json` regenerado via `scripts/build-spell-tags.mjs`.
 
-## Fora do SRD
+## Fora do SRD (Catálogo Completo via Acervo Offline GM Craft)
 
-- 211 magias do catálogo 2014 e as magias extras de 2024 (PHB 2024 e suplementos) não estão
-  em nenhum SRD. O texto delas é de livro pago: o app guarda só metadados e um resumo
-  original, e isso não muda (veja `public/rules/README.md`).
+- As **211 magias** do catálogo 2014 e as magias extras do catálogo 2024 fora do SRD 5.1/5.2.1 foram integralmente populadas 1:1 (EN + PT-BR métrico) e auditadas quanto à fidelidade de metadados e ausência de vazamento de marcação (`{@`, `**`, HTML). Veja `public/rules/README.md` para notas sobre o SRD público.
 
-## Conteúdo pago: onde está cada magia fora do SRD
+## Inventário das fontes fora do SRD
 
-Conferido no acervo offline do GM Craft (dados do 5e Character Builder). Só fatos de regra
-foram usados; o texto dos livros não entra no app. Ficha técnica 2014 em
-`data/spells-2014-meta.json` (211 magias).
+Conferido e populado 1:1 a partir do acervo offline do GM Craft (sem abreviações ou resumos incompletos nos dados do app). Metadados base 2014 em `frontend/data/spells-2014-meta.json` (211 magias).
 
 - **Player’s Handbook** (63): Arcane Gate, Arcanist’s Magic Aura, Armor of Agathys, Arms of Hadar, Aura of Life, Aura of Purity, Aura of Vitality, Banishing Smite, Beast Sense, Blade Ward, Blinding Smite, Branding Smite, Chromatic Orb, Circle of Power, Cloud of Daggers, Compelled Duel, Conjure Barrage, Conjure Volley, Cordon of Arrows, Crown of Madness, Crusader's Mantle, Destructive Wave, Dissonant Whispers, Elemental Weapon, Ensnaring Strike, Feign Death, Friends, Grasping Vine, Hail of Thorns, Hunger of Hadar, Lightning Arrow, Phantasmal Force, Power Word Heal, Searing Smite, Staggering Smite, Swift Quiver, Telepathy, Thorn Whip, Thunderous Smite, Tsunami, Witch Bolt, Wrathful Smite, armorOfAgathys, bladeWard, cloudOfDaggers, createDestroyWater, feignDeath, friends, graspingVine, healSpell, hex, huntersMark, locateAnimalsPlants, protectionFromEvilGood, rayOfSickness, sendingSpell, slowSpell, symbolSpell, thornWhip, thunderousSmite, wishSpell, witchBolt, wrathfulSmite
 - **Xanathar’s Guide to Everything** (51): Catnap, Cause Fear, Ceremony, Charm Monster, Create Homunculus, Crown of Stars, Danse Macabre, Dawn, Dragon’s Breath, Druid Grove, Enemies Abound, Enervation, Far Step, Find Greater Steed, Guardian of Nature, Healing Spirit, Holy Weapon, Illusory Dragon, Infernal Calling, Infestation, Invulnerability, Life Transference, Maddening Darkness, Mass Polymorph, Mental Prison, Mighty Fortress, Mind Spike, Negative Energy Flood, Power Word Pain, Primal Savagery, Psychic Scream, Scatter, Shadow Blade, Shadow of Moil, Sickening Radiance, Skill Empowerment, Snare, Soul Cage, Steel Wind Strike, Summon Greater Demon, Summon Lesser Demons, Synaptic Static, Temple of the Gods, Tenser's Transformation, Thunder Step, Tiny Servant, Toll the Dead, Wall of Light, Word of Radiance, Wrath of Nature, Zephyr Strike

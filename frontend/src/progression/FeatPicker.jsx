@@ -335,7 +335,7 @@ export default function FeatPicker({ char, lang, level, kind, hasFightingStyle, 
           {selected.srdText && (
             <details className="fh-feat-srd" style={{ margin: '0 0 10px' }}>
               <summary className="text-xs muted">{L(lang, 'Texto oficial', 'Official text')} · {selected.srdText.src}</summary>
-              <div className="text-sm" lang="en" style={{ whiteSpace: 'pre-line', marginTop: 6 }}>{selected.srdText.en}</div>
+              <div className="text-sm" lang={lang === 'en' ? 'en' : 'pt-BR'} style={{ whiteSpace: 'pre-line', marginTop: 6 }}>{selected.srdText[lang] || selected.srdText.en}</div>
             </details>
           )}
           {selected.asi && <FeatAsi char={char} lang={lang} feat={selected} asi={value.asi || {}} onChange={asi => onChange({ ...value, asi })} />}

@@ -16,8 +16,24 @@ const SPELL_TEXT = /\btruques?\b|\bcantrips?\b|conjur|\bcast\b|\bmagias?\b|\bspe
 
 // Citam magia sem conceder magia inata (justificadas):
 const NO_INNATE = {
+  '2024:dragonborn': 'Voo Dracônico (2024): apenas canaliza magia dracônica para asas de voo.',
   'elf-wood': 'Ancestral Feérico: só imunidade a sono mágico.',
   'gnome-rock': 'Astúcia Gnômica: só vantagem contra magia (Funileiro não é magia).',
+  goblin: 'Fúria dos Pequenos: cita magia apenas para dano extra por ataque ou magia.',
+  'half-elf': 'Ancestral Feérico: só imunidade a sono mágico.',
+  warforged: 'Resiliência Construída: só imunidade a sono mágico.',
+  autognome: 'Máquina de Cura / Construção Robusta: cita magia sem conceder conjuração inata.',
+  eladrin: 'Transe: apenas imunidade a sono mágico (sem magia inata).',
+  'sea-elf': 'Transe: apenas imunidade a sono mágico (sem magia inata).',
+  'shadar-kai': 'Transe: apenas imunidade a sono mágico (sem magia inata).',
+  hadozee: 'Resiliência Hadozee: apenas redução de dano descrita como magia nas veias.',
+  kalashtar: 'Separado dos Sonhos: apenas imunidade a sonhos mágicos.',
+  loxodon: 'Tromba: especifica que não pode ativar itens mágicos com a tromba.',
+  plasmoid: 'Moldar-se: menciona interação com magia sem conceder conjuração inata.',
+  'simic-hybrid': 'Aprimoramento Animal: menciona alteração mágica corporal sem conjuração.',
+  'thri-kreen': 'Telepatia Thri-kreen: comunicação telepática não mágica.',
+  grung: 'Dependência de Água: cita remoção de exaustão por magia sem conceder conjuração.',
+  reborn: 'Natureza Imortal: só imunidade a sono mágico.',
   satyr: 'Resistência Mágica: só vantagem contra magias.',
   // Linhagem/descendência que só às vezes dá magia: a opção com magia é testada abaixo.
 };
@@ -64,17 +80,19 @@ const grantsAt = (rv, race, level = 20, extra = {}) => {
 test('toda espécie cujo traço cita magia/truque inato concede pelo menos uma magia ou truque', () => {
   const missing = [];
   for (const { rv, r } of sheets()) {
-    if (!citesSpells(r) || NO_INNATE[r.id]) continue;
+    if (!citesSpells(r) || NO_INNATE[`${rv}:${r.id}`] || NO_INNATE[r.id]) continue;
     const { g } = grantsAt(rv, r.id);
     if (!g.cantrips.length && !g.spells.length) missing.push(`${rv}:${r.id}`);
   }
   assert.deepEqual(missing, []);
   // As exceções continuam válidas: citam magia, mas não concedem nenhuma.
-  for (const id of Object.keys(NO_INNATE)) {
-    const r = SRD.RACES.find(x => x.id === id);
-    assert.ok(r && citesSpells(r), `${id}: exceção ainda cita magia`);
-    const { g } = grantsAt('2014', id);
-    assert.equal(g.cantrips.length + g.spells.length, 0, `${id}: exceção sem magia`);
+  for (const key of Object.keys(NO_INNATE)) {
+    const [rv, id] = key.includes(':') ? key.split(':') : ['2014', key];
+    const pool = rv === '2024' ? SPECIES_2024 : SRD.RACES;
+    const r = pool.find(x => x.id === id);
+    assert.ok(r && citesSpells(r), `${key}: exceção ainda cita magia`);
+    const { g } = grantsAt(rv, id);
+    assert.equal(g.cantrips.length + g.spells.length, 0, `${key}: exceção sem magia`);
   }
 });
 

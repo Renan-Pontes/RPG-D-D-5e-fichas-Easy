@@ -79,7 +79,7 @@
           {
             "id": "fastMovement",
             "name": "Fast Movement",
-            "desc": "Your speed increases by 10 feet while you aren’t wearing Heavy armor.",
+            "desc": "Your speed increases by 3 m while you aren’t wearing Heavy armor.",
             "sourcePage": 28
           }
         ],
@@ -109,8 +109,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Barbarian, page 28.",
-            "sourcePage": 28
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Bárbaro 8, 12 e 16.",
+            "sourcePage": 28,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Barbarian levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true
@@ -120,7 +121,7 @@
           {
             "id": "brutalStrike",
             "name": "Brutal Strike",
-            "desc": "If you use Reckless Attack, you can forgo any Advantage on one Strength-based attack roll of your choice on your turn. The chosen attack roll mustn’t have Disadvantage. If the chosen attack roll hits, the target takes an extra 1d10 damage of the same type dealt by the weapon or Unarmed Strike, and you can cause one Brutal Strike effect of your choice. You have the following effect options. Forceful Blow. The target is pushed 15 feet straight away from you. You can then move up to half your Speed straight toward the target without provoking Opportunity Attacks. Hamstring Blow. The target’s Speed is reduced by 15 feet until the start of your next turn. A target can be affected by only one Hamstring Blow at a time— the most recent one.",
+            "desc": "If you use Reckless Attack, you can forgo any Advantage on one Strength-based attack roll of your choice on your turn. The chosen attack roll mustn’t have Disadvantage. If the chosen attack roll hits, the target takes an extra 1d10 damage of the same type dealt by the weapon or Unarmed Strike, and you can cause one Brutal Strike effect of your choice. You have the following effect options. Forceful Blow. The target is pushed 4,5 m straight away from you. You can then move up to half your Speed straight toward the target without provoking Opportunity Attacks. Hamstring Blow. The target’s Speed is reduced by 4,5 m until the start of your next turn. A target can be affected by only one Hamstring Blow at a time— the most recent one.",
             "sourcePage": 28
           }
         ]
@@ -133,7 +134,7 @@
           {
             "id": "relentlessRage",
             "name": "Relentless Rage",
-            "desc": "Your Rage can keep you fighting despite grievous wounds. If you drop to 0 Hit Points while your Rage is active and don’t die outright, you can make a DC 10 Constitution saving throw. If you succeed, your Hit Points instead change to a number equal to twice your Barbarian level. Each time you use this feature after the first, the DC increases by 5. When you finish a Short or Long Rest, the DC resets to 10.",
+            "desc": "Your Rage can keep you fighting despite grievous wounds. If you drop to 0 Pontos de Vida while your Rage is active and don’t die outright, you can make a DC 10 Constitution saving throw. If you succeed, your Pontos de Vida instead change to a number equal to twice your Barbarian level. Each time you use this feature after the first, the DC increases by 5. When you finish a Short or Long Rest, the DC resets to 10.",
             "sourcePage": 28
           }
         ]
@@ -143,8 +144,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Barbarian, page 28.",
-            "sourcePage": 28
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Bárbaro 8, 12 e 16.",
+            "sourcePage": 28,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Barbarian levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true
@@ -177,8 +179,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Barbarian, page 28.",
-            "sourcePage": 28
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Bárbaro 8, 12 e 16.",
+            "sourcePage": 28,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Barbarian levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true
@@ -252,7 +255,7 @@
             {
               "id": "retaliation",
               "name": "Retaliation",
-              "desc": "When you take damage from a creature that is within 5 feet of you, you can take a Reaction to make one melee attack against that creature, using a weapon or an Unarmed Strike.",
+              "desc": "When you take damage from a creature that is within 1,5 m of you, you can take a Reaction to make one melee attack against that creature, using a weapon or an Unarmed Strike.",
               "sourcePage": 28
             }
           ]
@@ -279,7 +282,7 @@
           {
             "id": "bardicInspiration",
             "name": "Bardic Inspiration",
-            "desc": "You can supernaturally inspire others through words, music, or dance. This inspiration is represented by your Bardic Inspiration die, which is a d6. Using Bardic Inspiration. As a Bonus Action, you can inspire another creature within 60 feet of yourself who can see or hear you. That creature gains",
+            "desc": "You can supernaturally inspire others through words, music, or dance. This inspiration is represented by your Bardic Inspiration die, which is a d6. Using Bardic Inspiration. As a Bonus Action, you can inspire another creature within 18 m of yourself who can see or hear you. That creature gains",
             "sourcePage": 31
           },
           {
@@ -394,7 +397,7 @@
           {
             "id": "fontOfInspiration",
             "name": "Font of Inspiration",
-            "desc": "You now regain all your expended uses of Bardic Inspiration when you finish a Short or Long Rest. In addition, you can expend a spell slot (no action required) to regain one expended use of Bardic Inspiration. Level 7: Countercharm You can use musical notes or words of power to disrupt mind-influencing effects. If you or a creature within 30 feet of you fails a saving throw against an effect that applies the Charmed or Frightened condition, you can take a Reaction to cause the save to be rerolled, and the new roll has Advantage.",
+            "desc": "You now regain all your expended uses of Bardic Inspiration when you finish a Short or Long Rest. In addition, you can expend a spell slot (no action required) to regain one expended use of Bardic Inspiration. Level 7: Countercharm You can use musical notes or words of power to disrupt mind-influencing effects. If you or a creature within 9 m of you fails a saving throw against an effect that applies the Charmed or Frightened condition, you can take a Reaction to cause the save to be rerolled, and the new roll has Advantage.",
             "sourcePage": 31
           }
         ],
@@ -437,7 +440,7 @@
           {
             "id": "countercharm",
             "name": "Countercharm",
-            "desc": "You can use musical notes or words of power to disrupt mind-influencing effects. If you or a creature within 30 feet of you fails a saving throw against an effect that applies the Charmed or Frightened condition, you can take a Reaction to cause the save to be rerolled, and the new roll has Advantage.",
+            "desc": "You can use musical notes or words of power to disrupt mind-influencing effects. If you or a creature within 9 m of you fails a saving throw against an effect that applies the Charmed or Frightened condition, you can take a Reaction to cause the save to be rerolled, and the new roll has Advantage.",
             "sourcePage": 31
           }
         ],
@@ -462,8 +465,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Bard, page 31.",
-            "sourcePage": 31
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Bardo 8, 12 e 16.",
+            "sourcePage": 31,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Bard levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -488,8 +492,9 @@
           {
             "id": "expertise",
             "name": "Expertise",
-            "desc": "SRD 5.2.1, Bard, page 31.",
-            "sourcePage": 31
+            "desc": "Você ganha Especialização (veja \"Glossário de Regras\") em duas de suas perícias com as quais seja proficiente à sua escolha. Atuação e Persuasão são recomendadas se você tiver proficiência nelas.\n\nNo nível 9 de Bardo, você ganha Especialização em mais duas perícias com as quais seja proficiente à sua escolha.",
+            "sourcePage": 31,
+            "descEn": "You gain Expertise (see \"Rules Glossary\") in two of your skill proficiencies of your choice. Performance and Persuasion are recommended if you have proficiency in them.\n\nAt Bard level 9, you gain Expertise in two more of your skill proficiencies of your choice."
           }
         ],
         "expertiseChoice": 2,
@@ -557,8 +562,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Bard, page 31.",
-            "sourcePage": 31
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Bardo 8, 12 e 16.",
+            "sourcePage": 31,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Bard levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -637,8 +643,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Bard, page 31.",
-            "sourcePage": 31
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Bardo 8, 12 e 16.",
+            "sourcePage": 31,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Bard levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -732,7 +739,7 @@
           {
             "id": "wordsOfCreation",
             "name": "Words of Creation",
-            "desc": "You have mastered two of the Words of Creation: the words of life and death. You therefore always have the Power Word Heal and Power Word Kill spells prepared. When you cast either spell, you can target a second creature with it if that creature is within 10 feet of the first target. Bard Spell List",
+            "desc": "You have mastered two of the Words of Creation: the words of life and death. You therefore always have the Power Word Heal and Power Word Kill spells prepared. When you cast either spell, you can target a second creature with it if that creature is within 3 m of the first target. Bard Spell List",
             "sourcePage": 31
           }
         ],
@@ -766,7 +773,7 @@
             {
               "id": "cuttingWords",
               "name": "Cutting Words",
-              "desc": "You learn to use your wit to supernaturally distract, confuse, and otherwise sap the confidence and competence of others. When a creature that you can see within 60 feet of yourself makes a damage roll or succeeds on an ability check or attack roll, you can take a Reaction to expend one use of your Bardic Inspiration; roll your Bardic Inspiration die, and subtract the number rolled from the creature’s roll, reducing the damage or potentially turning the success into a failure.",
+              "desc": "You learn to use your wit to supernaturally distract, confuse, and otherwise sap the confidence and competence of others. When a creature that you can see within 18 m of yourself makes a damage roll or succeeds on an ability check or attack roll, you can take a Reaction to expend one use of your Bardic Inspiration; roll your Bardic Inspiration die, and subtract the number rolled from the creature’s roll, reducing the damage or potentially turning the success into a failure.",
               "sourcePage": 31
             }
           ]
@@ -979,8 +986,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Cleric, page 36.",
-            "sourcePage": 36
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Clérigo 8, 12 e 16.",
+            "sourcePage": 36,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Cleric levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -1066,8 +1074,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Cleric, page 36.",
-            "sourcePage": 36
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Clérigo 8, 12 e 16.",
+            "sourcePage": 36,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Cleric levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -1110,7 +1119,7 @@
           {
             "id": "improvedBlessedStrikes",
             "name": "Improved Blessed Strikes",
-            "desc": "The option you chose for Blessed Strikes grows more powerful. Divine Strike. The extra damage of your Divine Strike increases to 2d8. Potent Spellcasting. When you cast a Cleric cantrip and deal damage to a creature with it, you can give vitality to yourself or another creature within 60 feet of yourself, granting a number of Temporary Hit Points equal to twice your Wisdom modifier.",
+            "desc": "The option you chose for Blessed Strikes grows more powerful. Divine Strike. The extra damage of your Divine Strike increases to 2d8. Potent Spellcasting. When you cast a Cleric cantrip and deal damage to a creature with it, you can give vitality to yourself or another creature within 18 m of yourself, granting a number of Pontos de Vida Temporários equal to twice your Wisdom modifier.",
             "sourcePage": 36
           }
         ],
@@ -1153,8 +1162,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Cleric, page 36.",
-            "sourcePage": 36
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Clérigo 8, 12 e 16.",
+            "sourcePage": 36,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Cleric levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -1269,7 +1279,7 @@
             {
               "id": "discipleOfLife",
               "name": "Disciple of Life",
-              "desc": "When a spell you cast with a spell slot restores Hit Points to a creature, that creature regains additional Hit Points on the turn you cast the spell. The additional Hit Points equal 2 plus the spell slot’s level.",
+              "desc": "When a spell you cast with a spell slot restores Pontos de Vida to a creature, that creature regains additional Pontos de Vida on the turn you cast the spell. The additional Pontos de Vida equal 2 plus the spell slot’s level.",
               "sourcePage": 36
             },
             {
@@ -1281,7 +1291,7 @@
             {
               "id": "preserveLife",
               "name": "Preserve Life",
-              "desc": "As a Magic action, you present your Holy Symbol and expend a use of your Channel Divinity to evoke healing energy that can restore a number of Hit Points equal to five times your Cleric level. Choose Bloodied creatures within 30 feet of yourself (which can include you), and divide those Hit Points among them. This feature can restore a creature to no more than half its Hit Point maximum.",
+              "desc": "As a Magic action, you present your Holy Symbol and expend a use of your Channel Divinity to evoke healing energy that can restore a number of Pontos de Vida equal to five times your Cleric level. Choose Bloodied creatures within 9 m of yourself (which can include you), and divide those Pontos de Vida among them. This feature can restore a creature to no more than half its Hit Point maximum.",
               "sourcePage": 36
             }
           ]
@@ -1291,7 +1301,7 @@
             {
               "id": "blessedHealer",
               "name": "Blessed Healer",
-              "desc": "The healing spells you cast on others heal you as well. Immediately after you cast a spell with a spell slot that restores Hit Points to one or more creatures other than yourself, you regain Hit Points equal to 2 plus the spell slot’s level.",
+              "desc": "The healing spells you cast on others heal you as well. Immediately after you cast a spell with a spell slot that restores Pontos de Vida to one or more creatures other than yourself, you regain Pontos de Vida equal to 2 plus the spell slot’s level.",
               "sourcePage": 36
             }
           ]
@@ -1301,7 +1311,7 @@
             {
               "id": "supremeHealing",
               "name": "Supreme Healing",
-              "desc": "When you would normally roll one or more dice to restore Hit Points to a creature with a spell or Channel Divinity, don’t roll those dice for the healing; instead use the highest number possible for each die. For example, instead of restoring 2d6 Hit Points to a creature with a spell, you restore 12. Druid",
+              "desc": "When you would normally roll one or more dice to restore Pontos de Vida to a creature with a spell or Channel Divinity, don’t roll those dice for the healing; instead use the highest number possible for each die. For example, instead of restoring 2d6 Pontos de Vida to a creature with a spell, you restore 12. Druid",
               "sourcePage": 36
             }
           ]
@@ -1506,8 +1516,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Druid, page 41.",
-            "sourcePage": 41
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Druida 8, 12 e 16.",
+            "sourcePage": 41,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Druid levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -1586,8 +1597,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Druid, page 41.",
-            "sourcePage": 41
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Druida 8, 12 e 16.",
+            "sourcePage": 41,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Druid levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -1648,7 +1660,7 @@
           {
             "id": "improvedElementalFury",
             "name": "Improved Elemental Fury",
-            "desc": "The option you chose for Elemental Fury grows more powerful, as detailed below. Potent Spellcasting. When you cast a Druid cantrip with a range of 10 feet or greater, the spell’s range increases by 300 feet. Primal Strike. The extra damage of your Primal Strike increases to 2d8.",
+            "desc": "The option you chose for Elemental Fury grows more powerful, as detailed below. Potent Spellcasting. When you cast a Druid cantrip with a range of 3 m or greater, the spell’s range increases by 90 m. Primal Strike. The extra damage of your Primal Strike increases to 2d8.",
             "sourcePage": 41
           }
         ],
@@ -1673,8 +1685,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Druid, page 41.",
-            "sourcePage": 41
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Druida 8, 12 e 16.",
+            "sourcePage": 41,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Druid levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -1802,7 +1815,7 @@
             {
               "id": "landsAid",
               "name": "Land’s Aid",
-              "desc": "As a Magic action, you can expend a use of your Wild Shape and choose a point within 60 feet of yourself. Vitality-giving flowers and life-draining thorns appear for a moment in a 10-foot-radius Sphere centered on that point. Each creature of your choice in the Sphere must make a Constitution saving throw against your spell save DC, taking 2d6 Necrotic damage on a failed save or half as much damage on a successful one. One creature of your choice in that area regains 2d6 Hit Points. The damage and healing increase by 1d6 when you reach Druid levels 10 (3d6) and 14 (4d6).",
+              "desc": "As a Magic action, you can expend a use of your Wild Shape and choose a point within 18 m of yourself. Vitality-giving flowers and life-draining thorns appear for a moment in a 10-foot-radius Sphere centered on that point. Each creature of your choice in the Sphere must make a Constitution saving throw against your spell save DC, taking 2d6 Necrotic damage on a failed save or half as much damage on a successful one. One creature of your choice in that area regains 2d6 Pontos de Vida. The damage and healing increase by 1d6 when you reach Druid levels 10 (3d6) and 14 (4d6).",
               "sourcePage": 41
             }
           ]
@@ -1832,7 +1845,7 @@
             {
               "id": "naturesSanctuary",
               "name": "Nature’s Sanctuary",
-              "desc": "As a Magic action, you can expend a use of your Wild Shape and cause spectral trees and vines to appear in a 15-foot Cube on the ground within 120 feet of yourself. They last there for 1 minute or until you have the Incapacitated condition or die. You and your allies have Half Cover while in that area, and your allies gain the current Resistance of your Nature’s Ward while there. As a Bonus Action, you can move the Cube up to 60 feet to ground within 120 feet of yourself. Fighter",
+              "desc": "As a Magic action, you can expend a use of your Wild Shape and cause spectral trees and vines to appear in a 15-foot Cube on the ground within 36 m of yourself. They last there for 1 minute or until you have the Incapacitated condition or die. You and your allies have Half Cover while in that area, and your allies gain the current Resistance of your Nature’s Ward while there. As a Bonus Action, you can move the Cube up to 18 m to ground within 36 m of yourself. Fighter",
               "sourcePage": 41
             }
           ]
@@ -1855,7 +1868,7 @@
           {
             "id": "secondWind",
             "name": "Second Wind",
-            "desc": "You have a limited well of physical and mental stamina that you can draw on. As a Bonus Action, you can use it to regain Hit Points equal to 1d10 plus your Fighter level. You can use this feature twice. You regain one expended use when you finish a Short Rest, and you regain all expended uses when you finish a Long Rest. When you reach certain Fighter levels, you gain more uses of this feature, as shown in the Second Wind column of the Fighter Features table.",
+            "desc": "You have a limited well of physical and mental stamina that you can draw on. As a Bonus Action, you can use it to regain Pontos de Vida equal to 1d10 plus your Fighter level. You can use this feature twice. You regain one expended use when you finish a Short Rest, and you regain all expended uses when you finish a Long Rest. When you reach certain Fighter levels, you gain more uses of this feature, as shown in the Second Wind column of the Fighter Features table.",
             "sourcePage": 47
           },
           {
@@ -1872,13 +1885,14 @@
           {
             "id": "actionSurgeOneUse",
             "name": "Action Surge (one use)",
-            "desc": "SRD 5.2.1, Fighter, page 47.",
-            "sourcePage": 47
+            "desc": "Você pode ir além de seus limites normais por um instante. No seu turno, você pode realizar uma ação adicional, exceto a ação Mágica.\n\nDepois de usar esta característica, você não pode fazê-lo novamente até terminar um Descanso Curto ou Longo. A partir do nível 17, você pode usá-la duas vezes antes de um descanso, mas apenas uma vez por turno.",
+            "sourcePage": 47,
+            "descEn": "You can push yourself beyond your normal limits for a moment. On your turn, you can take one additional action, except the Magic action.\n\nOnce you use this feature, you can't do so again until you finish a Short or Long Rest. Starting at level 17, you can use it twice before a rest but only once on a turn."
           },
           {
             "id": "tacticalMind",
             "name": "Tactical Mind",
-            "desc": "You have a mind for tactics on and off the battlefield. When you fail an ability check, you can expend a use of your Second Wind to push yourself toward success. Rather than regaining Hit Points, you roll 1d10 and add the number rolled to the ability check, potentially turning it into a success. If the check still fails, this use of Second Wind isn’t expended.",
+            "desc": "You have a mind for tactics on and off the battlefield. When you fail an ability check, you can expend a use of your Second Wind to push yourself toward success. Rather than regaining Pontos de Vida, you roll 1d10 and add the number rolled to the ability check, potentially turning it into a success. If the check still fails, this use of Second Wind isn’t expended.",
             "sourcePage": 47
           }
         ]
@@ -1927,8 +1941,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Fighter, page 47.",
-            "sourcePage": 47
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Guerreiro 6, 8, 12, 14 e 16.",
+            "sourcePage": 47,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Fighter levels 6, 8, 12, 14, and 16."
           }
         ],
         "asiOrFeat": true
@@ -1941,8 +1956,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Fighter, page 47.",
-            "sourcePage": 47
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Guerreiro 6, 8, 12, 14 e 16.",
+            "sourcePage": 47,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Fighter levels 6, 8, 12, 14, and 16."
           }
         ],
         "asiOrFeat": true
@@ -1952,8 +1968,9 @@
           {
             "id": "indomitableOneUse",
             "name": "Indomitable (one use)",
-            "desc": "SRD 5.2.1, Fighter, page 47.",
-            "sourcePage": 47
+            "desc": "Se falhar em uma salvaguarda, você pode jogá-la novamente com um bônus igual ao seu nível de Guerreiro. Você deve usar a nova jogada, e não pode usar esta característica novamente até terminar um Descanso Longo.\n\nVocê pode usar esta característica duas vezes antes de um Descanso Longo a partir do nível 13 e três vezes antes de um Descanso Longo a partir do nível 17.",
+            "sourcePage": 47,
+            "descEn": "If you fail a saving throw, you can reroll it with a bonus equal to your Fighter level. You must use the new roll, and you can't use this feature again until you finish a Long Rest.\n\nYou can use this feature twice before a Long Rest starting at level 13 and three times before a Long Rest starting at level 17."
           },
           {
             "id": "tacticalMaster",
@@ -1982,8 +1999,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Fighter, page 47.",
-            "sourcePage": 47
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Guerreiro 6, 8, 12, 14 e 16.",
+            "sourcePage": 47,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Fighter levels 6, 8, 12, 14, and 16."
           }
         ],
         "asiOrFeat": true
@@ -1993,8 +2011,9 @@
           {
             "id": "indomitableTwoUses",
             "name": "Indomitable (two uses)",
-            "desc": "SRD 5.2.1, Fighter, page 47.",
-            "sourcePage": 47
+            "desc": "Se falhar em uma salvaguarda, você pode jogá-la novamente com um bônus igual ao seu nível de Guerreiro. Você deve usar a nova jogada, e não pode usar esta característica novamente até terminar um Descanso Longo.\n\nVocê pode usar esta característica duas vezes antes de um Descanso Longo a partir do nível 13 e três vezes antes de um Descanso Longo a partir do nível 17.",
+            "sourcePage": 47,
+            "descEn": "If you fail a saving throw, you can reroll it with a bonus equal to your Fighter level. You must use the new roll, and you can't use this feature again until you finish a Long Rest.\n\nYou can use this feature twice before a Long Rest starting at level 13 and three times before a Long Rest starting at level 17."
           },
           {
             "id": "studiedAttacks",
@@ -2009,8 +2028,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Fighter, page 47.",
-            "sourcePage": 47
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Guerreiro 6, 8, 12, 14 e 16.",
+            "sourcePage": 47,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Fighter levels 6, 8, 12, 14, and 16."
           }
         ],
         "asiOrFeat": true
@@ -2023,8 +2043,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Fighter, page 47.",
-            "sourcePage": 47
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Guerreiro 6, 8, 12, 14 e 16.",
+            "sourcePage": 47,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Fighter levels 6, 8, 12, 14, and 16."
           }
         ],
         "asiOrFeat": true
@@ -2034,14 +2055,16 @@
           {
             "id": "actionSurgeTwoUses",
             "name": "Action Surge (two uses)",
-            "desc": "SRD 5.2.1, Fighter, page 47.",
-            "sourcePage": 47
+            "desc": "Você pode ir além de seus limites normais por um instante. No seu turno, você pode realizar uma ação adicional, exceto a ação Mágica.\n\nDepois de usar esta característica, você não pode fazê-lo novamente até terminar um Descanso Curto ou Longo. A partir do nível 17, você pode usá-la duas vezes antes de um descanso, mas apenas uma vez por turno.",
+            "sourcePage": 47,
+            "descEn": "You can push yourself beyond your normal limits for a moment. On your turn, you can take one additional action, except the Magic action.\n\nOnce you use this feature, you can't do so again until you finish a Short or Long Rest. Starting at level 17, you can use it twice before a rest but only once on a turn."
           },
           {
             "id": "indomitableThreeUses",
             "name": "Indomitable (three uses)",
-            "desc": "SRD 5.2.1, Fighter, page 47.",
-            "sourcePage": 47
+            "desc": "Se falhar em uma salvaguarda, você pode jogá-la novamente com um bônus igual ao seu nível de Guerreiro. Você deve usar a nova jogada, e não pode usar esta característica novamente até terminar um Descanso Longo.\n\nVocê pode usar esta característica duas vezes antes de um Descanso Longo a partir do nível 13 e três vezes antes de um Descanso Longo a partir do nível 17.",
+            "sourcePage": 47,
+            "descEn": "If you fail a saving throw, you can reroll it with a bonus equal to your Fighter level. You must use the new roll, and you can't use this feature again until you finish a Long Rest.\n\nYou can use this feature twice before a Long Rest starting at level 13 and three times before a Long Rest starting at level 17."
           }
         ]
       },
@@ -2124,7 +2147,7 @@
             {
               "id": "survivor",
               "name": "Survivor",
-              "desc": "You attain the pinnacle of resilience in battle, giving you these benefits. Defy Death. You have Advantage on Death Saving Throws. Moreover, when you roll 18–20 on a Death Saving Throw, you gain the benefit of rolling a 20 on it. Heroic Rally. At the start of each of your turns, you regain Hit Points equal to 5 plus your Constitution modifier if you are Bloodied and have at least 1 Hit Point.",
+              "desc": "You attain the pinnacle of resilience in battle, giving you these benefits. Defy Death. You have Advantage on Death Saving Throws. Moreover, when you roll 18–20 on a Death Saving Throw, you gain the benefit of rolling a 20 on it. Heroic Rally. At the start of each of your turns, you regain Pontos de Vida equal to 5 plus your Constitution modifier if you are Bloodied and have at least 1 Hit Point.",
               "sourcePage": 47
             }
           ]
@@ -2163,13 +2186,13 @@
           {
             "id": "unarmoredMovement",
             "name": "Unarmored Movement",
-            "desc": "Your speed increases by 10 feet while you aren’t wearing armor or wielding a Shield. This bonus increases when you reach certain Monk levels, as shown on the Monk Features table.",
+            "desc": "Your speed increases by 3 m while you aren’t wearing armor or wielding a Shield. This bonus increases when you reach certain Monk levels, as shown on the Monk Features table.",
             "sourcePage": 49
           },
           {
             "id": "uncannyMetabolism",
             "name": "Uncanny Metabolism",
-            "desc": "When you roll Initiative, you can regain all expended Focus Points. When you do so, roll your Martial Arts die, and regain a number of Hit Points equal to your Monk level plus the number rolled. Once you use this feature, you can’t use it again until you finish a Long Rest.",
+            "desc": "When you roll Initiative, you can regain all expended Focus Points. When you do so, roll your Martial Arts die, and regain a number of Pontos de Vida equal to your Monk level plus the number rolled. Once you use this feature, you can’t use it again until you finish a Long Rest.",
             "sourcePage": 49
           }
         ]
@@ -2179,7 +2202,7 @@
           {
             "id": "deflectAttacks",
             "name": "Deflect Attacks",
-            "desc": "When an attack roll hits you and its damage includes Bludgeoning, Piercing, or Slashing damage, you can take a Reaction to reduce the attack’s total damage against you. The reduction equals 1d10 plus your Dexterity modifier and Monk level. If you reduce the damage to 0, you can expend 1 Focus Point to redirect some of the attack’s force. If you do so, choose a creature you can see within 5 feet of yourself if the attack was a melee attack or a creature you can see within 60 feet of yourself that isn’t behind Total Cover if the attack was a ranged attack. That creature must succeed on a Dexterity saving throw or take damage equal to two rolls of your Martial Arts die plus your Dexterity modifier. The damage is the same type dealt by the attack.",
+            "desc": "When an attack roll hits you and its damage includes Bludgeoning, Piercing, or Slashing damage, you can take a Reaction to reduce the attack’s total damage against you. The reduction equals 1d10 plus your Dexterity modifier and Monk level. If you reduce the damage to 0, you can expend 1 Focus Point to redirect some of the attack’s force. If you do so, choose a creature you can see within 1,5 m of yourself if the attack was a melee attack or a creature you can see within 18 m of yourself that isn’t behind Total Cover if the attack was a ranged attack. That creature must succeed on a Dexterity saving throw or take damage equal to two rolls of your Martial Arts die plus your Dexterity modifier. The damage is the same type dealt by the attack.",
             "sourcePage": 49
           },
           {
@@ -2250,8 +2273,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Monk, page 49.",
-            "sourcePage": 49
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Monge 8, 12 e 16.",
+            "sourcePage": 49,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Monk levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true
@@ -2271,7 +2295,7 @@
           {
             "id": "heightenedFocus",
             "name": "Heightened Focus",
-            "desc": "Your Flurry of Blows, Patient Defense, and Step of the Wind gain the following benefits. Flurry of Blows. You can expend 1 Focus Point to use Flurry of Blows and make three Unarmed Strikes with it instead of two. Patient Defense. When you expend a Focus Point to use Patient Defense, you gain a number of Temporary Hit Points equal to two rolls of your Martial Arts die. Step of the Wind. When you expend a Focus Point to use Step of the Wind, you can choose a willing creature within 5 feet of yourself that is Large or smaller. You move the creature with you until the end of your turn. The creature’s movement doesn’t provoke Opportunity Attacks.",
+            "desc": "Your Flurry of Blows, Patient Defense, and Step of the Wind gain the following benefits. Flurry of Blows. You can expend 1 Focus Point to use Flurry of Blows and make three Unarmed Strikes with it instead of two. Patient Defense. When you expend a Focus Point to use Patient Defense, you gain a number of Pontos de Vida Temporários equal to two rolls of your Martial Arts die. Step of the Wind. When you expend a Focus Point to use Step of the Wind, you can choose a willing creature within 1,5 m of yourself that is Large or smaller. You move the creature with you until the end of your turn. The creature’s movement doesn’t provoke Opportunity Attacks.",
             "sourcePage": 49
           },
           {
@@ -2290,8 +2314,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Monk, page 49.",
-            "sourcePage": 49
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Monge 8, 12 e 16.",
+            "sourcePage": 49,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Monk levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true
@@ -2331,8 +2356,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Monk, page 49.",
-            "sourcePage": 49
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Monge 8, 12 e 16.",
+            "sourcePage": 49,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Monk levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true
@@ -2379,7 +2405,7 @@
             {
               "id": "openHandTechnique",
               "name": "Open Hand Technique",
-              "desc": "Whenever you hit a creature with an attack granted by your Flurry of Blows, you can impose one of the following effects on that target. Addle. The target can’t make Opportunity Attacks until the start of its next turn. Push. The target must succeed on a Strength saving throw or be pushed up to 15 feet away from you. Topple. The target must succeed on a Dexterity saving throw or have the Prone condition.",
+              "desc": "Whenever you hit a creature with an attack granted by your Flurry of Blows, you can impose one of the following effects on that target. Addle. The target can’t make Opportunity Attacks until the start of its next turn. Push. The target must succeed on a Strength saving throw or be pushed up to 4,5 m away from you. Topple. The target must succeed on a Dexterity saving throw or have the Prone condition.",
               "sourcePage": 49
             }
           ]
@@ -2389,7 +2415,7 @@
             {
               "id": "wholenessOfBody",
               "name": "Wholeness of Body",
-              "desc": "You gain the ability to heal yourself. As a Bonus Action, you can roll your Martial Arts die. You regain a number of Hit Points equal to the number rolled plus your Wisdom modifier (minimum of 1 Hit Point regained). You can use this feature a number of times equal to your Wisdom modifier (minimum of once), and you regain all expended uses when you finish a Long Rest.",
+              "desc": "You gain the ability to heal yourself. As a Bonus Action, you can roll your Martial Arts die. You regain a number of Pontos de Vida equal to the number rolled plus your Wisdom modifier (minimum of 1 Hit Point regained). You can use this feature a number of times equal to your Wisdom modifier (minimum of once), and you regain all expended uses when you finish a Long Rest.",
               "sourcePage": 49
             }
           ]
@@ -2426,7 +2452,7 @@
           {
             "id": "layOnHands",
             "name": "Lay On Hands",
-            "desc": "Your blessed touch can heal wounds. You have a pool of healing power that replenishes when you finish a Long Rest. With that pool, you can restore a total number of Hit Points equal to five times your Paladin level.",
+            "desc": "Your blessed touch can heal wounds. You have a pool of healing power that replenishes when you finish a Long Rest. With that pool, you can restore a total number of Pontos de Vida equal to five times your Paladin level.",
             "sourcePage": 53
           },
           {
@@ -2621,8 +2647,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Paladin, page 53.",
-            "sourcePage": 53
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Paladino 8, 12 e 16.",
+            "sourcePage": 53,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Paladin levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -2718,8 +2745,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Paladin, page 53.",
-            "sourcePage": 53
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Paladino 8, 12 e 16.",
+            "sourcePage": 53,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Paladin levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -2760,7 +2788,7 @@
           {
             "id": "restoringTouch",
             "name": "Restoring Touch",
-            "desc": "When you use Lay On Hands on a creature, you can also remove one or more of the following conditions from the creature: Blinded, Charmed, Deafened, Frightened, Paralyzed, or Stunned. You must expend 5 Hit Points from the healing pool of Lay On Hands for each of these conditions you remove; those points don’t also restore Hit Points to the creature.",
+            "desc": "When you use Lay On Hands on a creature, you can also remove one or more of the following conditions from the creature: Blinded, Charmed, Deafened, Frightened, Paralyzed, or Stunned. You must expend 5 Pontos de Vida from the healing pool of Lay On Hands for each of these conditions you remove; those points don’t also restore Pontos de Vida to the creature.",
             "sourcePage": 53
           }
         ],
@@ -2801,8 +2829,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Paladin, page 53.",
-            "sourcePage": 53
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Paladino 8, 12 e 16.",
+            "sourcePage": 53,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Paladin levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -2843,8 +2872,9 @@
           {
             "id": "auraExpansion",
             "name": "Aura Expansion",
-            "desc": "Your Aura of Protection is now a 30-foot Emanation.",
-            "sourcePage": 53
+            "desc": "Sua Aura de Proteção agora é uma Emanação de 9 metros.",
+            "sourcePage": 53,
+            "descEn": "Your Aura of Protection is now a 30-foot Emanation."
           }
         ],
         "spellsPrepared": {
@@ -2918,7 +2948,7 @@
             {
               "id": "sacredWeapon",
               "name": "Sacred Weapon",
-              "desc": "When you take the Attack action, you can expend one use of your Channel Divinity to imbue one Melee weapon that you are holding with positive energy. For 10 minutes or until you use this feature again, you add your Charisma modifier to attack rolls you make with that weapon (minimum bonus of +1), and each time you hit with it, you cause it to deal its normal damage type or Radiant damage. The weapon also emits Bright Light in a 20-foot radius and Dim Light 20 feet beyond that. You can end this effect early (no action required). This effect also ends if you aren’t carrying the weapon.",
+              "desc": "When you take the Attack action, you can expend one use of your Channel Divinity to imbue one Melee weapon that you are holding with positive energy. For 10 minutes or until you use this feature again, you add your Charisma modifier to attack rolls you make with that weapon (minimum bonus of +1), and each time you hit with it, you cause it to deal its normal damage type or Radiant damage. The weapon also emits Bright Light in a 20-foot radius and Dim Light 6 m beyond that. You can end this effect early (no action required). This effect also ends if you aren’t carrying the weapon.",
               "sourcePage": 53
             }
           ]
@@ -3107,7 +3137,7 @@
           {
             "id": "roving",
             "name": "Roving",
-            "desc": "Your Speed increases by 10 feet while you aren’t wearing Heavy armor. You also have a Climb Speed and a Swim Speed equal to your Speed.",
+            "desc": "Your Speed increases by 3 m while you aren’t wearing Heavy armor. You also have a Climb Speed and a Swim Speed equal to your Speed.",
             "sourcePage": 57
           }
         ],
@@ -3148,8 +3178,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Ranger, page 57.",
-            "sourcePage": 57
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Guardião 8, 12 e 16.",
+            "sourcePage": 57,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Ranger levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -3198,7 +3229,7 @@
           {
             "id": "tireless",
             "name": "Tireless",
-            "desc": "Primal forces now help fuel you on your journeys, granting you the following benefits. Temporary Hit Points. As a Magic action, you can give yourself a number of Temporary Hit Points equal to 1d8 plus your Wisdom modifier (minimum of 1). You can use this action a number of times equal to your Wisdom modifier (minimum of once), and you regain all expended uses when you finish a Long Rest. Decrease Exhaustion. Whenever you finish a Short Rest, your Exhaustion level, if any, decreases by 1.",
+            "desc": "Primal forces now help fuel you on your journeys, granting you the following benefits. Pontos de Vida Temporários. As a Magic action, you can give yourself a number of Pontos de Vida Temporários equal to 1d8 plus your Wisdom modifier (minimum of 1). You can use this action a number of times equal to your Wisdom modifier (minimum of once), and you regain all expended uses when you finish a Long Rest. Decrease Exhaustion. Whenever you finish a Short Rest, your Exhaustion level, if any, decreases by 1.",
             "sourcePage": 57
           }
         ],
@@ -3239,8 +3270,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Ranger, page 57.",
-            "sourcePage": 57
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Guardião 8, 12 e 16.",
+            "sourcePage": 57,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Ranger levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -3329,8 +3361,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Ranger, page 57.",
-            "sourcePage": 57
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Guardião 8, 12 e 16.",
+            "sourcePage": 57,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Ranger levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -3378,7 +3411,7 @@
           {
             "id": "feralSenses",
             "name": "Feral Senses",
-            "desc": "Your connection to the forces of nature grants you Blindsight with a range of 30 feet.",
+            "desc": "Your connection to the forces of nature grants you Blindsight with a range of 9 m.",
             "sourcePage": 57
           }
         ],
@@ -3460,7 +3493,7 @@
             {
               "id": "huntersPrey",
               "name": "Hunter’s Prey",
-              "desc": "You gain one of the following feature options of your choice. Whenever you finish a Short or Long Rest, you can replace the chosen option with the other one. Colossus Slayer. Your tenacity can wear down even the most resilient foes. When you hit a creature with a weapon, the weapon deals an extra 1d8 damage to the target if it’s missing any of its Hit Points. You can deal this extra damage only once per turn. Horde Breaker. Once on each of your turns when you make an attack with a weapon, you can make another attack with the same weapon against a different creature that is within 5 feet of the original target, that is within the weapon’s range, and that you haven’t attacked this turn.",
+              "desc": "You gain one of the following feature options of your choice. Whenever you finish a Short or Long Rest, you can replace the chosen option with the other one. Colossus Slayer. Your tenacity can wear down even the most resilient foes. When you hit a creature with a weapon, the weapon deals an extra 1d8 damage to the target if it’s missing any of its Pontos de Vida. You can deal this extra damage only once per turn. Horde Breaker. Once on each of your turns when you make an attack with a weapon, you can make another attack with the same weapon against a different creature that is within 1,5 m of the original target, that is within the weapon’s range, and that you haven’t attacked this turn.",
               "sourcePage": 57
             }
           ]
@@ -3480,7 +3513,7 @@
             {
               "id": "superiorHuntersPrey",
               "name": "Superior Hunter’s Prey",
-              "desc": "Once per turn when you deal damage to a creature marked by your Hunter’s Mark, you can also deal that spell’s extra damage to a different creature that you can see within 30 feet of the first creature.",
+              "desc": "Once per turn when you deal damage to a creature marked by your Hunter’s Mark, you can also deal that spell’s extra damage to a different creature that you can see within 9 m of the first creature.",
               "sourcePage": 57
             }
           ]
@@ -3590,8 +3623,9 @@
           {
             "id": "expertise",
             "name": "Expertise",
-            "desc": "SRD 5.2.1, Rogue, page 61.",
-            "sourcePage": 61
+            "desc": "Você ganha Especialização em duas de suas perícias com as quais seja proficiente à sua escolha. Prestidigitação e Furtividade são recomendadas se você tiver proficiência nelas.\n\nNo nível 6 de Ladino, você ganha Especialização em mais duas perícias com as quais seja proficiente à sua escolha.",
+            "sourcePage": 61,
+            "descEn": "You gain Expertise in two of your skill proficiencies of your choice. Sleight of Hand and Stealth are recommended if you have proficiency in them.\n\nAt Rogue level 6, you gain Expertise in two more of your skill proficiencies of your choice."
           }
         ],
         "expertiseChoice": 2
@@ -3617,8 +3651,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Rogue, page 61.",
-            "sourcePage": 61
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Ladino 8, 10, 12 e 16.",
+            "sourcePage": 61,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Rogue levels 8, 10, 12, and 16."
           }
         ],
         "asiOrFeat": true
@@ -3631,8 +3666,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Rogue, page 61.",
-            "sourcePage": 61
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Ladino 8, 10, 12 e 16.",
+            "sourcePage": 61,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Rogue levels 8, 10, 12, and 16."
           }
         ],
         "asiOrFeat": true
@@ -3652,8 +3688,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Rogue, page 61.",
-            "sourcePage": 61
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Ladino 8, 10, 12 e 16.",
+            "sourcePage": 61,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Rogue levels 8, 10, 12, and 16."
           }
         ],
         "asiOrFeat": true
@@ -3686,8 +3723,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Rogue, page 61.",
-            "sourcePage": 61
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Ladino 8, 10, 12 e 16.",
+            "sourcePage": 61,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Rogue levels 8, 10, 12, and 16."
           }
         ],
         "asiOrFeat": true
@@ -3969,8 +4007,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Sorcerer, page 64.",
-            "sourcePage": 64
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Feiticeiro 8, 12 e 16.",
+            "sourcePage": 64,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Sorcerer levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -4013,8 +4052,9 @@
           {
             "id": "metamagic",
             "name": "Metamagic",
-            "desc": "SRD 5.2.1, Sorcerer, page 64.",
-            "sourcePage": 64
+            "desc": "Como sua magia flui de dentro de você, você pode alterar suas magias para atender às suas necessidades; você ganha duas opções de Metamagia à sua escolha da seção \"Opções de Metamagia\" mais adiante na descrição desta classe. Você usa as opções escolhidas para modificar temporariamente as magias que conjura. Para usar uma opção, você deve gastar o número de Pontos de Feitiçaria que ela custa.\n\nVocê só pode usar uma opção de Metamagia em uma magia ao conjurá-la, a menos que haja indicação em contrário em uma dessas opções.\n\nSempre que você ganha um nível de Feiticeiro, pode substituir uma de suas opções de Metamagia por outra que você não conheça. Você ganha mais duas opções no nível 10 de Feiticeiro e mais duas no nível 17 de Feiticeiro.",
+            "sourcePage": 64,
+            "descEn": "Because your magic flows from within, you can alter your spells to suit your needs; you gain two Metamagic options of your choice from \"Metamagic Options\" later in this class's description. You use the chosen options to temporarily modify spells you cast. To use an option, you must spend the number of Sorcery Points that it costs.\n\nYou can use only one Metamagic option on a spell when you cast it unless otherwise noted in one of those options.\n\nWhenever you gain a Sorcerer level, you can replace one of your Metamagic options with one you don't know. You gain two more options at Sorcerer level 10 and two more at Sorcerer level 17."
           }
         ],
         "cantripsKnown": 6,
@@ -4056,8 +4096,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Sorcerer, page 64.",
-            "sourcePage": 64
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Feiticeiro 8, 12 e 16.",
+            "sourcePage": 64,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Sorcerer levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -4136,8 +4177,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Sorcerer, page 64.",
-            "sourcePage": 64
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Feiticeiro 8, 12 e 16.",
+            "sourcePage": 64,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Sorcerer levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -4162,8 +4204,9 @@
           {
             "id": "metamagic",
             "name": "Metamagic",
-            "desc": "SRD 5.2.1, Sorcerer, page 64.",
-            "sourcePage": 64
+            "desc": "Como sua magia flui de dentro de você, você pode alterar suas magias para atender às suas necessidades; você ganha duas opções de Metamagia à sua escolha da seção \"Opções de Metamagia\" mais adiante na descrição desta classe. Você usa as opções escolhidas para modificar temporariamente as magias que conjura. Para usar uma opção, você deve gastar o número de Pontos de Feitiçaria que ela custa.\n\nVocê só pode usar uma opção de Metamagia em uma magia ao conjurá-la, a menos que haja indicação em contrário em uma dessas opções.\n\nSempre que você ganha um nível de Feiticeiro, pode substituir uma de suas opções de Metamagia por outra que você não conheça. Você ganha mais duas opções no nível 10 de Feiticeiro e mais duas no nível 17 de Feiticeiro.",
+            "sourcePage": 64,
+            "descEn": "Because your magic flows from within, you can alter your spells to suit your needs; you gain two Metamagic options of your choice from \"Metamagic Options\" later in this class's description. You use the chosen options to temporarily modify spells you cast. To use an option, you must spend the number of Sorcery Points that it costs.\n\nYou can use only one Metamagic option on a spell when you cast it unless otherwise noted in one of those options.\n\nWhenever you gain a Sorcerer level, you can replace one of your Metamagic options with one you don't know. You gain two more options at Sorcerer level 10 and two more at Sorcerer level 17."
           }
         ],
         "cantripsKnown": 6,
@@ -4285,7 +4328,7 @@
             {
               "id": "dragonWings",
               "name": "Dragon Wings",
-              "desc": "As a Bonus Action, you can cause draconic wings to appear on your back. The wings last for 1 hour or until you dismiss them (no action required). For the duration, you have a Fly Speed of 60 feet. Once you use this feature, you can’t use it again until you finish a Long Rest unless you spend 3 Sorcery Points (no action required) to restore your use of it.",
+              "desc": "As a Bonus Action, you can cause draconic wings to appear on your back. The wings last for 1 hour or until you dismiss them (no action required). For the duration, you have a Fly Speed of 18 m. Once you use this feature, you can’t use it again until you finish a Long Rest unless you spend 3 Sorcery Points (no action required) to restore your use of it.",
               "sourcePage": 64
             }
           ]
@@ -4481,8 +4524,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Warlock, page 70.",
-            "sourcePage": 70
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Bruxo 8, 12 e 16.",
+            "sourcePage": 70,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Warlock levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -4553,8 +4597,9 @@
           {
             "id": "mysticArcanumLevel6Spell",
             "name": "Mystic Arcanum (level 6 spell)",
-            "desc": "SRD 5.2.1, Warlock, page 70.",
-            "sourcePage": 70
+            "desc": "Seu patrono concede a você um segredo mágico chamado arcano. Escolha uma magia de Bruxo de 6º círculo como este arcano.\n\nVocê pode conjurar sua magia de arcano uma vez sem gastar um espaço de magia, e precisa terminar um Descanso Longo antes de poder conjurá-la dessa forma novamente.\n\nConforme mostrado na tabela Características de Bruxo, você ganha outra magia de Bruxo à sua escolha que pode ser conjurada dessa forma ao atingir os níveis de Bruxo:\n\n13 (magia de 7º círculo), 15 (magia de 8º círculo) e 17 (magia de 9º círculo). Você recupera todos os usos do seu Arcano Místico ao terminar um Descanso Longo.\n\nSempre que você ganha um nível de Bruxo, pode substituir uma de suas magias de arcano por outra magia de Bruxo do mesmo círculo.",
+            "sourcePage": 70,
+            "descEn": "Your patron grants you a magical secret called an arcanum. Choose one level 6 Warlock spell as this arcanum.\n\nYou can cast your arcanum spell once without expending a spell slot, and you must finish a Long Rest before you can cast it in this way again.\n\nAs shown in the Warlock Features table, you gain another Warlock spell of your choice that can be cast in this way when you reach Warlock levels\n\n13 (level 7 spell), 15 (level 8 spell), and 17 (level 9 spell). You regain all uses of your Mystic Arcanum when you finish a Long Rest.\n\nWhenever you gain a Warlock level, you can replace one of your arcanum spells with another Warlock spell of the same level."
           }
         ],
         "cantripsKnown": 4,
@@ -4579,8 +4624,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Warlock, page 70.",
-            "sourcePage": 70
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Bruxo 8, 12 e 16.",
+            "sourcePage": 70,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Warlock levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -4606,8 +4652,9 @@
           {
             "id": "mysticArcanumLevel7Spell",
             "name": "Mystic Arcanum (level 7 spell)",
-            "desc": "SRD 5.2.1, Warlock, page 70.",
-            "sourcePage": 70
+            "desc": "Seu patrono concede a você um segredo mágico chamado arcano. Escolha uma magia de Bruxo de 6º círculo como este arcano.\n\nVocê pode conjurar sua magia de arcano uma vez sem gastar um espaço de magia, e precisa terminar um Descanso Longo antes de poder conjurá-la dessa forma novamente.\n\nConforme mostrado na tabela Características de Bruxo, você ganha outra magia de Bruxo à sua escolha que pode ser conjurada dessa forma ao atingir os níveis de Bruxo:\n\n13 (magia de 7º círculo), 15 (magia de 8º círculo) e 17 (magia de 9º círculo). Você recupera todos os usos do seu Arcano Místico ao terminar um Descanso Longo.\n\nSempre que você ganha um nível de Bruxo, pode substituir uma de suas magias de arcano por outra magia de Bruxo do mesmo círculo.",
+            "sourcePage": 70,
+            "descEn": "Your patron grants you a magical secret called an arcanum. Choose one level 6 Warlock spell as this arcanum.\n\nYou can cast your arcanum spell once without expending a spell slot, and you must finish a Long Rest before you can cast it in this way again.\n\nAs shown in the Warlock Features table, you gain another Warlock spell of your choice that can be cast in this way when you reach Warlock levels\n\n13 (level 7 spell), 15 (level 8 spell), and 17 (level 9 spell). You regain all uses of your Mystic Arcanum when you finish a Long Rest.\n\nWhenever you gain a Warlock level, you can replace one of your arcanum spells with another Warlock spell of the same level."
           }
         ],
         "cantripsKnown": 4,
@@ -4651,8 +4698,9 @@
           {
             "id": "mysticArcanumLevel8Spell",
             "name": "Mystic Arcanum (level 8 spell)",
-            "desc": "SRD 5.2.1, Warlock, page 70.",
-            "sourcePage": 70
+            "desc": "Seu patrono concede a você um segredo mágico chamado arcano. Escolha uma magia de Bruxo de 6º círculo como este arcano.\n\nVocê pode conjurar sua magia de arcano uma vez sem gastar um espaço de magia, e precisa terminar um Descanso Longo antes de poder conjurá-la dessa forma novamente.\n\nConforme mostrado na tabela Características de Bruxo, você ganha outra magia de Bruxo à sua escolha que pode ser conjurada dessa forma ao atingir os níveis de Bruxo:\n\n13 (magia de 7º círculo), 15 (magia de 8º círculo) e 17 (magia de 9º círculo). Você recupera todos os usos do seu Arcano Místico ao terminar um Descanso Longo.\n\nSempre que você ganha um nível de Bruxo, pode substituir uma de suas magias de arcano por outra magia de Bruxo do mesmo círculo.",
+            "sourcePage": 70,
+            "descEn": "Your patron grants you a magical secret called an arcanum. Choose one level 6 Warlock spell as this arcanum.\n\nYou can cast your arcanum spell once without expending a spell slot, and you must finish a Long Rest before you can cast it in this way again.\n\nAs shown in the Warlock Features table, you gain another Warlock spell of your choice that can be cast in this way when you reach Warlock levels\n\n13 (level 7 spell), 15 (level 8 spell), and 17 (level 9 spell). You regain all uses of your Mystic Arcanum when you finish a Long Rest.\n\nWhenever you gain a Warlock level, you can replace one of your arcanum spells with another Warlock spell of the same level."
           }
         ],
         "cantripsKnown": 4,
@@ -4677,8 +4725,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Warlock, page 70.",
-            "sourcePage": 70
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Bruxo 8, 12 e 16.",
+            "sourcePage": 70,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Warlock levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -4704,8 +4753,9 @@
           {
             "id": "mysticArcanumLevel9Spell",
             "name": "Mystic Arcanum (level 9 spell)",
-            "desc": "SRD 5.2.1, Warlock, page 70.",
-            "sourcePage": 70
+            "desc": "Seu patrono concede a você um segredo mágico chamado arcano. Escolha uma magia de Bruxo de 6º círculo como este arcano.\n\nVocê pode conjurar sua magia de arcano uma vez sem gastar um espaço de magia, e precisa terminar um Descanso Longo antes de poder conjurá-la dessa forma novamente.\n\nConforme mostrado na tabela Características de Bruxo, você ganha outra magia de Bruxo à sua escolha que pode ser conjurada dessa forma ao atingir os níveis de Bruxo:\n\n13 (magia de 7º círculo), 15 (magia de 8º círculo) e 17 (magia de 9º círculo). Você recupera todos os usos do seu Arcano Místico ao terminar um Descanso Longo.\n\nSempre que você ganha um nível de Bruxo, pode substituir uma de suas magias de arcano por outra magia de Bruxo do mesmo círculo.",
+            "sourcePage": 70,
+            "descEn": "Your patron grants you a magical secret called an arcanum. Choose one level 6 Warlock spell as this arcanum.\n\nYou can cast your arcanum spell once without expending a spell slot, and you must finish a Long Rest before you can cast it in this way again.\n\nAs shown in the Warlock Features table, you gain another Warlock spell of your choice that can be cast in this way when you reach Warlock levels\n\n13 (level 7 spell), 15 (level 8 spell), and 17 (level 9 spell). You regain all uses of your Mystic Arcanum when you finish a Long Rest.\n\nWhenever you gain a Warlock level, you can replace one of your arcanum spells with another Warlock spell of the same level."
           }
         ],
         "cantripsKnown": 4,
@@ -4805,7 +4855,7 @@
             {
               "id": "darkOnesBlessing",
               "name": "Dark One’s Blessing",
-              "desc": "When you reduce an enemy to 0 Hit Points, you gain Temporary Hit Points equal to your Charisma modifier plus your Warlock level (minimum of 1 Temporary Hit Point). You also gain this benefit if someone else reduces an enemy within 10 feet of you to 0 Hit Points.",
+              "desc": "When you reduce an enemy to 0 Pontos de Vida, you gain Pontos de Vida Temporários equal to your Charisma modifier plus your Warlock level (minimum of 1 Temporary Hit Point). You also gain this benefit if someone else reduces an enemy within 3 m of you to 0 Pontos de Vida.",
               "sourcePage": 70
             },
             {
@@ -5033,8 +5083,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Wizard, page 77.",
-            "sourcePage": 77
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Mago 8, 12 e 16.",
+            "sourcePage": 77,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Wizard levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -5113,8 +5164,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Wizard, page 77.",
-            "sourcePage": 77
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Mago 8, 12 e 16.",
+            "sourcePage": 77,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Wizard levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,
@@ -5193,8 +5245,9 @@
           {
             "id": "abilityScoreImprovement",
             "name": "Ability Score Improvement",
-            "desc": "SRD 5.2.1, Wizard, page 77.",
-            "sourcePage": 77
+            "desc": "Você recebe o talento Aumento no Valor de Atributo (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Você recebe esta característica novamente nos níveis de Mago 8, 12 e 16.",
+            "sourcePage": 77,
+            "descEn": "You gain the Ability Score Improvement feat (see \"Feats\") or another feat of your choice for which you qualify. You gain this feature again at Wizard levels 8, 12, and 16."
           }
         ],
         "asiOrFeat": true,

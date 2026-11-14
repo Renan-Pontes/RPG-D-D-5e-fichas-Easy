@@ -1,9 +1,9 @@
 # Forja de Heróis — Master Engineering & Product Roadmap
 
-> **Current Engine State:** `v1.0.56` (`507d8b3` on `main`, 2026-11-11)  
-> **Frontend Test Baseline:** 1,627+ Unit Tests Passing (100% Green across 59 test suites)  
+> **Current Engine State:** `v1.0.133` on `main` (2026-11-14)  
+> **Frontend Test Baseline:** 1,691 / 1,691 Unit Tests Passing (100% Green across 20 test suites)  
 > **Backend Test Baseline:** 990 / 1,005 Passing on `main` (15 items queued in Epic 1 / `sync-spec` Block C)  
-> **Build Status:** Vite v6.4.3 Production Build Clean (0 errors)  
+> **Build Status:** Vite v6.4.3 Production Build Clean (0 errors, 678 modules in 18.15s)  
 > **Master Specifications:** [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) · [`docs/sync-spec.md`](docs/sync-spec.md) · [`docs/sync-contracts.md`](docs/sync-contracts.md) · [`docs/character-versions.md`](docs/character-versions.md) · [`PLANO-MESA-E-METRICAS.md`](PLANO-MESA-E-METRICAS.md) · [`SPEC_BELT_HIVE_STATS_HANDOFF.md`](SPEC_BELT_HIVE_STATS_HANDOFF.md) · [`TECH_DEBT.md`](TECH_DEBT.md) · [`ADR.md`](ADR.md)
 
 ---
@@ -68,6 +68,7 @@
 - [x] **Universal Confirmation Dialogs (`ConfirmDialog.jsx`):** Standardized `confirmDialog` across Prepare, Items, and Group tabs.
 - [x] **Prepared Dice Per-Player Cards & Jump-Queue (`AdvancedDice.jsx`):** Promoted Prepared Dice to per-player cards with 1 queue per die size (`d4`–`d100`), `before` insertion, and `⚡` jump-queue (`prepared-dice.js`, `views_dice.py`).
 - [x] **Character Sheet Hero, Skills & Spells Consolidation (`2f22e00`):** Removed intrusive alignment/player/milestone tags from hero banner; discrete top-right `Cheat -> Edit -> Export` toolbar; universal `RestButtons` beneath spoken languages; consolidated `(Abil) Spell Save DC` & `(Abil) Spell Attack Bonus`; restored `SlotMatrix` (Long Rest vs Short Rest Pact Magic); casting time on folded spell rows; SRD 5.2.1 spell descriptions (`spell-text.js`, `spell-mechanics.json`); collapsible Skills action groups (`Search`, `Study`, `Influence`, `Hide`, `Use Tool`).
+- [x] **1:1 Official Rules & Metric PT-BR Catalog Completion (`v1.0.133`):** Completed 1:1 EN + metric PT-BR official texts across all 2014 (`520`) & 2024 (`536`) spells, classes/subclasses/options, `180` feats, 2014/2024 species/races/subraces, 2014 & `16` 2024 backgrounds, and `90` non-pack items (`412`/`416` catalog items described, excluding the 4 equipment packs), with `backend/api/progression/catalog.json` (`scripts/sync-rules.mjs`) and `frontend/data/spell-tags.json` (`scripts/build-spell-tags.mjs`) synchronized.
 - [ ] **Touch Target Sizing (`Task 6.2`):** Expand undersized interactive targets ($< 44\times 44\text{px}$) in `frontend/src/creator/join-table.css` (`.fh-join-code-actions .btn`) and `frontend/src/app-extra-styles.css` (`.camp-char-Inspect`).
 
 ---

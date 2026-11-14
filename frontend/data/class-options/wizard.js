@@ -19,27 +19,27 @@ const features = {
       'Você conjura magias de Mago usando Inteligência (CD = 8 + INT + bônus de proficiência). Truques: conhece 3 truques de Mago (4 no nível 4, 5 no nível 10) e, ao fim de cada descanso longo, pode trocar um deles por outro. Grimório: começa com seis magias de Mago de nível 1 e, a cada nível de Mago após o 1º, adiciona duas magias de um nível para o qual tenha espaços; magias achadas em aventuras podem ser copiadas (2 horas e 50 PO por nível da magia). Magias preparadas: escolhe do grimório o número indicado na tabela (4 no nível 1), de níveis para os quais tenha espaços, e pode trocar a lista ao fim de cada descanso longo. Magias que outros traços de Mago deixam sempre preparadas não contam nesse limite. Foco: um foco arcano ou o próprio grimório.',
       'You cast Wizard spells using Intelligence (DC = 8 + INT + proficiency bonus). Cantrips: you know 3 Wizard cantrips (4 at level 4, 5 at level 10) and can replace one of them after each Long Rest. Spellbook: it starts with six level 1 Wizard spells and, each Wizard level after 1st, you add two Wizard spells of a level for which you have slots; spells found while adventuring can be copied in (2 hours and 50 GP per spell level). Prepared spells: choose from your spellbook the number shown in the table (4 at level 1), of levels for which you have slots, and change the list after each Long Rest. Spells other Wizard features keep always prepared don\'t count against that number. Focus: an Arcane Focus or your spellbook.'),
     f('ritualAdept', 'Adepto de Rituais', 'Ritual Adept',
-      'Você pode conjurar como Ritual qualquer magia com o marcador Ritual que esteja no seu grimório, mesmo sem tê-la preparada. É preciso ler o grimório para conjurá-la assim.',
-      'You can cast any spell with the Ritual tag that is in your spellbook as a Ritual, even if it isn\'t prepared. You must read from the book to cast it this way.'),
+      "Você pode conjurar qualquer magia como um Ritual se ela tiver o marcador Ritual e estiver no seu grimório. Você não precisa ter a magia preparada, mas deve ler do livro para conjurar uma magia dessa forma.",
+      "You can cast any spell as a Ritual if that spell has the Ritual tag and the spell is in your spellbook. You needn't have the spell prepared, but you must read from the book to cast a spell in this way."),
     f('arcaneRecovery', 'Recuperação Arcana', 'Arcane Recovery',
       'Ao terminar um descanso curto, você pode recuperar espaços de magia gastos cuja soma de níveis seja no máximo metade do seu nível de Mago (arredondado para cima); nenhum deles pode ser de nível 6 ou mais. Ex.: no nível 4, recupera um espaço de nível 2 ou dois de nível 1. Uma vez por descanso longo.',
       'When you finish a Short Rest, you can recover expended spell slots with a combined level of up to half your Wizard level (round up); none can be level 6 or higher. E.g., at level 4 you recover one level 2 slot or two level 1 slots. Once per Long Rest.'),
   ],
   2: [
     f('scholar', 'Estudioso', 'Scholar',
-      'Escolha uma destas perícias em que você tenha proficiência: Arcanismo, História, Investigação, Medicina, Natureza ou Religião. Você ganha Especialização nela.',
-      'Choose one of these skills in which you have proficiency: Arcana, History, Investigation, Medicine, Nature, or Religion. You have Expertise in the chosen skill.'),
+      "Ao estudar magia, você também se especializou em outro campo de estudo. Escolha uma das seguintes perícias nas quais você tenha proficiência: Arcanismo, História, Investigação, Medicina, Natureza ou Religião. Você tem Especialização na perícia escolhida.",
+      "While studying magic, you also specialized in another field of study. Choose one of the following skills in which you have proficiency: Arcana, History, Investigation, Medicine, Nature, or Religion. You have Expertise in the chosen skill."),
   ],
   3: [
     f('wizardSubclass', 'Subclasse de Mago', 'Wizard Subclass',
-      'Você escolhe uma subclasse de Mago (uma tradição ou escola arcana) e ganha os traços dela no nível 3 e nos níveis indicados (6, 10 e 14).',
-      'You gain a Wizard subclass of your choice (an arcane tradition or school) and its features at level 3 and at the levels it lists (6, 10, and 14).'),
+      "Você ganha uma subclasse de Mago de sua escolha. A subclasse Evocador é detalhada após a descrição desta classe. Uma subclasse é uma especialização que concede a você características em certos níveis de Mago. Pelo restante",
+      "You gain a Wizard subclass of your choice. The Evoker subclass is detailed after this class's description. A subclass is a specialization that grants you features at certain Wizard levels. For the rest"),
   ],
   4: [ASI],
   5: [
     f('memorizeSpell', 'Memorizar Magia', 'Memorize Spell',
-      'Ao terminar um descanso curto, você pode estudar o grimório e trocar uma magia de nível 1+ preparada por outra magia de nível 1+ do grimório.',
-      'When you finish a Short Rest, you can study your spellbook and replace one level 1+ Wizard spell you have prepared with another level 1+ spell from the book.'),
+      "Sempre que terminar um Descanso Curto, você pode estudar seu grimório e substituir uma das magias de Mago de 1º círculo ou superior que você preparou para sua característica Conjuração por outra magia de 1º círculo ou superior do grimório.",
+      "Whenever you finish a Short Rest, you can study your spellbook and replace one of the level 1+ Wizard spells you have prepared for your Spellcasting feature with another level 1+ spell from the book."),
   ],
   8: [ASI],
   12: [ASI],
@@ -51,8 +51,8 @@ const features = {
   ],
   19: [
     f('epicBoon', 'Dádiva Épica', 'Epic Boon',
-      'Ganhe um talento de Dádiva Épica ou outro talento para o qual você se qualifique. Recomenda-se Dádiva da Recordação de Magia (Boon of Spell Recall).',
-      'You gain an Epic Boon feat or another feat of your choice for which you qualify. Boon of Spell Recall is recommended.'),
+      "Você ganha um talento de Dádiva Épica (veja \"Talentos\") ou outro talento à sua escolha para o qual você se qualifique. Dádiva da Recuperação de Magia é recomendada.",
+      "You gain an Epic Boon feat (see \"Feats\") or another feat of your choice for which you qualify. Boon of Spell Recall is recommended."),
   ],
   20: [
     f('signatureSpells', 'Magias Assinatura', 'Signature Spells',
@@ -165,9 +165,9 @@ const pools = {
     freeSwap: true, // troca o benefício ao conjurar transmutação de nível 1+ com a pedra
     options: [
       stone('darkvision', 'Visão no Escuro', 'Darkvision',
-        'Quem carrega a pedra ganha Visão no Escuro de 18 m (60 pés).', 'The bearer gains darkvision out to 60 feet.'),
+        "Quem carrega a pedra ganha Visão no Escuro de 18 m.", "The bearer gains darkvision out to 18 m."),
       stone('speed', 'Deslocamento', 'Speed',
-        'Quem carrega a pedra ganha +3 m (10 pés) de deslocamento enquanto não estiver sobrecarregado.', 'The bearer\'s speed increases by 10 feet while unencumbered.'),
+        "Quem carrega a pedra ganha +3 m de deslocamento enquanto não estiver sobrecarregado.", "The bearer's speed increases by 3 m while unencumbered."),
       stone('conSave', 'Salvaguarda de Constituição', 'Constitution Saves',
         'Quem carrega a pedra ganha proficiência em salvaguardas de Constituição.', 'The bearer gains proficiency in Constitution saving throws.', { saves: ['con'] }),
       stone('resistAcid', 'Resistência a Ácido', 'Acid Resistance',
@@ -218,8 +218,8 @@ const subclasses = {
       6: {
         features: [
           f('projectedWard', 'Proteção Projetada', 'Projected Ward',
-            'Quando uma criatura que você vê a até 9 m (30 pés) sofrer dano, você pode usar sua Reação para que a sua Proteção Arcana absorva esse dano.',
-            'When a creature you can see within 30 feet takes damage, you can take a Reaction to have your Arcane Ward absorb that damage.'),
+            "A partir do 6º nível, quando uma criatura que você possa ver a até 9 metros de você sofrer dano, você pode usar sua reação para fazer com que sua Proteção Arcana absorva esse dano. Se esse dano reduzir a proteção a 0 pontos de vida, a criatura protegida sofre qualquer dano restante.",
+            "Starting at 6th level, when a creature that you can see within 30 feet of you takes damage, you can use your reaction to cause your Arcane Ward to absorb that damage. If this damage reduces the ward to 0 hit points, the warded creature takes any remaining damage."),
         ],
       },
       10: {
@@ -233,8 +233,8 @@ const subclasses = {
       14: {
         features: [
           f('spellResistance', 'Resistência a Magia', 'Spell Resistance',
-            'Você tem Vantagem em salvaguardas contra magias e Resistência ao dano de magias.',
-            'You have Advantage on saving throws against spells and Resistance to the damage of spells.'),
+            "A partir do 14º nível, você tem vantagem em salvaguardas contra magias.\n\nAlém disso, você tem resistência contra o dano de magias.",
+            "Starting at 14th level, you have advantage on saving throws against spells.\n\nFurthermore, you have resistance against the damage of spells."),
         ],
       },
     },
@@ -256,22 +256,22 @@ const subclasses = {
       6: {
         features: [
           f('expertDivination', 'Adivinhação Especialista', 'Expert Divination',
-            'Ao conjurar uma magia de adivinhação com espaço de nível 2 ou mais, você recupera um espaço gasto de nível menor que o usado e não maior que 5.',
-            'When you cast a Divination spell using a level 2+ spell slot, you regain one expended spell slot of a level lower than the one used and no higher than 5.'),
+            "A partir do 6º nível, conjurar magias de adivinhação é tão fácil para você que despende apenas uma fração dos seus esforços de conjuração. Quando você conjura uma magia de adivinhação de 2º círculo ou superior usando um espaço de magia, você recupera um espaço de magia gasto. O espaço que você recupera deve ser de um círculo inferior ao da magia conjurada e não pode ser superior ao 5º círculo.",
+            "Beginning at 6th level, casting divination spells comes so easily to you that it expends only a fraction of your spellcasting efforts. When you cast a divination spell of 2nd level or higher using a spell slot, you regain one expended spell slot. The slot you regain must be of a level lower than the spell you cast and can’t be higher than 5th level."),
         ],
       },
       10: {
         features: [
           f('theThirdEye', 'O Terceiro Olho', 'The Third Eye',
-            'Com uma Ação Bônus, escolha um benefício que dura até o próximo descanso curto ou longo: Visão no Escuro de 36 m (120 pés); ler qualquer idioma; ou conjurar Ver o Invisível sem gastar espaço. Uma vez por descanso curto ou longo.',
-            'As a Bonus Action, choose one benefit that lasts until your next Short or Long Rest: Darkvision out to 120 feet; read any language; or cast See Invisibility without a spell slot. Once per Short or Long Rest.'),
+            "A partir do 10º nível, você pode usar sua ação para aprimorar seus poderes de percepção. Ao fazer isso, escolha um dos seguintes benefícios, que dura até você ficar incapacitado ou realizar um descanso curto ou longo. Você não pode usar esta característica novamente até terminar um descanso.\n\nVisão no Escuro. Você ganha visão no escuro com alcance de 18 metros.\n\nVisão Etérea. Você pode enxergar no Plano Etéreo a até 18 metros de você.\n\nCompreensão Aprimorada. Você pode ler qualquer idioma.\n\nVer o Invisível. Você pode enxergar criaturas e objetos invisíveis a até 3 metros de você que estejam em sua linha de visão.",
+            "Starting at 10th level, you can use your action to increase your powers of perception. When you do so, choose one of the following benefits, which lasts until you are incapacitated or you take a short or long rest. You can’t use the feature again until you finish a rest.\n\nDarkvision. You gain darkvision out to a range of 60 feet.\n\nEthereal Sight. You can see into the Ethereal Plane within 60 feet of you.\n\nGreater Comprehension. You can read any language.\n\nSee Invisibility. You can see invisible creatures and objects within 10 feet of you that are within line of sight."),
         ],
       },
       14: {
         features: [
           f('greaterPortent', 'Presságio Maior', 'Greater Portent',
-            'Seu Presságio passa a rolar três d20 em vez de dois.',
-            'Your Portent now rolls three d20s instead of two.'),
+            "As visões em seus sonhos se intensificam e retratam o porvir. Role três d20s para a sua característica Augúrio\n\ne não pode ser superior ao 5º nível.\n\n,.\n\n\"\n\nEVOCADOR\n\nCrie Efeitos Elementais Explosivos\n\nSeus estudos se concentram na magia que cria poderosos efeitos elementais, como frio cortante, chamas causticantes, trovões estrondosos, relâmpagos crepitantes e ácido corrosivo. Alguns Evocadores encontram emprego em forças militares, servindo como artilharia para explodir exércitos de longe. Outros usam seu poder para proteger os outros, enquanto alguns buscam seu próprio ganho.",
+            "The visions in your dreams intensify and paint a come. Roll three d20s for your Portent feature\n\na nd can't be higher than level 5.\n\n,.\n\n\"\n\nEVOKER\n\nCreate Explosive Elemental Effects\n\nYour studies focus on magic that creates powerful elemental effects such as bitter cold , sea ring fl a me, rolling thunder, crackling lightning, and burning acid. Some Evokers find employment in milita ry forces, serving as artillery to blas t armies from a far. Others use their power to protect others, while some seek their own gain."),
         ],
       },
     },
@@ -286,8 +286,8 @@ const subclasses = {
         features: [
           SAVANT_2024('evocation', 'Evocação', 'Evocation'),
           f('potentCantrip', 'Truque Potente', 'Potent Cantrip',
-            'Quando você conjura um truque contra uma criatura e erra o ataque, ou ela passa na salvaguarda, ela ainda sofre metade do dano do truque (se houver), mas nenhum efeito adicional.',
-            'When you cast a cantrip at a creature and miss with the attack roll or the target succeeds on its saving throw, it still takes half the cantrip\'s damage (if any) but suffers no additional effect.'),
+            "Seus truques que causam dano afetam até mesmo criaturas que evitam o impacto principal do efeito. Quando você conjura um truque contra uma criatura e erra a jogada de ataque ou o alvo obtém sucesso em uma salvaguarda contra o truque, o alvo sofre metade do dano do truque (se houver), mas não sofre nenhum efeito adicional do truque.",
+            "Your damaging cantrips affect even creatures that avoid the brunt of the effect. When you cast a cantrip at a creature and you miss with the attack roll or the target succeeds on a saving throw against the cantrip, the target takes half the cantrip's damage (if any) but suffers no additional effect from the cantrip."),
         ],
       },
       6: {
@@ -323,8 +323,8 @@ const subclasses = {
         features: [
           SAVANT_2024('illusion', 'Ilusão', 'Illusion'),
           f('improvedIllusions', 'Ilusões Aprimoradas', 'Improved Illusions',
-            'Suas magias de ilusão dispensam componentes verbais e, se tiverem alcance de 3 m (10 pés) ou mais, ganham +18 m (60 pés) de alcance. Você aprende Ilusão Menor (ou outro truque de Mago, se já a conhece), que não conta no seu limite de truques; com ela, cria som e imagem na mesma conjuração e pode conjurá-la como Ação Bônus.',
-            'Your Illusion spells need no Verbal components and, if their range is 10+ feet, gain 60 feet of range. You learn Minor Illusion (or another Wizard cantrip if you already know it), which doesn\'t count against your cantrips; with it you can create both a sound and an image in one casting and cast it as a Bonus Action.'),
+            "Você pode conjurar magias de Ilusão sem fornecer componentes Verbais e, se uma magia de Ilusão que você conjurar tiver um alcance de 3 metros ou mais, o alcance aumenta em 18 metros.\n\nVocê também conhece o truque Ilusão Menor. Se você já o conhece, aprende um truque de Mago diferente à sua escolha. O truque não conta contra o seu número de truques conhecidos. Você pode criar\n\nfornecer componentes Verbais e, se uma magia de Ilusão que você conjurar tiver um alcance de 3 metros ou mais, o alcance aumenta em 18 metros.\n\nVocê também conhece o truque Ilusão Menor. Se você já o conhece, aprende um truque de Mago diferente à sua escolha. O truque não conta contra o seu número de truques conhecidos. Você pode criar tanto um som quanto uma imagem com uma única conjuração de Ilusão Menor, e pode conjurá-la como uma Ação Bônus.",
+            "You can cast Illusion spells without providing Verbal components, and if an Illusion spell you cast has a range of 10+ feet, the range increases by 60 feet.\n\nYou also know the Minor Illusion cantrip. If you already know it, you learn a different Wizard cantrip of your choice. The cantrip doesn't count against your number of cantrips known. You can create\n\nproviding Verbal components, and if an Illusion spell you cast has a range of 10+ feet, the range increases by 60 feet.\n\nYou also know the Minor Illusion cantrip. If you already know it, you learn a different Wizard cantrip of your choice. The cantrip doesn't count against your number of cantrips known. You can create both a sound and an image with a single casting of Minor Illusion, and you can cast it as a Bonus Action."),
         ],
       },
       6: {
@@ -345,8 +345,8 @@ const subclasses = {
       14: {
         features: [
           f('illusoryReality', 'Realidade Ilusória', 'Illusory Reality',
-            'Ao conjurar uma magia de ilusão com espaço de magia, você pode, com uma Ação Bônus, tornar real um objeto inanimado e não mágico que faça parte da ilusão, por 1 minuto. O objeto não pode causar dano nem impor condições.',
-            'When you cast an Illusion spell with a spell slot, you can take a Bonus Action to make one inanimate, nonmagical object in the illusion real for 1 minute. The object can\'t deal damage or impose conditions.'),
+            "No 14º nível, você aprendeu o segredo de tecer magia das sombras em suas ilusões para dar a elas uma quase-realidade. Quando conjura uma magia de ilusão de 1º círculo ou superior, você pode escolher um objeto inanimado e não mágico que faça parte da ilusão e torná-lo real. Você pode fazer isso em seu turno como uma ação bônus enquanto a magia estiver ativa. O objeto permanece real por 1 minuto. Por exemplo, você pode criar a ilusão de uma ponte sobre um abismo e torná-la real pelo tempo suficiente para seus aliados atravessarem.\n\nO objeto não pode causar dano nem prejudicar diretamente ninguém de qualquer outra forma.",
+            "By 14th level, you have learned the secret of weaving shadow magic into your illusions to give them a semireality. When you cast an illusion spell of 1st level or higher, you can choose one inanimate, nonmagical object that is part of the illusion and make that object real. You can do this on your turn as a bonus action while the spell is ongoing. The object remains real for 1 minute. For example, you can create an illusion of a bridge over a chasm and then make it real long enough for your allies to cross.\n\nThe object can’t deal damage or otherwise directly harm anyone."),
         ],
       },
     },
@@ -360,31 +360,31 @@ const subclasses = {
     levels: {
       3: {
         features: [
-          SAVANT_2014('conjuration', 'Conjuração', 'Conjuration'),
+          f("conjurationSavant", "Sábio da Conjuração", "Conjuration Savant", "A partir do momento em que escolhe esta escola no 2º nível, o ouro e o tempo que você deve gastar para copiar uma magia de conjuração para o seu grimório são reduzidos pela metade.", "Beginning when you select this school at 2nd level, the gold and time you must spend to copy a conjuration spell into your spellbook is halved."),
           f('minorConjuration', 'Conjuração Menor', 'Minor Conjuration',
-            'Com uma Ação, você cria na mão ou no chão a até 3 m (10 pés) um objeto não mágico que já viu, de até 90 cm (3 pés) de lado e até 4,5 kg (10 lb). Ele brilha levemente (luz fraca de 1,5 m) e some após 1 hora, se sofrer dano ou se você usar o traço de novo.',
-            'As an Action, you conjure in your hand or on the ground within 10 feet a nonmagical object you have seen, no larger than 3 feet on a side and up to 10 pounds. It sheds dim light in a 5-foot radius and vanishes after 1 hour, when it takes damage, or when you use this feature again.'),
+            "A partir do 2º nível, quando você escolhe esta escola, você pode usar sua ação para conjurar um objeto inanimado em sua mão ou no chão em um espaço desocupado que você possa ver a até 3 metros de você. Este objeto não pode ter mais do que 90 centímetros de lado e não pode pesar mais de 4,5 kg, e sua forma deve ser a de um objeto não mágico que você já tenha visto. O objeto é visivelmente mágico, irradiando luz penumbrosa a até 1,5 metro.\n\nO objeto desaparece após 1 hora, quando você usa esta característica novamente, ou se sofrer ou causar qualquer dano.",
+            "Starting at 2nd level when you select this school, you can use your action to conjure up an inanimate object in your hand or on the ground in an unoccupied space that you can see within 10 feet of you. This object can be no larger than 3 feet on a side and weigh no more than 10 pounds, and its form must be that of a nonmagical object that you have seen. The object is visibly magical, radiating dim light out to 5 feet.\n\nThe object disappears after 1 hour, when you use this feature again, or if it takes or deals any damage."),
         ],
       },
       6: {
         features: [
           f('benignTransposition', 'Transposição Benigna', 'Benign Transposition',
-            'Com uma Ação, teleporte-se até 9 m (30 pés) para um espaço desocupado que você vê, ou troque de lugar com uma criatura voluntária Pequena ou Média nesse alcance. Uma vez por descanso longo; o uso também volta quando você conjura uma magia de conjuração de nível 1+.',
-            'As an Action, teleport up to 30 feet to an unoccupied space you can see, or swap places with a willing Small or Medium creature within that range. Once per Long Rest; the use also returns when you cast a level 1+ Conjuration spell.'),
+            "A partir do 6º nível, você pode usar sua ação para se teletransportar a até 9 metros para um espaço desocupado que você possa ver. Como alternativa, você pode escolher um espaço dentro do alcance que esteja ocupado por uma criatura Pequena ou Média. Se essa criatura for voluntária, ambos se teletransportam, trocando de lugar.\n\nDepois de usar esta característica, você não pode usá-la novamente até terminar um descanso longo ou conjurar uma magia de conjuração de 1º círculo ou superior.",
+            "Starting at 6th level, you can use your action to teleport up to 30 feet to an unoccupied space that you can see. Alternatively, you can choose a space within range that is occupied by a Small or Medium creature. If that creature is willing, you both teleport, swapping places.\n\nOnce you use this feature, you can’t use it again until you finish a long rest or you cast a conjuration spell of 1st level or higher."),
         ],
       },
       10: {
         features: [
           f('focusedConjuration', 'Conjuração Focada', 'Focused Conjuration',
-            'Enquanto se concentra numa magia de conjuração, sofrer dano não quebra sua Concentração.',
-            'While you are concentrating on a Conjuration spell, your concentration can\'t be broken by taking damage.'),
+            "A partir do 10º nível, enquanto estiver se concentrando em uma magia de conjuração, sua concentração não pode ser interrompida em decorrência de sofrer dano.",
+            "Beginning at 10th level, while you are concentrating on a conjuration spell, your concentration can’t be broken as a result of taking damage."),
         ],
       },
       14: {
         features: [
           f('durableSummons', 'Invocações Duráveis', 'Durable Summons',
-            'Criaturas que você invoca ou cria com magias de conjuração ganham 30 PV temporários.',
-            'Any creature you summon or create with a Conjuration spell has 30 temporary Hit Points.'),
+            "A partir do 14º nível, qualquer criatura que você invocar ou criar com uma magia de conjuração ganha 30 pontos de vida temporários.",
+            "Starting at 14th level, any creature that you summon or create with a conjuration spell has 30 temporary hit points."),
         ],
       },
     },
@@ -397,24 +397,24 @@ const subclasses = {
     levels: {
       3: {
         features: [
-          SAVANT_2014('enchantment', 'Encantamento', 'Enchantment', 'do'),
+          f("enchantmentSavant", "Sábio do Encantamento", "Enchantment Savant", "A partir do momento em que escolhe esta escola no 2º nível, o ouro e o tempo que você deve gastar para copiar uma magia de encantamento para o seu grimório são reduzidos pela metade.", "Beginning when you select this school at 2nd level, the gold and time you must spend to copy an enchantment spell into your spellbook is halved."),
           f('hypnoticGaze', 'Olhar Hipnótico', 'Hypnotic Gaze',
-            'Com uma Ação, escolha uma criatura que você vê a até 1,5 m (5 pés): ela faz uma salvaguarda de Sabedoria contra sua CD de magia. Se falhar, fica Enfeitiçada, Incapacitada e com deslocamento 0 até o fim do seu próximo turno; você pode estender o efeito com uma Ação a cada turno. O efeito acaba se você se afastar mais de 1,5 m, se ela não puder vê-lo ou se sofrer dano. Se ela passar ou o efeito acabar, você não pode usá-lo nela de novo até um descanso longo.',
-            'As an Action, choose a creature you can see within 5 feet: it makes a Wisdom save against your spell DC. On a failure it is Charmed, Incapacitated, and has speed 0 until the end of your next turn; you can extend it with your Action each turn. It ends if you move more than 5 feet away, it can\'t see you, or it takes damage. If it succeeds or the effect ends, you can\'t use this on it again until a Long Rest.'),
+            "A partir do 2º nível, quando você escolhe esta escola, suas palavras suaves e olhar encantador podem fascinar magicamente outra criatura. Com uma ação, escolha uma criatura que você possa ver a até 1,5 metro de você. Se o alvo puder vê-lo ou ouvi-lo, ele deve ser bem-sucedido em uma salvaguarda de Sabedoria contra a CD das suas magias de mago ou ficará enfeitiçado por você até o final do seu próximo turno. O deslocamento da criatura enfeitiçada cai para 0, e a criatura fica incapacitada e visivelmente atordoada.\n\nNos turnos subsequentes, você pode usar sua ação para manter este efeito, estendendo sua duração até o final do seu próximo turno. No entanto, o efeito termina se você se mover para mais de 1,5 metro de distância da criatura, se a criatura não puder ver nem ouvir você, ou se a criatura sofrer dano.\n\nQuando o efeito terminar, ou se a criatura obtiver sucesso em sua salvaguarda inicial contra este efeito, você não poderá usar esta característica nessa criatura novamente até terminar um descanso longo.",
+            "Starting at 2nd level when you choose this school, your soft words and enchanting gaze can magically enthrall another creature. As an action, choose one creature that you can see within 5 feet of you. If the target can see or hear you, it must succeed on a Wisdom saving throw against your wizard spell save DC or be charmed by you until the end of your next turn. The charmed creature’s speed drops to 0, and the creature is incapacitated and visibly dazed.\n\nOn subsequent turns, you can use your action to maintain this effect, extending its duration until the end of your next turn. However, the effect ends if you move more than 5 feet away from the creature, if the creature can neither see nor hear you, or if the creature takes damage.\n\nOnce the effect ends, or if the creature succeeds on its initial saving throw against this effect, you can’t use this feature on that creature again until you finish a long rest."),
         ],
       },
       6: {
         features: [
           f('instinctiveCharm', 'Encanto Instintivo', 'Instinctive Charm',
-            'Quando uma criatura que você vê a até 9 m (30 pés) faz uma jogada de ataque contra você, use sua Reação para desviá-lo: ela faz uma salvaguarda de Sabedoria e, se falhar, ataca a criatura mais próxima dela (exceto você e ela mesma). Se passar, fica imune a este traço até o seu descanso longo. Criaturas imunes a Enfeitiçado não são afetadas.',
-            'When a creature you can see within 30 feet makes an attack roll against you, use your Reaction to divert it: it makes a Wisdom save and, on a failure, attacks the creature closest to it (other than you or itself). On a success it is immune to this feature until your Long Rest. Creatures immune to being Charmed are unaffected.'),
+            "A partir do 6º nível, quando uma criatura que você possa ver a até 9 metros de você fizer uma jogada de ataque contra você, você pode usar sua reação para desviar o ataque, desde que outra criatura esteja dentro do alcance do ataque. O atacante deve fazer uma salvaguarda de Sabedoria contra a CD de suas magias de mago. Se falhar na salvaguarda, o atacante deve alvejar a criatura que estiver mais próxima dele, não incluindo você nem a si mesmo. Se várias criaturas estiverem igualmente próximas, o atacante escolhe qual alvejar. Se obtiver sucesso na salvaguarda, você não pode usar esta característica no atacante novamente até terminar um descanso longo.\n\nVocê deve escolher usar esta característica antes de saber se o ataque acerta ou erra. Criaturas que não podem ser enfeitiçadas são imunes a este efeito.",
+            "Beginning at 6th level, when a creature you can see within 30 feet of you makes an attack roll against you, you can use your reaction to divert the attack, provided that another creature is within the attack’s range. The attacker must make a Wisdom saving throw against your wizard spell save DC. On a failed save, the attacker must target the creature that is closest to it, not including you or itself. If multiple creatures are closest, the attacker chooses which one to target. On a successful save, you can’t use this feature on the attacker again until you finish a long rest.\n\nYou must choose to use this feature before knowing whether the attack hits or misses. Creatures that can’t be charmed are immune to this effect."),
         ],
       },
       10: {
         features: [
           f('splitEnchantment', 'Encantamento Dividido', 'Split Enchantment',
-            'Ao conjurar uma magia de encantamento de nível 1+ que tenha só uma criatura como alvo, você pode escolher uma segunda criatura como alvo.',
-            'When you cast a level 1+ Enchantment spell that targets only one creature, you can have it target a second creature.'),
+            "A partir do 10º nível, quando você conjura uma magia de encantamento de 1º círculo ou superior que tenha apenas uma criatura como alvo, você pode fazer com que ela tenha uma segunda criatura como alvo.",
+            "Starting at 10th level, when you cast an enchantment spell of 1st level or higher that targets only one creature, you can have it target a second creature."),
         ],
       },
       14: {
@@ -434,10 +434,10 @@ const subclasses = {
     levels: {
       3: {
         features: [
-          SAVANT_2014('necromancy', 'Necromancia', 'Necromancy'),
+          f("necromancySavant", "Sábio da Necromancia", "Necromancy Savant", "A partir do momento em que escolhe esta escola no 2º nível, o ouro e o tempo que você deve gastar para copiar uma magia de necromancia para o seu grimório são reduzidos pela metade.", "Beginning when you select this school at 2nd level, the gold and time you must spend to copy a necromancy spell into your spellbook is halved."),
           f('grimHarvest', 'Colheita Sinistra', 'Grim Harvest',
-            'Uma vez por turno, ao matar uma ou mais criaturas com uma magia de nível 1+, você recupera PV iguais a 2 × o nível da magia (3 × se for de necromancia). Não funciona contra constructos nem mortos-vivos.',
-            'Once per turn, when you kill one or more creatures with a level 1+ spell, you regain Hit Points equal to 2 × the spell\'s level (3 × if it is a Necromancy spell). It doesn\'t work on constructs or undead.'),
+            "No 2º nível, você ganha a capacidade de ceifar a energia vital de criaturas que matar com suas magias. Uma vez por turno, quando você mata uma ou mais criaturas com uma magia de 1º círculo ou superior, você recupera pontos de vida iguais ao dobro do círculo da magia, ou o triplo do círculo se a magia pertencer à Escola de Necromancia. Você não ganha esse benefício por matar constructos ou mortos-vivos.",
+            "At 2nd level, you gain the ability to reap life energy from creatures you kill with your spells. Once per turn when you kill one or more creatures with a spell of 1st level or higher, you regain hit points equal to twice the spell’s level, or three times its level if the spell belongs to the School of Necromancy. You don’t gain this benefit for killing constructs or undead."),
         ],
       },
       6: {
@@ -450,15 +450,15 @@ const subclasses = {
       10: {
         features: [
           f('inuredToUndeath', 'Calejado contra a Morte-Vida', 'Inured to Undeath',
-            'Você tem Resistência a dano necrótico, e seus PV máximos não podem ser reduzidos.',
-            'You have Resistance to Necrotic damage, and your Hit Point maximum can\'t be reduced.'),
+            "A partir do 10º nível, você tem resistência a dano necrótico, e seu ponto de vida máximo não pode ser reduzido. Você passou tanto tempo lidando com mortos-vivos e as forças que os animam que se acostumou com alguns de seus piores efeitos.",
+            "Beginning at 10th level, you have resistance to necrotic damage, and your hit point maximum can't be reduced. You have spent so much time dealing with undead and the forces that animate them that you have become inured to some of their worst effects."),
         ],
       },
       14: {
         features: [
           f('commandUndead', 'Comandar Mortos-Vivos', 'Command Undead',
-            'Com uma Ação, escolha um morto-vivo que você vê a até 18 m (60 pés): ele faz uma salvaguarda de Carisma e, se falhar, passa a ser seu aliado e obedece. Mortos-vivos com INT 8+ têm Vantagem; com INT 12+ repetem a salvaguarda a cada hora. Se passar, fica imune a este traço.',
-            'As an Action, choose an undead you can see within 60 feet: it makes a Charisma save and, on a failure, becomes friendly and obeys you. Undead with INT 8+ have Advantage; with INT 12+ they repeat the save every hour. On a success it is immune to this feature.'),
+            "A partir do 14º nível, você pode usar magia para colocar mortos-vivos sob o seu controle, mesmo aqueles criados por outros magos. Como uma ação, você pode escolher um morto-vivo que possa ver a até 18 metros de você. Essa criatura deve fazer uma salvaguarda de Carisma contra a CD de suas magias de mago. Se obtiver sucesso, você não pode usar esta característica nela novamente. Se falhar, ela se torna amistosa a você e obedece aos seus comandos até que você use esta característica novamente.\n\nMortos-vivos inteligentes são mais difíceis de controlar dessa maneira. Se o alvo tiver Inteligência 8 ou superior, ele tem vantagem na salvaguarda. Se falhar na salvaguarda e tiver Inteligência 12 ou superior, ele pode repetir a salvaguarda ao final de cada hora até obter sucesso e se libertar.",
+            "Starting at 14th level, you can use magic to bring undead under your control, even those created by other wizards. As an action, you can choose one undead that you can see within 60 feet of you. That creature must make a Charisma saving throw against your wizard spell save DC. If it succeeds, you can’t use this feature on it again. If it fails, it becomes friendly to you and obeys your commands until you use this feature again.\n\nIntelligent undead are harder to control in this way. If the target has an Intelligence of 8 or higher, it has advantage on the saving throw. If it fails the saving throw and has an Intelligence of 12 or higher, it can repeat the saving throw at the end of every hour until it succeeds and breaks free."),
         ],
       },
     },
@@ -471,7 +471,7 @@ const subclasses = {
     levels: {
       3: {
         features: [
-          SAVANT_2014('transmutation', 'Transmutação', 'Transmutation'),
+          f("transmutationSavant", "Sábio da Transmutação", "Transmutation Savant", "A partir do momento em que escolhe esta escola no 2º nível, o ouro e o tempo que você deve gastar para copiar uma magia de transmutação para o seu grimório são reduzidos pela metade.", "Beginning when you select this school at 2nd level, the gold and time you must spend to copy a transmutation spell into your spellbook is halved."),
           f('minorAlchemy', 'Alquimia Menor', 'Minor Alchemy',
             'Você altera temporariamente um objeto de madeira, pedra (não preciosa), ferro, cobre ou prata para outro desses materiais. Cada 10 minutos de trabalho transforma até 30 cm³ (1 pé cúbico). A mudança dura 1 hora ou até você perder a Concentração (como numa magia).',
             'You temporarily change an object made of wood, stone (not gemstone), iron, copper, or silver into another of those materials. Each 10 minutes of work transforms up to 1 cubic foot. It lasts 1 hour or until you lose Concentration (as if on a spell).'),
@@ -487,8 +487,8 @@ const subclasses = {
       10: {
         features: [
           f('shapechanger', 'Metamorfo', 'Shapechanger',
-            'Metamorfose entra de graça no seu grimório. Você pode conjurá-la sem gastar espaço, só em si mesmo, transformando-se numa besta de ND 1 ou menor. Uma vez por descanso curto ou longo.',
-            'Polymorph is added to your spellbook for free. You can cast it without expending a slot, targeting only yourself and becoming a beast of CR 1 or lower. Once per Short or Long Rest.'),
+            "No 10º nível, você adiciona a magia metamorfose ao seu grimório, caso ela ainda não esteja lá. Você pode conjurar metamorfose sem gastar um espaço de magia. Quando o fizer, você pode ter apenas a si mesmo como alvo e se transformar em uma besta cujo nível de desafio seja 1 ou menor.\n\nUma vez que conjure metamorfose dessa forma, você não poderá fazê-lo novamente até terminar um descanso curto ou longo, embora ainda possa conjurá-la normalmente usando um espaço de magia disponível.",
+            "At 10th level, you add the polymorph spell to your spellbook, if it is not there already. You can cast polymorph without expending a spell slot. When you do so, you can target only yourself and transform into a beast whose challenge rating is 1 or lower.\n\nOnce you cast polymorph in this way, you can’t do so again until you finish a short or long rest, though you can still cast it normally using an available spell slot."),
         ],
       },
       14: {
@@ -510,33 +510,33 @@ const subclasses = {
       3: {
         features: [
           f('trainingInWarAndSong', 'Treinamento em Guerra e Canção', 'Training in War and Song',
-            'Você ganha proficiência com armadura leve, com uma arma corpo a corpo de uma mão à sua escolha e na perícia Atuação.',
-            'You gain proficiency with light armor, with one one-handed melee weapon of your choice, and in the Performance skill.'),
+            "Quando você adota esta tradição no 2º nível, ganha proficiência com armaduras leves e ganha proficiência com um tipo de arma corpo a corpo de uma mão à sua escolha.\n\nVocê também ganha proficiência na perícia Atuação se ainda não a tiver.",
+            "When you adopt this tradition at 2nd level, you gain proficiency with light armor, and you gain proficiency with one type of one-handed melee weapon of your choice.\n\nYou also gain proficiency in the Performance skill if you don’t already have it."),
           f('bladesong', 'Canção da Lâmina', 'Bladesong',
-            'Com uma Ação Bônus, sem armadura média ou pesada nem escudo, você ativa a Canção por 1 minuto: soma seu mod. de INT à CA (mín. +1), ganha +3 m (10 pés) de deslocamento, Vantagem em testes de Acrobacia e soma o mod. de INT às salvaguardas de Constituição para manter Concentração. Acaba se ficar Incapacitado, vestir armadura média/pesada ou escudo, ou usar as duas mãos para atacar com uma arma. Usos: bônus de proficiência por descanso longo.',
-            'As a Bonus Action, wearing no medium or heavy armor or shield, you start the Bladesong for 1 minute: add your INT modifier to AC (min +1), gain +10 feet of speed, Advantage on Acrobatics checks, and add your INT modifier to Constitution saves to maintain Concentration. It ends if you are Incapacitated, don medium/heavy armor or a shield, or use two hands to attack with a weapon. Uses: Proficiency Bonus per Long Rest.'),
+            "A partir do 2º nível, você pode invocar uma magia élfica secreta chamada Canção da Lâmina, desde que não esteja vestindo armadura média ou pesada nem usando um escudo. Ela agracia você com velocidade, agilidade e foco sobrenaturais.\n\nVocê pode usar uma ação bônus para iniciar a Canção da Lâmina, que dura 1 minuto. Ela termina mais cedo se você ficar incapacitado, se vestir armadura média ou pesada ou um escudo, ou se usar as duas mãos para fazer um ataque com uma arma. Você também pode encerrar a Canção da Lâmina a qualquer momento à sua escolha (nenhuma ação necessária).\n\nEnquanto sua Canção da Lâmina estiver ativa, você ganha os seguintes benefícios:\n\n• Você ganha um bônus na sua CA igual ao seu modificador de Inteligência (mínimo de +1).\n\n• Seu deslocamento de caminhada aumenta em 3 metros.\n\n• Você tem vantagem em testes de Destreza (Acrobacia).\n\n• Você ganha um bônus em qualquer salvaguarda de Constituição feita para manter sua concentração em uma magia. O bônus é igual ao seu modificador de Inteligência (mínimo de +1).\n\nVocê pode usar esta característica um número de vezes igual ao seu bônus de proficiência, e recupera todos os usos gastos ao terminar um descanso longo.",
+            "Starting at 2nd level, you can invoke a secret elven magic called the Bladesong, provided that you aren’t wearing medium or heavy armor or using a shield. It graces you with supernatural speed, agility, and focus.\n\nYou can use a bonus action to start the Bladesong, which lasts for 1 minute. It ends early if you are incapacitated, if you don medium or heavy armor or a shield, or if you use two hands to make an attack with a weapon. You can also dismiss the Bladesong at any time you choose (no action required).\n\nWhile your Bladesong is active, you gain the following benefits:\n\n• You gain a bonus to your AC equal to your Intelligence modifier (minimum of +1).\n\n• Your walking speed increases by 10 feet.\n\n• You have advantage on Dexterity (Acrobatics) checks .\n\n• You gain a bonus to any Constitution saving throw you make to maintain your concentration on a spell. The bonus equals your Intelligence modifier (minimum of +l).\n\nYou can use this feature a number of times equal to your proficiency bonus, and you regain all expended uses of it when you finish a long rest."),
         ],
       },
       6: {
         features: [
           f('extraAttack', 'Ataque Extra', 'Extra Attack',
-            'Você ataca duas vezes ao usar a ação de Ataque. Pode trocar um desses ataques pela conjuração de um truque.',
-            'You can attack twice when you take the Attack action. You can replace one of those attacks with casting a cantrip.'),
+            "Característica de 6º nível do Dançarino da Lâmina\n\nVocê pode atacar duas vezes, em vez de uma, sempre que realizar a ação Atacar em seu turno. Além disso, você pode conjurar um de seus truques no lugar de um desses ataques.",
+            "6th-level Bladesinging feature\n\nYou can attack twice, instead of once, whenever you take the Attack action on your turn. Moreover, you can cast one of your cantrips in place of one of those attacks."),
         ],
         extraAttacks: 1,
       },
       10: {
         features: [
           f('songOfDefense', 'Canção da Defesa', 'Song of Defense',
-            'Quando sofrer dano com a Canção ativa, use sua Reação e gaste um espaço de magia para reduzir esse dano em 5 × o nível do espaço.',
-            'When you take damage while your Bladesong is active, you can use your Reaction and expend a spell slot to reduce that damage by 5 × the slot\'s level.'),
+            "Característica de 10º nível do Dançarino da Lâmina\n\nVocê pode direcionar sua magia para absorver dano enquanto sua Canção da Lâmina estiver ativa. Quando você sofrer dano, pode usar sua reação para gastar um espaço de magia e reduzir esse dano a você em uma quantidade igual a cinco vezes o círculo do espaço de magia.",
+            "10th-level Bladesinging feature\n\nYou can direct your magic to absorb damage while your Bladesong is active. When you take damage, you can use your reaction to expend one spell slot and reduce that damage to you by an amount equal to five times the spell slot's level."),
         ],
       },
       14: {
         features: [
           f('songOfVictory', 'Canção da Vitória', 'Song of Victory',
-            'Com a Canção ativa, você soma seu mod. de INT (mín. +1) ao dano dos seus ataques corpo a corpo com arma.',
-            'While your Bladesong is active, you add your INT modifier (min +1) to the damage of your melee weapon attacks.'),
+            "Característica de 14º nível do Dançarino da Lâmina\n\nVocê pode adicionar seu modificador de Inteligência (mínimo de +1) ao dano dos seus ataques corpo a corpo com arma enquanto sua Canção da Lâmina estiver ativa.",
+            "14th-level Bladesinging feature\n\nYou can add your Intelligence modifier (minimum of +1) to the damage of your melee weapon attacks while your Bladesong is active."),
         ],
       },
     },
@@ -550,11 +550,11 @@ const subclasses = {
       3: {
         features: [
           f('arcaneDeflection', 'Deflexão Arcana', 'Arcane Deflection',
-            'Quando for atingido por um ataque ou falhar numa salvaguarda, use sua Reação para ganhar +2 na CA contra esse ataque ou +4 nessa salvaguarda. Depois disso, até o fim do seu próximo turno, só pode conjurar truques.',
-            'When you are hit by an attack or fail a saving throw, you can use your Reaction to gain +2 AC against that attack or +4 to that save. Afterward, until the end of your next turn, you can cast only cantrips.'),
+            "No 2º nível, você aprendeu a tecer sua magia para se proteger contra ferimentos. Quando for atingido por um ataque ou falhar em uma salvaguarda, você pode usar sua reação para ganhar um bônus de +2 na sua CA contra aquele ataque ou um bônus de +4 naquela salvaguarda.\n\nAo usar esta característica, você não pode conjurar magias que não sejam truques até o final do seu próximo turno.",
+            "At 2nd level, you have learned to weave your magic to fortify yourself against harm. When you are hit by an attack or you fail a saving throw, you can use your reaction to gain a +2 bonus to your AC against that attack or a +4 bonus to that saving throw.\n\nWhen you use this feature, you can’t cast spells other than cantrips until the end of your next turn."),
           f('tacticalWit', 'Perspicácia Tática', 'Tactical Wit',
-            'Você soma seu modificador de Inteligência às jogadas de iniciativa.',
-            'You add your Intelligence modifier to your initiative rolls.'),
+            "A partir do 2º nível, sua habilidade aguçada de avaliar situações táticas permite que você aja rapidamente em batalha. Você pode conceder a si mesmo um bônus em suas jogadas de iniciativa igual ao seu modificador de Inteligência.",
+            "Starting at 2nd level, your keen ability to assess tactical situations allows you to act quickly in battle. You can give yourself a bonus to your initiative rolls equal to your Intelligence modifier."),
         ],
       },
       6: {
@@ -567,15 +567,15 @@ const subclasses = {
       10: {
         features: [
           f('durableMagic', 'Magia Durável', 'Durable Magic',
-            'Enquanto mantém Concentração numa magia, você tem +2 na CA e em todas as salvaguardas.',
-            'While you maintain Concentration on a spell, you have +2 to AC and all saving throws.'),
+            "A partir do 10º nível, a magia que você canaliza ajuda a afastar o perigo. Enquanto mantiver a concentração em uma magia, você tem um bônus de +2 na CA e em todas as salvaguardas.",
+            "Beginning at 10th level, the magic you channel helps ward off harm. While you maintain concentration on a spell, you have a +2 bonus to AC and all saving throws."),
         ],
       },
       14: {
         features: [
           f('deflectingShroud', 'Mortalha Defletora', 'Deflecting Shroud',
-            'Ao usar a Deflexão Arcana, até três criaturas à sua escolha a até 18 m (60 pés) sofrem dano de energia igual a metade do seu nível de Mago.',
-            'When you use Arcane Deflection, up to three creatures of your choice within 60 feet take Force damage equal to half your Wizard level.'),
+            "No 14º nível, sua Deflexão Arcana fica impregnada de magia letal. Quando usa sua característica Deflexão Arcana, você pode fazer com que energia mágica se projete de você. Até três criaturas à sua escolha que você possa ver a até 18 metros de você sofrem, cada uma, dano de força igual à metade do seu nível de mago.",
+            "At 14th level, your Arcane Deflection becomes infused with deadly magic. When you use your Arcane Deflection feature, you can cause magical energy to arc from you. Up to three creatures of your choice that you can see within 60 feet of you each take force damage equal to half your wizard level."),
         ],
       },
     },
@@ -589,8 +589,8 @@ const subclasses = {
       3: {
         features: [
           f('wizardlyQuill', 'Pena Mágica', 'Wizardly Quill',
-            'Com uma Ação Bônus, você cria uma pena mágica que escreve sem tinta, na cor que quiser, e apaga o que escreveu. Com ela, copiar uma magia para o grimório leva 2 minutos por nível da magia.',
-            'As a Bonus Action, you create a magical quill that writes without ink, in any color, and can erase what it wrote. With it, copying a spell into your spellbook takes 2 minutes per spell level.'),
+            "Característica de 2º nível da Ordem dos Escribas\n\nComo uma ação bônus, você pode criar magicamente uma pena Miúda em sua mão livre. A pena mágica possui as seguintes propriedades:\n\n• A pena não precisa de tinta. Ao escrever com ela, ela produz tinta na cor de sua escolha na superfície de escrita.\n\n• O tempo necessário para copiar uma magia em seu grimório é de 2 minutos por círculo da magia se você usar a pena para a transcrição.\n\n• Você pode apagar qualquer coisa que tenha escrito com a pena se passar a pluma sobre o texto como uma ação bônus, desde que o texto esteja a até 1,5 metro de você.\n\ne na superfície de escrita.\n\nEsta pena desaparece se você criar outra ou se morrer.",
+            "2nd-level Order of Scribes feature\n\nAs a bonus action, you can magically create a Tiny quill in your free hand. The magic quill has the following properties:\n\n• The quill doesn’t require ink. When you write with it, it produces ink in a color of your choice on the writing surface.\n\n• The time you must spend to copy a spell into your spellbook equals 2 minutes per spell level if you use the quill for the transcription.\n\n• You can erase anything you write with the quill if you wave the feather over the text as a bonus action, provided the text is within 5 feet of you.\n\ne on the writing surface.\n\nThis quill disappears if you create another one or if you die."),
           f('awakenedSpellbook', 'Grimório Desperto', 'Awakened Spellbook',
             'O grimório serve de foco de conjuração. Ao conjurar uma magia de Mago com espaço, você pode trocar o tipo de dano dela pelo de outra magia do grimório do mesmo nível. Uma vez por descanso longo, pode conjurar um ritual no tempo normal de conjuração em vez do tempo de ritual.',
             'Your spellbook is a spellcasting focus. When you cast a Wizard spell with a slot, you can swap its damage type for that of another spell of the same level in the book. Once per Long Rest, you can cast a ritual at its normal casting time instead of the ritual time.'),
@@ -599,8 +599,8 @@ const subclasses = {
       6: {
         features: [
           f('manifestMind', 'Mente Manifesta', 'Manifest Mind',
-            'Com uma Ação Bônus, você manifesta o espírito do grimório num ponto a até 18 m (60 pés): um objeto espectral Miúdo que emite luz fraca e tem Visão no Escuro de 18 m. Você pode ver e ouvir por ele e conjurar magias de Mago como se estivesse no espaço dele, um número de vezes igual ao bônus de proficiência por descanso longo. Manifestar: 1 vez por descanso longo, ou gastando um espaço de magia.',
-            'As a Bonus Action, you manifest your spellbook\'s spirit at a point within 60 feet: a Tiny spectral object that sheds dim light and has 60 ft darkvision. You can see and hear through it and cast Wizard spells as if from its space, Proficiency Bonus times per Long Rest. Manifesting: once per Long Rest, or by expending a spell slot.'),
+            "Característica de 6º nível da Ordem dos Escribas\n\nVocê pode conjurar a mente do seu Grimório Desperto. Como uma ação bônus enquanto o livro estiver consigo, você pode fazer com que a mente se manifeste como um objeto espectral Miúdo, pairando em um espaço desocupado à sua escolha a até 18 metros de você. A mente espectral é intangível e não ocupa seu espaço, emitindo luz fraca em um raio de 3 metros. Ela se parece com um tomo fantasmagórico, uma cascata de texto ou um erudito do passado (à sua escolha).\n\nEnquanto manifestada, a mente espectral pode ouvir e ver, possuindo visão no escuro com alcance de 18 metros. A mente pode compartilhar telepaticamente com você o que vê e ouve (nenhuma ação necessária).\n\nSempre que você conjurar uma magia de mago em seu turno, pode conjurá-la como se estivesse no espaço da mente espectral, em vez do seu, usando os sentidos dela. Você pode fazer isso um número de vezes por dia igual ao seu bônus de proficiência, e recupera todos os usos gastos ao terminar um descanso longo.\n\nComo uma ação bônus, você pode fazer a mente espectral pairar até 9 metros para um espaço desocupado que você ou ela possam ver. Ela pode passar através de criaturas, mas não de objetos.\n\nA mente espectral deixa de se manifestar se estiver a mais de 90 metros de você, se alguém conjurar dissipar magia nela, se o Grimório Desperto for destruído, se você morrer ou se dispensar a mente espectral como uma ação bônus.\n\nDepois de conjurar a mente, você não pode fazê-lo novamente até terminar um descanso longo, a menos que gaste um espaço de magia de qualquer círculo para conjurá-la novamente.",
+            "6th-level Order of Scribes feature\n\nYou can conjure forth the mind of your Awakened Spellbook. As a bonus action while the book is on your person, you can cause the mind to manifest as a Tiny spectral object, hovering in an unoccupied space of your choice within 60 feet of you. The spectral mind is intangible and doesn’t occupy its space, and it sheds dim light in a 10-foot radius. It looks like a ghostly tome, a cascade of text, or a scholar from the past (your choice).\n\nWhile manifested, the spectral mind can hear and see, and it has darkvision with a range of 60 feet. The mind can telepathically share with you what it sees and hears (no action required).\n\nWhenever you cast a wizard spell on your turn, you can cast it as if you were in the spectral mind’s space, instead of your own, using its senses. You can do so a number of times per day equal to your proficiency bonus, and you regain all expended uses when you finish a long rest.\n\nAs a bonus action, you can cause the spectral mind to hover up to 30 feet to an unoccupied space that you or it can see. It can pass through creatures but not objects.\n\nThe spectral mind stops manifesting if it is ever more than 300 feet away from you, if someone casts dispel magic on it, if the Awakened Spellbook is destroyed, if you die, or if you dismiss the spectral mind as a bonus action.\n\nOnce you conjure the mind, you can’t do so again until you finish a long rest, unless you expend a spell slot of any level to conjure it again."),
         ],
       },
       10: {
@@ -628,18 +628,18 @@ const subclasses = {
       3: {
         features: [
           f('chronalShift', 'Desvio Cronal', 'Chronal Shift',
-            'Depois de ver o resultado de uma jogada de ataque, teste de atributo ou salvaguarda sua ou de uma criatura que você vê a até 9 m (30 pés), use sua Reação para forçar uma nova rolagem; vale o novo resultado. Duas vezes por descanso longo.',
-            'After you see the result of an attack roll, ability check, or saving throw made by you or a creature you can see within 30 feet, you can use your Reaction to force a reroll; the new roll is used. Twice per Long Rest.'),
+            "Característica de 2º nível da Magia de Cronurgia\n\nVocê pode exercer magicamente um controle limitado sobre o fluxo do tempo ao redor de uma criatura. Como uma reação, depois que você ou uma criatura que você possa ver a até 9 metros de você fizer uma jogada de ataque, um teste de atributo ou uma salvaguarda, você pode forçar a criatura a rolar novamente. Você toma essa decisão depois de ver se a jogada foi bem-sucedida ou falhou. O alvo deve usar o resultado da segunda rolagem.\n\nVocê pode usar esta habilidade duas vezes, e recupera quaisquer usos gastos ao terminar um descanso longo.",
+            "2nd-level Chronurgy Magic feature\n\nYou can magically exert limited control over the flow of time around a creature. As a reaction, after you or a creature you can see withing 30 feet of you makes an attack roll, and ability check, or a saving throw, you can force the creature to reroll. You make this decision after you see whether the roll succeeds or fails. The target must use the result of the second roll.\n\nYou can use this ability twice, and you regain any expended uses when you finish a long rest."),
           f('temporalAwareness', 'Consciência Temporal', 'Temporal Awareness',
-            'Você soma seu modificador de Inteligência às jogadas de iniciativa.',
-            'You add your Intelligence modifier to your initiative rolls.'),
+            "Característica de 2º nível da Magia de Cronurgia\n\nVocê pode adicionar seu modificador de Inteligência às suas jogadas de iniciativa.",
+            "2nd-level Chronurgy Magic feature\n\nYou can add your Intelligence modifier to your initiative rolls."),
         ],
       },
       6: {
         features: [
           f('momentaryStasis', 'Estase Momentânea', 'Momentary Stasis',
-            'Com uma Ação, uma criatura Grande ou menor que você vê a até 18 m (60 pés) faz uma salvaguarda de Constituição; se falhar, fica Incapacitada e com deslocamento 0 até o fim do seu próximo turno, ou até sofrer dano. Usos: mod. de INT (mín. 1) por descanso longo.',
-            'As an Action, a Large or smaller creature you can see within 60 feet makes a Constitution save; on a failure it is Incapacitated and has speed 0 until the end of your next turn, or until it takes damage. Uses: INT modifier (min 1) per Long Rest.'),
+            "Característica de 6º nível da Magia de Cronurgia\n\nComo uma ação, você pode forçar magicamente uma criatura Grande ou menor que possa ver a até 18 metros de você a fazer uma salvaguarda de Constituição contra a CD de suas magias. A menos que a salvaguarda seja um sucesso, a criatura fica envolta em um campo de energia mágica até o final do seu próximo turno ou até sofrer qualquer dano. Enquanto estiver envolta dessa forma, a criatura fica incapacitada e tem deslocamento 0.\n\nVocê pode usar esta característica um número de vezes igual ao seu modificador de Inteligência (mínimo de uma vez). Você recupera todos os usos gastos ao terminar um descanso longo.",
+            "6th-level Chronurgy Magic feature\n\nAs an action, you can magically force a Large or smaller creature you can see within 60 feet of you to make a Constitution saving throw against your spell save DC. Unless the saving throw is a success, the creature is encased in a field of magical energy until the end of your next turn or until the creature takes any damage. While encased in this way, the creature is incapacitated and has a speed of 0.\n\nYou can use this feature a number of times equal to your Intelligence modifier (a minimum of once). You regain all expended uses when you finish a long rest."),
         ],
       },
       10: {
@@ -652,8 +652,8 @@ const subclasses = {
       14: {
         features: [
           f('convergentFuture', 'Futuro Convergente', 'Convergent Future',
-            'Quando você ou uma criatura que você vê a até 18 m (60 pés) fizer uma jogada de ataque, teste de atributo ou salvaguarda, use sua Reação para ignorar o dado e decidir se ela passa pelo número mínimo ou falha por um. Cada uso lhe dá 1 nível de Exaustão, que só sai com descanso longo.',
-            'When you or a creature you can see within 60 feet makes an attack roll, ability check, or saving throw, you can use your Reaction to ignore the die and decide whether it succeeds by exactly the minimum or fails by one. Each use gives you 1 Exhaustion level, removable only by a Long Rest.'),
+            "Característica de 14º nível da Magia de Cronurgia\n\nVocê pode perscrutar futuros possíveis e puxar magicamente um deles para os acontecimentos ao seu redor, garantindo um resultado específico. Quando você ou uma criatura que você possa ver a até 18 metros de você fizer uma jogada de ataque, um teste de atributo ou uma salvaguarda, você pode usar sua reação para ignorar a rolagem do dado e decidir se o número rolado é o mínimo necessário para ter sucesso ou um a menos que esse número (à sua escolha).\n\nQuando você usa esta característica, ganha um nível de exaustão. Apenas ao terminar um descanso longo você pode remover um nível de exaustão ganho dessa maneira.",
+            "14th-level Chronurgy Magic feature\n\nYou can peer through possible futures and magically pull one of them into events around you, ensuring a particular outcome. When you are a creature you can see within 60 feet of you makes an attack roll, an ability check, or a saving throw, you can use your reaction to ignore the die roll and decide whether the number rolled is the minimum needed to succeed or one less than that number (your choice).\n\nWhen you use this feature, you gain one level of exhaustion. Only by finishing a long rest can you remove a level of exhaustion gained in this way."),
         ],
       },
     },
@@ -667,29 +667,29 @@ const subclasses = {
       3: {
         features: [
           f('adjustDensity', 'Ajustar Densidade', 'Adjust Density',
-            'Com uma Ação, escolha uma criatura ou objeto Grande ou menor a até 9 m (30 pés) e dobre ou reduza à metade o peso dele por até 1 minuto (Concentração). Com o dobro: −3 m de deslocamento, Vantagem em testes e salvaguardas de Força. Com a metade: +3 m de deslocamento, salto dobrado e Desvantagem em testes e salvaguardas de Força. Criatura não voluntária faz salvaguarda de Constituição. No nível 10, afeta alvos Enormes.',
-            'As an Action, choose a Large or smaller creature or object within 30 feet and double or halve its weight for up to 1 minute (Concentration). Doubled: −10 ft speed, Advantage on Strength checks and saves. Halved: +10 ft speed, doubled jump distance, and Disadvantage on Strength checks and saves. An unwilling creature makes a Constitution save. At level 10 it can affect Huge targets.'),
+            "Característica de 2º nível da Magia de Graviturgia\n\nComo uma ação, você pode alterar magicamente o peso de um objeto ou criatura que possa ver a até 9 metros de você. O objeto ou criatura deve ser Grande ou menor. O peso do alvo é reduzido pela metade ou dobrado por até 1 minuto ou até sua concentração terminar (como se estivesse se concentrando em uma magia).\n\nEnquanto o peso de uma criatura estiver reduzido pela metade por este efeito, o deslocamento da criatura aumenta em 3 metros, ela pode saltar duas vezes mais longe que o normal e tem desvantagem em testes de Força e salvaguardas de Força. Enquanto o peso de uma criatura estiver dobrado por este efeito, o deslocamento da criatura é reduzido em 3 metros e ela tem vantagem em testes de Força e salvaguardas de Força.\n\nAo atingir o 10º nível nesta classe, você pode alvejar um objeto ou uma criatura que seja Enorme ou menor.",
+            "2nd-level Graviturgy Magic feature\n\nAs an action, you can magically alter the weight of one object or creature you can see within 30 feet of you. The object or creature must be Large or smaller. The target’s weight is halved or doubled for up to 1 minute or until your concentration ends (as if you were concentrating on a spell).\n\nWhile the weight of a creature is halved by this effect, the creature’s speed increases by 10 feet, it can jump twice as far as normal, and it has disadvantage on Strength checks and Strength saving throws. While the weight of a creature is doubled by this effect, the creature’s speed is reduced by 10 feet, and it has advantage on Strength checks and Strength saving throws.\n\nUpon reaching 10th level in this class, you can target an object or a creature that is Huge or smaller."),
         ],
       },
       6: {
         features: [
           f('gravityWell', 'Poço Gravitacional', 'Gravity Well',
-            'Quando você conjura uma magia sobre uma criatura e ela é acertada, falha na salvaguarda ou é voluntária, você pode movê-la 1,5 m (5 pés) para um espaço desocupado à sua escolha.',
-            'When you cast a spell on a creature and it is hit, fails its save, or is willing, you can move it 5 feet to an unoccupied space of your choice.'),
+            "Característica de 6º nível da Magia de Graviturgia\n\nVocê aprendeu como manipular a gravidade ao redor de um ser vivo: sempre que conjurar uma magia em uma criatura, você pode mover o alvo 1,5 metro para um espaço desocupado à sua escolha se o alvo estiver disposto a se mover, se a magia atingi-lo com um ataque ou se ele falhar em uma salvaguarda contra a magia.",
+            "6th-level Graviturgy Magic feature\n\nYou’ve learned how to manipulate gravity around a living being: whenever you cast a spell on a creature, you can move the target 5 feet to an unoccupied space of your choice if the target is willing to move, the spell hits it with an attack, or it fails a saving throw against the spell."),
         ],
       },
       10: {
         features: [
           f('violentAttraction', 'Atração Violenta', 'Violent Attraction',
-            'Quando outra criatura que você vê a até 18 m (60 pés) acertar um ataque com arma, use sua Reação para somar 1d10 ao dano; ou, quando uma criatura nesse alcance sofrer dano de queda, some 2d10 a esse dano. Usos: mod. de INT (mín. 1) por descanso longo.',
-            'When another creature you can see within 60 feet hits with a weapon attack, you can use your Reaction to add 1d10 to the damage; or, when a creature within that range takes falling damage, add 2d10 to it. Uses: INT modifier (min 1) per Long Rest.'),
+            "Característica de 10º nível da Magia de Graviturgia\n\nQuando outra criatura que você possa ver a até 18 metros de você acertar com um ataque com arma, você pode usar sua reação para aumentar a velocidade do ataque, fazendo com que o alvo do ataque sofra 1d10 de dano extra do tipo da arma.\n\nComo alternativa, se uma criatura a até 18 metros de você sofrer dano de uma queda, você pode usar sua reação para aumentar o dano da queda em 2d10.\n\nVocê pode usar esta característica um número de vezes igual ao seu modificador de Inteligência (mínimo de uma vez). Você recupera todos os usos gastos ao terminar um descanso longo.",
+            "10th-level Graviturgy Magic feature\n\nWhen another creature that you can see within 60 feet of you hits with a weapon attack, you can use your reaction to increase the attack’s velocity, causing the attack’s target to take an extra 1d10 damage of the weapon’s type.\n\nAlternatively, if a creature within 60 feet of you takes damage from a fall, you can use your reaction to increase the fall’s damage by 2d10.\n\nYou can use this feature a number of times equal to your Intelligence modifier (a minimum of once). You regain all expended uses when you finish a long rest."),
         ],
       },
       14: {
         features: [
           f('eventHorizon', 'Horizonte de Eventos', 'Event Horizon',
-            'Com uma Ação, você emana um campo gravitacional de 9 m (30 pés) por 1 minuto (Concentração). Inimigos que começam o turno nele fazem salvaguarda de Força: se falharem, sofrem 2d10 de dano de energia e ficam com deslocamento 0 até o próximo turno; se passarem, sofrem metade e cada 30 cm de movimento custa 90 cm. Uma vez por descanso longo, ou gastando um espaço de nível 3+.',
-            'As an Action, you emanate a 30-foot gravity field for 1 minute (Concentration). Hostile creatures that start their turn in it make a Strength save: on a failure they take 2d10 Force damage and their speed is 0 until their next turn; on a success they take half and each foot of movement costs 3 feet. Once per Long Rest, or by expending a level 3+ slot.'),
+            "Característica de 14º nível da Magia de Graviturgia\n\nComo uma ação, você pode emitir magicamente um poderoso campo de energia gravitacional que atrai outras criaturas por até 1 minuto ou até sua concentração terminar (como se estivesse se concentrando em uma magia). Durante a duração, sempre que uma criatura hostil a você iniciar o turno dela a até 9 metros de você, ela deve fazer uma salvaguarda de Força contra a CD de suas magias. Se falhar na salvaguarda, sofre 2d10 de dano de força e seu deslocamento é reduzido a 0 até o início do próximo turno dela. Se obtiver sucesso na salvaguarda, sofre metade desse dano, e cada metro que ela se mover neste turno custa 2 metros extras de movimento.\n\nDepois de usar esta característica, você não pode fazê-lo novamente até terminar um descanso longo ou até gastar um espaço de magia de 3º círculo ou superior nela.",
+            "14th-level Graviturgy Magic feature\n\nAs an action, you can magically emit a powerful field of gravitation energy that tugs at other creatures for up to 1 minute or until your concentration ends (as if you were concentrating on a spell). For the duration, whenever a creature hostile to you starts its turn within 30 feet of you, it must make a Strength saving throw against your spell save DC. On a failed save, it takes 2d10 force damage, and its speed is reduced to 0 until the start of its next turn. On a successful save, it takes half as much damage, and every foot it moves this turn costs 2 extra feet of movement.\n\nOnce you use this feature, you can’t do so again until you finish a long rest or until you expend a spell slot of 3rd level or higher on it."),
         ],
       },
     },
@@ -715,7 +715,7 @@ const resources = [
 
   // Abjuração
   res('arcaneWard', 'Proteção Arcana (criar)', 'Arcane Ward (create)', ONE, 'long', 2, { subclass: ['abjuration'] }),
-  res('arcaneWardHp', 'Proteção Arcana (PV)', 'Arcane Ward (HP)', { perClassLevel: 2 }, 'long', 2, {
+  res('arcaneWardHp', 'Proteção Arcana (PV)', "Arcane Ward (PV)", { perClassLevel: 2 }, 'long', 2, {
     subclass: ['abjuration'],
     desc: b('PV máximos = 2 × nível de Mago + mod. de INT (some o INT à mão). Recupera ao conjurar abjuração.', 'Max HP = 2 × Wizard level + INT modifier (add INT manually). Regains HP when you cast Abjuration spells.'),
   }),

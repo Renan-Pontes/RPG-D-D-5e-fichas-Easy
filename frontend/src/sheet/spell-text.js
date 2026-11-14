@@ -12,22 +12,42 @@ let pending51 = null;
 export function loadSpellText51() {
   if (cache51) return Promise.resolve(cache51);
   if (!pending51) {
-    pending51 = import('../../data/srd51-spells-text.json')
-      .then((m) => { const t = m.default || m; cache51 = {}; for (const [id, en] of Object.entries(t)) cache51[id] = { en, pt: '' }; return cache51; })
+    pending51 = Promise.all([
+      import('../../data/srd51-spells-text.json'),
+      import('../../data/srd51-spells-pt.json'),
+      import('../../data/spells-2014-text.json'),
+    ])
+      .then(([en51Mod, pt51Mod, extra14Mod]) => {
+        const en51 = en51Mod.default || en51Mod;
+        const pt51 = pt51Mod.default || pt51Mod;
+        const extra14 = extra14Mod.default || extra14Mod;
+        const out = {};
+        for (const [id, en] of Object.entries(en51)) out[id] = { en, pt: pt51[id] || '' };
+        for (const [id, entry] of Object.entries(extra14)) out[id] = { en: entry.en || '', pt: entry.pt || '' };
+        cache51 = out;
+        return out;
+      })
       .catch(() => { pending51 = null; return {}; });
   }
   return pending51;
 }
-const ALIAS51 = { spareDying: 'spareTheDying', identifySpell: 'identify', expediteRetreat: 'expeditiousRetreat', commandSpell: 'command' };
+const ALIAS51 = { spareDying: 'spareTheDying', identifySpell: 'identify', expediteRetreat: 'expeditiousRetreat', commandSpell: 'command', arcanistsMagicAura: 'arcanistSMagicAura' };
 
 export function loadSpellText() {
   if (cache) return Promise.resolve(cache);
   if (!pending) {
-    pending = Promise.all([import('../../data/srd2024-spells.json'), import('../../data/srd2024-spells-pt.json')])
-      .then(([en, pt]) => {
+    pending = Promise.all([
+      import('../../data/srd2024-spells.json'),
+      import('../../data/srd2024-spells-pt.json'),
+      import('../../data/spells-extra.js'),
+    ])
+      .then(([en, pt, extraMod]) => {
         const ptMap = pt.default || pt;
         const out = {};
         for (const s of (en.default || en)) out[s.id] = { en: s.desc?.en || '', pt: ptMap[s.id]?.desc || '' };
+        for (const s of (extraMod.EXTRA_SPELLS_2024 || [])) {
+          if (s.desc?.en || s.desc?.pt) out[s.id] = { en: s.desc.en || out[s.id]?.en || '', pt: s.desc.pt || out[s.id]?.pt || '' };
+        }
         cache = out;
         return out;
       })

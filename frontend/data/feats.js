@@ -562,7 +562,7 @@ export const FEATS = [...ORIGIN_2024, ...GENERAL_2024, ...FIGHTING_STYLE_2024, .
 // Talentos de livros pagos ficam só com o resumo original acima.
 for (const f of FEATS) {
   const t = SRD_FEAT_TEXT[f.id];
-  if (t) f.srdText = { en: t.en, meta: t.meta, src: t.src };
+  if (t) f.srdText = { en: t.en, pt: t.pt, meta: t.meta, src: t.src };
 }
 
 const BY_ID = new Map(FEATS.map(f => [f.id, f]));

@@ -102,7 +102,7 @@ const FIX = {
   banishingSmite: { rider: 1, dmg: ['force'] }, shiningSmite: { rider: 1, dmg: ['radiant'] }, trueStrike: { rider: 1, dmg: ['radiant'] },
   shillelagh: { rider: 1 }, crusadersMantle: { rider: 1 }, flameArrows: { rider: 1 }, holyWeapon: { rider: 1 },
   fountOfMoonlight: { rider: 1 }, armorOfAgathys: { rider: 1 }, divineFavor: { rider: 1 },
-  boomingBlade: { rider: 1, dmg: ['thunder'] }, greenFlameBlade: { rider: 1, dmg: ['fire'] },
+  boomingBlade: { rider: 1, dmg: ['thunder'], avg: null, area: null, reach: null }, greenFlameBlade: { rider: 1, dmg: ['fire'], avg: null, area: null, reach: null },
   // Mísseis Mágicos: 3 dardos que sempre acertam
   magicMissile: { avg: 10.5, atk: null, save: null, auto: 1 },
 };
@@ -203,7 +203,7 @@ export function buildSpellTags() {
 }
 
 const output = new URL('../frontend/data/spell-tags.json', import.meta.url);
-if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop())) {
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split(/[/\\]/).pop())) {
   const text = JSON.stringify(buildSpellTags()) + '\n';
   if (process.argv.includes('--check')) {
     if (readFileSync(output, 'utf8') !== text) throw new Error('Run node scripts/build-spell-tags.mjs to update spell-tags.json.');

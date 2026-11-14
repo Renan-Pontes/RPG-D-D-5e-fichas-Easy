@@ -316,15 +316,15 @@ test('tempo, alcance, componentes e duração em português (metros) nas magias 
     { castingTime: 'Ação Bônus', range: 'Pessoal', components: 'V', duration: '1 rodada' });
 });
 
-test('2014: resumo de uma linha com a regra 2014 (Orbe Cromático sem o salto de 2024) e textos sem "SAL DEST"/pés', () => {
+test('2014: texto completo 1:1 com a regra 2014 (Orbe Cromático 3d8 sem o salto de 2024) e textos sem "SAL DEST"/pés', () => {
   const orb14 = SRD.SPELLS.find(s => s.id === 'chromaticOrb');
   const orb24 = SPELLS_2024.find(s => s.id === 'chromaticOrb');
   assert.match(orb14.desc.pt, /3d8/);
-  assert.ok(orb14.desc.pt.length < 200, 'uma linha');
+  assert.ok(orb14.desc.pt.length > 200, 'texto completo 2014');
   assert.ok(!/salt|leap/i.test(orb14.desc.pt + orb14.desc.en), 'sem o salto de 2024');
-  assert.ok(orb24.desc.pt.length > orb14.desc.pt.length, '2024 continua com o texto do SRD 5.2.1');
+  assert.ok(orb24.desc.pt.length > 200, '2024 com texto completo');
   for (const id of ['floatingDisk', 'illusoryScript', 'unseenServant', 'iceKnife', 'hellishRebuke']) {
-    assert.ok(SRD.SPELLS.find(s => s.id === id).desc.pt.length < 200, id);
+    assert.ok(SRD.SPELLS.find(s => s.id === id).desc.pt.length > 150, id);
   }
   for (const s of SRD.SPELLS) assert.ok(!/\bSAL\b|\bpés\b|\bHP\b/.test(s.desc?.pt || ''), `${s.id}: ${s.desc?.pt}`);
   assert.equal(polishPtText('SAL DEST ou 1d6 em 20 pés; 0 HP.'), 'salvaguarda de Destreza ou 1d6 em 6 metros; 0 PV.');
