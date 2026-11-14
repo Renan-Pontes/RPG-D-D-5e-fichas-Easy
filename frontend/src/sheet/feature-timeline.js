@@ -32,9 +32,13 @@ export function buildTimeline({ level = 1, seq = [], classItems = [], speciesTra
   const both = (v) => (v && typeof v === 'object' ? { pt: v.pt ?? v.en ?? '', en: v.en ?? v.pt ?? '' } : { pt: v || '', en: v || '' });
   speciesTraits.forEach((tr, i) => {
     const lv = Math.max(1, +tr.level || 1);
-    out.push({ level: lv, kind: 'species', key: `sp:${i}`, item: { name: both(tr.name), desc: both(tr.desc) }, later: lv > level });
+    const item = { name: both(tr.name), desc: both(tr.desc), ...(tr.picks ? { picks: tr.picks } : {}), ...(tr.id ? { id: tr.id } : {}) };
+    out.push({ level: lv, kind: 'species', key: tr.key || `sp:${i}`, item, later: lv > level, ...(tr.hasChoices ? { hasChoices: true } : {}) });
   });
-  if (background) out.push({ level: 1, kind: 'background', key: 'bg', item: { name: both(background.name), desc: both(background.desc) }, later: false });
+  if (background) {
+    const item = { name: both(background.name), desc: both(background.desc), ...(background.picks ? { picks: background.picks } : {}) };
+    out.push({ level: 1, kind: 'background', key: 'bg', item, later: false });
+  }
   for (const it of classItems) {
     const lv = charLevelOf(seq, it.classId, it.level) ?? (seq.length ? null : it.level);
     if (lv == null) continue;

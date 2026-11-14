@@ -32,13 +32,57 @@ const DRAGONS = [
   ['green', 'Verde', 'Green', 'poison'], ['red', 'Vermelho', 'Red', 'fire'], ['silver', 'Prata', 'Silver', 'cold'],
   ['white', 'Branco', 'White', 'cold'],
 ];
-/** Nomes das ferramentas que raças 2014 concedem (mesmos de src/creator/start-data.js TOOLS). */
+/** Nomes das ferramentas que raças podem conceder (mesmos ids de src/creator/start-data.js TOOLS). */
 export const RACE_TOOL_NAMES = {
-  smithsTools: b('Ferramentas de Ferreiro', "Smith's Tools"),
+  alchemistsSupplies: b('Suprimentos de Alquimista', "Alchemist's Supplies"),
   brewersSupplies: b('Suprimentos de Cervejeiro', "Brewer's Supplies"),
+  calligraphersSupplies: b('Suprimentos de Calígrafo', "Calligrapher's Supplies"),
+  carpentersTools: b('Ferramentas de Carpinteiro', "Carpenter's Tools"),
+  cartographersTools: b('Ferramentas de Cartógrafo', "Cartographer's Tools"),
+  cobblersTools: b('Ferramentas de Sapateiro', "Cobbler's Tools"),
+  cooksUtensils: b('Utensílios de Cozinheiro', "Cook's Utensils"),
+  glassblowersTools: b('Ferramentas de Vidreiro', "Glassblower's Tools"),
+  jewelersTools: b('Ferramentas de Joalheiro', "Jeweler's Tools"),
+  leatherworkersTools: b('Ferramentas de Coureiro', "Leatherworker's Tools"),
   masonsTools: b('Ferramentas de Pedreiro', "Mason's Tools"),
+  paintersSupplies: b('Suprimentos de Pintor', "Painter's Supplies"),
+  pottersTools: b('Ferramentas de Oleiro', "Potter's Tools"),
+  smithsTools: b('Ferramentas de Ferreiro', "Smith's Tools"),
   tinkersTools: b('Ferramentas de Funileiro', "Tinker's Tools"),
+  weaversTools: b('Ferramentas de Tecelão', "Weaver's Tools"),
+  woodcarversTools: b('Ferramentas de Entalhador', "Woodcarver's Tools"),
+  bagpipes: b('Gaita de Foles', 'Bagpipes'),
+  drum: b('Tambor', 'Drum'),
+  dulcimer: b('Saltério', 'Dulcimer'),
+  flute: b('Flauta', 'Flute'),
+  horn: b('Trompa', 'Horn'),
+  lute: b('Alaúde', 'Lute'),
+  lyre: b('Lira', 'Lyre'),
+  panFlute: b('Flauta de Pã', 'Pan Flute'),
+  shawm: b('Charamela', 'Shawm'),
+  viol: b('Viola', 'Viol'),
+  diceSet: b('Dados', 'Dice'),
+  dragonchessSet: b('Xadrez de Dragão', 'Dragonchess'),
+  playingCardSet: b('Cartas de Baralho', 'Playing Cards'),
+  threeDragonAnteSet: b('Ante dos Três Dragões', 'Three-Dragon Ante'),
+  disguiseKit: b('Kit de Disfarce', 'Disguise Kit'),
+  forgeryKit: b('Kit de Falsificação', 'Forgery Kit'),
+  herbalismKit: b('Kit de Herbalismo', 'Herbalism Kit'),
+  navigatorsTools: b('Ferramentas de Navegador', "Navigator's Tools"),
+  poisonersKit: b('Kit de Envenenador', "Poisoner's Kit"),
+  thievesTools: b('Ferramentas de Ladrão', "Thieves' Tools"),
 };
+const ARTISAN_TOOL_IDS = [
+  'alchemistsSupplies', 'brewersSupplies', 'calligraphersSupplies', 'carpentersTools', 'cartographersTools',
+  'cobblersTools', 'cooksUtensils', 'glassblowersTools', 'jewelersTools', 'leatherworkersTools', 'masonsTools',
+  'paintersSupplies', 'pottersTools', 'smithsTools', 'tinkersTools', 'weaversTools', 'woodcarversTools',
+];
+const INSTRUMENT_IDS = ['bagpipes', 'drum', 'dulcimer', 'flute', 'horn', 'lute', 'lyre', 'panFlute', 'shawm', 'viol'];
+const ALL_TOOL_IDS = [
+  ...ARTISAN_TOOL_IDS, ...INSTRUMENT_IDS,
+  'diceSet', 'dragonchessSet', 'playingCardSet', 'threeDragonAnteSet',
+  'disguiseKit', 'forgeryKit', 'herbalismKit', 'navigatorsTools', 'poisonersKit', 'thievesTools',
+];
 export const DAMAGE_NAMES = {
   acid: b('Ácido', 'Acid'), cold: b('Frio', 'Cold'), fire: b('Fogo', 'Fire'), lightning: b('Elétrico', 'Lightning'),
   poison: b('Veneno', 'Poison'), necrotic: b('Necrótico', 'Necrotic'), radiant: b('Radiante', 'Radiant'), thunder: b('Trovejante', 'Thunder'),
@@ -621,6 +665,7 @@ export const SPECIES_2014_CHOICES = {
 const ALL_SKILLS = ['acrobatics', 'animalHandling', 'arcana', 'athletics', 'deception', 'history', 'insight', 'intimidation',
   'investigation', 'medicine', 'nature', 'perception', 'performance', 'persuasion', 'religion', 'sleightOfHand', 'stealth', 'survival'];
 const SKILL_PICK = (from, count = 1, pt = 'Perícia da espécie', en = 'Species skill') => ({ key: 'skill', label: b(pt, en), from, count });
+const TOOL_PICK = (from, count = 1, pt = 'Ferramenta da espécie', en = 'Species tool') => ({ key: 'tool', label: b(pt, en), from, count });
 export const SPECIES_SUPPLEMENTS = {
   'dwarf-hill': { darkvision: 60, resist: ['poison'] },
   'dwarf-mountain': { darkvision: 60, resist: ['poison'] },
@@ -628,6 +673,8 @@ export const SPECIES_SUPPLEMENTS = {
   'gnome-rock': { darkvision: 60 },
   'half-orc': { darkvision: 60, skills: ['intimidation'] },
   'halfling-stout': { resist: ['poison'] },
+  'human-mark-making': { choices: [TOOL_PICK(ARTISAN_TOOL_IDS, 1, 'Dádiva do Criador: ferramenta de artesão', "Maker's Gift: artisan's tool")] },
+  orc: { darkvision: 60, choices: [SKILL_PICK(['animalHandling', 'insight', 'intimidation', 'medicine', 'nature', 'perception', 'survival'], 2, 'Intuição Primal', 'Primal Intuition')] },
   bugbear: { darkvision: 60, skills: ['stealth'] },
   centaur: { speed: 40, choices: [SKILL_PICK(['animalHandling', 'medicine', 'nature', 'survival'])] },
   changeling: { choices: [SKILL_PICK(['deception', 'insight', 'intimidation', 'performance', 'persuasion'], 2, 'Instintos de Metamorfo', 'Changeling Instincts')] },
@@ -639,11 +686,24 @@ export const SPECIES_SUPPLEMENTS = {
   leonin: { darkvision: 60, speed: 35, choices: [SKILL_PICK(['athletics', 'intimidation', 'perception', 'survival'])] },
   lizardfolk: { choices: [SKILL_PICK(['animalHandling', 'medicine', 'nature', 'perception', 'stealth', 'survival'], 2, 'Intuição do Caçador', "Hunter's Lore")] },
   minotaur: { choices: [SKILL_PICK(['intimidation', 'persuasion'])] },
-  satyr: { speed: 35, skills: ['performance', 'persuasion'] },
+  satyr: { speed: 35, skills: ['performance', 'persuasion'], choices: [TOOL_PICK(INSTRUMENT_IDS, 1, 'Folião: instrumento musical', 'Reveler: musical instrument')] },
   tabaxi: { darkvision: 60, skills: ['perception', 'stealth'] },
   tortle: { choices: [SKILL_PICK(['animalHandling', 'medicine', 'nature', 'perception', 'stealth', 'survival'], 1, 'Intuição da Natureza', "Nature's Intuition")] },
   warforged: { resist: ['poison'], choices: [SKILL_PICK(ALL_SKILLS)] },
-  eladrin: { darkvision: 60, skills: ['perception'] },
+  eladrin: {
+    darkvision: 60,
+    skills: ['perception'],
+    choices: [{
+      key: 'season',
+      label: b('Estação Eladrin (Passo Feérico)', 'Eladrin Season (Fey Step)'),
+      options: [
+        { id: 'autumn', name: b('Outono', 'Autumn'), desc: b('Enfeitiça até 2 criaturas após usar Passo Feérico.', 'Charm up to 2 creatures after using Fey Step.') },
+        { id: 'winter', name: b('Inverno', 'Winter'), desc: b('Amedronta 1 criatura próxima antes de teleportar.', 'Frighten 1 nearby creature before teleporting.') },
+        { id: 'spring', name: b('Primavera', 'Spring'), desc: b('Teleporta 1 aliado voluntário em vez de si mesmo.', 'Teleport 1 willing ally instead of yourself.') },
+        { id: 'summer', name: b('Verão', 'Summer'), desc: b('Causa dano de fogo ao redor ao chegar.', 'Deal fire damage around your arrival space.') },
+      ],
+    }],
+  },
   'sea-elf': { darkvision: 60, resist: ['cold'], skills: ['perception'] },
   'shadar-kai': { darkvision: 60, resist: ['necrotic'], skills: ['perception'] },
   'astral-elf': { darkvision: 60, skills: ['perception'] },
@@ -657,17 +717,49 @@ export const SPECIES_SUPPLEMENTS = {
   owlin: { darkvision: 120, skills: ['stealth'] },
   plasmoid: { darkvision: 60, resist: ['acid', 'poison'] },
   shifter: { darkvision: 60, choices: [SKILL_PICK(['acrobatics', 'athletics', 'intimidation', 'survival'], 1, 'Instintos Bestiais', 'Bestial Instincts')] },
-  'simic-hybrid': { darkvision: 60 },
+  'simic-hybrid': {
+    darkvision: 60,
+    choices: [
+      {
+        key: 'enhancement1',
+        label: b('Aprimoramento Animal (1º nível)', 'Animal Enhancement (1st level)'),
+        options: [
+          { id: 'mantaGlide', name: b('Planar de Manta', 'Manta Glide'), desc: b('Asas membranosas para planar e reduzir queda.', 'Glide up to 2 ft horizontally per 1 ft fallen.') },
+          { id: 'nimbleClimber', name: b('Escalador Ágil', 'Nimble Climber'), desc: b('Deslocamento de escalada igual à caminhada.', 'Climbing speed equal to walking speed.') },
+          { id: 'underwaterAdaptation', name: b('Adaptação Subaquática', 'Underwater Adaptation'), desc: b('Respira sob a água e natação igual à caminhada.', 'Breathe air and water; swimming speed equal to walking speed.') },
+        ],
+      },
+      {
+        key: 'enhancement5',
+        minLevel: 5,
+        label: b('Aprimoramento Animal (5º nível)', 'Animal Enhancement (5th level)'),
+        options: [
+          { id: 'grapplingAppendages', name: b('Apêndices Agarradores', 'Grappling Appendages'), desc: b('Dois tentáculos ou pinças que atacam e agarram com ação bônus.', 'Two appendages that strike (1d6) and grapple as a bonus action.') },
+          { id: 'carapace', name: b('Carapaça (+1 CA)', 'Carapace (+1 AC)'), desc: b('Quitina protetora (+1 CA sem armadura pesada).', 'Chitinous shell grants +1 AC when not wearing heavy armor.') },
+          { id: 'acidSpit', name: b('Cuspe Ácido', 'Acid Spit'), desc: b('Cospe ácido à distância (2d10, escala no 11º e 17º nível).', 'Ranged acid attack (2d10 damage, scales at 11th and 17th level).') },
+          { id: 'mantaGlide', name: b('Planar de Manta', 'Manta Glide'), desc: b('Asas membranosas para planar.', 'Glide membranes.') },
+          { id: 'nimbleClimber', name: b('Escalador Ágil', 'Nimble Climber'), desc: b('Deslocamento de escalada.', 'Climbing speed.') },
+          { id: 'underwaterAdaptation', name: b('Adaptação Subaquática', 'Underwater Adaptation'), desc: b('Respira sob a água e natação.', 'Amphibious & swimming speed.') },
+        ],
+      },
+    ],
+  },
   'thri-kreen': { darkvision: 60 },
   verdan: { skills: ['persuasion'] },
   grung: { skills: ['perception'], resist: ['poison'] },
   dhampir: { darkvision: 60, choices: [SKILL_PICK(ALL_SKILLS, 2, 'Legado Ancestral', 'Ancestral Legacy')] },
-  hexblood: { darkvision: 60 },
-  reborn: { resist: ['poison'] },
+  hexblood: { darkvision: 60, choices: [SKILL_PICK(ALL_SKILLS, 2, 'Legado Ancestral', 'Ancestral Legacy')] },
+  reborn: { resist: ['poison'], choices: [SKILL_PICK(ALL_SKILLS, 2, 'Legado Ancestral', 'Ancestral Legacy')] },
   'yuan-ti': { darkvision: 60, resist: ['poison'] },
   'genasi-fire': { darkvision: 60, resist: ['fire'] },
   'genasi-water': { resist: ['acid'] },
-  vedalken: { choices: [SKILL_PICK(['arcana', 'history', 'investigation', 'medicine', 'performance', 'sleightOfHand'], 1, 'Precisão Incansável', 'Tireless Precision')] },
+  vedalken: {
+    choices: [
+      SKILL_PICK(['arcana', 'history', 'investigation', 'medicine', 'performance', 'sleightOfHand'], 1, 'Precisão Incansável: perícia', 'Tireless Precision: skill'),
+      TOOL_PICK(ALL_TOOL_IDS, 1, 'Precisão Incansável: ferramenta', 'Tireless Precision: tool'),
+    ],
+  },
+  autognome: { choices: [TOOL_PICK(ALL_TOOL_IDS, 2, 'Design Especializado: ferramentas', 'Specialized Design: tools')] },
   aarakocra: {},
   fairy: {},
 };

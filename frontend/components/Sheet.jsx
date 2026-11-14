@@ -8,12 +8,18 @@ import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
 import { subclassLock, guardSealedPatch, sealHint } from '../src/progression/subclass-lock.js';
 import { featSummary } from '../src/progression/FeatPicker.jsx';
+import OriginFeatModal from '../src/progression/OriginFeatModal.jsx';
 import ResourcesCard from '../src/progression/ResourcesCard.jsx';
 import { setActiveChar } from '../src/dice/active-char.js';
 import { computeResources } from '../src/progression/resources.js';
 import { SpeciesChoicesModal, speciesSummary } from '../src/progression/SpeciesChoices.jsx';
-import { speciesChoiceSpecs } from '../src/progression/species.js';
+import { speciesChoiceSpecs, speciesGrants, speciesChoiceIssues } from '../src/progression/species.js';
 import { assignSpeciesChoices } from '../src/sheet/species-trait-choices.js';
+import { findFeat } from '../data/feats.js';
+import { featChoiceSpecs, featPicksIssues, featAsiIssues } from '../src/progression/feat-rules.js';
+import { classSkillList, classSkillCount, classSkillPicks, toggleClassSkill, otherSkillSources, classToolPicks } from '../src/creator/class-helpers.js';
+import { findBackground, backgroundList, backgroundTool, chosenBackgroundTools, toggleBackgroundTool, applyBackground } from '../src/creator/background-helpers.js';
+import { bonusMode, bonusChoice, bonusPatch, abilityBonusIssues, expectedRaceBonus } from '../src/creator/ability-helpers.js';
 import { t, tName } from '../data/i18n.js';
 import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
 import Icon from './Icons.jsx';
@@ -26,10 +32,10 @@ import { combatPanelSpot } from '../src/player/player-model.js';
 import PlayerChecksBanner from '../src/checks/PlayerChecksBanner.jsx';
 import * as FS from '../src/progression/fighting-styles.js';
 import GrimoireHint from '../src/grimoire/GrimoireHint.jsx';
-import { isArmorProficient, TOOLS, toolName } from '../src/creator/start-data.js';
+import { isArmorProficient, TOOLS, toolName, classStart } from '../src/creator/start-data.js';
 import { ACTION_SKILL_GROUPS, computeActionGroupData, hasKeenSenses } from '../src/combat/monster-action-skills.js';
 import { trainingLines, featName, featPicksText, backgroundFeature } from '../src/sheet/sheet-text.js';
-import { placeFeatures, featureKey } from '../src/sheet/feature-placement.js';
+import { placeFeatures, featureKey, poolParents } from '../src/sheet/feature-placement.js';
 import FhFeatures, { FhFeatureItem } from '../src/sheet/FhFeatures.jsx';
 import { DiceText } from '../src/dice/dice-text.jsx';
 import * as Versions from '../src/sheet/versions.js';
@@ -4200,11 +4206,235 @@ export const SheetTools = ({ char, lang, update, placed, embedded = false }) => 
   );
 };
 
+// Modal de perícias e ferramentas iniciais da classe (nível 1) a partir da linha do tempo.
+const TimelineClassSkillsModal = ({ char, lang, onConfirm, onClose }) => {
+  const pt = lang === 'pt';
+  const [draft, setDraft] = useState(() => ({ ...char }));
+  const [busy, setBusy] = useState(false);
+  const from = classSkillList(draft);
+  const need = classSkillCount(draft);
+  const picks = classSkillPicks(draft);
+  const others = otherSkillSources(draft);
+  const start = classStart(draft);
+  const toolSpec = start?.tools;
+  const toolPicks = Array.isArray(draft.creation?.toolChoices?.class) ? draft.creation.toolChoices.class : [];
+
+  const toggleTool = (id) => {
+    if (!toolSpec?.choose || !toolSpec.from?.includes(id)) return;
+    const next = toolPicks.includes(id)
+      ? toolPicks.filter(x => x !== id)
+      : (toolSpec.choose === 1 ? [id] : (toolPicks.length < toolSpec.choose ? [...toolPicks, id] : toolPicks));
+    const removed = toolPicks.filter(x => !next.includes(x) && !(toolSpec.fixed || []).includes(x));
+    const toolProfs = [...new Set([...(draft.toolProfs || []).filter(x => !removed.includes(x)), ...next])];
+    const creation = { ...(draft.creation || {}), toolChoices: { ...(draft.creation?.toolChoices || {}), class: next } };
+    setDraft(d => ({ ...d, toolProfs, creation }));
+  };
+
+  const save = async () => {
+    setBusy(true);
+    try { await onConfirm(draft); onClose(); } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal onClose={onClose} title={pt ? 'Perícias e ferramentas da classe' : 'Class skills & tools'}>
+      {from.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div className="eyebrow" style={{ marginBottom: 6 }}>
+            {pt ? `Perícias da classe (${picks.length}/${need})` : `Class skills (${picks.length}/${need})`}
+          </div>
+          <div className="options-list cols-3">
+            {from.map(id => {
+              const on = picks.includes(id);
+              const takenBy = others[id];
+              const full = !on && picks.length >= need;
+              return (
+                <button key={id} type="button" className={`option${on ? ' selected' : ''}`}
+                  disabled={!!takenBy || full}
+                  onClick={() => setDraft(d => ({ ...d, ...toggleClassSkill(d, id) }))}>
+                  <div>{tName('skill', id, lang)}</div>
+                  {takenBy && <div className="text-xs muted">{pt ? 'já treinada' : 'already trained'}</div>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {toolSpec?.choose > 0 && (toolSpec.from || []).length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div className="eyebrow" style={{ marginBottom: 6 }}>
+            {pt ? `Ferramentas da classe (${toolPicks.length}/${toolSpec.choose})` : `Class tools (${toolPicks.length}/${toolSpec.choose})`}
+          </div>
+          <div className="options-list cols-3">
+            {toolSpec.from.map(id => {
+              const on = toolPicks.includes(id);
+              const full = !on && toolSpec.choose > 1 && toolPicks.length >= toolSpec.choose;
+              return (
+                <button key={id} type="button" className={`option${on ? ' selected' : ''}`}
+                  disabled={full} onClick={() => toggleTool(id)}>
+                  {toolName(id, lang)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      <div className="row gap-2">
+        <button type="button" className="btn btn-ghost" onClick={onClose}>{pt ? 'Cancelar' : 'Cancel'}</button>
+        <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={busy || picks.length !== need} onClick={save}>
+          {pt ? 'Salvar' : 'Save'}
+        </button>
+      </div>
+    </Modal>
+  );
+};
+
+// Modal de antecedente e escolhas (2014 e 2024: antecedente, bônus de atributo, ferramentas e idiomas).
+const TimelineBackgroundModal = ({ char, lang, onConfirm, onClose }) => {
+  const pt = lang === 'pt';
+  const [draft, setDraft] = useState(() => ({ ...char }));
+  const [busy, setBusy] = useState(false);
+  const bgs = backgroundList(draft);
+  const bgTool = backgroundTool(draft);
+  const bgToolPicked = chosenBackgroundTools(draft);
+  const mode = bonusMode(draft);
+  const savedBonus = bonusChoice(draft, mode);
+  const activeBonus = (() => {
+    if (savedBonus.pattern || mode.kind !== 'background' || !mode.from?.length) return savedBonus;
+    const entries = Object.entries(draft.raceBonus || {}).filter(([k, v]) => mode.from.includes(k) && v > 0);
+    const vals = entries.map(([, v]) => v);
+    if (vals.filter(v => v === 2).length === 1 && vals.filter(v => v === 1).length === 1) {
+      return { pattern: '2-1', picks: Object.fromEntries(entries) };
+    }
+    if (vals.length === 3 && vals.every(v => v === 1)) {
+      return { pattern: '1-1-1', picks: Object.fromEntries(entries) };
+    }
+    return savedBonus;
+  })();
+
+  const setAbilityBonus = (pattern, picks) => {
+    setDraft(d => ({ ...d, ...bonusPatch(d, { pattern, picks }) }));
+  };
+  const set21 = (ab, val) => {
+    const cur = { ...(activeBonus.picks || {}) };
+    if (val === 2) {
+      for (const k of Object.keys(cur)) if (cur[k] === 2 && k !== ab) cur[k] = 1;
+      cur[ab] = 2;
+    } else {
+      cur[ab] = cur[ab] === 1 ? undefined : 1;
+    }
+    const clean = Object.fromEntries(Object.entries(cur).filter(([, v]) => v === 1 || v === 2));
+    // garante no máximo um +2 e um +1 no padrão 2-1
+    const ones = Object.entries(clean).filter(([, v]) => v === 1).map(([k]) => k);
+    while (ones.length > 1) delete clean[ones.shift()];
+    setAbilityBonus('2-1', clean);
+  };
+
+  const issues = mode.kind === 'background' ? abilityBonusIssues(draft) : [];
+  const save = async () => {
+    setBusy(true);
+    try { await onConfirm(draft); onClose(); } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal onClose={onClose} title={pt ? 'Antecedente e escolhas de origem' : 'Background & origin choices'}>
+      <div style={{ maxHeight: '65vh', overflowY: 'auto', marginBottom: 12 }}>
+        <div className="eyebrow" style={{ marginBottom: 6 }}>{pt ? 'Antecedente' : 'Background'}</div>
+        <div className="options-list cols-3" style={{ marginBottom: 14 }}>
+          {bgs.map(b => (
+            <button key={b.id} type="button" className={`option${draft.background === b.id ? ' selected' : ''}`}
+              onClick={() => setDraft(d => ({ ...d, ...applyBackground(d, b.id) }))}>
+              <div style={{ fontWeight: 600 }}>{b.name?.[lang] || b.id}</div>
+              <div className="text-xs muted">{(b.skills || []).map(s => tName('skill', s, lang)).join(', ')}</div>
+            </button>
+          ))}
+        </div>
+
+        {mode.kind === 'background' && mode.from?.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div className="eyebrow" style={{ marginBottom: 6 }}>{pt ? 'Atributos do antecedente (2024)' : 'Background abilities (2024)'}</div>
+            <div className="row gap-2" style={{ marginBottom: 8 }}>
+              <button type="button" className={`btn btn-sm ${activeBonus.pattern === '2-1' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setAbilityBonus('2-1', activeBonus.pattern === '2-1' ? activeBonus.picks : {})}>
+                +2 / +1
+              </button>
+              <button type="button" className={`btn btn-sm ${activeBonus.pattern === '1-1-1' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setAbilityBonus('1-1-1', Object.fromEntries(mode.from.map(k => [k, 1])))}>
+                +1 / +1 / +1
+              </button>
+            </div>
+            {activeBonus.pattern === '2-1' && (
+              <div className="options-list cols-3">
+                {mode.from.map(ab => {
+                  const val = activeBonus.picks?.[ab] || 0;
+                  return (
+                    <div key={ab} className={`option${val ? ' selected' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+                      <span>{t(`${ab}Sh`, lang)}</span>
+                      <div className="row gap-1">
+                        <button type="button" className={`btn btn-sm ${val === 2 ? 'btn-primary' : 'btn-ghost'}`} onClick={() => set21(ab, 2)}>+2</button>
+                        <button type="button" className={`btn btn-sm ${val === 1 ? 'btn-primary' : 'btn-ghost'}`} onClick={() => set21(ab, 1)}>+1</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {issues.length > 0 && <div className="text-xs" style={{ color: 'var(--blood-bright)', marginTop: 6 }}>{issues[0][lang]}</div>}
+          </div>
+        )}
+
+        {bgTool.choose > 0 && (bgTool.from || []).length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div className="eyebrow" style={{ marginBottom: 6 }}>
+              {pt ? `Ferramenta do antecedente (${bgToolPicked.length}/${bgTool.choose})` : `Background tool (${bgToolPicked.length}/${bgTool.choose})`}
+            </div>
+            <div className="options-list cols-3">
+              {bgTool.from.map(id => {
+                const on = bgToolPicked.includes(id);
+                const full = !on && bgTool.choose > 1 && bgToolPicked.length >= bgTool.choose;
+                return (
+                  <button key={id} type="button" className={`option${on ? ' selected' : ''}`}
+                    disabled={full} onClick={() => setDraft(d => ({ ...d, ...toggleBackgroundTool(d, id) }))}>
+                    {toolName(id, lang)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <div className="eyebrow" style={{ marginBottom: 6 }}>{t('languages', lang)}</div>
+          <LanguagePicker char={draft} lang={lang} chosen={chosenLanguages(draft)}
+            onChange={langs => setDraft(d => ({ ...d, languages: Utils.withChosenLanguages(d, langs) }))} free />
+        </div>
+      </div>
+      <div className="row gap-2">
+        <button type="button" className="btn btn-ghost" onClick={onClose}>{pt ? 'Cancelar' : 'Cancel'}</button>
+        <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={busy || !draft.background} onClick={save}>
+          {pt ? 'Salvar' : 'Save'}
+        </button>
+      </div>
+    </Modal>
+  );
+};
+
 // Linha do tempo de traços (src/sheet/feature-timeline.js): classe/subclasse no nível do
 // personagem em que vieram, espécie no nível de cada traço, talentos no nível em que
 // substituíram o Aumento no Valor de Atributo. Um trilho dourado com os níveis à esquerda.
-export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race: raceIn, update, onResolveChoice, onResolveOptions, title = null }) => {
+export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race: raceIn, update: updateIn, onResolveChoice, onResolveOptions, title = null }) => {
   const pt = lang === 'pt';
+  const respec = useContext(RespecContext);
+  const update = updateIn || respec?.update;
+  const effResolveChoice = onResolveChoice || respec?.resolveChoice;
+  const effResolveOptions = onResolveOptions || respec?.resolveOptions;
+  const canEdit = Boolean(respec || update);
+  const [localModal, setLocalModal] = useState(null);
+
+  const applyChange = (patch, summaryPt, summaryEn) => {
+    if (respec?.submit) return respec.submit({ ...char, ...patch }, pt ? summaryPt : summaryEn);
+    if (update) return update(patch);
+  };
+
   // Fonte única (aba Características e painel Progressão): os mesmos traços posicionados,
   // escolhas de classe, pendências da engine, proficiências de multiclasse e truques automáticos.
   const placed = placedIn || (() => { try { return placeFeatures(char); } catch { return placeFeatures({}); } })();
@@ -4214,11 +4444,101 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
   const multi = !!placed?.multi;
   const seq = (() => { try { return Utils.classSequence(char); } catch { return []; } })();
   const srd = !(placed?.items || []).length && char.rulesVersion !== '2024' ? (cls?.features || []) : [];
-  const classItems = [
+  const rawClassItems = [
     ...(placed?.items || []),
     ...(placed?.orphanPicks || []),
     ...srd.map((f, i) => ({ key: `srd-${i}`, classId: char.className, level: 1, name: { pt: f.name, en: f.name }, desc: { pt: f.desc, en: f.desc } })),
   ];
+
+  // Enriquecer classe: (1) Perícias e ferramentas iniciais da classe no nível 1,
+  // (2) subclasse escolhida e terreno (Círculo da Terra) nos traços de subclasse.
+  const startInfo = (() => { try { return classStart(char); } catch { return null; } })();
+  const cSkills = (() => { try { return classSkillPicks(char); } catch { return []; } })();
+  const cSkillNeed = (() => { try { return classSkillCount(char); } catch { return 0; } })();
+  const cToolIds = [...new Set([
+    ...(startInfo?.tools?.fixed || []),
+    ...(char.creation?.toolChoices?.class || []),
+    ...(() => { try { return classToolPicks(char); } catch { return []; } })(),
+  ])];
+  const classProfsItem = char.className && (cSkillNeed > 0 || startInfo?.tools?.choose > 0 || cToolIds.length > 0) ? [{
+    key: 'class-profs',
+    id: 'classProficiencies',
+    classId: char.className,
+    level: 1,
+    name: { pt: 'Perícias e Ferramentas da Classe', en: 'Class Skills & Tools' },
+    desc: { pt: 'Proficiências iniciais escolhidas na criação do personagem.', en: 'Initial proficiency choices from character creation.' },
+    picks: [
+      ...(cSkillNeed > 0 || cSkills.length > 0 ? [{
+        name: { pt: `Perícias da classe (${cSkills.length}/${cSkillNeed})`, en: `Class skills (${cSkills.length}/${cSkillNeed})` },
+        desc: {
+          pt: cSkills.length ? cSkills.map(id => tName('skill', id, 'pt')).join(', ') : 'a escolher',
+          en: cSkills.length ? cSkills.map(id => tName('skill', id, 'en')).join(', ') : 'to choose',
+        },
+      }] : []),
+      ...(startInfo?.tools?.choose > 0 || cToolIds.length > 0 ? [{
+        name: { pt: 'Ferramentas da classe', en: 'Class tools' },
+        desc: {
+          pt: cToolIds.length ? cToolIds.map(id => toolName(id, 'pt')).join(', ') : 'a escolher',
+          en: cToolIds.length ? cToolIds.map(id => toolName(id, 'en')).join(', ') : 'to choose',
+        },
+      }] : []),
+    ],
+    _isClassProfs: true,
+    _missingProfs: cSkills.length < cSkillNeed || (startInfo?.tools?.choose > 0 && !(char.creation?.toolChoices?.class?.length)),
+  }] : [];
+
+  const classItems = (() => {
+    const list = [...classProfsItem, ...rawClassItems.map(it => ({ ...it }))];
+    const entries = (() => { try { return Utils.classEntries(char); } catch { return []; } })();
+    for (const ce of entries) {
+      const cView = Utils.classView(char, ce);
+      if (!cView.subclass) continue;
+      const subsList = subclassesFor(cView, ce.id);
+      const subObj = subsList.find(s => s.id === cView.subclass);
+      const subLabel = SUBCLASS_LABEL[ce.id] || { pt: 'Subclasse', en: 'Subclass' };
+      const subPick = {
+        name: subLabel,
+        desc: { pt: subObj?.name?.pt || cView.subclass, en: subObj?.name?.en || cView.subclass },
+      };
+      const ltObj = ce.id === 'druid' && cView.subclass === 'land'
+        ? (subObj?.landTypes || []).find(l => l.id === cView.landType)
+        : null;
+      const landPick = ce.id === 'druid' && cView.subclass === 'land' ? {
+        name: { pt: 'Terreno (Círculo da Terra)', en: 'Land Type (Circle of the Land)' },
+        desc: { pt: ltObj?.name?.pt || cView.landType || 'a escolher', en: ltObj?.name?.en || cView.landType || 'to choose' },
+      } : null;
+
+      let matchedRoot = false;
+      for (let idx = 0; idx < list.length; idx++) {
+        const it = list[idx];
+        if (it.classId === ce.id && /Subclass$|^artificerSpecialist$/.test(it.id || '')) {
+          matchedRoot = true;
+          list[idx] = {
+            ...it,
+            picks: [...(it.picks || []), subPick, ...(landPick ? [landPick] : [])],
+            _isSubclassRoot: true,
+          };
+        } else if (landPick && it.classId === ce.id && /circle(?:OfTheLand)?Spells/.test(it.id || '')) {
+          list[idx] = { ...it, picks: [...(it.picks || []), landPick], _isSubclassRoot: true };
+        }
+      }
+      if (!matchedRoot) {
+        const subLv = subclassLevelOf(cView);
+        list.push({
+          key: `sub-${ce.id}`,
+          id: `${ce.id}Subclass`,
+          classId: ce.id,
+          level: subLv,
+          name: subLabel,
+          desc: subObj?.desc || { pt: '', en: '' },
+          picks: [subPick, ...(landPick ? [landPick] : [])],
+          _isSubclassRoot: true,
+        });
+      }
+    }
+    return list;
+  })();
+
   const multiclass = (prog?.classes || []).filter(e => !e.primary).map(e => ({
     classId: e.id,
     name: { pt: `Multiclasse: ${tName('class', e.id, 'pt')}`, en: `Multiclass: ${tName('class', e.id, 'en')}` },
@@ -4230,12 +4550,133 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
     item: { name: { pt: 'Truques automáticos da subclasse', en: 'Subclass auto cantrips' },
       desc: { pt: prog.autoCantrips.map(id => tName('spellName', id, 'pt')).join(', '), en: prog.autoCantrips.map(id => tName('spellName', id, 'en')).join(', ') } },
   }] : [];
-  const bgf = backgroundFeature(char, lang);
+
+  // Espécie: escolhas ativas + futuras (ex.: Simic 5º nível), magias por nível (3º e 5º) e fallback para nível 1
+  const speciesRowsPt = (() => { try { return speciesSummary(char, 'pt'); } catch { return []; } })();
+  const speciesRowsEn = (() => { try { return speciesSummary(char, 'en'); } catch { return []; } })();
+  const speciesSpecs = (() => { try { return speciesChoiceSpecs(char, { includeFuture: true }); } catch { return []; } })();
+  const spGrants = (() => { try { return speciesGrants(char); } catch { return { cantrips: [], spells: [], spellsByLevel: {}, spellUses: {}, skills: [], resist: [], tools: [], darkvision: 0, speed: null, size: null, spellAbility: null, options: {} }; } })();
+  const baseSpeciesTraits = race?.traits || [];
+  const speciesAt = assignSpeciesChoices(baseSpeciesTraits, speciesSpecs);
+  const spellCatalog = (() => { try { return Utils.spellCatalog(char); } catch { return []; } })();
+  const spName = (id, l) => spellCatalog.find(s => s.id === id)?.name?.[l] || tName('spellName', id, l) || id;
+
+  const extraSpeciesTraits = (() => {
+    const out = [...baseSpeciesTraits];
+    if (!baseSpeciesTraits.length && speciesSpecs.some(c => !c.minLevel)) {
+      out.push({
+        key: 'sp:0',
+        level: 1,
+        name: race?.name || { pt: 'Traços da espécie', en: 'Species traits' },
+        desc: { pt: '', en: '' },
+        hasChoices: true,
+      });
+    }
+    const levels = new Set([
+      ...Object.keys(spGrants.spellsByLevel || {}).map(Number).filter(n => n > 1),
+      ...speciesSpecs.map(c => c.minLevel).filter(n => n > 1),
+    ]);
+    for (const lv of [...levels].sort((a, b) => a - b)) {
+      if (out.some(t => (+t.level || 1) === lv)) continue;
+      const spells = spGrants.spellsByLevel[lv] || [];
+      const minSpecs = speciesSpecs.filter(c => c.minLevel === lv);
+      if (!spells.length && !minSpecs.length) continue;
+      const picks = [
+        ...minSpecs.map(c => {
+          const lPt = c.label?.pt || c.label?.en || c.key;
+          const lEn = c.label?.en || c.label?.pt || c.key;
+          const vPt = speciesRowsPt.find(([l]) => l === lPt)?.[1] || 'a escolher';
+          const vEn = speciesRowsEn.find(([l]) => l === lEn)?.[1] || 'to choose';
+          return { name: { pt: lPt, en: lEn }, desc: { pt: vPt, en: vEn } };
+        }),
+        ...(spells.length ? [{
+          name: { pt: `Magias liberadas (${lv}º nível)`, en: `Unlocked spells (Level ${lv})` },
+          desc: {
+            pt: spells.map(id => spName(id, 'pt')).join(', ') + (spGrants.spellAbility ? ` (${t(spGrants.spellAbility + 'Sh', 'pt')})` : ''),
+            en: spells.map(id => spName(id, 'en')).join(', ') + (spGrants.spellAbility ? ` (${t(spGrants.spellAbility + 'Sh', 'en')})` : ''),
+          },
+        }] : []),
+      ];
+      const raceNamePt = race?.name?.pt || race?.name?.en || tName('race', char.race, 'pt');
+      const raceNameEn = race?.name?.en || race?.name?.pt || tName('race', char.race, 'en');
+      out.push({
+        key: `sp-lv:${lv}`,
+        level: lv,
+        hasChoices: true,
+        name: { pt: `${raceNamePt}: Progressão (${lv}º nível)`, en: `${raceNameEn}: Progression (Level ${lv})` },
+        desc: {
+          pt: spells.length ? `Magias desbloqueadas no ${lv}º nível pela linhagem ou traço da espécie.` : `Escolha de espécie liberada no ${lv}º nível.`,
+          en: spells.length ? `Spells unlocked at level ${lv} by your species lineage or trait.` : `Species choice unlocked at level ${lv}.`,
+        },
+        picks,
+      });
+    }
+    return out;
+  })();
+
+  // Antecedente: 2014 (característica + escolhas) e 2024 (atributos, talento de origem, perícias, ferramentas e idiomas)
+  const bgfPt = backgroundFeature(char, 'pt');
+  const bgfEn = backgroundFeature(char, 'en');
+  const bgDef = (() => { try { return findBackground(char); } catch { return null; } })();
+  const bgTimeline = (() => {
+    if (!char?.background && !bgfPt) return null;
+    const is24 = char.rulesVersion === '2024';
+    const bgNamePt = bgDef?.name?.pt || tName('background', char.background, 'pt') || char.background || '';
+    const bgNameEn = bgDef?.name?.en || tName('background', char.background, 'en') || char.background || '';
+    const name = {
+      pt: bgfPt && !is24 ? `${bgfPt.name} (${bgNamePt})` : `Antecedente: ${bgNamePt}`,
+      en: bgfEn && !is24 ? `${bgfEn.name} (${bgNameEn})` : `Background: ${bgNameEn}`,
+    };
+    const desc = {
+      pt: bgfPt?.desc || bgDef?.desc?.pt || '',
+      en: bgfEn?.desc || bgDef?.desc?.en || '',
+    };
+    const bgSk = (() => { try { return Utils.backgroundSkills(char); } catch { return []; } })();
+    const bt = (() => { try { return backgroundTool(char); } catch { return { fixed: [], choose: 0 }; } })();
+    const btIds = [...new Set([...(bt.fixed || []), ...(() => { try { return chosenBackgroundTools(char); } catch { return []; } })()])];
+    const ofId = bgDef?.originFeat || (char.feats || []).find(f => f?.origin === 'background')?.id;
+    const ofDef = ofId ? findFeat(ofId) : null;
+    const bonusEntries = Object.entries(char.raceBonus || {}).filter(([, v]) => v);
+    const langs = (() => { try { return Utils.languagesFor(char); } catch { return []; } })();
+    const picks = [
+      ...(bgSk.length ? [{
+        name: { pt: 'Perícias', en: 'Skills' },
+        desc: { pt: bgSk.map(id => tName('skill', id, 'pt')).join(', '), en: bgSk.map(id => tName('skill', id, 'en')).join(', ') },
+      }] : []),
+      ...(is24 ? [{
+        name: { pt: 'Atributos do antecedente', en: 'Background abilities' },
+        desc: {
+          pt: bonusEntries.length ? bonusEntries.map(([k, v]) => `${t(k + 'Sh', 'pt')} +${v}`).join(', ') : 'a escolher (+2/+1 ou +1/+1/+1)',
+          en: bonusEntries.length ? bonusEntries.map(([k, v]) => `${t(k + 'Sh', 'en')} +${v}`).join(', ') : 'to choose (+2/+1 or +1/+1/+1)',
+        },
+      }] : []),
+      ...(is24 && (ofDef || char.originFeat) ? [{
+        name: { pt: 'Talento de origem', en: 'Origin feat' },
+        desc: ofDef?.name || { pt: char.originFeat, en: char.originFeat },
+      }] : []),
+      ...(bt.choose > 0 || btIds.length > 0 ? [{
+        name: { pt: 'Ferramentas', en: 'Tools' },
+        desc: {
+          pt: btIds.length ? btIds.map(id => toolName(id, 'pt')).join(', ') : 'a escolher',
+          en: btIds.length ? btIds.map(id => toolName(id, 'en')).join(', ') : 'to choose',
+        },
+      }] : []),
+      ...(langs.length > 0 || Utils.languageChoiceCount(char) > 0 ? [{
+        name: { pt: 'Idiomas', en: 'Languages' },
+        desc: {
+          pt: langs.length ? langs.map(id => Utils.languageLabel(id, 'pt')).join(', ') : 'a escolher',
+          en: langs.length ? langs.map(id => Utils.languageLabel(id, 'en')).join(', ') : 'to choose',
+        },
+      }] : []),
+    ];
+    return { name, desc, picks };
+  })();
+
   const entries = buildTimeline({
     level: char.level || 1, seq, classItems,
-    speciesTraits: race?.traits || [],
+    speciesTraits: extraSpeciesTraits,
     feats: char.feats || [],
-    background: bgf ? { name: bgf.name, desc: bgf.desc } : null,
+    background: bgTimeline,
     levelChoices: char.levelChoices || {},
     asiText: (asi) => Object.entries(asi || {}).map(([k, v]) => `${t(k + 'Sh', lang)} +${v}`).join(', '),
     pending: prog?.pendingChoices || [], multiclass, extras,
@@ -4250,72 +4691,160 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
     if (e.kind === 'multiclass') return pt ? 'Multiclasse' : 'Multiclass';
     return multi ? tName('class', e.classId, lang) : (cls?.name?.[lang] || tName('class', char.className, lang));
   };
-  // Escolhas da espécie ligadas ao traço que as pede (Instintos de Changeling → perícias,
-  // Linhagem Élfica → linhagem…): o rótulo da escolha começa com o nome do traço, ou é
-  // linhagem/ancestral. O valor escolhido aparece no próprio traço da linha do tempo.
-  const speciesRows = (() => { try { return speciesSummary(char, lang); } catch { return []; } })();
-  const speciesSpecs = (() => { try { return speciesChoiceSpecs(char); } catch { return []; } })();
-  const speciesAt = assignSpeciesChoices(race?.traits || [], speciesSpecs);
-  // Escolhas ligadas ao traço da entrada `sp:<i>`: [{ spec, value }] (value '' = ainda não escolhida)
+  // Escolhas ligadas ao traço da entrada `sp:<i>` (e fallback em `sp:0` para escolhas sem traço próprio, como tamanho).
   const choicesFor = (e) => {
+    if (String(e.key || '').startsWith('sp-lv:')) {
+      const lv = Number(String(e.key).split(':')[1]);
+      return speciesSpecs.filter(c => c.minLevel === lv).map(c => {
+        const labelPt = c.label?.pt || c.label?.en || c.key;
+        const labelEn = c.label?.en || c.label?.pt || c.key;
+        return {
+          key: c.key, labelPt, labelEn,
+          valuePt: speciesRowsPt.find(([l]) => l === labelPt)?.[1] || '',
+          valueEn: speciesRowsEn.find(([l]) => l === labelEn)?.[1] || '',
+          label: lang === 'pt' ? labelPt : labelEn,
+          value: (lang === 'pt' ? speciesRowsPt : speciesRowsEn).find(([l]) => l === (lang === 'pt' ? labelPt : labelEn))?.[1] || '',
+        };
+      });
+    }
     const i = Number(String(e.key || '').split(':')[1]);
     if (!Number.isInteger(i)) return [];
-    return speciesSpecs.map((c, k) => ({ c, k })).filter(({ k }) => speciesAt[k] === i).map(({ c }) => {
-      const label = c.label?.[lang] || c.label?.en || c.label?.pt || c.key;
-      const row = speciesRows.find(([l]) => l === label);
-      return { label, value: row ? row[1] : '' };
+    return speciesSpecs.map((c, k) => ({ c, k })).filter(({ c, k }) => {
+      if (c.minLevel > 1) return false;
+      return speciesAt[k] === i || (i === 0 && speciesAt[k] === -1);
+    }).map(({ c }) => {
+      const labelPt = c.label?.pt || c.label?.en || c.key;
+      const labelEn = c.label?.en || c.label?.pt || c.key;
+      const valuePt = speciesRowsPt.find(([l]) => l === labelPt)?.[1] || '';
+      const valueEn = speciesRowsEn.find(([l]) => l === labelEn)?.[1] || '';
+      return {
+        key: c.key, labelPt, labelEn, valuePt, valueEn,
+        label: lang === 'pt' ? labelPt : labelEn,
+        value: lang === 'pt' ? valuePt : valueEn,
+      };
     });
   };
   const itemOf = (e) => {
     if (e.kind === 'species') {
+      if (String(e.key || '').startsWith('sp-lv:')) return e.item;
       const rows = choicesFor(e);
       if (!rows.length) return e.item;
-      // rótulo igual ao nome do traço (Instintos de Changeling) não se repete: "Escolhido: Intuição, Persuasão"
       const own = [e.item?.name?.pt, e.item?.name?.en].filter(Boolean).map(n => n.toLowerCase());
-      const chosen = rows.map(r => {
-        const label = String(r.label).split(':').pop().trim();
-        const v = r.value || (pt ? 'a escolher' : 'to choose');
-        return own.includes(String(r.label).toLowerCase()) ? v : `${label}: ${v}`;
+      const chosenStr = (isPt) => rows.map(r => {
+        const lblRaw = isPt ? r.labelPt : r.labelEn;
+        const label = String(lblRaw).split(':').pop().trim();
+        const v = (isPt ? r.valuePt : r.valueEn) || (isPt ? 'a escolher' : 'to choose');
+        return own.includes(String(lblRaw).toLowerCase()) ? v : `${label}: ${v}`;
       }).join(' · ');
-      const add = (d) => `${d || ''}${d ? ' ' : ''}${pt ? 'Escolhido' : 'Chosen'}: ${chosen}.`;
-      return { ...e.item, desc: { pt: add(e.item.desc?.pt), en: add(e.item.desc?.en) } };
+      const add = (d, isPt) => `${d || ''}${d ? ' ' : ''}${isPt ? 'Escolhido' : 'Chosen'}: ${chosenStr(isPt)}.`;
+      const picks = [
+        ...(e.item.picks || []),
+        ...rows.map(r => ({
+          name: { pt: r.labelPt, en: r.labelEn },
+          desc: { pt: r.valuePt || 'a escolher', en: r.valueEn || 'to choose' },
+        })),
+        ...(rows.some(r => ['lineage', 'spellAbility', 'legacy'].includes(r.key)) && (spGrants.cantrips.length || (spGrants.spellsByLevel[1] || []).length) ? [{
+          name: { pt: 'Magias (1º nível)', en: 'Spells (1st level)' },
+          desc: {
+            pt: [...spGrants.cantrips, ...(spGrants.spellsByLevel[1] || [])].map(id => spName(id, 'pt')).join(', '),
+            en: [...spGrants.cantrips, ...(spGrants.spellsByLevel[1] || [])].map(id => spName(id, 'en')).join(', '),
+          },
+        }] : []),
+      ];
+      return { ...e.item, desc: { pt: add(e.item.desc?.pt, true), en: add(e.item.desc?.en, false) }, picks };
     }
     if (e.kind !== 'feat') return e.item;
     const f = e.feat;
-    const name = featName(char, f, lang);
-    const bits = [
-      f.asi ? Object.entries(f.asi).map(([k, v]) => `${t(k + 'Sh', lang)} +${v}`).join(', ') : '',
-      featSummary(f, lang) || '',
-      f.picks ? featPicksText(f.picks, lang) : '',
-      f.note || '',
-    ].filter(Boolean).join(' · ');
-    return { name: { pt: name, en: name }, desc: { pt: bits, en: bits } };
+    const def = f?.id ? findFeat(f.id) : null;
+    const namePt = featName(char, f, 'pt');
+    const nameEn = featName(char, f, 'en');
+    const asiListPt = f.asi ? Object.entries(f.asi).filter(([, v]) => v).map(([k, v]) => `${t(k + 'Sh', 'pt')} +${v}`).join(', ') : '';
+    const asiListEn = f.asi ? Object.entries(f.asi).filter(([, v]) => v).map(([k, v]) => `${t(k + 'Sh', 'en')} +${v}`).join(', ') : '';
+    const picksPt = f.picks ? featPicksText(f.picks, 'pt') : '';
+    const picksEn = f.picks ? featPicksText(f.picks, 'en') : '';
+    const featPicks = [
+      ...(asiListPt || (def?.asi && !['background', 'species'].includes(f.origin)) ? [{
+        name: { pt: 'Aumento de atributo', en: 'Ability score' },
+        desc: { pt: asiListPt || 'a escolher', en: asiListEn || 'to choose' },
+      }] : []),
+      ...((def && featChoiceSpecs(def).length > 0) || picksPt ? [{
+        name: { pt: 'Escolhas do talento', en: 'Feat choices' },
+        desc: { pt: picksPt || 'a escolher', en: picksEn || 'to choose' },
+      }] : []),
+      ...(f.note ? [{ name: { pt: 'Nota', en: 'Note' }, desc: { pt: f.note, en: f.note } }] : []),
+    ];
+    const bitsPt = [asiListPt, featSummary(f, 'pt') || '', picksPt, f.note || ''].filter(Boolean).join(' · ');
+    const bitsEn = [asiListEn, featSummary(f, 'en') || '', picksEn, f.note || ''].filter(Boolean).join(' · ');
+    return { name: { pt: namePt, en: nameEn }, desc: { pt: bitsPt, en: bitsEn }, picks: featPicks };
+  };
+  const poolParentMap = poolParents();
+  const hasPoolPicks = (classId, featureId) => {
+    const raw = poolParentMap[classId]?.[featureId];
+    if (!raw) return false;
+    const pools = Array.isArray(raw) ? raw : String(raw).split(/[\s,]+/).filter(Boolean);
+    return (char.classOptions || []).some(p => p.classId === classId && pools.includes(p.pool));
+  };
+  const triggerReq = (req) => {
+    if (!req) return;
+    if (['subclass', 'classSkills', 'background'].includes(req.kind)) return setLocalModal(req);
+    if (respec?.change) return respec.change(req);
+    if (req.kind === 'level') return effResolveChoice?.(req.level);
+    if (req.kind === 'options') return effResolveOptions?.(req.classId);
+    setLocalModal(req);
   };
   // Botão "Escolher agora" nas pendências (quando quem usa a linha do tempo resolve escolhas)
   const actionOf = (e) => {
-    if (!e.pending) return null;
-    const c = e.choice;
-    const go = c?.type === 'classOption' ? (onResolveOptions && (() => onResolveOptions(c.classId || char.className)))
-      : (c?.type === 'asiOrFeat' || c?.type === 'epicBoon' || e.kind === 'asi') ? (onResolveChoice && (() => onResolveChoice(e.level)))
-      : null;
+    let go = null;
+    if (e.pending) {
+      const c = e.choice;
+      go = c?.type === 'classOption' ? (effResolveOptions && (() => effResolveOptions(c.classId || char.className)))
+        : (c?.type === 'asiOrFeat' || c?.type === 'epicBoon' || e.kind === 'asi') ? (effResolveChoice && (() => effResolveChoice(e.level)))
+        : (c?.type === 'subclass' || c?.type === 'landType') ? (canEdit && (() => setLocalModal({ kind: 'subclass', classId: c.classId || char.className, landOnly: c.type === 'landType' })))
+        : null;
+    } else if (!e.later && canEdit) {
+      if (e.kind === 'species' && choicesFor(e).some(r => !(lang === 'pt' ? r.valuePt : r.valueEn))) {
+        go = () => triggerReq({ kind: 'species' });
+      } else if (e.kind === 'class' && e.item?._missingProfs) {
+        go = () => setLocalModal({ kind: 'classSkills' });
+      } else if (e.kind === 'background') {
+        const bgToolSpec = backgroundTool(char);
+        const missingTool = bgToolSpec.choose > chosenBackgroundTools(char).length;
+        const missingBonus = char.rulesVersion === '2024' && !Object.values(char.raceBonus || {}).some(Boolean);
+        if (missingTool || missingBonus) go = () => setLocalModal({ kind: 'background' });
+      } else if (e.kind === 'feat') {
+        const f = e.feat;
+        const def = f?.id ? findFeat(f.id) : null;
+        if (def && (featPicksIssues(def, f.picks, f.level || 1).length > 0 || (def.asi && !['background', 'species'].includes(f.origin) && featAsiIssues(char, def, f.asi).length > 0))) {
+          const req = !['background', 'species'].includes(f?.origin) && (char.levelChoices || {})[f?.level]
+            ? { kind: 'level', level: f.level }
+            : { kind: 'origin', index: (char.feats || []).indexOf(f) };
+          go = () => triggerReq(req);
+        }
+      }
+    }
     if (!go) return null;
     return <button type="button" className="btn btn-sm btn-primary prog-choose" onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); go(); }}>{pt ? 'Escolher agora' : 'Choose now'}</button>;
   };
-  // Botão "Trocar" nas escolhas já feitas: talento/ASI do nível e opções de classe.
-  // O app (RespecContext) recalcula a ficha e salva, ou manda para o mestre aprovar.
-  const respec = useContext(RespecContext);
+  // Botão "Trocar" nas escolhas já feitas: espécie, antecedente, perícias/opções/subclasse e talentos/ASI.
   const changeOf = (e) => {
-    if (!respec || e.pending || e.later) return null;
+    if (!canEdit || e.pending || e.later) return null;
     let req = null;
     if (e.kind === 'asi' && e.done) req = { kind: 'level', level: e.level };
-    else if (e.kind === 'feat' && !['background', 'species'].includes(e.feat?.origin) && (char.levelChoices || {})[e.feat?.level]) req = { kind: 'level', level: e.feat.level };
-    else if (e.kind === 'feat' && ['background', 'species'].includes(e.feat?.origin)) req = { kind: 'origin', index: (char.feats || []).indexOf(e.feat) };
-    else if (e.kind === 'species' && choicesFor(e).length) req = { kind: 'species' };
-    else if (e.kind === 'class' && e.classId && e.item?.picks?.length) req = { kind: 'options', classId: e.classId };
+    else if (e.kind === 'feat') {
+      req = !['background', 'species'].includes(e.feat?.origin) && (char.levelChoices || {})[e.feat?.level]
+        ? { kind: 'level', level: e.feat.level }
+        : { kind: 'origin', index: (char.feats || []).indexOf(e.feat) };
+    } else if (e.kind === 'species' && (choicesFor(e).length > 0 || e.hasChoices)) req = { kind: 'species' };
+    else if (e.kind === 'background') req = { kind: 'background' };
+    else if (e.kind === 'class') {
+      if (e.item?._isClassProfs) req = { kind: 'classSkills' };
+      else if (e.item?._isSubclassRoot) req = { kind: 'subclass', classId: e.classId || char.className };
+      else if (e.classId && (e.item?.picks?.length || hasPoolPicks(e.classId, e.item?.id))) req = { kind: 'options', classId: e.classId };
+    }
     if (!req) return null;
     return (
       <button type="button" className="btn btn-sm btn-ghost fh-tl-change" title={pt ? 'Trocar esta escolha' : 'Change this choice'}
-        onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); respec.change(req); }}>
+        onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); triggerReq(req); }}>
         ✎ {pt ? 'Trocar' : 'Change'}
       </button>
     );
@@ -4336,6 +4865,13 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
       <SheetTools char={char} lang={lang} update={update} placed={placed} embedded />
     </div>
   );
+  const subModalTarget = localModal?.kind === 'subclass' ? (() => {
+    const entry = Utils.classEntries(char).find(x => x.id === (localModal.classId || char.className));
+    const view = entry ? Utils.classView(char, entry) : char;
+    const subs = subclassesFor(view);
+    const label = SUBCLASS_LABEL[view.className] || { pt: 'Subclasse', en: 'Subclass' };
+    return { entry, view, subs, label };
+  })() : null;
   return (
     <section className={title === false ? 'fh-timeline fh-timeline-bare' : 'fh-panel fh-timeline'}>
       {title !== false && <FhTitle sub={<span className="fh-tl-now">{pt ? `Tier ${cur.tier} · ${cur.pt}` : `Tier ${cur.tier} · ${cur.en}`}</span>}>{pt ? 'Linha do tempo' : 'Timeline'}</FhTitle>}
@@ -4414,6 +4950,45 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
           </li>
         ))}
       </ol>
+      {subModalTarget && (
+        <SubclassModal
+          char={subModalTarget.view}
+          lang={lang}
+          subs={subModalTarget.subs}
+          label={subModalTarget.label}
+          landOnly={Boolean(localModal.landOnly)}
+          update={(patch) => {
+            const p = !subModalTarget.entry || subModalTarget.entry.primary
+              ? patch
+              : { multiclass: (char.multiclass || []).map(m => m.id === subModalTarget.entry.id ? { ...m, ...patch } : m) };
+            applyChange(p, 'Troca de subclasse', 'Subclass changed');
+          }}
+          onClose={() => setLocalModal(null)}
+        />
+      )}
+      {localModal?.kind === 'classSkills' && (
+        <TimelineClassSkillsModal
+          char={char}
+          lang={lang}
+          onConfirm={(after) => applyChange(after, 'Perícias da classe alteradas', 'Class skills changed')}
+          onClose={() => setLocalModal(null)}
+        />
+      )}
+      {localModal?.kind === 'background' && (
+        <TimelineBackgroundModal
+          char={char}
+          lang={lang}
+          onConfirm={(after) => applyChange(after, 'Antecedente e escolhas alterados', 'Background choices changed')}
+          onClose={() => setLocalModal(null)}
+        />
+      )}
+      {localModal?.kind === 'species' && update && (
+        <SpeciesChoicesModal char={char} lang={lang} onClose={() => setLocalModal(null)} onChange={(p) => update(p)} />
+      )}
+      {localModal?.kind === 'origin' && localModal.index >= 0 && update && (
+        <OriginFeatModal char={char} index={localModal.index} lang={lang}
+          onConfirm={(after) => update(after)} onClose={() => setLocalModal(null)} />
+      )}
     </section>
   );
 };

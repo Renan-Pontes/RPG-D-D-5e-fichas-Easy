@@ -155,6 +155,22 @@ export default function SpeciesChoices({ char, lang, onChange, lockFeat = false 
               })}
             </div>
           );
+        } else if (c.key === 'tool' && c.from) {
+          const n = c.count || 1;
+          const cur = list(v);
+          body = (
+            <div className="class-pick-grid">
+              {c.from.map(id => {
+                const on = cur.includes(id);
+                const toggle = () => {
+                  if (n === 1) return setChoice('tool', on ? null : id);
+                  setChoice('tool', on ? cur.filter(x => x !== id) : [...cur, id]);
+                };
+                return <Pick key={id} on={on} disabled={!on && n > 1 && cur.length >= n} onClick={toggle}
+                  title={RACE_TOOL_NAMES[id]?.[lang] || id} />;
+              })}
+            </div>
+          );
         } else if (c.from) {
           body = (
             <div className="class-pick-grid">
@@ -194,10 +210,13 @@ export function speciesSummary(char, lang) {
     } else if (c.key === 'skill') {
       const s = list(sc.skill);
       if (s.length) rows.push([c.label[lang], s.map(id => tName('skill', id, lang)).join(', ')]);
+    } else if (c.key === 'tool' && c.from) {
+      const tIds = list(sc.tool);
+      if (tIds.length) rows.push([c.label[lang], tIds.map(id => RACE_TOOL_NAMES[id]?.[lang] || id).join(', ')]);
     } else if (c.from && sc[c.key]) rows.push([c.label[lang], tr(sc[c.key], lang)]);
   }
   if (g.resist.length) rows.push([L(lang, 'Resistências', 'Resistances'), g.resist.map(d => DAMAGE_NAMES[d]?.[lang] || d).join(', ')]);
-  const shownTools = new Set(list(g.options.tool?.tools));
+  const shownTools = new Set([...list(g.options.tool?.tools), ...list(sc.tool)]);
   const fixedTools = g.tools.filter(t => !shownTools.has(t));
   if (fixedTools.length) rows.push([L(lang, 'Ferramentas', 'Tools'), fixedTools.map(t => RACE_TOOL_NAMES[t]?.[lang] || t).join(', ')]);
   if (g.darkvision) rows.push([L(lang, 'Visão no escuro', 'Darkvision'), `${g.darkvision} ${L(lang, 'pés', 'ft')}`]);

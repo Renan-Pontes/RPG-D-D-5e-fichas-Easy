@@ -41,9 +41,9 @@ export function speciesDef(char) {
   return SPECIES_TABLE['2014'][id] || null;
 }
 
-/** Registro da raça 2014 (data/srd.js RACES), ou null em fichas 2024. */
+/** Registro da raça 2014 (data/srd.js RACES), ou null quando é espécie revisada 2024. */
 export function raceRecord2014(char) {
-  if (!char?.race || char.rulesVersion === '2024') return null;
+  if (!char?.race || (char.rulesVersion === '2024' && SPECIES_TABLE['2024'][char.race])) return null;
   return (SRD.RACES || []).find(r => r.id === char.race) || null;
 }
 
@@ -63,15 +63,17 @@ export function raceToolChoice(char) {
 }
 
 /**
- * Escolhas ativas (respeitando `when`, ex.: truque do Alto Elfo).
+ * Escolhas ativas (respeitando `when`, ex.: truque do Alto Elfo, e `minLevel`, ex.: Simic Hybrid 5º nível).
  * Ficha 2024: o bônus de atributo vem só do antecedente (SRD 5.2.1), então a
  * escolha 'asi' das raças legadas (humano variante, linhagem personalizada,
  * marcas de dragão…) não é pedida — ela nunca seria aplicada.
  */
-export function speciesChoiceSpecs(char) {
+export function speciesChoiceSpecs(char, { includeFuture = false } = {}) {
   const sc = char?.speciesChoices || {};
+  const lv = char?.level || 1;
   const legacyAsiOff = char?.rulesVersion === '2024';
   const own = (speciesDef(char)?.choices || []).filter(c => (!legacyAsiOff || c.key !== 'asi')
+    && (includeFuture || !c.minLevel || lv >= c.minLevel)
     && (!c.when || Object.entries(c.when).every(([k, v]) => sc[k] === v)));
   const tool = own.some(c => c.key === 'tool') ? null : raceToolChoice(char);
   return tool ? [...own, tool] : own;
@@ -111,10 +113,11 @@ export function speciesChoiceIssues(char) {
       if (!c.default && !(typeof v === 'string' && v)) miss(c);
     } else if (c.options) {
       if (!c.options.some(o => o.id === v)) miss(c);
-    } else if (c.key === 'skill') {
+    } else if (c.key === 'skill' || (c.key === 'tool' && c.from)) {
       const arr = list(v);
       const n = c.count || 1;
-      if (arr.length !== n || new Set(arr).size !== n || arr.some(s => !SKILL_IDS.includes(s) || (c.from && !c.from.includes(s)))) miss(c);
+      const validSet = c.key === 'skill' ? SKILL_IDS : c.from;
+      if (arr.length !== n || new Set(arr).size !== n || arr.some(s => !validSet.includes(s) || (c.from && !c.from.includes(s)))) miss(c);
     } else if (c.from && !c.from.includes(v)) miss(c);
   }
   return out;
@@ -158,6 +161,7 @@ export function speciesGrants(char) {
   for (const c of speciesChoiceSpecs(char)) {
     const v = sc[c.key];
     if (c.key === 'skill') out.skills.push(...list(v).filter(s => SKILL_IDS.includes(s) && (!c.from || c.from.includes(s))));
+    else if (c.key === 'tool' && c.from) out.tools.push(...list(v).filter(t => c.from.includes(t)));
     else if (c.key === 'cantrip') { const id = typeof v === 'string' && v ? v : c.default; if (id) out.cantrips.push(sid(id)); }
     else if (c.options) {
       const o = c.options.find(x => x.id === v);

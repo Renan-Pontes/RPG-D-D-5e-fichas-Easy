@@ -681,6 +681,9 @@ const App = () => {
       : req.kind === 'origin' && req.index >= 0 ? { mode: 'changeOrigin', index: req.index }
       : req.kind === 'species' ? { mode: 'changeSpecies' } : null),
     submit: submitRespec,
+    update: (patch) => active && handleUpdate({ ...active, ...patch }),
+    resolveChoice: (level) => setLevelUpFlow({ mode: 'choice', level }),
+    resolveOptions: (classId) => setLevelUpFlow({ mode: 'options', classId }),
     pending: respecPending,
   };
 

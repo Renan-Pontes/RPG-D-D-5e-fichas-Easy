@@ -60,3 +60,21 @@ test('classes em cada nível com a que subiu', () => {
   assert.deepEqual(classesAt(seq, 4), [{ id: 'warlock', level: 3, up: true }, { id: 'sorcerer', level: 1, up: false }]);
   assert.deepEqual(classesAt(seq, 6), []);
 });
+
+test('buildTimeline preserva picks, key e hasChoices em espécie e antecedente', () => {
+  const spPicks = [{ name: { pt: 'Magia', en: 'Magic' }, desc: { pt: 'Raio do Adoecimento', en: 'Ray of Sickness' } }];
+  const bgPicks = [{ name: { pt: 'Perícias', en: 'Skills' }, desc: { pt: 'Arcanismo, História', en: 'Arcana, History' } }];
+  const tl = buildTimeline({
+    level: 3,
+    seq: ['warlock', 'warlock', 'warlock'],
+    speciesTraits: [{ key: 'sp-lv:3', level: 3, hasChoices: true, name: { pt: 'Legado 3', en: 'Legacy 3' }, desc: '', picks: spPicks }],
+    background: { name: { pt: 'Sábio', en: 'Sage' }, desc: '', picks: bgPicks },
+  });
+  const sp3 = tl.find(e => e.key === 'sp-lv:3');
+  const bg = tl.find(e => e.kind === 'background');
+  assert.ok(sp3);
+  assert.equal(sp3.hasChoices, true);
+  assert.deepEqual(sp3.item.picks, spPicks);
+  assert.ok(bg);
+  assert.deepEqual(bg.item.picks, bgPicks);
+});

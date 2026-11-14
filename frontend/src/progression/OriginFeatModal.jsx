@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Modal } from '../../components/Shared.jsx';
 import FeatPicker from './FeatPicker.jsx';
 import { findFeat } from '../../data/feats.js';
-import { featRules, featPicksIssues } from './feat-rules.js';
+import { featRules, featPicksIssues, featAsiIssues } from './feat-rules.js';
 import { changeFeatEntry } from './respec.js';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
@@ -17,15 +17,23 @@ export default function OriginFeatModal({ char, index, lang, onConfirm, onClose 
   const feat = value.featId ? findFeat(value.featId) : null;
   // a ficha vista sem o talento antigo: as escolhas dele não contam como "já tem"
   const without = { ...char, feats: (char.feats || []).filter((_, i) => i !== index) };
-  const issues = feat ? featPicksIssues(feat, value.picks, entry.level || 1) : [L(lang, 'Escolha um talento', 'Pick a feat')];
-  const kind = featRules(char) === '2024' ? 'origin' : 'asi';
+  const isOrigin = featRules(char) === '2024' && (!entry?.origin || ['background', 'species'].includes(entry.origin));
+  const kind = isOrigin ? 'origin' : ((entry?.level || 1) >= 19 ? 'epic' : 'asi');
+  const pickIssues = feat ? featPicksIssues(feat, value.picks, entry.level || 1) : (value.feat?.trim() ? [] : [L(lang, 'Escolha um talento', 'Pick a feat')]);
+  const asiIssues = feat && !isOrigin && feat.asi ? featAsiIssues(without, feat, value.asi) : [];
+  const issues = [...pickIssues, ...asiIssues];
   const confirm = async () => {
     setBusy(true);
     try { await onConfirm(changeFeatEntry(char, index, value)); onClose(); }
     finally { setBusy(false); }
   };
+  const title = entry.origin === 'species'
+    ? L(lang, 'Talento da espécie', 'Species feat')
+    : entry.origin === 'background'
+      ? L(lang, 'Talento de origem', 'Origin feat')
+      : L(lang, 'Talento', 'Feat');
   return (
-    <Modal onClose={onClose} title={entry.origin === 'species' ? L(lang, 'Talento da espécie', 'Species feat') : L(lang, 'Talento de origem', 'Origin feat')}>
+    <Modal onClose={onClose} title={title}>
       <div style={{ maxHeight: '65vh', overflowY: 'auto', marginBottom: 12 }}>
         <FeatPicker char={without} lang={lang} level={entry.level || 1} kind={kind} value={value} onChange={setValue} />
       </div>

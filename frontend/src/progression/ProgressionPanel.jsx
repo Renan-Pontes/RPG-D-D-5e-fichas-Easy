@@ -28,9 +28,10 @@ export default function ProgressionPanel({
   // Onde cada traço aparece na ficha (src/sheet/feature-placement.js): o índice abaixo diz.
   // Mesma chave da ficha: não refaz a cada tecla.
   const fkey = featureKey(character);
-  const placed = useMemo(() => {
-    try { return new Map(placeFeatures(character).items.map(i => [i.key, i])); } catch { return new Map(); }
+  const placedObj = useMemo(() => {
+    try { return placeFeatures(character); } catch { return placeFeatures({}); }
   }, [fkey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const placed = useMemo(() => new Map((placedObj.items || []).map(i => [i.key, i])), [placedObj]);
   if (!prog.classId) return null;
 
   const atMaxLevel = (character.level || 1) >= 20;
@@ -49,7 +50,7 @@ export default function ProgressionPanel({
       {/* A mesma linha do tempo da aba Características (mesma fonte e mesma lógica:
           traços, escolhas de classe, pendências, multiclasse, truques automáticos), aqui com
           os botões para resolver as pendências */}
-      <FeatureTimeline char={character} lang={lang} title={false}
+      <FeatureTimeline char={character} lang={lang} title={false} placed={placedObj}
         onResolveChoice={onResolveChoice} onResolveOptions={onResolveOptions} />
 
 

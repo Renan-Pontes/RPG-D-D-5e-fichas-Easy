@@ -18,7 +18,11 @@ import { featEntry, withFeatAsi } from './feat-rules.js';
 import { applyAutosToCharacter } from './engine.js';
 
 /** Campos da ficha que uma troca de escolha pode mexer. */
-export const RESPEC_FIELDS = ['abilities', 'feats', 'levelChoices', 'classOptions', 'speciesChoices', 'raceBonus', 'spells', 'skillProfs', 'skillExpertise'];
+export const RESPEC_FIELDS = [
+  'abilities', 'feats', 'levelChoices', 'classOptions', 'speciesChoices',
+  'raceBonus', 'spells', 'skillProfs', 'skillExpertise',
+  'background', 'toolProfs', 'originFeat', 'creation', 'subclass', 'landType', 'multiclass', 'languages',
+];
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
