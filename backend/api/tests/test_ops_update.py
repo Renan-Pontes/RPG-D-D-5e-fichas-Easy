@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 import shutil
 import tempfile
 import zipfile
@@ -20,11 +21,14 @@ SECRET = 'uma-senha-de-teste-2026'
 DIGEST = hashlib.sha256(SECRET.encode()).hexdigest()
 
 
-def load_updater():
+def load_updater(home):
+    """O atualizador lê FORJA_HOME ao importar (padrão: a casa no PythonAnywhere);
+    nos testes ele mora numa pasta temporária, que o CI consegue criar."""
     path = Path(settings.BASE_DIR).parent / 'scripts' / 'self_update.py'
     spec = importlib.util.spec_from_file_location('self_update', path)
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    with patch.dict(os.environ, {'FORJA_HOME': str(home)}):
+        spec.loader.exec_module(mod)
     return mod
 
 
@@ -110,8 +114,8 @@ class OpsUpdateTests(TestCase):
 
 class UpdaterPiecesTests(TestCase):
     def setUp(self):
-        self.up = load_updater()
         self.tmp = Path(tempfile.mkdtemp())
+        self.up = load_updater(self.tmp / 'home')
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
