@@ -490,7 +490,8 @@ def character_campaigns(request, pk):
                 'id': m.campaign.id,
                 'name': m.campaign.name,
                 'slug': m.campaign.slug,
-                'inviteCode': m.campaign.invite_code,
+                # só o mestre lê o código; o jogador liga fichas pelo id da campanha
+                'inviteCode': m.campaign.invite_code if m.campaign.dm_id == request.user.id else '',
                 'levelingMode': 'xp' if (m.campaign.state or {}).get('levelingMode') == 'xp' else 'milestone',
                 'coverImage': m.campaign.cover_image or '',
                 'coverVer': m.campaign.cover_ver,

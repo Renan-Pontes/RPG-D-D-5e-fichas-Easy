@@ -127,6 +127,22 @@ class CampaignAuthzTests(TestCase):
         self.assertNotIn('inviteCode', r.json()['campaign'])
         self.assertNotIn('screenToken', r.json()['campaign'])
 
+    def test_player_lists_and_sheet_campaigns_have_no_invite_code(self):
+        camps = self.c_player.get('/api/campaigns').json()['campaigns']
+        self.assertEqual([c['id'] for c in camps], [self.camp.id])
+        self.assertNotIn('inviteCode', camps[0])
+        r = self.c_player.get(f'/api/characters/{self.player_char.id}/campaigns')
+        self.assertEqual(r.json()['campaigns'][0]['inviteCode'], '')
+        mine = self.c_dm.get('/api/campaigns').json()['campaigns']
+        self.assertEqual(mine[0]['inviteCode'], self.camp.invite_code)
+
+    def test_player_links_second_sheet_by_campaign_id_without_code(self):
+        other = Character.objects.create(owner=self.player, name='Bri', data={'level': 1})
+        r = self.c_player.post('/api/campaigns/join', {'campaignId': self.camp.id, 'characterId': other.id},
+                               format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertTrue(Membership.objects.filter(campaign=self.camp, character=other).exists())
+
     def test_dm_sees_invite_code(self):
         r = self.c_dm.get(f'/api/campaigns/{self.camp.id}')
         self.assertEqual(r.status_code, 200)

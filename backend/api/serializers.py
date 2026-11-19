@@ -256,7 +256,9 @@ class CampaignSerializer(serializers.ModelSerializer):
             data['tableSlots'] = slots_info(instance)   # vagas de mesa {used, max}
         else:
             # esconde tokens privados e o que é só do mestre (nudges, concentração,
-            # diarySessions, screenCard cru…) para não-DM
+            # diarySessions, screenCard cru…) para não-DM. O jogador liga outra ficha
+            # à mesa pelo campaignId (campaign_join aceita membro sem código).
+            data.pop('inviteCode', None)
             data.pop('screenToken', None)
             data['state'] = public_state(instance.state, PLAYER_KEYS)
             data['stage'] = public_stage(instance, card=card)
@@ -323,6 +325,8 @@ class CampaignListSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = _lifecycle(super().to_representation(instance), instance)
+        if data.get('role') != 'dm':
+            data.pop('inviteCode', None)   # código de convite é só do mestre
         # Vagas de quem vê nesta campanha (suporte a N personagens do mesmo usuário, inclusive mestre)
         m_list = self._mine_list(instance)
         if m_list:
