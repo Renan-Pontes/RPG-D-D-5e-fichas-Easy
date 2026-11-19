@@ -6337,7 +6337,7 @@
               {
                 "id": "defensiveTactics",
                 "name": "Táticas Defensivas",
-                "desc": "Escolha: Escape the Horde, Multiattack Defense, Steel Will.",
+                "desc": "Escolha: Fuga da Horda, Defesa contra Ataques Múltiplos ou Vontade de Aço.",
                 "nameEn": "Defensive Tactics",
                 "descEn": "At 7th level, you gain one of the following features of your choice.\n\nEscape the Horde. Opportunity attacks against you are made with disadvantage.\n\nMultiattack Defense. When a creature hits you with an attack, you gain a +4 bonus to AC against all subsequent attacks made by that creature for the rest of the turn.\n\nSteel Will. You have advantage on saving throws against being frightened.",
                 "srd51": true
@@ -6361,7 +6361,7 @@
               {
                 "id": "superiorHuntersDefense",
                 "name": "Defesa Superior do Caçador",
-                "desc": "Escolha: Evasion, Stand Against the Tide ou Uncanny Dodge.",
+                "desc": "Escolha: Evasão, Resistir à Maré ou Esquiva Sobrenatural.",
                 "nameEn": "Superior Hunter's Defense",
                 "descEn": "At 15th level, you gain one of the following features of your choice.\n\nEvasion. When you are subjected to an effect, such as a red dragon's fiery breath or a lightning bolt spell, that allows you to make a Dexterity saving throw to take only half damage, you instead take no damage if you succeed on the saving throw, and only half damage if you fail.\n\nStand Against the Tide. When a hostile creature misses you with a melee attack, you can use your reaction to force that creature to repeat the same attack against another creature (other than itself) of your choice.\n\nUncanny Dodge. When an attacker that you can see hits you with an attack, you can use your reaction to halve the attack's damage against you.",
                 "srd51": true
