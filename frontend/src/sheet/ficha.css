@@ -990,6 +990,30 @@
   .ficha .fh-medal.is-roll:active .fh-medal-shape { transform: scale(0.94); }
 }
 .ficha .fh-medal.is-roll:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+/* Medalhão que rola e tem dica do Grimório: o botão ocupa a caixa e a dica fica no canto */
+.ficha .fh-medal.has-hint { position: relative; }
+.ficha .fh-medal-hit {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+  padding: 0 0 4px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+.ficha .fh-medal-hit:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.ficha .fh-medal-hint { position: absolute; top: -4px; right: -2px; }
+.ficha .fh-medal-hint .grim-hint { width: 18px; height: 18px; font-size: 0.62rem; letter-spacing: 0; }
+/* segunda linha do apoio nos medalhões passivos: o bônus que a rolagem soma */
+.ficha .fh-medal-sub .fh-medal-rollmod { display: block; font-family: var(--mono); font-size: 0.72rem; color: var(--gold); }
+.ficha .fh-medal.is-roll .fh-medal-sub .fh-medal-passive { color: var(--ink-muted); }
 
 @media (max-width: 720px) {
   /* mobile-styles.css §16 usa 72px no meio; aqui a regra é mais específica e repete */

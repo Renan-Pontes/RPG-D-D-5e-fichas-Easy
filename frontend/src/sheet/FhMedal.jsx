@@ -38,13 +38,31 @@ export function FhMedalDefs() {
   );
 }
 
-export default function FhMedal({ shape = 'circle', value, unit, label, hint, sub, onClick, title, children }) {
+export default function FhMedal({ shape = 'circle', value, unit, label, hint, sub, onClick, title, ariaLabel, children }) {
   const roll = typeof onClick === 'function';
   const Tag = roll ? 'button' : 'div';
   const Part = roll ? 'span' : 'div'; // dentro de <button>, só conteúdo de frase
   const long = String(value ?? '').length >= 3; // "10,5" m, "+10": fonte menor para caber na forma
+  // Medalhão que rola E tem dica do Grimório (Percepção): o botão fica dentro de uma caixa
+  // e a dica vai ao lado dele, no canto (botão dentro de botão é HTML inválido).
+  if (roll && hint) {
+    return (
+      <div className="fh-medal is-roll has-hint">
+        <button type="button" className="fh-medal-hit" title={title} aria-label={ariaLabel} onClick={onClick}>
+          <span className={`fh-medal-shape is-${shape}${long ? ' is-long' : ''}`}>
+            <svg viewBox="0 0 64 70" aria-hidden="true" focusable="false">{SHAPES[shape]}</svg>
+            <span className="fh-medal-val">{value}{unit && <small>{unit}</small>}</span>
+          </span>
+          <span className="fh-medal-label">{label}</span>
+          {sub && <span className="fh-medal-sub">{sub}</span>}
+        </button>
+        <span className="fh-medal-hint">{hint}</span>
+        {children}
+      </div>
+    );
+  }
   return (
-    <Tag className={`fh-medal${roll ? ' is-roll' : ''}`} title={title} {...(roll ? { type: 'button', onClick } : {})}>
+    <Tag className={`fh-medal${roll ? ' is-roll' : ''}`} title={title} {...(roll ? { type: 'button', onClick, 'aria-label': ariaLabel } : {})}>
       <Part className={`fh-medal-shape is-${shape}${long ? ' is-long' : ''}`}>
         <svg viewBox="0 0 64 70" aria-hidden="true" focusable="false">{SHAPES[shape]}</svg>
         <span className="fh-medal-val">{value}{unit && <small>{unit}</small>}</span>

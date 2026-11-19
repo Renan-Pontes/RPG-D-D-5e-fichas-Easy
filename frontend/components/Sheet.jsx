@@ -2016,12 +2016,26 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             <FhMedal shape="d20" value={Utils.fmtMod(initBonus)} label={t('initiative', lang)}
               sub={<FhTapToRoll lang={lang} short />}
               onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} />
-            <FhMedal shape="eye" value={passPerc} label={lang === 'pt' ? 'Percepção' : 'Perception'}
-              hint={<GrimoireHint id="valor-passivo" lang={lang} />} sub={lang === 'pt' ? 'passiva' : 'passive'} />
-            <FhMedal shape="lens" value={10 + Utils.skillBonus(char, 'investigation')} label={lang === 'pt' ? 'Investigação' : 'Investigation'}
-              sub={lang === 'pt' ? 'passiva' : 'passive'} />
-            <FhMedal shape="flame" value={10 + Utils.skillBonus(char, 'insight')} label={lang === 'pt' ? 'Intuição' : 'Insight'}
-              sub={lang === 'pt' ? 'passiva' : 'passive'} />
+            {/* Percepção, Investigação e Intuição: o número é o valor passivo; tocar rola o teste
+                da perícia (d20 + bônus), como a Iniciativa ao lado */}
+            {[
+              { id: 'perception', shape: 'eye', name: lang === 'pt' ? 'Percepção' : 'Perception', passive: passPerc, hint: <GrimoireHint id="valor-passivo" lang={lang} /> },
+              { id: 'investigation', shape: 'lens', name: lang === 'pt' ? 'Investigação' : 'Investigation', passive: 10 + Utils.skillBonus(char, 'investigation') },
+              { id: 'insight', shape: 'flame', name: lang === 'pt' ? 'Intuição' : 'Insight', passive: 10 + Utils.skillBonus(char, 'insight') },
+            ].map(s => {
+              const bonus = Utils.skillBonus(char, s.id);
+              return (
+                <FhMedal key={s.id} shape={s.shape} value={s.passive} label={s.name} hint={s.hint}
+                  ariaLabel={lang === 'pt'
+                    ? `${s.name}: passiva ${s.passive}. Rolar teste ${Utils.fmtMod(bonus)}`
+                    : `${s.name}: passive ${s.passive}. Roll check ${Utils.fmtMod(bonus)}`}
+                  sub={<>
+                    <span className="fh-medal-passive">{lang === 'pt' ? 'passiva' : 'passive'}</span>
+                    <span className="fh-medal-rollmod">{lang === 'pt' ? 'rolar' : 'roll'} {Utils.fmtMod(bonus)}</span>
+                  </>}
+                  onClick={() => roll({ die: 20, mod: bonus, label: s.name, isCheck: true })} />
+              );
+            })}
             <FhMedal shape="star" value={Utils.fmtMod(profB)} label={lang === 'pt' ? 'Proficiência' : 'Proficiency'}
               sub={lang === 'pt' ? 'bônus' : 'bonus'} />
           </div>
@@ -2278,8 +2292,9 @@ const isActionKey = (e) => e.key === 'Enter' || e.key === ' ';
 const BELT_ABBR = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' };
 
 
-// Segurar → soltar para rolar (o mesmo gesto dos hexágonos de dado do cinto): um toque
-// rápido não rola; arrastar cancela. Enquanto segura, o botão "carrega" (.is-charging-roll).
+// Tocar (ou clicar) → rola. Antes era "segurar 220 ms e soltar": quem tocava e não via
+// rolagem achava que o hexágono estava quebrado. Arrastar (rolar a página) continua
+// cancelando; segurar ainda "carrega" a metade (.is-charging-roll), só como retorno visual.
 const BELT_HOLD_MS = 220;
 const beltHoldToRoll = (fn) => {
   let t0 = 0; let x0 = 0; let y0 = 0; let moved = false; let timer = null; let el = null; let fired = false;
@@ -2288,32 +2303,13 @@ const beltHoldToRoll = (fn) => {
     onPointerDown: (e) => {
       t0 = Date.now(); x0 = e.clientX; y0 = e.clientY; moved = false; el = e.currentTarget;
       el.setPointerCapture?.(e.pointerId);
-      timer = setTimeout(() => { el?.classList.add('is-charging-roll'); if (navigator.vibrate) navigator.vibrate(12); }, BELT_HOLD_MS);
+      timer = setTimeout(() => { el?.classList.add('is-charging-roll'); }, BELT_HOLD_MS);
     },
     onPointerMove: (e) => { if (t0 && Math.hypot(e.clientX - x0, e.clientY - y0) > 12) { moved = true; clear(); } },
     onPointerUp: () => {
-      const tapped = t0 && !moved;
-      const held = tapped && Date.now() - t0 >= BELT_HOLD_MS; t0 = 0; clear(); fired = !!held;
-      if (held) { fn(); return; }
-      // Toque curto: a metade "pulsa" (sinal de que o toque chegou) e, nas 3 primeiras
-      // vezes neste aparelho, mostra "segure" por um instante. Depois só o pulso.
-      if (tapped && el) {
-        const node = el;
-        let seen = 0;
-        try { seen = +localStorage.getItem('fh.holdHint') || 0; } catch { /* sem storage */ }
-        // a etiqueta fica no conjunto das duas metades (centro do hexágono), não na metade
-        const box = node.parentElement;
-        node.classList.remove('is-tap-pulse');
-        void node.offsetWidth; // reinicia a animação
-        node.classList.add('is-tap-pulse');
-        if (seen < 3 && box) {
-          box.dataset.hint = node.dataset.hint || 'hold';
-          box.classList.remove('is-hold-hint'); void box.offsetWidth; box.classList.add('is-hold-hint');
-          try { localStorage.setItem('fh.holdHint', String(seen + 1)); } catch { /* idem */ }
-          setTimeout(() => box.classList.remove('is-hold-hint'), 1100);
-        }
-        setTimeout(() => node.classList.remove('is-tap-pulse'), 600);
-      }
+      const tapped = !!t0 && !moved;
+      t0 = 0; clear(); fired = tapped;
+      if (tapped) fn();
     },
     onPointerCancel: () => { t0 = 0; clear(); },
     // No toque, o "click" sintético vem depois do pointerup e cai na tela de rolagem que
@@ -2549,6 +2545,20 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
         {/* Top Header / Hood: Press & hold (>= 110ms) or drag to assign ability to belt slot; tap to toggle bind */}
         {spec ? (
           <div className="fh-belt-header is-static"><span className="fh-honey-abbr">{abbr}</span></div>
+        ) : !onStartDrag ? (
+          /* Colmeia sem cinto (aba Jogar): o capuz não vincula nada; tocar no nome do
+             atributo rola o teste dele, como as metades embaixo. */
+          <button
+            type="button"
+            className="fh-belt-header is-roll"
+            onClick={() => onRollHalf(checkMod, `${t(k, lang)} ${t('abilityCheck', lang)}`)}
+            aria-label={pt
+              ? `${t(k, lang)}: rolar teste ${Utils.fmtMod(checkMod)}${advTxt}`
+              : `${t(k, lang)}: roll check ${Utils.fmtMod(checkMod)}${advTxt}`}
+            title={pt ? `${t(k, lang)}: rolar teste ${Utils.fmtMod(checkMod)}` : `${t(k, lang)}: roll check ${Utils.fmtMod(checkMod)}`}
+          >
+            <span className="fh-honey-abbr">{abbr}</span>
+          </button>
         ) : <button
           type="button"
           className="fh-belt-header"
