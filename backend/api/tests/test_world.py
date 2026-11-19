@@ -317,6 +317,13 @@ class WorldImageTests(WorldBase):
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.json()['error'], 'image_too_large')
 
+    def test_image_bigger_than_django_default_body_is_accepted(self):
+        """3 M caracteres passam do limite padrão do Django (2,5 MB) e cabem nos 5 M do Mundo."""
+        e = self.create()
+        img = 'data:image/jpeg;base64,' + 'A' * 3_000_000
+        r = self.c_dm.put(f'/api/world/{e["id"]}/image', {'image': img}, format='json')
+        self.assertEqual(r.status_code, 200, r.content[:200])
+
     def test_image_invalid(self):
         e = self.create()
         for bad in ('data:image/svg+xml;base64,PHN2Zz4=', 'ftp://x/y.png', 'http://x/y z.png',

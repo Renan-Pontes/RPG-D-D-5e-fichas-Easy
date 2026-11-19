@@ -95,6 +95,11 @@ WHITENOISE_ROOT = FRONTEND_DIST
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Corpo das requisições: a imagem do Mundo vai até 5 M caracteres
+# (api/world_rules.MAX_IMAGE_CHARS) dentro do JSON; o padrão do Django (2,5 MB)
+# recusava antes da view, com página HTML em vez de {"error": "image_too_large"}.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 6 * 1024 * 1024
+
 # === DRF ===
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
