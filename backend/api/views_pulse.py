@@ -237,12 +237,13 @@ def _fetch(sql, params):
 def _seats(campaign_id, seen=False):
     """As vagas da mesa, só o que o `rev` e a contagem de alvos precisam:
     (id, user_id, character_id, role, sponsored, ficha mudou em, nome da ficha,
-    e-mail, usuário, nome de exibição) — os campos de `members` no GET completo.
+    e-mail, usuário, nome de exibição, NPC, tipo da vaga) — os campos de `members`
+    e de `myMembership(s)` no GET completo.
     `seen`: + a última visita ao Mundo (`world_seen_at`, o selo de novidades do
     jogador) no fim de cada linha; o mestre não usa (a visita não muda o GET dele)."""
     return [tuple(r) for r in _fetch(
         'SELECT m.id, m.user_id, m.character_id, m.role, m.sponsored, ch.updated_at, ch.name, '
-        'u.email, u.username, p.display_name' + (', m.world_seen_at' if seen else '') +
+        'u.email, u.username, p.display_name, m.is_npc, m.char_type' + (', m.world_seen_at' if seen else '') +
         ' FROM {m} m JOIN {u} u ON u.id = m.user_id '
         'LEFT JOIN {ch} ch ON ch.id = m.character_id LEFT JOIN {p} p ON p.user_id = m.user_id '
         'WHERE m.campaign_id = %s ORDER BY m.id', [campaign_id])]

@@ -180,6 +180,16 @@ class RevCoverageTests(Base):
             free = Plan.objects.create(slug='mesa', name_pt='Mesa', name_en='Table', table_slots=4)
             UserPlan.objects.create(user=self.dm, plan=free)
 
+        def dm_npc_seat():
+            npc = Character.objects.create(owner=self.dm, name='Taverneiro', data={'name': 'Taverneiro'})
+            Membership.objects.create(campaign=camp, user=self.dm, character=npc, role='player',
+                                      is_npc=True, char_type='npc')
+
+        def seat_becomes_npc():
+            self.m1.is_npc = True
+            self.m1.char_type = 'npc'
+            self.m1.save()
+
         return {
             'name': patch_campaign({'name': 'Brumafria II'}),
             'description': patch_campaign({'description': 'Uma campanha de névoa.'}),
@@ -207,6 +217,10 @@ class RevCoverageTests(Base):
             'combatNow': combat,
             'pendingApprovals': approval,
             'tableSlots': sponsor,
+            # as vagas de quem vê (o mestre: a vaga de NPC dele)
+            'myMembership': dm_npc_seat,
+            'myMemberships': dm_npc_seat,
+            '+members:seat_becomes_npc': seat_becomes_npc,
             # outros jeitos de mudar `members`/`tableSlots` que não tocam a campanha:
             '+members:edit_sheet': edit_sheet,
             '+members:rename_player': rename_player,
@@ -622,7 +636,16 @@ class PlayerRevCoverageTests(PlayerBase):
             r = self.c_p1.post(f'/api/campaigns/{self.camp.id}/world/seen')
             self.assertEqual(r.status_code, 200, r.content)
 
-        muts.update({'worldNewCount': reveal, '+worldNewCount:visit': visit})
+        def second_sheet():
+            Membership.objects.create(campaign=self.camp, user=self.p1, character=self.pipo, role='player')
+
+        def my_seat_becomes_npc():
+            self.m1.is_npc = True
+            self.m1.char_type = 'npc'
+            self.m1.save()
+
+        muts.update({'worldNewCount': reveal, '+worldNewCount:visit': visit,
+                     'myMembership': my_seat_becomes_npc, 'myMemberships': second_sheet})
         return muts
 
     def test_every_player_field_has_a_rev_source(self):
