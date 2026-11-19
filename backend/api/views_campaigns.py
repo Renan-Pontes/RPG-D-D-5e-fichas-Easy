@@ -424,7 +424,10 @@ def campaign_invite_cover(request, code):
     return image_response(request, img, campaign.cover_ver)
 
 
-# ---------------------------------------------------------------- 1 campanha por vez
+# ---------------------------------------------------------------- 1 campanha por vez (antiga)
+# DESDE 09/11 (5a2a991) a regra é N campanhas por ficha, nunca 2x na mesma
+# (character_already_in_campaign); campaign_join e campaign_member não leem mais
+# `move` nem usam os auxiliares abaixo. Texto original da regra antiga:
 # Uma ficha fica em UMA campanha de cada vez. É regra (não esquema: Membership
 # continua com character nulo/livre): atrelar numa mesa com a ficha já em outra
 # → 409 character_in_other_campaign {campaignId, campaignName} sem mudar nada.

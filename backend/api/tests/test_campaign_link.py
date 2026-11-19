@@ -1,8 +1,8 @@
 """Modal "Campanha" da ficha: atrelar, desatrelar e trocar a ficha de mesa.
 
-Regra garantida no servidor: uma ficha fica em UMA campanha por vez. Atrelar
-numa mesa com a ficha já em outra → 409 character_in_other_campaign (sem mudar
-nada); `move: true` (só o dono) tira de lá e põe aqui numa transação.
+Regra garantida no servidor (desde 09/11): uma ficha fica em N campanhas, mas
+nunca duas vezes na MESMA (409 character_already_in_campaign). Atrelar numa mesa
+não tira a ficha das outras; `move` não é mais lido.
 """
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -81,48 +81,44 @@ class AttachDetachTests(LinkBase):
         self.assertEqual(r.status_code, 200, r.content)
 
 
-class OneCampaignAtATimeTests(LinkBase):
-    def test_attach_in_other_campaign_is_409_and_changes_nothing(self):
+class ManyCampaignsTests(LinkBase):
+    def test_attach_in_other_campaign_keeps_the_first(self):
         self.put(self.c_ana, self.a, self.ma, self.velna.id)
         r = self.put(self.c_ana, self.b, self.mb, self.velna.id)
-        self.assertEqual(r.status_code, 409)
-        self.assertEqual(r.json(), {'error': 'character_in_other_campaign',
-                                    'campaignId': self.a.id, 'campaignName': 'Mesa A'})
-        self.assertEqual(self.seats_of(self.velna), [self.a.id])
-        self.mb.refresh_from_db()
-        self.assertIsNone(self.mb.character_id)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(self.seats_of(self.velna), [self.a.id, self.b.id])
+        self.ma.refresh_from_db()
+        self.assertEqual(self.ma.character_id, self.velna.id)
 
-    def test_switch_with_move(self):
+    def test_same_sheet_twice_in_the_same_campaign_is_409(self):
         self.put(self.c_ana, self.a, self.ma, self.velna.id)
-        r = self.put(self.c_ana, self.b, self.mb, self.velna.id, move=True)
-        self.assertEqual(r.status_code, 200, r.content)
-        self.assertEqual(self.seats_of(self.velna), [self.b.id])
-        self.ma.refresh_from_db()
-        self.assertIsNone(self.ma.character_id)  # saiu da ficha, não da campanha
-        self.assertTrue(Membership.objects.filter(pk=self.ma.pk).exists())
+        m2 = Membership.objects.create(campaign=self.a, user=self.ana, role='player')
+        r = self.put(self.c_ana, self.a, m2, self.velna.id)
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual(r.json(), {'error': 'character_already_in_campaign',
+                                    'campaignId': self.a.id, 'campaignName': 'Mesa A'})
+        r = self.c_ana.post('/api/campaigns/join', {'inviteCode': self.a.invite_code,
+                                                     'characterId': self.velna.id}, format='json')
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual(self.seats_of(self.velna), [self.a.id])
 
-    def test_move_releases_borrowed_seat(self):
+    def test_borrowed_seat_elsewhere_stays_borrowed(self):
         Membership.objects.filter(pk=self.ma.pk).update(character=self.velna, sponsored=True)
-        r = self.put(self.c_ana, self.b, self.mb, self.velna.id, move=True)
+        r = self.put(self.c_ana, self.b, self.mb, self.velna.id)
         self.assertEqual(r.status_code, 200, r.content)
         self.ma.refresh_from_db()
-        self.assertFalse(self.ma.sponsored)
-        self.assertFalse(r.json()['membership']['sponsored'])  # cabe no plano da Ana
+        self.assertTrue(self.ma.sponsored)
+        self.assertEqual(self.ma.character_id, self.velna.id)
 
-    def test_join_with_code_409_then_move(self):
+    def test_join_with_code_while_in_another_campaign(self):
         Membership.objects.filter(pk=self.mb.pk).delete()
         self.put(self.c_ana, self.a, self.ma, self.velna.id)
-        body = {'inviteCode': self.b.invite_code, 'characterId': self.velna.id}
-        r = self.c_ana.post('/api/campaigns/join', body, format='json')
-        self.assertEqual(r.status_code, 409)
-        self.assertEqual(r.json()['campaignName'], 'Mesa A')
-        self.assertFalse(Membership.objects.filter(campaign=self.b, user=self.ana).exists())
-        r = self.c_ana.post('/api/campaigns/join', {**body, 'move': True}, format='json')
+        r = self.c_ana.post('/api/campaigns/join', {'inviteCode': self.b.invite_code,
+                                                     'characterId': self.velna.id}, format='json')
         self.assertEqual(r.status_code, 200, r.content)
-        self.assertEqual(self.seats_of(self.velna), [self.b.id])
-        self.assertTrue(Membership.objects.filter(pk=self.ma.pk, character=None).exists())
+        self.assertEqual(self.seats_of(self.velna), [self.a.id, self.b.id])
 
-    def test_old_sheet_in_two_campaigns_still_reads_and_can_be_fixed(self):
+    def test_sheet_in_two_campaigns_reads_and_reattaches(self):
         Membership.objects.filter(pk__in=[self.ma.pk, self.mb.pk]).update(character=self.velna)
         r = self.c_ana.get(f'/api/characters/{self.velna.id}')
         self.assertEqual(r.status_code, 200)
@@ -131,13 +127,6 @@ class OneCampaignAtATimeTests(LinkBase):
         self.assertEqual([c['id'] for c in r.json()['campaigns']], [self.a.id, self.b.id])
         # reatribuir a mesma ficha na mesma vaga não quebra
         self.assertEqual(self.put(self.c_ana, self.a, self.ma, self.velna.id).status_code, 200)
-        # trocar resolve: fica só na nova
-        dm3 = mk('dm3@x.com')
-        c = Campaign.objects.create(dm=dm3, name='Mesa C', slug='mesa-c')
-        mc = Membership.objects.create(campaign=c, user=self.ana, role='player')
-        self.assertEqual(self.put(self.c_ana, c, mc, self.velna.id).status_code, 409)
-        self.assertEqual(self.put(self.c_ana, c, mc, self.velna.id, move=True).status_code, 200)
-        self.assertEqual(self.seats_of(self.velna), [c.id])
 
 
 class PermissionTests(LinkBase):
@@ -151,25 +140,33 @@ class PermissionTests(LinkBase):
         self.assertEqual(self.seats_of(self.velna), [])
 
     def test_dm_of_one_table_cannot_pull_sheet_from_another(self):
+        """O mestre da B põe a ficha da Ana na vaga dela na B; a vaga da A fica intacta."""
         self.put(self.c_ana, self.a, self.ma, self.velna.id)
         r = self.put(self.c_dm2, self.b, self.mb, self.velna.id, move=True)
-        self.assertEqual(r.status_code, 409)
-        self.assertEqual(self.seats_of(self.velna), [self.a.id])
+        self.assertEqual(r.status_code, 200, r.content)
+        self.ma.refresh_from_db()
+        self.assertEqual(self.ma.character_id, self.velna.id)
+        self.assertEqual(self.seats_of(self.velna), [self.a.id, self.b.id])
+        # e não mexe na vaga da mesa A
+        self.assertEqual(self.put(self.c_dm2, self.a, self.ma, None).status_code, 403)
 
-    def test_dm_cannot_attach_self_as_player(self):
-        sheet = Character.objects.create(owner=self.dm1, name='Mestre', data={})
-        r = self.c_dm1.post('/api/campaigns/join', {'inviteCode': self.a.invite_code,
-                                                     'characterId': sheet.id}, format='json')
-        self.assertEqual((r.status_code, r.json()['error']), (400, 'dm_cannot_be_player'))
-        self.assertEqual(self.seats_of(sheet), [])
+    def test_dm_seats_own_sheet_at_own_table_without_losing_the_dm_seat(self):
+        """Mesas com vários personagens (09/11): o mestre põe ficha dele na própria mesa
+        (jogador ou NPC) numa vaga à parte; continua mestre."""
         m_dm = Membership.objects.create(campaign=self.a, user=self.dm1, role='dm')
-        r = self.put(self.c_dm1, self.a, m_dm, sheet.id)
-        self.assertEqual((r.status_code, r.json()['error']), (400, 'dm_cannot_be_player'))
-        r = self.c_dm1.post('/api/characters', {'name': 'N', 'data': {}, 'inviteCode': self.a.invite_code},
-                            format='json')
-        self.assertEqual((r.status_code, r.json()['error']), (400, 'dm_cannot_be_player'))
-        self.assertFalse(Character.objects.filter(owner=self.dm1, name='N').exists())
-        # ...mas pode jogar na mesa de outro mestre
+        sheet = Character.objects.create(owner=self.dm1, name='Mestre', data={})
+        npc = Character.objects.create(owner=self.dm1, name='Taverneiro', data={})
+        r = self.c_dm1.post('/api/campaigns/join', {'campaignId': self.a.id, 'characterId': sheet.id}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        r = self.c_dm1.post('/api/campaigns/join', {'campaignId': self.a.id, 'characterId': npc.id,
+                                                     'isNpc': True}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        m_dm.refresh_from_db()
+        self.assertEqual((m_dm.role, m_dm.character_id), ('dm', None))
+        seats = Membership.objects.filter(campaign=self.a, user=self.dm1).exclude(pk=m_dm.pk)
+        self.assertEqual(sorted((s.character_id, s.is_npc) for s in seats), [(sheet.id, False), (npc.id, True)])
+        self.assertEqual(self.c_dm1.get(f'/api/campaigns/{self.a.id}').json()['campaign']['role'], 'dm')
+        # e joga na mesa de outro mestre
         self.assertEqual(self.c_dm1.post('/api/campaigns/join', {'inviteCode': self.b.invite_code,
                                                                   'characterId': sheet.id},
                                          format='json').status_code, 200)
@@ -215,23 +212,18 @@ class ClosedCampaignTests(LinkBase):
         self.assertEqual(self.c_dm1.delete(f'/api/campaigns/{self.a.id}/members/{self.ma.id}').status_code, 423)
         self.assertEqual(self.seats_of(self.velna), [self.a.id])
 
-    def test_can_move_out_of_closed_campaign(self):
+    def test_sheet_in_closed_campaign_can_join_another(self):
         self.put(self.c_ana, self.a, self.ma, self.velna.id)
         P.close_campaign(self.a)
         r = self.put(self.c_ana, self.b, self.mb, self.velna.id)
-        self.assertEqual((r.status_code, r.json()['campaignId']), (409, self.a.id))
-        r = self.put(self.c_ana, self.b, self.mb, self.velna.id, move=True)
         self.assertEqual(r.status_code, 200, r.content)
-        self.assertEqual(self.seats_of(self.velna), [self.b.id])
-        self.assertTrue(Membership.objects.filter(pk=self.ma.pk, character=None).exists())
-        # pelo código também
-        self.put(self.c_ana, self.b, self.mb, None)
-        self.put(self.c_ana, self.a, self.ma, None)
+        self.assertEqual(self.seats_of(self.velna), [self.a.id, self.b.id])
+        Membership.objects.filter(pk=self.mb.pk).delete()
         Membership.objects.filter(pk=self.ma.pk).update(character=self.toco)
-        r = self.c_ana.post('/api/campaigns/join', {'inviteCode': self.b.invite_code, 'characterId': self.toco.id,
-                                                     'move': True}, format='json')
+        r = self.c_ana.post('/api/campaigns/join', {'inviteCode': self.b.invite_code,
+                                                     'characterId': self.toco.id}, format='json')
         self.assertEqual(r.status_code, 200, r.content)
-        self.assertEqual(self.seats_of(self.toco), [self.b.id])
+        self.assertEqual(self.seats_of(self.toco), [self.a.id, self.b.id])
 
 
 class ListingTests(LinkBase):
@@ -239,14 +231,16 @@ class ListingTests(LinkBase):
         self.put(self.c_ana, self.a, self.ma, self.velna.id)
         camps = {c['id']: c for c in self.c_ana.get('/api/campaigns').json()['campaigns']}
         self.assertEqual(camps[self.a.id]['role'], 'player')
-        self.assertEqual(camps[self.a.id]['myMembership'], {'id': self.ma.id, 'characterId': self.velna.id,
-                                                            'characterName': 'Velna', 'sponsored': False})
+        seat = {'id': self.ma.id, 'characterId': self.velna.id, 'characterName': 'Velna', 'sponsored': False,
+                'isNpc': False, 'charType': 'player', 'role': 'player'}
+        self.assertEqual(camps[self.a.id]['myMembership'], seat)
+        self.assertEqual(camps[self.a.id]['myMemberships'], [seat])
         self.assertEqual(camps[self.b.id]['myMembership']['characterId'], None)
-        # o mestre não recebe myMembership da mesa que mestra (nem com a vaga 'dm')
+        # o mestre recebe a vaga 'dm' dele (as fichas que ele põe na mesa entram em myMemberships)
         Membership.objects.create(campaign=self.a, user=self.dm1, role='dm')
         dm_camps = self.c_dm1.get('/api/campaigns').json()['campaigns']
         self.assertEqual(dm_camps[0]['role'], 'dm')
-        self.assertNotIn('myMembership', dm_camps[0])
+        self.assertEqual([m['role'] for m in dm_camps[0]['myMemberships']], ['dm'])
 
     def test_character_campaigns_has_status_and_seat(self):
         self.put(self.c_ana, self.a, self.ma, self.velna.id)

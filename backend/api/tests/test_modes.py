@@ -84,7 +84,8 @@ class LockedFieldsTests(TestCase):
         self.assertEqual(self.char.data['notes'], 'tomei poção')
 
 
-class SingleCampaignTests(TestCase):
+class ManyCampaignsTests(TestCase):
+    """Desde 09/11 uma ficha fica em N campanhas (nunca duas vezes na mesma)."""
     def setUp(self):
         cache.clear()
         self.owner = make_user('o@x.com')
@@ -95,30 +96,37 @@ class SingleCampaignTests(TestCase):
         self.camp_a = Campaign.objects.create(dm=self.dm_a, name='A', slug='a')
         self.camp_b = Campaign.objects.create(dm=self.dm_b, name='B', slug='b')
 
-    def test_join_with_character_already_in_another_campaign_blocks(self):
+    def seats(self):
+        return sorted(Membership.objects.filter(character=self.char).values_list('campaign_id', flat=True))
+
+    def test_join_with_character_already_in_another_campaign_adds_a_seat(self):
         Membership.objects.create(campaign=self.camp_a, user=self.owner, character=self.char, role='player')
         r = self.c_owner.post('/api/campaigns/join',
             {'inviteCode': self.camp_b.invite_code, 'characterId': self.char.id}, format='json')
-        self.assertEqual(r.status_code, 409)
-        # (antes 'character_already_in_campaign'; o app entende os dois)
-        self.assertEqual(r.json()['error'], 'character_in_other_campaign')
-        self.assertEqual(r.json()['campaignName'], 'A')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(self.seats(), [self.camp_a.id, self.camp_b.id])
+
+    def test_join_same_campaign_twice_with_same_character_is_409(self):
+        Membership.objects.create(campaign=self.camp_a, user=self.owner, character=self.char, role='player')
+        r = self.c_owner.post('/api/campaigns/join',
+            {'inviteCode': self.camp_a.invite_code, 'characterId': self.char.id}, format='json')
+        self.assertEqual((r.status_code, r.json()['error']), (409, 'character_already_in_campaign'))
+        self.assertEqual(self.seats(), [self.camp_a.id])
 
     def test_join_two_campaigns_without_char_ok(self):
-        # Dono pode ser membro de 2 campanhas, só não pode anexar o MESMO char.
-        # Aqui entra na A sem char; depois B com char.
+        # Dono pode ser membro de 2 campanhas; aqui entra na A sem char; depois B com char.
         Membership.objects.create(campaign=self.camp_a, user=self.owner)
         r = self.c_owner.post('/api/campaigns/join',
             {'inviteCode': self.camp_b.invite_code, 'characterId': self.char.id}, format='json')
         self.assertEqual(r.status_code, 200)
 
-    def test_assign_character_to_membership_blocked_if_already_in_other(self):
+    def test_assign_character_already_in_other_campaign_keeps_both(self):
         Membership.objects.create(campaign=self.camp_a, user=self.owner, character=self.char, role='player')
-        # Cria membership na B sem char e tenta atribuir o mesmo char
         m_b = Membership.objects.create(campaign=self.camp_b, user=self.owner, role='player')
         r = self.c_owner.put(f'/api/campaigns/{self.camp_b.id}/members/{m_b.id}',
             {'characterId': self.char.id}, format='json')
-        self.assertEqual(r.status_code, 409)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(self.seats(), [self.camp_a.id, self.camp_b.id])
 
 
 class OwnerLeaveCampaignTests(TestCase):
