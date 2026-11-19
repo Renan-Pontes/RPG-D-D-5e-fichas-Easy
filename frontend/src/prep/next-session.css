@@ -163,11 +163,20 @@
 
 /* Pronto para jogar */
 .ns-ready { display: flex; flex-direction: column; gap: 10px; }
-.ns-ready-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
-.ns-ready-list li { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 24px; font-size: 15px; color: var(--ink-secondary); }
+/* uma lista de verdade: cada item na sua linha (marca · texto · atalho à direita). Antes os
+   itens e os botões corriam em linha e quebravam no meio, cada vez num lugar. */
+.ns-ready-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); column-gap: 20px; }
+.ns-ready-list li {
+  display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; column-gap: 8px;
+  min-height: 44px; padding: 2px 0; border-bottom: 1px solid rgba(224, 181, 94, 0.12);
+  font-size: 15px; line-height: 1.3; color: var(--ink-secondary);
+}
 .ns-ready-list li.is-ok { color: var(--ink-primary); }
-.ns-ready-list li.is-ok > span:first-child { color: var(--moss-bright); }
-.ns-ready-copy { min-height: 44px; }
+.ns-ready-mark { text-align: center; color: var(--amber); }
+.ns-ready-list li.is-ok .ns-ready-mark { color: var(--moss-bright); }
+.ns-ready-text { min-width: 0; overflow-wrap: anywhere; }
+.ns-ready-copy.mesa-btn { min-height: 40px; padding: 4px 10px; color: var(--gold-bright); white-space: nowrap; }
+@media (pointer: coarse), (max-width: 767px) { .ns-ready-copy.mesa-btn { min-height: 44px; } }
 .ns-ready-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .ns-ready-acts .mesa-btn { flex: 1 1 auto; }
 /* com um passo aberto no celular: só a conta e os botões (a página cabe em ~2 telas) */
@@ -338,3 +347,27 @@ body:has(.mesa-bar) .ns-flash { bottom: calc(var(--fab-safe-bottom, 16px) + var(
 .ns-row.is-done .ns-scene-name { color: var(--ink-secondary); }
 .ns-scene-done { font-size: 14px; color: var(--moss-bright); }
 .ns-scene-icons { font-size: 14px; line-height: 1.35; color: var(--ink-secondary); overflow-wrap: anywhere; }
+
+/* PC: o passo aberto fica preso abaixo das abas das áreas (56 px) enquanto a coluna da
+   esquerda rola. Antes, escolher "③ Cenas" lá embaixo mudava um painel que tinha ficado no
+   topo da página, com o título e o "＋ Cena" debaixo das abas. */
+.ns.is-desk > .ns-side {
+  position: sticky;
+  top: calc(var(--shell-areas-h, 56px) + 12px);
+  max-height: calc(100vh - var(--shell-areas-h, 56px) - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-margin-top: calc(var(--shell-areas-h, 56px) + 12px);
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-deep) transparent;
+}
+/* a folga do fim: com a janela da Tela recolhida no canto, o último botão não fica sob ela */
+body:has(.screen-win:is(.is-float, .is-pill).is-right) .ns.is-desk > .ns-side { max-height: calc(100vh - var(--shell-areas-h, 56px) - 24px - var(--screen-win-h, 0px) - 24px); }
+
+/* recolhível com cara de recolhível: a seta gira ao abrir (antes o <summary> parecia um título) */
+.ns-fold-sum { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; list-style: none; color: var(--gold-bright); font-size: 0.95rem; }
+.ns-fold-sum::-webkit-details-marker { display: none; }
+.ns-fold-sum:focus-visible { outline: 2px solid var(--fh-gold-hi, #f7dc93); outline-offset: 2px; border-radius: 6px; }
+.ns-fold-mark { display: inline-block; color: var(--gold); transition: transform 0.15s; }
+details[open] > .ns-fold-sum .ns-fold-mark { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .ns-fold-mark { transition: none; } }

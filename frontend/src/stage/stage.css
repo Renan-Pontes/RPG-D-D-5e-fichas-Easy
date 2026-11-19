@@ -561,3 +561,18 @@
 .live-hide { align-self: flex-start; white-space: normal; text-align: left; }
 .shell-more-live { margin-bottom: 12px; }
 .shell-more-tv .live-prefs { margin-top: 14px; }
+
+/* ---------- a janela recolhida (faixa): o estado de repouso fora de Jogar e no tablet ---------- */
+@media (min-width: 768px) {
+  .screen-win.is-pill { border: 1px solid transparent; }
+  .screen-win.is-pill > .mesa-ico, .screen-win-strip-open > .mesa-ico { flex: none; color: var(--gold); }
+  .screen-win-pill-open { flex: none; margin-left: 2px; color: var(--gold); font-size: 12px; }
+  .screen-win.is-pill:focus-visible, .screen-win-strip-open:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+  /* com o combate andando fora de Jogar: "⚔ R1 · vez de X  [Próximo →]" */
+  .screen-win.is-pill.is-strip { max-width: 480px; padding: 0 4px 0 0; gap: 4px; cursor: default; }
+  .screen-win-strip-open {
+    display: inline-flex; align-items: center; gap: 6px; min-width: 0; min-height: 44px; padding: 0 8px 0 16px;
+    border: 0; background: none; color: var(--ink-primary); font: inherit; font-size: 14px; cursor: pointer; border-radius: 999px 0 0 999px;
+  }
+  .screen-win-strip-next.mesa-btn { flex: none; min-height: 40px; padding: 4px 14px; border-radius: 999px; white-space: nowrap; }
+}

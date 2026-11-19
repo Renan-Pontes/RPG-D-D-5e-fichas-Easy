@@ -38,7 +38,7 @@ export function FhMedalDefs() {
   );
 }
 
-export default function FhMedal({ shape = 'circle', value, unit, label, hint, sub, onClick, title, ariaLabel, children }) {
+export default function FhMedal({ shape = 'circle', value, unit, label, hint, sub, onClick, title, ariaLabel, className = '', expanded, children }) {
   const roll = typeof onClick === 'function';
   const Tag = roll ? 'button' : 'div';
   const Part = roll ? 'span' : 'div'; // dentro de <button>, só conteúdo de frase
@@ -62,7 +62,8 @@ export default function FhMedal({ shape = 'circle', value, unit, label, hint, su
     );
   }
   return (
-    <Tag className={`fh-medal${roll ? ' is-roll' : ''}`} title={title} {...(roll ? { type: 'button', onClick, 'aria-label': ariaLabel } : {})}>
+    <Tag className={`fh-medal${roll ? ' is-roll' : ''}${className ? ` ${className}` : ''}`} title={title}
+      {...(roll ? { type: 'button', onClick, 'aria-label': ariaLabel, 'aria-expanded': expanded } : {})}>
       <Part className={`fh-medal-shape is-${shape}${long ? ' is-long' : ''}`}>
         <svg viewBox="0 0 64 70" aria-hidden="true" focusable="false">{SHAPES[shape]}</svg>
         <span className="fh-medal-val">{value}{unit && <small>{unit}</small>}</span>

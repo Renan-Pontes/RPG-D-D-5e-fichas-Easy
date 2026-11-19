@@ -428,6 +428,19 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
     openGuide: isDM ? (i) => setGuide(Number.isInteger(i) ? i : 0) : undefined,
   };
 
+  // Os "Primeiros passos" do Mundo: a área os desenha ABAIXO das subvistas (topSlot). Antes
+  // vinham antes delas, só no Mundo, e as subvistas mudavam de lugar de uma área para a outra.
+  if (isDM && nav.area === 'world' && campaign.status !== 'closed' && onboardingVisible(obStatus)) {
+    areaProps.topSlot = (
+      <Onboarding
+        lang={lang} status={obStatus} live={vis.live}
+        onAction={onOnboardingAction}
+        onDismiss={() => markOnboarding('dismissed')}
+        worldEmpty={(world?.count || 0) === 0}
+        onSample={loadSample} sampleBusy={sampleBusy}
+      />
+    );
+  }
   const content = isDM ? renderDM(nav.area, areaProps, { setGroupPending }) : renderPlayer(nav.area, areaProps);
 
   return (
@@ -447,15 +460,6 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
           onMore={isDM ? () => { setMore(true); loadWorld(); } : undefined} moreOpen={more} />
 
         <div className="shell-panel" id="shell-panel" role="tabpanel" aria-labelledby={`area-tab-${nav.area}`}>
-          {isDM && nav.area === 'world' && campaign.status !== 'closed' && onboardingVisible(obStatus) && (
-            <Onboarding
-              lang={lang} status={obStatus} live={vis.live}
-              onAction={onOnboardingAction}
-              onDismiss={() => markOnboarding('dismissed')}
-              worldEmpty={(world?.count || 0) === 0}
-              onSample={loadSample} sampleBusy={sampleBusy}
-            />
-          )}
           {content}
         </div>
 
@@ -471,6 +475,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
         )}
         {win === 'float' && (
           <ScreenWindow key={campaign.id} campaign={campaign} lang={lang} liveAt={winLiveAt} nextHere={nav.area !== 'play'}
+            calm /* flutuando (fora de Agora/Combate no PC, ou no tablet) ela nasce recolhida: não cobre a página */
             corner={windowCorner({ corner, area: nav.area, sub: nav.sub, page })}
             onCorner={(c) => { setCorner(c); try { localStorage.setItem(CORNER_KEY, c); } catch { /* ok */ } }}
             onHide={() => { setWinLiveAt(0); setBarPrefs({ ...barPrefs, winSession: String(vis.session ?? '') }); }} />

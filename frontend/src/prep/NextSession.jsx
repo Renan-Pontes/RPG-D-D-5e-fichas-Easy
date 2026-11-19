@@ -488,6 +488,9 @@ export default function NextSession({ campaign, lang, goTo }) {
   const openStep = (id, focus = null) => {
     setOpen(id);
     if (focus) setFocusId(focus);
+    // PC: o passo abre no painel da direita, que fica preso à vista (sticky): a página só rola
+    // se o painel estiver fora da tela, e só o necessário. Celular: o passo sobe para o topo.
+    else if (desk) setTimeout(() => document.querySelector('.ns.is-desk > .ns-side')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 0);
     else setTimeout(() => document.getElementById(`ns-step-${id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 0);
   };
   // A cena que sai da folha sem nome: vazia some; com algo, ganha "Cena N" (o nome é obrigatório).
@@ -694,7 +697,7 @@ export default function NextSession({ campaign, lang, goTo }) {
         <p className="ns-hint">{t(lang, 'O item escolhido entra numa linha das recompensas. Para pôr numa cena, use 💰 Tesouro na cena.', 'The chosen item goes on a line of the rewards. To put it in a scene, use 💰 Treasure in the scene.')}</p>
         {goTo && <button type="button" className="mesa-btn is-quiet ns-link-btn" onClick={() => goTo('prepare', 'items')}>{t(lang, 'Ver itens da campanha', 'See campaign items')} →</button>}
         <details className="ns-monsters" open={!!plan.monsters.trim()}>
-          <summary>{t(lang, 'Anotações de monstros', 'Monster notes')}</summary>
+          <summary className="ns-fold-sum"><span className="ns-fold-mark" aria-hidden="true">▸</span> {t(lang, 'Anotações de monstros (opcional)', 'Monster notes (optional)')}</summary>
           <textarea className="input" rows={3} maxLength={PLAN_LIMITS.long} value={plan.monsters} disabled={closed}
             aria-label={t(lang, 'Anotações de monstros', 'Monster notes')}
             placeholder={t(lang, 'Ex.: 4 goblins, 1 lobo atroz; o afogado do sino (chefe)', 'E.g. 4 goblins, 1 dire wolf; the drowned one of the bell (boss)')}
@@ -1198,6 +1201,7 @@ function CluesStep({ plan, lang, closed, clues, world, asks, logDiary, setLogDia
  * Fim da sanfona (só leitura): o que já está de pé, ▶ Ensaiar e ▶ Começar a Sessão N. Com um
  * passo aberto no celular (`compact`), só a conta e os botões: a lista volta ao fechar o passo.
  */
+const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, compact = false, withImage = null, recap = null, recapOf = 0, moments = null, onCopyTv, onStart, onRehearse, onRecap, onStep }) {
   const rows = readyChecklist(plan, { party, tv, lang, withImage, recap, session: recapOf, moments });
   // o que falta tem o atalho de quem resolve (as mesmas regras do "O que fazer agora")
@@ -1211,12 +1215,14 @@ function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, compact = f
     <section className={`mesa-panel is-sunk ns-ready ${compact ? 'is-compact' : ''}`} id="ns-ready" aria-labelledby="ns-ready-h">
       <p className="mesa-eyebrow" id="ns-ready-h">{t(lang, 'Pronto para jogar', 'Ready to play')}
         {compact && <span className="ns-ready-count"> · {t(lang, `${ok} de ${rows.length} prontos`, `${ok} of ${rows.length} ready`)}</span>}</p>
-      {!compact && <ul className="ns-ready-list">
-        {rows.map(r => (
-          <li key={r.id} className={r.ok ? 'is-ok' : ''}>
-            <span aria-hidden="true">{r.ok ? '✓' : '○'}</span> {r.text}
-            {r.id === 'tv' && !r.ok && !closed && <button type="button" className="mesa-btn ns-ready-copy" onClick={onCopyTv}>{t(lang, 'Copiar link', 'Copy link')}</button>}
-            {!r.ok && !closed && fix[r.id] && <button type="button" className="mesa-btn ns-ready-copy" onClick={fix[r.id].run}>{fix[r.id].label}</button>}
+      {/* um item por linha: marca · texto · atalho à direita; o que já está de pé vem primeiro */}
+      {!compact && <ul className="ns-ready-list no-zebra">
+        {[...rows].sort((a, b) => Number(b.ok) - Number(a.ok)).map(r => (
+          <li key={r.id} className={r.ok ? 'is-ok' : 'is-todo'}>
+            <span className="ns-ready-mark" aria-hidden="true">{r.ok ? '✓' : '○'}</span>
+            <span className="ns-ready-text"><span className="sr-only">{r.ok ? t(lang, 'Pronto: ', 'Ready: ') : t(lang, 'Falta: ', 'Missing: ')}</span>{capFirst(r.text)}</span>
+            {r.id === 'tv' && !r.ok && !closed && <button type="button" className="mesa-btn is-quiet ns-ready-copy" onClick={onCopyTv}>{t(lang, 'Copiar link', 'Copy link')}</button>}
+            {!r.ok && !closed && fix[r.id] && <button type="button" className="mesa-btn is-quiet ns-ready-copy" onClick={fix[r.id].run}>{fix[r.id].label}</button>}
           </li>
         ))}
       </ul>}

@@ -4,7 +4,8 @@ import { flash } from '../play/flash.js';
 import { labelWidths, tokenLabel, tvLabelSize } from './token-label.js';
 import { loadNameIndex, needsNameIndex, portraitFor } from '../combat/monster-portrait.js';
 import { snapToGrid } from '../combat/placement.js';
-import { usePanZoom, nearestHit, toContent } from '../shell/usePanZoom.js';
+import { usePanZoom, nearestHit, toContent, fitScale, clampZoom } from '../shell/usePanZoom.js';
+import MesaIcon from '../shell/MesaIcon.jsx';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import './combat-grid.css';
 
@@ -485,6 +486,37 @@ function LiveGrid({ combat, campaignId, lang, onChange, selectedId, setSelectedI
     },
   });
 
+  // Enquadrar os tokens (o botão ◎ e, uma vez, ao abrir um mapa sem imagem de fundo): a vista
+  // vai para a caixa que contém todos os tokens + 2 casas de folga. No zoom 1 um combate de 4
+  // tokens ocupava um canto de uma grade vazia, com tokens de ~24 px.
+  const frameTokens = () => {
+    const box = pz.box;
+    if (!combatants.length || !(box?.w > 0) || !(box?.h > 0)) return false;
+    let l = Infinity, tp = Infinity, r = -Infinity, b = -Infinity;
+    for (const c of combatants) {
+      const p = posOf(c);
+      const half = (gridSize * (c.token_scale || 1)) / 2;
+      l = Math.min(l, p.x - half); r = Math.max(r, p.x + half);
+      tp = Math.min(tp, p.y - half); b = Math.max(b, p.y + half);
+    }
+    const pad = gridSize * 2;
+    l = Math.max(0, l - pad); tp = Math.max(0, tp - pad);
+    r = Math.min(W, r + pad); b = Math.min(H, b + pad);
+    if (!(r > l) || !(b > tp)) return false;
+    const fs = fitScale(box, { w: W, h: H });
+    const z = clampZoom(Math.min(box.w / ((r - l) * fs), box.h / ((b - tp) * fs)));
+    const S = fs * z;
+    pz.setView({ z, x: box.w / 2 - ((l + r) / 2) * S, y: box.h / 2 - ((tp + b) / 2) * S });
+    return z;
+  };
+  const framed = useRef(false);
+  const hasBg = !!(combat?.map?.backgroundUrl || combat?.map?.background_image);
+  useEffect(() => {
+    if (framed.current || !combatants.length || !(pz.box?.w > 0)) return;
+    framed.current = true;
+    if (!hasBg) frameTokens();   // com imagem de fundo o mestre quer ver o mapa inteiro
+  }, [combatants.length, pz.box?.w, hasBg]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ---------------------------------------------------------------- desenho
   const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
   const cw = Math.max(1, Math.round(pz.box.w * dpr));
@@ -544,10 +576,12 @@ function LiveGrid({ combat, campaignId, lang, onChange, selectedId, setSelectedI
             aria-label={t(lang, 'Aproximar', 'Zoom in')}>＋</button>
           <button type="button" className="cg-zbtn" onClick={pz.fit} disabled={!pz.canZoomOut}
             aria-label={t(lang, 'Ver o mapa inteiro', 'Fit the whole map')} title={t(lang, 'Ver o mapa inteiro', 'Fit the whole map')}>⤢</button>
+          <button type="button" className="cg-zbtn" onClick={frameTokens} disabled={!combatants.length}
+            aria-label={t(lang, 'Enquadrar os tokens', 'Frame the tokens')} title={t(lang, 'Enquadrar os tokens', 'Frame the tokens')}><MesaIcon name="target" size={18} /></button>
         </div>
         <button type="button" className="mesa-btn cg-tools-btn" onClick={() => setToolsOpen(v => !v)}
           aria-expanded={wide ? toolsOpen : undefined} aria-haspopup={wide ? undefined : 'dialog'}>
-          <span aria-hidden="true">🛠</span> {t(lang, 'Ferramentas', 'Tools')}
+          <MesaIcon name="tools" /> {t(lang, 'Ferramentas', 'Tools')}
         </button>
       </div>
 

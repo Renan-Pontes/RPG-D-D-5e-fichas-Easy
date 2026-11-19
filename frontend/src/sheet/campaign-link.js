@@ -2,9 +2,10 @@
 // que a pessoa joga, desatrelar e trocar de campanha. Lógica pura (testes em
 // tests/campaign-link.test.js); a tela só apresenta.
 //
-// Regra do servidor (API.md → "Uma campanha por vez"): a ficha fica em UMA
-// campanha de cada vez. Atrelar com ela em outra → 409 character_in_other_campaign
-// {campaignId, campaignName}; `move: true` tira de lá e põe aqui numa transação.
+// Regra do servidor (09/11): a ficha senta em N mesas, nunca duas vezes na mesma
+// (409 character_already_in_campaign {campaignId, campaignName}). Atrelar a outra
+// mesa não tira a ficha das atuais; "Trocar de campanha" senta na nova e solta as
+// outras vagas (a pessoa continua nelas, sem personagem).
 // Soltar a própria ficha vale até de campanha encerrada (entrar numa, não).
 import { errorMessage, errorText } from '../api/errors.js';
 
@@ -117,18 +118,24 @@ export function attachConfirm({ charName, table, seat, lang = 'pt' }) {
   };
 }
 
-export function detachConfirm({ charName, from, sponsored = false, lang = 'pt' }) {
+/** `others`: nomes das outras mesas em que a ficha continua (ela senta em N mesas). */
+export function detachConfirm({ charName, from, sponsored = false, others = [], lang = 'pt' }) {
   const who = nameOf(charName, lang);
   const where = quote(nameOf(from, lang));
   const seat = sponsored
     ? L(lang, ' Ela usava uma vaga da mesa do mestre: fora dela, passa a contar no limite do seu plano.',
       " It was using one of the GM's table seats: outside it, it counts toward your plan's limit.")
     : '';
+  const stays = quoteList(others, lang);
+  const after = stays
+    ? L(lang, `${who} continua em ${stays}.`, `${who} stays in ${stays}.`)
+    : L(lang, `${who} volta a ser uma ficha pessoal: você edita tudo de novo e sobe de nível pela Progressão.`,
+      `${who} becomes a personal sheet again: you can edit everything and level up through Progression.`);
   return {
     title: L(lang, `Desatrelar ${who} de ${where}?`, `Unlink ${who} from ${where}?`),
     text: L(lang,
-      `Você continua na campanha, sem personagem. ${who} volta a ser uma ficha pessoal: você edita tudo de novo e sobe de nível pela Progressão.${seat}`,
-      `You stay in the campaign, without a character. ${who} becomes a personal sheet again: you can edit everything and level up through Progression.${seat}`),
+      `Você continua na campanha, sem personagem. ${after}${seat}`,
+      `You stay in the campaign, without a character. ${after}${seat}`),
     ok: L(lang, 'Desatrelar', 'Unlink'),
   };
 }
@@ -145,16 +152,22 @@ export function switchConfirm({ charName, from, to, seat, lang = 'pt' }) {
   return {
     title: L(lang, `Trocar ${who} de campanha?`, `Move ${who} to another campaign?`),
     text: L(lang,
-      `${who} sai de ${a} (você continua lá, sem personagem) e entra em ${b}. Uma ficha fica em uma campanha por vez.${swap}`,
-      `${who} leaves ${a} (you stay there, without a character) and joins ${b}. A sheet is in one campaign at a time.${swap}`),
+      `${who} sai de ${a} (você continua lá, sem personagem) e entra em ${b}. Para jogar nas duas ao mesmo tempo, volte e use “Atrelar”.${swap}`,
+      `${who} leaves ${a} (you stay there, without a character) and joins ${b}. To play in both at once, go back and use “Link”.${swap}`),
     ok: L(lang, 'Trocar de campanha', 'Move sheet'),
   };
 }
 
 /** Toast de sucesso de cada ação. */
-export function linkToast(kind, { charName, table, lang = 'pt' } = {}) {
+export function linkToast(kind, { charName, table, stillIn = 0, lang = 'pt' } = {}) {
   const who = nameOf(charName, lang);
   const where = String(table || '').trim();
+  if (kind === 'detach' && stillIn > 0) {
+    // continua em outra(s) mesa(s): não virou "ficha pessoal"
+    return where
+      ? L(lang, `${who} saiu de ${where}.`, `${who} left ${where}.`)
+      : L(lang, `${who} saiu da campanha.`, `${who} left the campaign.`);
+  }
   if (kind === 'detach') {
     return where
       ? L(lang, `${who} saiu de ${where}. A ficha é pessoal de novo.`, `${who} left ${where}. The sheet is personal again.`)

@@ -354,6 +354,9 @@ export function setupGlobalDiceClickListener(performRoll) {
 
     // If target is inside an existing interactive button/link (that isn't a dice token), respect it
     if (e.target.closest?.('button, a, summary')) return;
+    // Opt-out zones: screens where dice text is descriptive, not rollable (the creator's
+    // choice cards, home, sign-in, plans, ready-made sheets). Explicit tokens above still roll.
+    if (e.target.closest?.('[data-no-dice]')) return;
 
     // Detect if clicking on raw text matching a dice formula
     const formula = getClickedDiceFormula(e);

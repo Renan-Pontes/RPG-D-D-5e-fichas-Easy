@@ -282,3 +282,87 @@ textarea.prep-title-input { resize: none; min-height: 44px; max-height: 3.2em; l
 .pa .prep-play .btn-sm { min-height: 48px; }
 .pa .linklike { display: inline-flex; align-items: center; min-height: 44px; }
 .pa .prep-field > span { font-size: 12px; }
+
+/* ==========================================================================
+   Aventuras na linguagem da mesa (rodada de UX): painel de couro, título em folha de
+   ouro, o segmentado da casca, um ＋ Sala só e a ajuda recolhível.
+   ========================================================================== */
+.prep-adv-panel { display: flex; flex-direction: column; gap: 14px; }
+.prep-adv-panel .mesa-title { margin: 0; }
+.prep-adv-sub { display: block; margin: 0; max-width: 78ch; }
+.prep-adv-count { font-family: var(--mono); font-size: 0.8em; letter-spacing: 0; opacity: 0.8; }
+.prep-ready-title { display: inline-flex; align-items: center; gap: 8px; }
+.prep-ready-title .mesa-ico { color: var(--gold); }
+.prep-create { align-items: flex-end; }
+.prep-create-name { flex: 1 1 260px; }
+.prep-create .mesa-btn { flex: 0 0 auto; }
+@media (max-width: 600px) {
+  .prep-create-name { flex-basis: 100%; }
+  .prep-create .mesa-btn { flex: 1 1 0; }
+}
+.prep-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px 20px;
+  border: 1px dashed rgba(224, 181, 94, 0.3); border-radius: 10px; background: rgba(10, 7, 6, 0.35); color: var(--ink-secondary);
+}
+.prep-empty-ico { color: var(--gold); }
+.prep-empty-title { margin: 0; font-family: var(--display); font-size: 1.05rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-bright); }
+.prep-empty-text { margin: 0; max-width: 56ch; line-height: 1.45; }
+.prep-empty-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 6px; }
+@media (max-width: 480px) { .prep-empty-acts { flex-direction: column; width: 100%; } }
+.mesa-seg.prep-filter { align-self: flex-start; max-width: 100%; }
+.prep-filter-n { font-family: var(--mono); font-size: 0.8rem; color: var(--ink-muted); }
+@media (max-width: 600px) { .mesa-seg.prep-filter { align-self: stretch; } .mesa-seg.prep-filter .mesa-seg-btn { min-width: 0; padding: 4px 6px; } }
+/* cartão da aventura: couro, filete dourado ao passar e a seta que diz "abre" */
+.prep-adv-card {
+  position: relative; padding: 14px 36px 14px 14px; border: 1px solid rgba(224, 181, 94, 0.22); border-radius: 10px;
+  background: linear-gradient(180deg, var(--fh-leather-hi, #251a14), var(--fh-leather-lo, #140e0b));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); transition: border-color 0.15s, transform 0.15s;
+}
+.prep-adv-card:hover { border-color: var(--gold); }
+.prep-adv-card:focus-visible { outline: 2px solid var(--fh-gold-hi, #f7dc93); outline-offset: 2px; border-color: var(--gold); }
+.prep-adv-card strong { font-size: 1.1rem; font-weight: 600; letter-spacing: 0.04em; color: var(--ink-primary); overflow-wrap: anywhere; }
+.prep-adv-meta { color: var(--ink-muted); font-size: 0.85rem; }
+.prep-adv-go { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--gold); font-size: 1.3rem; }
+@media (prefers-reduced-motion: reduce) { .prep-adv-card { transition: none; } }
+
+/* a aventura aberta */
+.prep-head .prep-back { flex: none; }
+.prep-toolbar .mesa-seg { flex: 0 0 auto; }
+.prep-toolbar .mesa-seg-btn { min-width: 0; }
+.prep-toolbar .mesa-seg-btn .mesa-ico { color: var(--gold); }
+.prep-toolbar .prep-add-room { min-height: 48px; }
+.prep-toolbar .prep-issues-btn { min-height: 48px; }
+.prep-toolbar .prep-issues-btn.has-warn { color: var(--amber); border-color: var(--amber-deep); }
+@media (max-width: 640px) {
+  .prep-toolbar .mesa-seg { flex: 1 1 auto; }
+  .prep-toolbar .mesa-seg-btn { padding: 4px 8px; }
+}
+/* painel do lado e o mapa: o mesmo couro dos painéis da mesa */
+.prep-side {
+  border: 1px solid rgba(224, 181, 94, 0.22); border-radius: 10px;
+  background: linear-gradient(180deg, var(--fh-leather-hi, #251a14), var(--fh-leather-lo, #140e0b));
+}
+.prep-canvas { border-color: rgba(224, 181, 94, 0.22); border-radius: 10px; }
+.prep-editor h4, .prep-play-head h3 { font-family: var(--display); letter-spacing: 0.08em; color: var(--gold-bright); }
+.prep-canvas-tools { gap: 2px; padding: 2px; border: 1px solid rgba(224, 181, 94, 0.3); border-radius: 999px; background: rgba(20, 14, 11, 0.92); }
+.prep-canvas-tools .prep-zbtn { color: var(--gold-bright); font-size: 1.15rem; }
+/* "Como montar": recolhível (aberta enquanto o mapa está vazio) */
+details.prep-help { gap: 0; }
+.prep-help-sum {
+  display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; list-style: none;
+  font-family: var(--display); font-size: 0.95rem; font-weight: 600; letter-spacing: 0.1em; color: var(--gold-bright);
+}
+.prep-help-sum::-webkit-details-marker { display: none; }
+.prep-help-sum .mesa-ico { color: var(--gold); }
+.prep-help-sum:focus-visible { outline: 2px solid var(--fh-gold-hi, #f7dc93); outline-offset: 2px; border-radius: 6px; }
+.prep-help-chev { margin-left: auto; color: var(--gold); transition: transform 0.15s; }
+details.prep-help[open] .prep-help-chev { transform: rotate(180deg); }
+details.prep-help ul { margin: 4px 0 8px; }
+.prep-help-pick { margin: 0; }
+@media (prefers-reduced-motion: reduce) { .prep-help-chev { transition: none; } }
+/* Na mesa: o principal ocupa a linha (um por sala) e os outros ficam do tamanho do toque */
+.prep-play-actions .prep-enter { flex: 1 1 100%; }
+.prep-play-actions .mesa-btn { min-height: 48px; }
+.prep-list-add { align-self: flex-start; }
+.prep-list-empty { border-color: rgba(224, 181, 94, 0.3); border-radius: 10px; color: var(--ink-secondary); }
+.prep-list-item { border-color: rgba(224, 181, 94, 0.2); border-radius: 10px; background: linear-gradient(180deg, var(--fh-leather-hi, #251a14), var(--fh-leather-lo, #140e0b)); }

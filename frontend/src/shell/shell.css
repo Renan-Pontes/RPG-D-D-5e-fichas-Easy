@@ -987,3 +987,57 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 
 /* Lista de campanhas: o "← Voltar" com alvo de toque inteiro */
 .camp-list-back { min-height: 44px; display: inline-flex; align-items: center; }
+
+/* ==========================================================
+   Lista de campanhas e assistente: acabamento (rodada de UX)
+   ========================================================== */
+/* o limite do plano à vista no próprio botão ("+ Nova campanha 1/1") e numa linha abaixo */
+.camp-limit-chip {
+  margin-left: 8px; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor;
+  font-family: var(--mono); font-size: 0.75rem; font-weight: 700; letter-spacing: 0; opacity: 0.85;
+}
+.camp-limit-note { margin: -8px 0 16px; color: var(--amber); font-size: 0.92rem; line-height: 1.4; }
+.campaign-list .page-head-actions .mesa-btn { min-height: 48px; }
+@media (max-width: 600px) {
+  .campaign-list .page-head-actions .mesa-btn { min-width: 0; white-space: normal; line-height: 1.2; padding-left: 8px; padding-right: 8px; }
+}
+/* estado vazio: o mesmo painel de couro da mesa, com a próxima ação à mão */
+.camp-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 20px; text-align: center; }
+.camp-empty-ico { color: var(--gold); }
+.camp-empty-title { margin: 0; font-family: var(--display); font-size: 1.4rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-bright); }
+.camp-empty-text { margin: 0; max-width: 52ch; color: var(--ink-secondary); line-height: 1.45; }
+.camp-empty-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
+@media (max-width: 480px) { .camp-empty-acts { flex-direction: column; width: 100%; } }
+.camp-card-next .mesa-ico { color: var(--gold); }
+.camp-card:focus-visible { outline: 2px solid var(--fh-gold-hi, #f7dc93); outline-offset: 2px; }
+
+/* assistente: cada grupo de campos respira (o rótulo "Cor de destaque" colava nos chips de cima) */
+/* ".col" nunca foi definida no app (o gap-3 do JSX não fazia nada): aqui ela vira a coluna que o JSX pede */
+.camp-wizard form.col, .camp-wizard form .col { display: flex; flex-direction: column; min-width: 0; }
+.camp-wizard form.col.gap-3, .camp-wizard form .col.gap-3 { gap: var(--s-5, 24px); }
+.camp-wizard form .col.gap-1 { gap: var(--s-2, 8px); }
+/* a trilha: só o botão tem fundo (o passo feito ganhava um retângulo cinza atrás da pílula) */
+.camp-wizard-steps li { background: none; border: 0; padding: 0; }
+.camp-wizard-steps li.done button { background: transparent; }
+.camp-wizard-steps button:focus-visible { outline: 2px solid var(--fh-gold-hi, #f7dc93); outline-offset: 2px; }
+/* as 3 portas: o título manda (antes era menor que a descrição), ícone de linha em ouro */
+.camp-start { min-height: 44px; }
+.camp-start strong { font-family: var(--display); font-size: 1.05rem; font-weight: 600; letter-spacing: 0.06em; line-height: 1.25; color: var(--ink-primary); }
+.camp-start.active strong { color: var(--gold-bright); }
+.camp-start .muted { font-size: 0.92rem; line-height: 1.4; color: var(--ink-secondary); }
+.camp-start-ico { display: inline-flex; color: var(--gold); line-height: 1; }
+.camp-start:focus-visible { outline: 2px solid var(--fh-gold-hi, #f7dc93); outline-offset: 2px; }
+/* celular: uma porta por linha (2 colunas estreitas deixavam a 3ª sozinha embaixo) */
+@media (max-width: 720px) {
+  .mesa-sheet.camp-wizard .camp-wizard-starts { grid-template-columns: minmax(0, 1fr); }
+  .camp-start strong { font-size: 0.98rem; }
+  .camp-start { display: grid; grid-template-columns: 36px minmax(0, 1fr); column-gap: 12px; row-gap: 2px; align-items: start; }
+  .camp-start-ico { grid-row: span 2; padding-top: 2px; }
+  .camp-start > .muted { grid-column: 2; }
+}
+
+/* celular do mestre: com o ■ Encerrar na mesma linha, a cena ficava com 3 letras ("Pon…").
+   Ela já está inteira no cartão "Cena agora" e na folha "Mais": aqui some abaixo de 480 px. */
+@media (max-width: 479px) {
+  .shell-header.is-dm .shell-meta .shell-scene { display: none; }
+}

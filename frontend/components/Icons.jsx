@@ -42,6 +42,27 @@ export const Icon = ({ name, size = 18, ...props }) => {
     case 'flame':      return <svg {...common}><path d="M8.5 14c2 2 5 2 7 0 2-2 2-5 0-7C13 4 12 2 12 2s-1.5 2-3 4c-1.5 2-2 4-0.5 8z"/></svg>;
     case 'moon':       return <svg {...common}><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>;
     case 'chevron-up':    return <svg {...common}><path d="M18 15l-6-6-6 6"/></svg>;
+    // Glifos que antes eram emoji (cor e desenho mudavam por aparelho): mesmo traço dos demais.
+    case 'search':     return <svg {...common}><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>;
+    case 'warning':    return <svg {...common}><path d="M12 3.5L2.5 20h19L12 3.5z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>;
+    case 'info':       return <svg {...common}><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.3v.3"/></svg>;
+    case 'lock':       return <svg {...common}><rect x="4.5" y="10.5" width="15" height="10.5" rx="2"/><path d="M8 10.5V7.5a4 4 0 018 0v3M12 14.5v2.5"/></svg>;
+    case 'key':        return <svg {...common}><circle cx="7.5" cy="15.5" r="4"/><path d="M10.5 12.5L20 3M16.5 6.5l3 3M13.5 9.5l2 2"/></svg>;
+    case 'mail':       return <svg {...common}><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M3 7l9 6.5L21 7"/></svg>;
+    case 'eye-off':    return <svg {...common}><path d="M3 3l18 18M10.6 5.2A10.6 10.6 0 0112 5c7 0 11 7 11 7a18 18 0 01-3.2 3.9M6.5 6.6C3.1 8.6 1 12 1 12s4 7 11 7a10.5 10.5 0 004.9-1.2M9.9 9.9a3 3 0 004.2 4.2"/></svg>;
+    case 'tv':         return <svg {...common}><rect x="2.5" y="4.5" width="19" height="12.5" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg>;
+    case 'castle':     return <svg {...common}><path d="M3.5 21V10.5h3.5V4.5h2.2v2h1.7v-2h2.2v2h1.7v-2H17v6h3.5V21z"/><path d="M10 21v-4.2a2 2 0 014 0V21M3.5 14h3.5M17 14h3.5"/></svg>;
+    case 'chair':      return <svg {...common}><path d="M7 3v11M17 3v11M7 6h10M7 10h10M5 14h14v3H5zM6.5 17v4M17.5 17v4"/></svg>;
+    case 'film':       return <svg {...common}><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7.5 4v16M16.5 4v16M3 9h4.5M3 15h4.5M16.5 9H21M16.5 15H21M7.5 12h9"/></svg>;
+    case 'palette':    return <svg {...common}><path d="M12 3a9 9 0 100 18c1.4 0 2-1 2-2 0-1.6-1-1.8-1-3 0-1 .9-1.6 2-1.6h2.2A3.8 3.8 0 0021 10.6C21 6.4 17 3 12 3z"/><circle cx="7.6" cy="11.5" r=".9"/><circle cx="9.8" cy="7.6" r=".9"/><circle cx="14.4" cy="7.2" r=".9"/></svg>;
+    case 'link':       return <svg {...common}><path d="M10 13.5a4.5 4.5 0 006.4 0l3-3a4.5 4.5 0 00-6.4-6.4l-1.2 1.2M14 10.5a4.5 4.5 0 00-6.4 0l-3 3a4.5 4.5 0 006.4 6.4l1.2-1.2"/></svg>;
+    case 'ruler':      return <svg {...common}><path d="M3 16.5L16.5 3 21 7.5 7.5 21zM7 12.5l2 2M10 9.5l2 2M13 6.5l2 2"/></svg>;
+    case 'toolbox':    return <svg {...common}><rect x="2.5" y="8" width="19" height="12" rx="2"/><path d="M8.5 8V6a2 2 0 012-2h3a2 2 0 012 2v2M2.5 13.5h19M10 12v3h4v-3"/></svg>;
+    case 'compass':    return <svg {...common}><circle cx="12" cy="12" r="9.5"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>;
+    case 'coins':      return <svg {...common}><ellipse cx="9" cy="8" rx="6" ry="3"/><path d="M3 8v4c0 1.7 2.7 3 6 3s6-1.3 6-3V8M9 15v1c0 1.7 2.7 3 6 3s6-1.3 6-3v-4c0-1.2-1.4-2.3-3.5-2.8"/></svg>;
+    case 'users':      return <svg {...common}><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0M16 4.8a3.5 3.5 0 010 6.4M18.5 14.2A6.5 6.5 0 0121.5 20"/></svg>;
+    case 'map':        return <svg {...common}><path d="M3 6l6-2.5 6 2.5 6-2.5V18l-6 2.5L9 18l-6 2.5zM9 3.5V18M15 6v14.5"/></svg>;
+    case 'monster':    return <svg {...common}><path d="M5 4l3 4h8l3-4v7c0 5-3.2 9-7 9s-7-4-7-9z"/><path d="M8.5 12.5l2 1M15.5 12.5l-2 1M10 17l1-1 1 1 1-1 1 1"/></svg>;
     case 'logo':       // Decorative diamond + cross
       return (
         <svg width={size} height={size} viewBox="0 0 40 40" fill="none">

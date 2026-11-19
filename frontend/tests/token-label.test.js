@@ -13,6 +13,19 @@ test('#42: nome longo vira "Goblin #2" quando o vizinho está perto', () => {
   assert.equal(tokenLabel('Borin', 40, measure), 'Borin');
 });
 
+test('sem espaço para 2 letras do nome: o código curto, sem reticências ("G1", "Lo")', async () => {
+  const { tokenCode } = await import('../src/campaigns/token-label.js');
+  assert.equal(tokenCode('Goblin Guerreiro #1'), 'G1');
+  assert.equal(tokenCode('Lobo'), 'Lo');
+  assert.equal(tokenCode('ogro #12'), 'O12');
+  assert.equal(tokenCode(''), '');
+  // 3 tokens encostados (30 px livres cada): antes "G… #1G… #2", agora "G1" e "G2"
+  assert.equal(tokenLabel('Goblin Guerreiro #1', 30, measure), 'G1');
+  assert.equal(tokenLabel('Goblin Guerreiro #2', 30, measure), 'G2');
+  assert.equal(tokenLabel('Thalion', 20, measure), 'Th…');
+  assert.equal(tokenLabel('Thalion', 12, measure), 'Th');
+});
+
 test('token sozinho ou em outra linha tem espaço folgado', () => {
   const w = labelWidths([{ id: 'a', x: 100, y: 100, size: 40 }, { id: 'b', x: 120, y: 200, size: 40 }]);
   assert.equal(w.get('a'), 120);

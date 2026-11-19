@@ -7,6 +7,9 @@ import NodeEditor, { EdgeEditor } from './NodeEditor.jsx';
 import PlayPanel from './PlayPanel.jsx';
 import usePrepConfirm from './usePrepConfirm.jsx';
 import MoreMenu from '../group/MoreMenu.jsx';
+import MesaTitle from '../shell/MesaTitle.jsx';
+import MesaIcon from '../shell/MesaIcon.jsx';
+import { countL } from '../shell/plural.js';
 import { prepApi } from './prep-api.js';
 import { useTable } from '../play/table-store.js';
 import useMedia from '../play/useMedia.js';
@@ -74,6 +77,7 @@ export default function PrepTab({ campaign, lang, onOpenTab, goTo, initialAdvent
   const [newName, setNewName] = useState('');
   const [filter, setFilter] = useState('all');
   const importRef = useRef(null);
+  const nameRef = useRef(null);
 
   useEffect(() => {
     if (initialAdventureId) { setOpenId(initialAdventureId); setFocusNodeId(initialNodeId || null); onConsumedParams?.(); }
@@ -130,60 +134,70 @@ export default function PrepTab({ campaign, lang, onOpenTab, goTo, initialAdvent
       {/* no topo: as aventuras prontas (o plano vem junto) */}
       {onReady && (
         <button type="button" className="prep-ready-card" onClick={onReady}>
-          <span className="prep-ready-title">📖 {t(lang, 'Aventuras prontas', 'Ready adventures')}</span>
+          <span className="prep-ready-title"><MesaIcon name="chronicle" /> {t(lang, 'Aventuras prontas', 'Ready adventures')}</span>
           <span className="prep-ready-sub">{t(lang, '2 toques e o plano vem pronto.', '2 taps and the plan comes ready.')}</span>
           <span className="prep-ready-go" aria-hidden="true">›</span>
         </button>
       )}
-      <div className="prep-intro">
-        <div>
-          <h2>{t(lang, 'Aventuras', 'Adventures')}</h2>
-          <p className="muted">{t(lang,
-            'Aventura = um mapa de salas. Bom para masmorras e viagens. Para uma sessão simples, o Plano basta.',
-            'Adventure = a map of rooms. Good for dungeons and journeys. For a simple session, the Plan is enough.')}</p>
-          <p className="muted">{t(lang,
-            'Ligue os cartões do seu Mundo a cada sala e, na sessão, use “Na mesa” para marcar por onde o grupo passa. Só você vê isto.',
-            'Link your World cards to each room and, during the session, use “At the table” to mark where the party goes. Only you see this.')}</p>
-        </div>
-      </div>
-      <form className="prep-create" onSubmit={create}>
-        <input className="input" value={newName} maxLength={120} onChange={e => setNewName(e.target.value)}
-          placeholder={t(lang, 'Nome da nova aventura (ex.: A Cripta do Rei Sem Nome)', 'New adventure name (e.g. The Nameless King’s Crypt)')}
-          aria-label={t(lang, 'Nome da nova aventura', 'New adventure name')} />
-        <button type="submit" className="btn btn-primary" disabled={!newName.trim()}>+ {t(lang, 'Criar', 'Create')}</button>
-        <button type="button" className="btn btn-ghost" onClick={() => importRef.current?.click()}>⇪ {t(lang, 'Importar JSON', 'Import JSON')}</button>
-        <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={onImport} />
-      </form>
-      {error && <p className="prep-error" role="alert">{error}</p>}
-      {adventures === null && <p className="muted">{t(lang, 'Carregando…', 'Loading…')}</p>}
-      {adventures?.length === 0 && (
-        <div className="prep-empty">
-          <p>{t(lang, 'Nenhuma aventura ainda — dê um nome acima e crie a primeira, ou importe um arquivo de aventura.', 'No adventures yet — name one above to create the first, or import an adventure file.')}</p>
-        </div>
-      )}
-      {(adventures || []).length > 1 && (
-        <div className="prep-seg prep-filter" role="group" aria-label={t(lang, 'Filtrar por situação', 'Filter by status')}>
-          <button type="button" aria-pressed={filter === 'all'} className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>{t(lang, 'Todas', 'All')}</button>
-          {STATUS.map(st => (
-            <button type="button" key={st.id} aria-pressed={filter === st.id} className={filter === st.id ? 'on' : ''} onClick={() => setFilter(st.id)}>
-              {t(lang, st.pt, st.en)} <span className="muted small">{(adventures || []).filter(a => a.status === st.id).length}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      {/* o mesmo painel de couro e o mesmo título em folha de ouro do Plano e do Combate */}
+      <section className="mesa-panel prep-adv-panel" aria-labelledby="prep-adv-h">
+        <MesaTitle as="h2" id="prep-adv-h"
+          sub={<span className="mesa-hint prep-adv-sub">{t(lang,
+            'Uma aventura é um mapa de salas ligadas: boa para masmorras e viagens. Para uma sessão simples, o Plano basta. Só você vê isto.',
+            'An adventure is a map of linked rooms: good for dungeons and journeys. For a simple session, the Plan is enough. Only you see this.')}</span>}>
+          {t(lang, 'Aventuras', 'Adventures')}{adventures?.length ? <span className="prep-adv-count"> · {adventures.length}</span> : null}
+        </MesaTitle>
+        <form className="prep-create" onSubmit={create}>
+          <div className="mesa-field prep-create-name">
+            <label htmlFor="prep-new-adv">{t(lang, 'Nova aventura', 'New adventure')}</label>
+            <input id="prep-new-adv" ref={nameRef} value={newName} maxLength={120} onChange={e => setNewName(e.target.value)}
+              placeholder={t(lang, 'ex.: A Cripta do Rei Sem Nome', 'e.g. The Nameless King’s Crypt')} />
+          </div>
+          <button type="submit" className="mesa-btn mesa-btn-lg is-primary" disabled={!newName.trim()}
+            title={!newName.trim() ? t(lang, 'Dê um nome à aventura para criar.', 'Name the adventure to create it.') : undefined}>＋ {t(lang, 'Criar', 'Create')}</button>
+          <button type="button" className="mesa-btn mesa-btn-lg" onClick={() => importRef.current?.click()}>{t(lang, 'Importar arquivo', 'Import file')}</button>
+          <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={onImport} />
+        </form>
+        {error && <p className="prep-error" role="alert">{error}</p>}
+        {adventures === null && <p className="mesa-hint" role="status">{t(lang, 'Carregando…', 'Loading…')}</p>}
+        {adventures?.length === 0 && (
+          <div className="prep-empty">
+            <span className="prep-empty-ico" aria-hidden="true"><MesaIcon name="adventures" size={40} /></span>
+            <p className="prep-empty-title">{t(lang, 'Nenhuma aventura ainda', 'No adventures yet')}</p>
+            <p className="prep-empty-text">{t(lang,
+              'Dê um nome e crie a primeira: você desenha as salas, liga os cartões do Mundo e, na sessão, marca por onde o grupo passa.',
+              'Name it and create the first one: you draw the rooms, link your World cards and, during the session, mark where the party goes.')}</p>
+            <div className="prep-empty-acts">
+              <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={() => nameRef.current?.focus()}>{t(lang, 'Criar aventura', 'Create adventure')}</button>
+              {onReady && <button type="button" className="mesa-btn mesa-btn-lg" onClick={onReady}>{t(lang, 'Usar uma pronta', 'Use a ready one')}</button>}
+            </div>
+          </div>
+        )}
+        {(adventures || []).length > 1 && (
+          <div className="mesa-seg prep-filter" role="group" aria-label={t(lang, 'Filtrar por situação', 'Filter by status')}>
+            <button type="button" aria-pressed={filter === 'all'} className="mesa-seg-btn" onClick={() => setFilter('all')}>{t(lang, 'Todas', 'All')}</button>
+            {STATUS.map(st => (
+              <button type="button" key={st.id} aria-pressed={filter === st.id} className="mesa-seg-btn" onClick={() => setFilter(st.id)}>
+                {t(lang, st.pt, st.en)} <span className="prep-filter-n">{(adventures || []).filter(a => a.status === st.id).length}</span>
+              </button>
+            ))}
+          </div>
+        )}
       <div className="prep-adv-grid">
         {(adventures || []).filter(a => filter === 'all' || a.status === filter).map(a => (
           <button type="button" key={a.id} className={`prep-adv-card st-${a.status}`} onClick={() => setOpenId(a.id)}>
             <span className={`prep-status st-${a.status}`}>{statusLabel(a.status, lang)}</span>
             <strong>{a.name}</strong>
             {a.summary && <span className="prep-adv-summary">{a.summary}</span>}
-            <span className="muted small">
-              {t(lang, `${a.nodeCount} sala(s)/cena(s) · ${a.edgeCount} caminho(s)`, `${a.nodeCount} room(s)/scene(s) · ${a.edgeCount} path(s)`)}
+            <span className="prep-adv-meta">
+              {countL(lang, a.nodeCount, ['sala', 'salas'], ['room', 'rooms'])} · {countL(lang, a.edgeCount, ['caminho', 'caminhos'], ['path', 'paths'])}
               {' · '}{new Date(a.updatedAt).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US')}
             </span>
+            <span className="prep-adv-go" aria-hidden="true">›</span>
           </button>
         ))}
       </div>
+      </section>
     </div>
   );
 }
@@ -210,19 +224,22 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
   const [showIssues, setShowIssues] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [flash, setFlash] = useState('');
+  const [helpOpen, setHelpOpen] = useState(null);   // null = segue o mapa (aberta enquanto vazio)
   const advRef = useRef(null);
   const pending = useRef({});
   const timer = useRef(null);
   const dirtySince = useRef(0);
   const chain = useRef(Promise.resolve());
-  // Aventura aberta: os botões de Conduzir ficam no canto de baixo à direita, e a
-  // janela da Tela do PC (V4) vai para a esquerda sozinha enquanto ela está aberta.
+  // A janela da Tela do PC (V4) vai para a esquerda sozinha só enquanto a folha da sala está
+  // aberta no painel da direita (é ela que a janela cobriria). Antes ia para a esquerda com a
+  // aventura aberta, sempre, e ficava em cima das salas do mapa e dos nomes na lista.
   const setPage = useTable()?.setPage;
+  const sheetAtRight = sidePanel && mode === 'prep' && selected?.type === 'node' && sheetShut !== selected.id;
   useEffect(() => {
     if (!setPage) return undefined;
-    setPage('adventure');
+    setPage(sheetAtRight ? 'adventure' : null);
     return () => setPage(null);
-  }, [setPage]);
+  }, [setPage, sheetAtRight]);
 
   useEffect(() => {
     let alive = true;
@@ -443,15 +460,19 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
     side = (
       <div className="prep-editor">
         <h4>{t(lang, 'Onde o grupo começa?', 'Where does the party start?')}</h4>
-        <p className="muted small">{t(lang, 'Toque numa sala do mapa ou comece pela entrada sugerida.', 'Tap a room on the map or start at the suggested entrance.')}</p>
-        {start && <button type="button" className="btn btn-primary btn-sm" onClick={() => onPlay('enter', { nodeId: start.id })}>▶ {t(lang, `Começar em ${start.name}`, `Start at ${start.name}`)}</button>}
+        <p className="mesa-hint">{t(lang, 'Toque numa sala do mapa ou comece pela entrada sugerida.', 'Tap a room on the map or start at the suggested entrance.')}</p>
+        {start && <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={() => onPlay('enter', { nodeId: start.id })}>▶ {t(lang, `Começar em ${start.name}`, `Start at ${start.name}`)}</button>}
       </div>
     );
   } else {
     side = (
-      <div className="prep-editor prep-help">
-        <h4>{t(lang, 'Como montar', 'How to build')}</h4>
-        <ul>
+      // a ajuda fica aberta só com o mapa vazio; depois vira uma linha que abre no toque
+      <details className="prep-editor prep-help" open={helpOpen ?? data.nodes.length === 0} onToggle={e => setHelpOpen(e.currentTarget.open)}>
+        <summary className="prep-help-sum">
+          <MesaIcon name="help" /> <span>{t(lang, 'Como montar', 'How to build')}</span>
+          <span className="prep-help-chev" aria-hidden="true">▾</span>
+        </summary>
+        <ul className="no-zebra">
           <li>{t(lang, '“+ Sala” ou duplo clique no mapa cria uma sala/cena.', '“+ Room” or double-click on the map creates a room/scene.')}</li>
           <li>{t(lang, 'Puxe o ● da borda de uma sala até outra para ligar as duas.', 'Pull the ● on a room’s edge to another room to link them.')}</li>
           <li>{t(lang, 'Clique numa conexão para escolher o tipo (porta, trancada, secreta…), rótulo e condição.', 'Click a connection to set its type (door, locked, secret…), label and condition.')}</li>
@@ -459,7 +480,10 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
           <li>{t(lang, 'Ligue NPCs, lugares e segredos do Mundo em “Cartões do Mundo nesta sala”.', 'Link World NPCs, places and secrets under “World cards in this room”.')}</li>
           <li>{t(lang, 'Na sessão, troque para “Na mesa”.', 'During the session, switch to “At the table”.')}</li>
         </ul>
-      </div>
+        {data.nodes.length > 0 && (
+          <p className="mesa-hint prep-help-pick">{t(lang, 'Toque numa sala ou numa conexão do mapa para ver os detalhes aqui.', 'Tap a room or a connection on the map to see its details here.')}</p>
+        )}
+      </details>
     );
   }
 
@@ -469,7 +493,7 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
   return (
     <div className={`prep-tab prep-mode-${mode}`}>
       <div className="prep-head">
-        <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { await flush(); onBack(); }}>← {t(lang, 'Aventuras', 'Adventures')}</button>
+        <button type="button" className="mesa-btn is-quiet prep-back" onClick={async () => { await flush(); onBack(); }}>← {t(lang, 'Aventuras', 'Adventures')}</button>
         {/* o nome em até 2 linhas (no celular não corta "O Sino Afogado sob a…") */}
         <textarea className="input prep-title-input" rows={1} value={adv.name} maxLength={120} aria-label={t(lang, 'Nome da aventura', 'Adventure name')}
           onChange={e => setFields({ name: e.target.value.replace(/\n/g, ' ') })}
@@ -482,21 +506,22 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
       </div>
 
       <div className="prep-toolbar">
-        <div className="prep-seg" role="group" aria-label={t(lang, 'Modo', 'Mode')}>
-          <button type="button" aria-pressed={mode === 'prep'} className={mode === 'prep' ? 'on' : ''} onClick={() => setMode('prep')}>✎ {t(lang, 'Editar', 'Edit')}</button>
-          <button type="button" aria-pressed={mode === 'play'} className={mode === 'play' ? 'on' : ''} onClick={() => setMode('play')}>▶ {t(lang, 'Na mesa', 'At the table')}</button>
+        {/* o mesmo segmentado da casca (couro + filete de ouro no ativo) */}
+        <div className="mesa-seg prep-seg-mode" role="group" aria-label={t(lang, 'Modo', 'Mode')}>
+          <button type="button" aria-pressed={mode === 'prep'} className="mesa-seg-btn" onClick={() => setMode('prep')}><MesaIcon name="pencil" /> {t(lang, 'Editar', 'Edit')}</button>
+          <button type="button" aria-pressed={mode === 'play'} className="mesa-seg-btn" onClick={() => setMode('play')}><span aria-hidden="true">▶</span> {t(lang, 'Na mesa', 'At the table')}</button>
         </div>
-        <div className="prep-seg" role="group" aria-label={t(lang, 'Visão', 'View')}>
-          <button type="button" aria-pressed={view === 'map'} className={view === 'map' ? 'on' : ''} onClick={() => switchView('map')}>🗺 {t(lang, 'Mapa', 'Map')}</button>
-          <button type="button" aria-pressed={view === 'list'} className={view === 'list' ? 'on' : ''} onClick={() => switchView('list')}>☰ {t(lang, 'Lista', 'List')}</button>
+        <div className="mesa-seg prep-seg-view" role="group" aria-label={t(lang, 'Visão', 'View')}>
+          <button type="button" aria-pressed={view === 'map'} className="mesa-seg-btn" onClick={() => switchView('map')}><MesaIcon name="map" /> {t(lang, 'Mapa', 'Map')}</button>
+          <button type="button" aria-pressed={view === 'list'} className="mesa-seg-btn" onClick={() => switchView('list')}><MesaIcon name="menu" /> {t(lang, 'Lista', 'List')}</button>
         </div>
-        {/* ＋ Sala sempre à vista em Editar (antes só no canto do mapa ou no fim da lista) */}
+        {/* ＋ Sala: um só, sempre à vista em Editar (o do canto do mapa e o do topo da lista saíram) */}
         {mode === 'prep' && (
-          <button type="button" className="btn btn-primary btn-sm prep-add-room" onClick={() => createNode()}>＋ {t(lang, 'Sala', 'Room')}</button>
+          <button type="button" className="mesa-btn is-primary prep-add-room" onClick={() => createNode()}>＋ {t(lang, 'Sala', 'Room')}</button>
         )}
         {issues.length > 0 && (
-          <button type="button" className={`btn btn-ghost btn-sm prep-issues-btn ${errorsCount ? 'has-warn' : ''}`} onClick={() => setShowIssues(s => !s)} aria-expanded={showIssues}>
-            ⚠ {issues.length} {t(lang, issues.length > 1 ? 'avisos' : 'aviso', issues.length > 1 ? 'notes' : 'note')}
+          <button type="button" className={`mesa-btn prep-issues-btn ${errorsCount ? 'has-warn' : ''}`} onClick={() => setShowIssues(s => !s)} aria-expanded={showIssues}>
+            ⚠ {countL(lang, issues.length, ['aviso', 'avisos'], ['note', 'notes'])}
           </button>
         )}
         <span className="prep-spacer" />

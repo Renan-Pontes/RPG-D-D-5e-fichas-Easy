@@ -34,6 +34,7 @@ import { seenSuffix, tvLine, tvShort, tvState, turnLine } from './table-bar-mode
 import { LiveTv } from './LiveScreenSheet.jsx';
 import { openDice, useFreshRoll } from './TableBar.jsx';
 import { useTable } from '../play/table-store.js';
+import MesaIcon from '../shell/MesaIcon.jsx';
 import './stage.css';
 
 function useWindowData(campaign, lang) {
@@ -75,11 +76,19 @@ function useArmed(key) {
   return () => Date.now() >= until.current;
 }
 
-export default function ScreenWindow({ campaign, lang = 'pt', corner = 'right', onCorner, onHide, liveAt = 0, nextHere = false }) {
+export default function ScreenWindow({ campaign, lang = 'pt', corner = 'right', onCorner, onHide, liveAt = 0, nextHere = false, calm = false }) {
   const { table, stage, combat, combatNow, test, line, tvLive, offline, roll } = useWindowData(campaign, lang);
-  // 'thumb' | 'live' | 'pill', lembrado no aparelho (E2.5d/e)
-  const [size, setSizeState] = useState(() => (liveAt ? 'live' : readWinSize()));
-  const setSize = (v) => { setSizeState(v); writeWinSize(v); };
+  // 'thumb' | 'live' | 'pill', lembrado no aparelho (E2.5d/e). `calm` (fora de Jogar, ou no
+  // tablet): nasce recolhida, e a escolha feita ali fica lembrada à parte (readWinSize).
+  const [size, setSizeState] = useState(() => (liveAt ? 'live' : readWinSize(undefined, calm)));
+  const setSize = (v) => { setSizeState(v); writeWinSize(v, undefined, calm); };
+  // mudou de contexto (saiu de Jogar, a tela estreitou): vale o tamanho lembrado para ele
+  const calmRef = useRef(calm);
+  useEffect(() => {
+    if (calmRef.current === calm) return;
+    calmRef.current = calm;
+    setSizeState(readWinSize(undefined, calm));
+  }, [calm]);
   const withNext = nextHere && !!combat?.active && campaign.status !== 'closed';
   const armed = useArmed(withNext ? `${combat?.round}:${combat?.turnIndex}` : '');
   const busy = !!table?.busy;
@@ -87,10 +96,28 @@ export default function ScreenWindow({ campaign, lang = 'pt', corner = 'right', 
   // O 📺 Tela da capa: abre já em "ao vivo".
   useEffect(() => { if (liveAt) setSizeState('live'); }, [liveAt]);
   if (size === 'pill') {
+    // recolhida com o combate andando fora de Jogar: a faixa leva a vez e o Próximo turno
+    // (o mestre passa a vez sem abrir a janela por cima da página)
+    if (withNext) {
+      return (
+        <div ref={winRef} className={`screen-win is-pill is-strip is-${corner} no-print`} role="group" aria-label={L(lang, 'Janela da Tela', 'Screen window')}>
+          <button type="button" className="screen-win-strip-open" onClick={() => setSize('thumb')}
+            aria-label={`${turnLine(combat, lang)}. ${L(lang, 'Abrir a janela da Tela', 'Open the screen window')}`}>
+            <span className="screen-win-pill-text">{turnLine(combat, lang)}</span>
+          </button>
+          <button type="button" className="mesa-btn is-primary screen-win-strip-next" disabled={busy}
+            onClick={() => { if (armed() && !busy) table?.nextTurn(); }}
+            aria-label={busy ? L(lang, 'Enviando…', 'Sending…') : L(lang, 'Próximo turno', 'Next turn')}>
+            {busy ? '…' : <>{L(lang, 'Próximo turno', 'Next turn')} <span aria-hidden="true">→</span></>}
+          </button>
+        </div>
+      );
+    }
     return (
       <button type="button" ref={winRef} className={`screen-win is-pill is-${corner} no-print`} onClick={() => setSize('thumb')}
         aria-label={`${L(lang, 'Tela', 'Screen')}: ${line}. ${L(lang, 'Abrir a janela', 'Open the window')}`}>
-        <span aria-hidden="true">📺</span> <span className="screen-win-pill-text">{L(lang, 'Tela', 'Screen')} · {line}</span>
+        <MesaIcon name="tv" /> <span className="screen-win-pill-text">{L(lang, 'Tela', 'Screen')} · {line}</span>
+        <span className="screen-win-pill-open" aria-hidden="true">▴</span>
       </button>
     );
   }

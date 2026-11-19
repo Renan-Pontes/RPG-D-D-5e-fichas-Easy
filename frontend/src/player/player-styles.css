@@ -8,6 +8,30 @@
    li.pl-table em grade): só o div da Mesa, senão um CSS desmancha o outro. */
 .pl-world, div.pl-table { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 div.pl-table { align-items: stretch; grid-template-columns: none; }
+/* Colunas da Mesa. No celular e no tablet elas não existem (display: contents): tudo é
+   uma coluna só e a ORDEM é do CSS — a faixa do combate primeiro e, com um teste aberto,
+   o pedido do mestre logo abaixo dela (acima da cena), para o "Rolar no app" não ficar
+   escondido atrás da rolagem. No PC (≥ 1024): à esquerda quem eu sou, a cena e a Tela;
+   à direita (360–480 px) os testes e os dados — nenhum botão com 1200 px de largura. */
+.pl-col { display: contents; }
+@media (max-width: 1023px) {
+  div.pl-table > .pl-fight { order: -2; }
+  div.pl-table.has-open-check .pl-checks { order: -1; }
+}
+@media (min-width: 1024px) {
+  div.pl-table {
+    display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(360px, 480px);
+    align-items: start; gap: 16px 20px;
+  }
+  div.pl-table > .pl-fight { grid-column: 1 / -1; }
+  .pl-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+}
+/* A Mesa tem o próprio rolador: no celular o dado flutuante da casca cobria o "Total" e o
+   "Enviar" do teste (dois roladores na mesma tela). O resultado continua a aparecer no
+   palco de dados; só o botão sai. */
+@media (max-width: 767px) {
+  body:has(div.pl-table) .dice-fab.no-print { display: none !important; }
+}
 .pl-eyebrow {
   font-family: var(--display); font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase;
   color: var(--gold); opacity: 0.85;
@@ -26,10 +50,12 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-world-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
 .pl-world-title { margin: 2px 0 0; font-family: var(--display); color: var(--gold-bright); font-size: clamp(1.5rem, 5vw, 2.2rem); line-height: 1.1; }
 .pl-world-tagline { margin: 4px 0 0; font-style: italic; color: var(--ink-secondary); }
-.pl-world-newcount {
-  padding: 4px 12px; border-radius: 999px; border: 1px solid var(--stroke-strong);
-  background: var(--gold-soft); color: var(--gold-bright); font-size: 0.9rem;
-}
+/* a contagem é um aviso (texto), não um botão: o filtro "Novos" do Atlas é que filtra */
+.pl-world-newcount { display: inline-flex; align-items: center; gap: 8px; color: var(--gold-bright); font-size: 0.95rem; font-style: italic; }
+.pl-world-newdot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--gold-bright); box-shadow: 0 0 10px rgba(237, 203, 122, 0.7); }
+/* celular: o cabeçalho da casca e a aba já dizem a campanha e "Mundo" — o conteúdo sobe */
+@media (max-width: 767px) { .pl-world-head { display: none; } }
+.pl-filter-new .pl-dot-new { margin-left: 0; }
 
 .pl-filters { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
 .pl-filter {
@@ -80,6 +106,14 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 }
 .pl-map-title > span { min-width: 0; overflow-wrap: anywhere; }
 .pl-map-title .pl-map-read { flex: none; min-height: 44px; }
+.pl-map-title-acts { flex: none; display: inline-flex; align-items: center; gap: 4px; }
+/* "?" abre a dica de uso (no celular ela não ocupa a tela o tempo todo) */
+.pl-map-help {
+  display: none; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 1px solid var(--stroke); background: rgba(10, 7, 6, 0.5); color: var(--gold-bright); font-family: var(--display); font-size: 1rem;
+}
+.pl-map-help[aria-expanded="true"] { border-color: var(--gold); background: var(--gold-soft); }
+.pl-map-help:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
 .pl-map-canvas {
   position: relative; overflow: hidden; width: 100%; max-height: min(72vh, 680px); background: var(--bg-deep);
   touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab;
@@ -123,7 +157,20 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-map-zoom button:disabled { opacity: 0.4; cursor: default; }
 @media (hover: hover) { .pl-map-zoom button:not(:disabled):hover { border-color: var(--gold); } }
 .pl-map-hint { margin: 0; padding: 8px 12px; border-top: 1px solid var(--stroke); font-size: 13px; line-height: 1.4; color: var(--ink-muted); }
-@media (max-width: 767px) { .pl-map-canvas { max-height: 60vh; max-height: 60svh; } }
+@media (max-width: 767px) {
+  /* Inteiro ("ver tudo"), a caixa abraça a imagem (sem tarjas pretas em volta de um mapa
+     deitado). Ao aproximar, a caixa cresce para baixo até 56–72% da altura: mais mapa na
+     tela para andar com o dedo (antes ficava presa em ~30%). */
+  .pl-map-canvas { max-height: 72vh; max-height: 72svh; }
+  .pl-map-canvas:not([data-zoom="1.00"]) { min-height: 56vh; min-height: 56svh; }
+  .pl-map-help { display: grid; }
+  .pl-map-hint { display: none; }
+  .pl-map-hint.is-open { display: block; }
+  /* ＋ − ⤢ numa fileira em CIMA à esquerda (em coluna cobriam 60 px da lateral; em cima não
+     saem de baixo do dedo quando a caixa cresce); o ⤢ só com zoom */
+  .pl-map-zoom { flex-direction: row; top: 8px; bottom: auto; }
+  .pl-map-zoom .pl-map-fit:disabled { display: none; }
+}
 
 /* Linha do tempo */
 .pl-timeline { list-style: none; margin: 0; padding: 0 0 0 22px; position: relative; display: flex; flex-direction: column; gap: 14px; }
@@ -225,13 +272,26 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-viewer-bar {
   position: sticky; top: 0; z-index: 3; display: flex; justify-content: space-between; align-items: center;
   padding: 8px 10px; background: linear-gradient(180deg, rgba(14, 10, 7, 0.92), rgba(14, 10, 7, 0.6));
+  border-bottom: 1px solid transparent; transition: background-color 0.15s, border-color 0.15s;
 }
+/* rolou: a barra fica opaca (o nome do cartão não aparece por baixo do "Fechar") */
+.pl-viewer-bar.is-scrolled { background: var(--bg-deep); border-bottom-color: var(--stroke); }
+/* o zebrado global de listas (styles.css) pegava a barra/o corpo e o parágrafo par: aqui não */
+.pl-viewer > .pl-viewer-hero, .pl-viewer > .pl-viewer-body, .pl-viewer > .pl-viewer-handout { background-image: none; }
 .pl-viewer-missing { padding: 24px; color: var(--ink-secondary); }
 .pl-viewer-handout { padding: 12px 18px 28px; }
 .pl-viewer-hero { position: relative; margin-top: -52px; aspect-ratio: 16 / 9; max-height: 380px; width: 100%; overflow: hidden; background: var(--bg-deep); }
 .pl-viewer-npc .pl-viewer-hero { aspect-ratio: 4 / 3; }
 .pl-viewer-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.pl-viewer-img.wl-img-default { filter: sepia(0.25) brightness(0.75); }
+/* Sem imagem própria, a arte padrão do tipo é só AMBIENTE (uma faixa baixa, desfocada e
+   escura): nunca o retrato grande de alguém que o texto descreve de outro jeito. */
+.pl-viewer-img.wl-img-default { filter: blur(6px) brightness(0.5) sepia(0.3); transform: scale(1.12); }
+.pl-viewer-hero:has(.wl-img-default) {
+  aspect-ratio: auto; max-height: none; min-height: 132px; display: flex; align-items: flex-end;
+}
+.pl-viewer-hero:has(.wl-img-default) .pl-viewer-img { position: absolute; inset: 0; }
+.pl-viewer-hero:has(.wl-img-default) .pl-viewer-hero-text { position: relative; padding-top: 64px; width: 100%; }
+.pl-viewer-hero:has(.wl-img-default) .pl-viewer-hero-fade { background: linear-gradient(180deg, rgba(14, 10, 7, 0.2) 0%, rgba(14, 10, 7, 0.7) 70%, var(--bg-card) 100%); }
 .pl-viewer-hero-fade { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, rgba(14, 10, 7, 0.65) 75%, var(--bg-card) 100%); }
 .pl-viewer-hero-text { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 20px; }
 .pl-viewer-kind { font-family: var(--display); font-size: 0.78rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); }
@@ -241,7 +301,7 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 }
 .pl-viewer-body { padding: 8px 20px 24px; display: flex; flex-direction: column; gap: 12px; }
 .pl-viewer-summary { margin: 0; font-style: italic; font-size: 1.1rem; color: var(--ink-primary); border-left: 3px solid var(--wl-kind, var(--gold)); padding-left: 12px; }
-.pl-viewer-p { margin: 0; line-height: 1.6; color: var(--ink-secondary); font-size: 1.04rem; }
+.pl-viewer-p { margin: 0; line-height: 1.6; color: var(--ink-secondary); font-size: 1.04rem; background-image: none; }
 .pl-viewer-mapbtn { align-self: flex-start; min-height: 44px; }
 /* barra do leitor: ← Voltar e ✕ Fechar com 44 px */
 .pl-viewer-bar .btn { min-height: 44px; padding: 6px 14px; }
@@ -277,8 +337,9 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 
 .pl-relations { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--stroke); }
 .pl-rel-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
-.pl-rel-label { font-size: 0.85rem; color: var(--ink-muted); min-width: 90px; }
-.pl-rel-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pl-rel-label { font-size: 0.88rem; color: var(--ink-muted); min-width: 90px; }
+.pl-rel-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.pl-rel-item { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
 .pl-rel-chip {
   border: 1px solid var(--stroke); background: var(--bg-elevated); color: var(--ink-primary); font: inherit; font-size: 0.9rem;
   padding: 3px 12px; border-radius: 999px; cursor: pointer; min-height: 44px;
@@ -301,16 +362,23 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 }
 
 /* ---------------------------------------------------------------- Toast de revelação */
+/* z-index 90: acima da barra de baixo (40) e do cabeçalho preso (30), ABAIXO das folhas da
+   mesa (100) e das confirmações (150) — antes (1150) cobria o título da folha "Mais ações".
+   Celular: entra por cima, numa linha (embaixo ele parava 10 s em cima do "Rolar no app"). */
 .pl-toast-wrap {
-  position: fixed; left: 0; right: 0; z-index: 1150; display: flex; justify-content: center; pointer-events: none;
-  bottom: calc(var(--fab-safe-bottom, 0px) + 88px + env(safe-area-inset-bottom, 0px)); padding: 0 12px;
+  position: fixed; left: 0; right: 0; z-index: 90; display: flex; justify-content: center; pointer-events: none;
+  top: calc(env(safe-area-inset-top, 0px) + 8px); padding: 0 8px;
 }
 .pl-toast {
   pointer-events: auto; position: relative; overflow: hidden; width: min(460px, 100%);
-  display: flex; gap: 12px; padding: 12px; border-radius: 12px;
-  background: linear-gradient(135deg, #2c2014, #140e08);
-  border: 1px solid var(--gold); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 30px rgba(214, 176, 100, 0.25);
-  animation: pl-toast-in 0.55s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+  display: flex; align-items: center; gap: 10px; padding: 8px 4px 10px 8px; border-radius: 10px;
+  border: 1px solid transparent;
+  background:
+    var(--fh-noise) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 30px rgba(214, 176, 100, 0.25);
+  animation: pl-toast-in 0.45s cubic-bezier(0.22, 1.2, 0.36, 1) both;
 }
 .pl-toast::before {
   content: ''; position: absolute; inset: 0; pointer-events: none;
@@ -318,38 +386,120 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
   transform: translateX(-100%); animation: pl-shine 2.2s 0.4s ease-out both;
 }
 .pl-toast-art {
-  flex: 0 0 64px; height: 64px; border-radius: 8px; overflow: hidden; border: 1px solid var(--stroke-strong);
-  display: flex; align-items: center; justify-content: center; font-size: 1.8rem; background: var(--bg-deep);
+  flex: 0 0 44px; height: 44px; border-radius: 8px; overflow: hidden; border: 1px solid var(--stroke-strong);
+  display: flex; align-items: center; justify-content: center; font-size: 1.4rem; background: var(--bg-deep);
 }
 .pl-toast-art img { width: 100%; height: 100%; object-fit: cover; }
-.pl-toast-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.pl-toast-title { font-family: var(--display); color: var(--gold-bright); font-size: 1.02rem; line-height: 1.25; }
-.pl-toast-text { color: var(--ink-secondary); font-size: 0.9rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.pl-toast-actions { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; align-items: center; }
-.pl-toast-actions .btn { padding: 6px 14px; min-height: 44px; font-size: 0.82rem; letter-spacing: 0.04em; width: auto; }
+.pl-toast-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.pl-toast-title {
+  font-family: var(--display); color: var(--gold-bright); font-size: 0.95rem; line-height: 1.25; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+/* o resumo só onde há largura (PC); no celular fica o título, [Ver] e ✕ */
+.pl-toast-text { display: none; color: var(--ink-secondary); font-size: 0.9rem; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pl-toast-actions { flex: none; display: flex; align-items: center; gap: 0; }
+.pl-toast-go { padding: 6px 12px; white-space: nowrap; }
+.pl-toast-go-long { display: none; }
+.pl-toast-x { color: var(--ink-secondary); }
 .pl-toast-timer { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--gold); transform-origin: left; animation: pl-timer 10s linear both; }
-@keyframes pl-toast-in { from { opacity: 0; transform: translateY(30px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes pl-toast-in { from { opacity: 0; transform: translateY(-20px) scale(0.97); } to { opacity: 1; transform: none; } }
 @keyframes pl-shine { to { transform: translateX(100%); } }
 @keyframes pl-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 @keyframes pl-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pl-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
-@media (min-width: 900px) { .pl-toast-wrap { justify-content: flex-end; bottom: 24px; padding-right: 96px; } }
-
-/* ---------------------------------------------------------------- Mesa */
-.pl-scene {
-  position: relative; overflow: hidden; border-radius: 10px; border: 1px solid var(--stroke-strong);
-  min-height: 200px; display: flex; align-items: flex-end; box-shadow: var(--shadow-card);
+@media (min-width: 900px) {
+  /* PC: também por cima, no canto direito (embaixo cobria os dados da coluna da direita da
+     Mesa); a arte maior, o resumo e o botão por extenso embaixo do texto */
+  .pl-toast-wrap { top: 12px; justify-content: flex-end; padding: 0 24px; }
+  .pl-toast {
+    display: grid; grid-template-columns: 64px minmax(0, 1fr) 44px; align-items: start; gap: 6px 12px;
+    grid-template-areas: "art body x" "art go go"; padding: 12px 8px 14px 12px;
+  }
+  .pl-toast-art { grid-area: art; width: 64px; height: 64px; font-size: 1.8rem; }
+  .pl-toast-body { grid-area: body; gap: 4px; }
+  .pl-toast-actions { display: contents; }
+  .pl-toast-go { grid-area: go; justify-self: start; }
+  .pl-toast-x { grid-area: x; margin-top: -4px; }
+  .pl-toast-title { font-size: 1.02rem; }
+  .pl-toast-text { display: -webkit-box; }
+  .pl-toast-go-long { display: inline; }
+  .pl-toast-go-short { display: none; }
 }
-.pl-scene-bg { position: absolute; inset: 0; background-image: var(--pl-cover); background-size: cover; background-position: center; }
-.pl-scene-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(14, 10, 7, 0.25) 0%, rgba(14, 10, 7, 0.75) 55%, rgba(14, 10, 7, 0.96) 100%); }
+
+/* ---------------------------------------------------------------- Mesa
+   A mesma linguagem da Ficha Forjada e das outras abas da casca (src/shell/mesa.css):
+   painel de couro com filete dourado (.mesa-panel), título em folha de ouro com o
+   losango (MesaTitle), botões .mesa-btn. Aqui só o que é da Mesa. */
+
+/* Meu personagem: retrato, nome, vida e a porta para a ficha (72 px no celular) */
+.pl-me { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.pl-me-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px 12px;
+  grid-template-areas: "pic main open" "badges badges badges";
+}
+.pl-me-row + .pl-me-row { padding-top: 10px; border-top: 1px solid rgba(224, 181, 94, 0.14); }
+.pl-me-pic { grid-area: pic; }
+.pl-me-main { grid-area: main; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pl-me-name {
+  font-family: var(--display); font-weight: 600; font-size: 1.02rem; line-height: 1.2; letter-spacing: 0.03em;
+  color: var(--ink-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pl-me.is-empty .pl-me-name { white-space: normal; font-size: 0.98rem; }
+.pl-me-sub { font-size: 0.9rem; line-height: 1.3; color: var(--ink-muted); overflow-wrap: anywhere; }
+.pl-me-vitals { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pl-me-hp { flex: 1 1 auto; max-width: 320px; }
+.pl-me-stat {
+  flex: none; display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 8px; border-radius: 5px;
+  border: 1px solid rgba(224, 181, 94, 0.32); background: rgba(10, 7, 6, 0.55);
+}
+.pl-me-stat-lbl { font-family: var(--display); font-size: 12px; letter-spacing: 0.08em; color: var(--ink-muted); }
+.pl-me-stat-val { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--gold-bright); }
+.pl-me-open { grid-area: open; white-space: nowrap; }
+.pl-me-badges { grid-area: badges; }
+@media (max-width: 767px) {
+  /* no celular a linha "Espécie · Classe" sai (está na ficha e no Grupo): fica nome, vida e o botão */
+  .pl-me:not(.is-empty) .pl-me-sub { display: none; }
+  .pl-me-open { padding-inline: 12px; }
+}
+@media (max-width: 400px) {
+  .pl-me.is-empty .pl-me-row { grid-template-areas: "pic main main" "open open open"; }
+  .pl-me.is-empty .pl-me-open { width: 100%; }
+}
+@media (min-width: 768px) {
+  .pl-me { padding: 14px 20px; }
+  .pl-me-name { font-size: 1.15rem; }
+}
+
+/* Cena: a capa da campanha por trás, o nome da cena e o texto lido pelo mestre. "Ao vivo",
+   a sessão e o nome da campanha já estão no cabeçalho da casca, logo acima: aqui não. */
+.pl-scene {
+  position: relative; overflow: hidden; border-radius: 8px; border: 1px solid transparent;
+  background: linear-gradient(var(--fh-leather-lo), var(--fh-leather-lo)) padding-box, var(--fh-gilt) border-box;
+  min-height: 0; display: flex; align-items: flex-end;
+  box-shadow: 0 1px 0 rgba(255, 230, 170, 0.06) inset, 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.pl-scene.has-text { min-height: 200px; }
+.pl-scene-bg {
+  position: absolute; inset: 0; background-image: var(--pl-cover), var(--pl-cover-fallback, none);
+  background-size: cover; background-position: center;
+}
+.pl-scene-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(14, 10, 7, 0.45) 0%, rgba(14, 10, 7, 0.78) 55%, rgba(14, 10, 7, 0.96) 100%); }
 .pl-scene-content { position: relative; z-index: 1; padding: 16px; width: 100%; display: flex; flex-direction: column; gap: 6px; }
-.pl-scene-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.pl-scene-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; min-height: 24px; }
+.pl-scene-eyebrow {
+  font-family: var(--display); font-size: 12px; font-weight: 600; letter-spacing: 0.16em; line-height: 1.3;
+  text-transform: uppercase; color: var(--gold); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
 .pl-pill { padding: 2px 10px; border-radius: 999px; border: 1px solid var(--gold); color: var(--gold-bright); background: rgba(14, 10, 7, 0.6); font-family: var(--display); font-size: 0.78rem; letter-spacing: 0.06em; }
-.pl-pill-soft { border-color: var(--stroke); color: var(--ink-secondary); font-family: var(--body); font-style: italic; letter-spacing: 0; font-size: 0.85rem; }
+.pl-pill-soft {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+  border-color: rgba(224, 181, 94, 0.32); color: var(--ink-secondary); font-family: var(--body); font-style: italic; letter-spacing: 0; font-size: 0.9rem;
+}
+.pl-ico { flex: none; color: var(--gold); }
 .pl-live { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: var(--blood); color: #fff; font-family: var(--display); font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; }
 .pl-live-dot { width: 8px; height: 8px; border-radius: 50%; background: #ffb4a6; animation: pl-blink 1.6s ease-in-out infinite; }
 @keyframes pl-blink { 50% { opacity: 0.3; } }
-.pl-scene-name { margin: 0; font-family: var(--display); color: var(--gold-bright); font-size: clamp(1.35rem, 5vw, 2rem); line-height: 1.15; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8); }
+.pl-scene-name { margin: 0; font-family: var(--display); color: var(--gold-bright); font-size: clamp(1.35rem, 5vw, 1.9rem); line-height: 1.15; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8); overflow-wrap: anywhere; }
 .pl-scene-tagline { margin: 0; font-style: italic; color: var(--ink-secondary); }
 .pl-read-aloud {
   margin: 6px 0 0; padding: 10px 14px; border-left: 3px solid var(--gold); background: rgba(14, 10, 7, 0.7);
@@ -357,119 +507,187 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 }
 .pl-read-aloud p { margin: 0 0 0.6em; }
 .pl-read-aloud p:last-child { margin-bottom: 0; }
+@media (min-width: 768px) { .pl-scene-content { padding: 20px; } }
 
-.pl-section-eyebrow { font-family: var(--display); font-size: 0.75rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; }
-.pl-onscreen-card {
-  display: flex; gap: 14px; padding: 12px; border-radius: 10px; border: 1px solid var(--gold-deep);
-  background: radial-gradient(ellipse at 0% 0%, rgba(214, 176, 100, 0.12), transparent 60%), var(--bg-card);
-  animation: pl-rise 0.4s ease both;
-}
+/* Na tela agora: painel de couro; o cartão de dentro não tem moldura própria (a seção usa
+   `.pl-onscreen.is-<tipo>`: `pl-onscreen-card` é só a caixa de dentro). */
+.pl-onscreen-card { display: flex; gap: 14px; min-width: 0; animation: pl-rise 0.4s ease both; }
 .pl-onscreen-img { width: 112px; height: 112px; object-fit: cover; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--stroke-strong); }
-.pl-onscreen-icon { width: 72px; height: 72px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 2rem; border-radius: 8px; background: var(--bg-deep); border: 1px solid var(--stroke); }
+.pl-onscreen-icon { width: 72px; height: 72px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 2rem; border-radius: 8px; background: rgba(10, 7, 6, 0.55); border: 1px solid rgba(224, 181, 94, 0.22); }
+/* Arte padrão do tipo como ambiente (nunca o retrato de alguém): esmaecida e desfocada,
+   com o ícone do tipo num medalhão por cima. */
+.pl-defart { position: relative; overflow: hidden; display: grid; place-items: center; background: var(--bg-deep); }
+.pl-defart > img { position: absolute; inset: -8px; width: calc(100% + 16px); height: calc(100% + 16px); object-fit: cover; filter: blur(4px) brightness(0.5) sepia(0.3); }
+.pl-defart-ico {
+  position: relative; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; font-size: 1.5rem; line-height: 1;
+  border: 1px solid transparent;
+  background: radial-gradient(circle at 50% 30%, #2c2018, #120c09 75%) padding-box, var(--fh-gilt) border-box;
+  box-shadow: 0 0 0 3px rgba(10, 7, 6, 0.6), 0 4px 12px rgba(0, 0, 0, 0.6);
+}
 .pl-onscreen-body { min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
-.pl-onscreen-body p { margin: 0; color: var(--ink-secondary); font-size: 0.95rem; }
-.pl-onscreen-kind { font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); }
-.pl-onscreen-title { margin: 0; font-family: var(--display); color: var(--gold-bright); font-size: 1.2rem; }
-.pl-onscreen-recap .pl-onscreen-body p { font-style: italic; }
+.pl-onscreen-body p { margin: 0; color: var(--ink-secondary); font-size: 1rem; line-height: 1.45; }
+.pl-onscreen-kind { font-family: var(--display); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); }
+.pl-onscreen-title { margin: 0; font-family: var(--display); color: var(--gold-bright); font-size: 1.2rem; line-height: 1.2; overflow-wrap: anywhere; }
+.pl-onscreen.is-recap .pl-onscreen-body p { font-style: italic; }
+.pl-onscreen-go { margin-top: 6px; }
 /* Palco (V3): "só a imagem" inteira, com a legenda; combate e Tela escurecida numa linha. */
 .pl-onscreen-img.is-contain { object-fit: contain; background: var(--bg-deep); }
 .pl-onscreen-caption { margin: 0; font-style: italic; color: var(--parchment); }
-.pl-onscreen-over { color: var(--fh-ember, var(--gold)); letter-spacing: 0.06em; }
-.pl-onscreen-line { margin: 4px 0 0; font-family: var(--display); color: var(--gold-bright); font-size: 1.05rem; }
+.pl-onscreen-over { color: var(--fh-ember, var(--gold)); letter-spacing: 0.04em; }
+.pl-onscreen-line { margin: 0; font-family: var(--display); color: var(--gold-bright); font-size: 1.05rem; }
 @media (max-width: 420px) {
   .pl-onscreen-card { flex-direction: column; }
   .pl-onscreen-img { width: 100%; height: auto; max-height: 220px; }
+  .pl-onscreen-img.pl-defart { height: 96px; }
 }
 
 /* Faixa do combate (V13): a vez no combate, do pulso do jogador. Altura fixa (64 px) nos
    dois estados, para "SUA VEZ" e o botão não empurrarem a Mesa; no celular fica presa no
-   topo ao rolar. Na vez dele, dourada, com [Ir para a minha ficha] de 48 px. */
+   topo ao rolar. Na vez dele, dourada, com [Minha ficha →] de 48 px (rótulo curto: o
+   título e a rodada cabem numa linha cada, sem encostar na borda). */
 .pl-fight {
   display: flex; align-items: center; gap: 10px; height: 64px; min-width: 0; padding: 0 8px 0 12px;
-  border-radius: 10px; border: 1px solid var(--blood);
-  background: linear-gradient(90deg, var(--blood-soft), transparent), var(--bg-card);
+  border-radius: 8px; border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, #3a1611, #22100c) padding-box,
+    linear-gradient(135deg, #e0604f 0%, #8c6427 35%, #ecc777 55%, #9e3322 100%) border-box;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
 }
 .pl-fight-icon { flex: 0 0 auto; font-size: 1.25rem; line-height: 1; color: var(--gold-bright); }
 .pl-fight-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .pl-fight-title, .pl-fight-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* quem age em letra de texto (nome de monstro é longo: o Cinzel não caberia a 320) */
-.pl-fight-title { font-size: 1.05rem; font-weight: 600; color: var(--gold-bright); }
-.pl-fight-sub { font-size: 0.875rem; color: var(--ink-secondary); }
+.pl-fight-title { font-size: 1.05rem; font-weight: 600; color: var(--gold-bright); line-height: 1.25; }
+.pl-fight-sub { font-size: 0.875rem; color: var(--ink-secondary); line-height: 1.25; }
 .pl-fight.is-mine {
-  border-color: var(--gold-bright); background: linear-gradient(180deg, var(--gold-bright), var(--gold));
-  box-shadow: 0 0 18px rgba(237, 203, 122, 0.35);
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold)) padding-box, var(--fh-gilt) border-box;
+  box-shadow: 0 0 18px rgba(237, 203, 122, 0.35), 0 8px 20px rgba(0, 0, 0, 0.45);
 }
 .pl-fight.is-mine .pl-fight-icon, .pl-fight.is-mine .pl-fight-title { color: var(--on-gold); }
 .pl-fight.is-mine .pl-fight-title { font-family: var(--display); font-weight: 700; letter-spacing: 0.1em; }
-/* na vez dele o botão de 48 px estreita o texto: a rodada e quem vem depois quebram em
-   até 2 linhas (cabem nos 64 px com o título numa linha), para o nome não sumir em "…" */
-.pl-fight.is-mine .pl-fight-sub {
-  color: rgba(26, 18, 10, 0.8); white-space: normal; overflow-wrap: anywhere; line-height: 1.2;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
-}
-.pl-fight.is-mine .pl-fight-title { line-height: 1.2; }
+.pl-fight.is-mine .pl-fight-sub { color: rgba(26, 18, 10, 0.85); }
 .pl-fight-go {
-  flex: 0 1 auto; max-width: 48%; min-height: 48px; padding: 4px 12px; border-radius: 8px;
+  flex: none; min-height: 48px; padding: 4px 14px; border-radius: 6px; white-space: nowrap;
   border: 1px solid var(--on-gold); background: var(--bg-deep); color: var(--gold-bright);
-  font-family: var(--display); font-size: 0.85rem; line-height: 1.15; letter-spacing: 0.02em; text-align: center; cursor: pointer;
+  font-family: var(--display); font-size: 0.86rem; font-weight: 600; line-height: 1.15; letter-spacing: 0.03em; text-align: center; cursor: pointer;
 }
 .pl-fight-go:focus-visible { outline: 2px solid var(--on-gold); outline-offset: 2px; }
-@media (max-width: 360px) { .pl-fight-go { max-width: 44%; padding: 4px 8px; font-size: 0.8rem; letter-spacing: 0; } }
+@media (max-width: 360px) { .pl-fight-go { padding: 4px 10px; font-size: 0.8rem; letter-spacing: 0; } }
 @media (max-width: 767px) {
-  .pl-fight { position: sticky; top: 0; z-index: 20; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45); }
-  .pl-fight.is-mine { box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45), 0 0 18px rgba(237, 203, 122, 0.35); }
+  .pl-fight { position: sticky; top: 0; z-index: 20; }
+  /* na vez dele: o botão mais estreito e, com nome comprido em "depois:", a 2ª linha em vez de "…" */
+  .pl-fight.is-mine { height: auto; min-height: 64px; padding-block: 8px; }
+  .pl-fight.is-mine .pl-fight-sub { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  .pl-fight-go { padding: 4px 10px; font-size: 0.8rem; letter-spacing: 0.01em; }
 }
 
-.pl-section { padding: 14px; border-radius: 10px; border: 1px solid var(--stroke); background: var(--bg-card); min-width: 0; }
-.pl-section-title { margin: 0 0 10px; font-family: var(--display); color: var(--gold-bright); font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
-.pl-count { font-size: 0.75rem; padding: 0 8px; border-radius: 999px; background: var(--blood); color: #fff; font-family: var(--body); }
+/* Painéis da Mesa (Testes, Rolar dados): o couro vem de .mesa-panel */
+.pl-section { min-width: 0; }
+.pl-section-hint { margin: 0; color: var(--ink-muted); font-size: 0.95rem; line-height: 1.45; }
+.pl-count {
+  display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 999px;
+  background: var(--blood); color: #fff; font-family: var(--mono); font-size: 13px; font-weight: 700;
+}
+.pl-checks.has-open { box-shadow: 0 0 0 1px rgba(237, 203, 122, 0.35), 0 0 22px rgba(237, 203, 122, 0.18), 0 10px 30px rgba(0, 0, 0, 0.5); }
+.pl-checks .player-checks:empty { display: none; }
 
-.pl-dice-hint { margin: -4px 0 10px; }
-.pl-dice-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-bottom: 10px; }
+/* Os dados: selos redondos com anel dourado e o nome em Cinzel (como os selos da ficha) */
+.pl-dice-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 10px; margin: 4px 0 16px; }
 .pl-die {
-  min-height: 42px; padding: 0; border-radius: 6px; border: 1px solid var(--stroke); background: var(--bg-elevated);
-  color: var(--ink-secondary); font-family: var(--mono, monospace); font-size: 0.85rem; cursor: pointer;
+  flex: none; width: 48px; height: 48px; padding: 0; border-radius: 50%; border: 1px solid transparent; cursor: pointer;
+  background: radial-gradient(circle at 50% 28%, #2c2018, #120c09 78%) padding-box, var(--fh-gilt) border-box;
+  box-shadow: 0 0 0 3px rgba(10, 7, 6, 0.7), 0 0 0 4px rgba(154, 114, 49, 0.5), 0 4px 10px rgba(0, 0, 0, 0.45);
+  color: var(--ink-secondary); font-family: var(--display); font-weight: 600; font-size: 0.82rem; letter-spacing: 0.02em; line-height: 1;
+  transition: color 0.15s, box-shadow 0.15s;
 }
-.pl-die.active { border-color: var(--gold); color: var(--on-gold); background: linear-gradient(180deg, var(--gold-bright), var(--gold)); font-weight: 700; }
-.pl-dice-form { display: grid; grid-template-columns: 80px 80px minmax(0, 1fr); gap: 8px; }
-.pl-field { display: flex; flex-direction: column; gap: 2px; font-size: 0.8rem; color: var(--ink-muted); min-width: 0; }
-.pl-field .input { width: 100%; min-width: 0; }
-@media (max-width: 420px) { .pl-dice-form { grid-template-columns: 1fr 1fr; } .pl-field-grow { grid-column: 1 / -1; } }
-.pl-ask { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; font-size: 0.9rem; color: var(--ink-secondary); cursor: pointer; }
-.pl-ask input { margin-top: 3px; }
-.pl-roll-btn { width: 100%; min-height: 44px; font-size: 1rem; }
-.pl-pending { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.pl-pending li { padding: 6px 10px; border-radius: 6px; border: 1px dashed var(--stroke); }
-.pl-last {
-  margin-top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 10px 12px; border-radius: 8px; background: rgba(214, 176, 100, 0.07); border: 1px solid var(--stroke);
+@media (hover: hover) { .pl-die:not(.active):hover { color: var(--fh-gold-hi); box-shadow: 0 0 0 3px rgba(10, 7, 6, 0.7), 0 0 0 4px var(--gold), 0 4px 10px rgba(0, 0, 0, 0.45); } }
+.pl-die.active {
+  background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 50%, var(--gold-deep) 100%) padding-box, var(--fh-gilt) border-box;
+  color: var(--on-gold); font-weight: 700;
+  box-shadow: 0 0 0 3px rgba(10, 7, 6, 0.7), 0 0 0 4px var(--gold-bright), 0 0 16px rgba(240, 200, 110, 0.45);
 }
-.pl-last-label { flex: 1 1 100%; font-size: 0.82rem; color: var(--ink-muted); }
-.pl-last-dice { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
-.pl-last-die { min-width: 30px; text-align: center; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--stroke-strong); font-family: var(--mono, monospace); }
-.pl-last-mod { font-family: var(--mono, monospace); color: var(--ink-secondary); padding: 2px 0; }
-.pl-last-total { font-family: var(--display); font-size: 1.8rem; color: var(--gold-bright); }
-/* V10: a regra do mestre levou a rolagem à Tela */
-.pl-last-shown { flex-basis: 100%; font-size: 0.9rem; color: var(--gold); }
+.pl-die:focus-visible, .pl-step-btn:focus-visible, .pl-step-val:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+@media (max-width: 440px) {
+  /* 7 selos de 48 não cabem numa fileira: 4 + 3, centrados */
+  .pl-dice-row { max-width: 252px; margin-inline: auto; gap: 14px 16px; }
+  .pl-die { width: 50px; height: 50px; }
+}
 
-/* ---------------------------------------------------------------- Mesa: alvos de 44 px (F6) */
-.pl-die { min-height: 44px; font-size: 0.9rem; }
-@media (max-width: 400px) {
-  /* 7 dados não cabem com 44 px numa fileira: 4 + 3 */
-  .pl-dice-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.pl-dice-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.pl-field-grow { grid-column: 1 / -1; }
+.pl-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; margin: 0; }
+/* vence o label global (11,9 px, espaçamento de 0,2em: "QUANTOSBÔNUS" grudados) */
+.pl-step .pl-step-label, .pl-field > span {
+  margin: 0; font-family: var(--display); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; line-height: 1.3;
+  text-transform: uppercase; color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.pl-field { font-size: 0.85rem; color: var(--ink-secondary); }
-.pl-field .input { min-height: 44px; font-size: 16px; }
-.pl-ask { min-height: 44px; align-items: center; font-size: 0.95rem; }
+.pl-field .input { width: 100%; min-width: 0; min-height: 44px; font-size: 16px; }
+/* − valor ＋ */
+.pl-step { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pl-step-row {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: stretch; min-height: 44px; overflow: hidden;
+  border: 1px solid var(--stroke); border-radius: 8px; background: rgba(10, 7, 6, 0.55);
+}
+.pl-step-row:focus-within { border-color: var(--gold); }
+.pl-step .pl-step-btn {
+  display: grid; place-items: center; min-height: 44px; padding: 0; border: 0; border-radius: 0; cursor: pointer;
+  background: rgba(214, 176, 100, 0.08); color: var(--gold-bright); font-family: var(--mono); font-size: 1.35rem; line-height: 1;
+  touch-action: manipulation;
+}
+.pl-step .pl-step-btn:disabled { color: var(--ink-faint); cursor: not-allowed; background: transparent; }
+@media (hover: hover) { .pl-step .pl-step-btn:not(:disabled):hover { background: var(--gold-soft); color: var(--fh-gold-hi); } }
+.pl-step .pl-step-val {
+  width: 100%; min-width: 0; min-height: 44px; margin: 0; padding: 0 2px; border: 0; border-inline: 1px solid var(--stroke); border-radius: 0;
+  background: transparent; box-shadow: none; color: var(--ink-primary); text-align: center;
+  font-family: var(--mono); font-size: 18px; font-weight: 600;
+}
+.pl-step .pl-step-val:focus { box-shadow: none; }
+.pl-step .pl-step-val:focus-visible { outline-offset: -3px; }
+.pl-step.is-off .pl-step-row { opacity: 0.6; }
+.pl-step-hint { margin: 0; font-size: 0.85rem; line-height: 1.3; color: var(--ink-muted); }
+
+.pl-ask { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 10px 0; font-size: 0.95rem; color: var(--ink-secondary); cursor: pointer; text-transform: none; letter-spacing: 0; font-family: var(--body); }
 .pl-ask input { width: 22px; height: 22px; margin: 0; flex: none; accent-color: var(--gold); }
-.pl-roll-btn { min-height: 48px; }
+.pl-roll-btn { width: 100%; min-height: 48px; font-size: 1rem; }
+.pl-dice-hint { margin: 10px 0 0; text-align: center; font-size: 0.9rem; line-height: 1.4; color: var(--ink-muted); }
 .pl-onscreen-body .btn { min-height: 44px; }
+
+/* Pedidos esperando o mestre: cada um com o que foi pedido e [Cancelar] */
+.pl-pending-box { margin-top: 14px; padding: 10px 6px 4px 12px; border-radius: 8px; border: 1px dashed rgba(227, 164, 69, 0.5); background: rgba(227, 164, 69, 0.06); }
+.pl-pending-title { margin: 0 0 2px; font-family: var(--display); font-size: 12px !important; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
+.pl-pending { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pl-pending li { display: flex; align-items: center; gap: 10px; min-height: 48px; min-width: 0; }
+.pl-pending li + li { border-top: 1px solid rgba(227, 164, 69, 0.18); }
+.pl-pending-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); animation: pl-blink 1.6s ease-in-out infinite; }
+.pl-pending-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pl-pending-label { color: var(--ink-primary); font-weight: 600; overflow-wrap: anywhere; line-height: 1.25; }
+.pl-pending-what { font-family: var(--mono); font-size: 13px; color: var(--ink-muted); }
+.pl-pending-adv { color: var(--gold); font-family: var(--body); font-size: 0.9rem; }
+.pl-pending-cancel { flex: none; padding-inline: 12px; }
+
+/* O último resultado: quem resolveu, os dados e o total */
+.pl-last {
+  margin-top: 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 14px;
+  grid-template-areas: "label total" "dice total" "shown shown";
+  padding: 12px 14px; border-radius: 8px; background: rgba(10, 7, 6, 0.45); border: 1px solid rgba(224, 181, 94, 0.22);
+}
+.pl-last.is-dm { border-color: rgba(237, 203, 122, 0.6); box-shadow: inset 3px 0 0 var(--gold); }
+.pl-last-label { grid-area: label; font-size: 0.9rem; color: var(--ink-secondary); overflow-wrap: anywhere; }
+.pl-last-by { font-family: var(--display); font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted); }
+.pl-last.is-dm .pl-last-by { color: var(--gold); }
+.pl-last-dice { grid-area: dice; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.pl-last-die { min-width: 32px; text-align: center; padding: 3px 6px; border-radius: 5px; border: 1px solid var(--stroke-strong); background: rgba(10, 7, 6, 0.5); font-family: var(--mono); font-weight: 600; }
+.pl-last-mod { font-family: var(--mono); color: var(--ink-secondary); padding: 2px 2px; }
+.pl-last-total { grid-area: total; font-family: var(--display); font-weight: 700; font-size: 2rem; line-height: 1; color: var(--gold-bright); }
+/* V10: a regra do mestre levou a rolagem à Tela */
+.pl-last-shown { grid-area: shown; font-size: 0.9rem; color: var(--gold); }
+
 /* pedido ao mestre: Normal / Vantagem / Desvantagem */
 .pl-adv { margin: 0 0 10px; }
 /* colunas pelo tamanho do rótulo: "Desvantagem" (em negrito, quando escolhida) cabe no botão em 320 */
 .pl-adv-row {
   display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.3fr); gap: 3px; padding: 3px;
-  border-radius: 10px; border: 1px solid var(--stroke-faint); background: var(--bg-elevated);
+  border-radius: 10px; border: 1px solid var(--stroke-faint); background: rgba(10, 7, 6, 0.45);
 }
 .pl-adv-btn {
   min-width: 0; min-height: 44px; padding: 0 4px; border: 0; border-radius: 7px; background: transparent;
@@ -481,11 +699,12 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-adv-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .pl-adv-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 .pl-adv-hint { margin: 4px 0 0; font-size: 0.85rem; color: var(--ink-muted); }
-.pl-pending-adv { color: var(--gold); }
 
 /* ---------------------------------------------------------------- menos movimento */
 @media (prefers-reduced-motion: reduce) {
   .pl-new-chip, .pl-pin.is-new .pl-pin-dot, .pl-live-dot,
-  .pl-viewer-backdrop, .pl-viewer, .pl-toast, .pl-toast::before, .pl-onscreen-card { animation: none !important; }
+  .pl-viewer-backdrop, .pl-viewer, .pl-toast, .pl-toast::before, .pl-onscreen-card, .pl-pending-dot { animation: none !important; }
+  .pl-die { transition: none; }
+  .pl-viewer-bar { transition: none; }
   .pl-toast::before { display: none; }
 }

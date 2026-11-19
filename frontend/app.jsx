@@ -4,7 +4,8 @@ import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, laz
 import Utils from './utils.js';
 import { t } from './data/i18n.js';
 import Icon from './components/Icons.jsx';
-import { AppHeader, Toast, Modal } from './components/Shared.jsx';
+import { AppHeader, Toast } from './components/Shared.jsx';
+import { confirmDialog } from './components/ConfirmDialog.jsx';
 import DiceRoller from './components/DiceRoller.jsx';
 import CharacterList from './components/CharacterList.jsx';
 import Creator from './components/Creator.jsx';
@@ -29,7 +30,7 @@ import { dropSubclassesBelowLevel } from './src/progression/subclass-lock.js';
 import LevelUpModal from './src/progression/LevelUpModal.jsx';
 import { ClassOptionsModal } from './src/progression/ClassOptionsPicker.jsx';
 import InviteChoice from './src/campaigns/InviteChoice.jsx';
-import { parseJoinRoute, savePendingInvite, loadPendingInvite, joinToast, joinFailMessage } from './src/creator/creation.js';
+import { parseJoinRoute, savePendingInvite, loadPendingInvite, joinToast, joinFailMessage, loadDraft } from './src/creator/creation.js';
 import { parseCampaignRoute } from './src/shell/shell-logic.js';
 import LimitDialogHost from './src/plans/LimitDialog.jsx';
 import { onOpenMyPlan, plansApi, showPlanLimit } from './src/plans/plans-api.js';
@@ -46,6 +47,10 @@ const SCREENS = {
   AUTH: 'auth', CAMPAIGNS: 'campaigns', CAMPAIGN: 'campaign', GRIMOIRE: 'grimoire', ADMIN: 'admin', PLAN: 'plan',
 };
 
+// Telas em que "1d8" no texto descreve uma escolha (não é para rolar ao toque): criador,
+// editor, início, entrada e plano. Na ficha, na mesa e no Grimório o toque no dado continua.
+const NO_DICE_SCREENS = new Set([SCREENS.HOME, SCREENS.CREATE, SCREENS.EDIT, SCREENS.AUTH, SCREENS.PLAN]);
+
 const App = () => {
   const auth = useAuth();
   const [lang, setLang] = useState(() => localStorage.getItem('dnd5e-forge:lang') || ((navigator.language || '').startsWith('pt') ? 'pt' : 'en'));
@@ -56,9 +61,10 @@ const App = () => {
   const [autoLinkId, setAutoLinkId] = useState(null);           // versão nova: abre o seletor de mesa
   const [editingChar, setEditingChar] = useState(null);
   const [toast, setToast] = useState('');
-  const [confirm, setConfirm] = useState(null);
   const [activeCampaignId, setActiveCampaignId] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  // "Continuar a criação" na inicial: o assistente abre já no rascunho, sem perguntar de novo.
+  const [resumeDraft, setResumeDraft] = useState(false);
 
   // Grimório: aberto pelo cabeçalho ou por link #grimorio/<regra> (volta pra tela anterior).
   const [grimoire, setGrimoire] = useState(null); // { id, q, from, n, y }
@@ -170,6 +176,19 @@ const App = () => {
 
   useEffect(() => { setList('loading'); }, [storage]);
   useEffect(() => { refreshCharacters(); }, [refreshCharacters]);
+
+  // Mesas da conta para a tela inicial ("Suas mesas" e o nome da mesa no cartão do herói):
+  // uma chamada cada vez que a inicial abre. Falhou: a inicial segue sem a faixa.
+  const [homeCampaigns, setHomeCampaigns] = useState(null);
+  useEffect(() => {
+    if (!auth.user || auth.backendAvailable === false) { setHomeCampaigns(null); return undefined; }
+    if (screen !== SCREENS.HOME) return undefined;
+    let alive = true;
+    api.listCampaigns()
+      .then(r => { if (alive) setHomeCampaigns(r.campaigns || []); })
+      .catch(() => { /* sem a faixa */ });
+    return () => { alive = false; };
+  }, [auth.user?.id, auth.backendAvailable, screen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Login/cadastro concluído: sai da tela de entrada.
   useEffect(() => { if (auth.user && screen === SCREENS.AUTH) setScreen(SCREENS.HOME); }, [auth.user, screen]);
@@ -425,41 +444,56 @@ const App = () => {
       : (lang === 'pt' ? 'Versão criada. Escolha a mesa.' : 'Version created. Pick the table.'));
   };
 
-  const handleDelete = (id) => {
-    const nForks = forksOf(characters, id).length;
-    setConfirm({
-      msg: nForks
-        ? (lang === 'pt'
-          ? `Excluir este modelo? Esta ação é permanente. Depois você escolhe se as ${nForks} versões dele vão junto.`
-          : `Delete this template? This is permanent. Next you choose whether its ${nForks} versions go too.`)
-        : (lang === 'pt' ? 'Excluir este personagem? Esta ação é permanente.' : 'Delete this character? This is permanent.'),
-      onConfirm: async () => {
-        await storage.remove(id);
-        // modelo com versões: pergunta se elas vão junto (F12); por padrão ficam como fichas próprias
-        if (nForks) {
-          setConfirm({
-            msg: lang === 'pt'
-              ? `Modelo excluído. Excluir também as ${nForks} versões dele? Sem isso, elas continuam como fichas próprias.`
-              : `Template deleted. Also delete its ${nForks} versions? Otherwise they stay as sheets of their own.`,
-            onConfirm: async () => {
-              for (const f of forksOf(characters, id)) await storage.remove(f.id).catch(() => {});
-              await refreshCharacters();
-              setConfirm(null);
-              setToast(t('deleted', lang));
-            },
-          });
-          await refreshCharacters();
-          setScreen(SCREENS.HOME);
-          setActiveId(null);
-          return;
-        }
-        await refreshCharacters();
-        setScreen(SCREENS.HOME);
-        setActiveId(null);
-        setConfirm(null);
-        setToast(t('deleted', lang));
-      }
+  // Excluir: uma confirmação só (ConfirmDialog, a mesma do resto do app). Versões só
+  // existem em fichas da conta (id numérico): uma ficha local ('local-…') nunca é modelo,
+  // e a ficha excluída nunca entra na lista das "versões dela".
+  const handleDelete = async (id) => {
+    const pt = lang === 'pt';
+    const target = characters.find(c => c.id === id);
+    const forks = /^\d+$/.test(String(id)) ? forksOf(characters, id).filter(f => f.id !== id) : [];
+    const n = forks.length;
+    const one = n === 1;
+    const name = String(target?.name || '').trim();
+    const ok = await confirmDialog({
+      lang,
+      danger: true,
+      title: name ? (pt ? `Excluir ${name}?` : `Delete ${name}?`) : (pt ? 'Excluir este personagem?' : 'Delete this character?'),
+      message: !n
+        ? (pt ? 'A ficha é apagada para sempre. Não dá para desfazer.' : 'The sheet is erased for good. This cannot be undone.')
+        : pt
+          ? `A ficha é apagada para sempre. Ela é o modelo de ${one ? '1 versão' : `${n} versões`}: no próximo passo você escolhe se ${one ? 'ela vai' : 'elas vão'} junto.`
+          : `The sheet is erased for good. It is the template of ${one ? '1 version' : `${n} versions`}: next you choose whether ${one ? 'it goes' : 'they go'} too.`,
+      confirmLabel: pt ? 'Excluir' : 'Delete',
+      cancelLabel: pt ? 'Manter' : 'Keep',
     });
+    if (!ok) return;
+    try {
+      await storage.remove(id);
+    } catch (e) {
+      setToast(errorMessage(e, lang));
+      return;
+    }
+    await refreshCharacters();
+    setScreen(SCREENS.HOME);
+    setActiveId(null);
+    // modelo com versões: pergunta se elas vão junto (F12); por padrão ficam como fichas próprias
+    if (n) {
+      const also = await confirmDialog({
+        lang,
+        danger: true,
+        title: pt ? (one ? 'Excluir também a versão?' : `Excluir também as ${n} versões?`) : (one ? 'Delete the version too?' : `Delete the ${n} versions too?`),
+        message: pt
+          ? (one ? 'O modelo foi excluído. A versão dele continua como ficha própria se você mantiver.' : 'O modelo foi excluído. As versões dele continuam como fichas próprias se você mantiver.')
+          : (one ? 'The template was deleted. Its version stays as a sheet of its own if you keep it.' : 'The template was deleted. Its versions stay as sheets of their own if you keep them.'),
+        confirmLabel: pt ? (one ? 'Excluir a versão' : 'Excluir as versões') : (one ? 'Delete the version' : 'Delete the versions'),
+        cancelLabel: pt ? (one ? 'Manter a versão' : 'Manter as versões') : (one ? 'Keep the version' : 'Keep the versions'),
+      });
+      if (also) {
+        for (const f of forks) await storage.remove(f.id).catch(() => {});
+        await refreshCharacters();
+      }
+    }
+    setToast(t('deleted', lang));
   };
 
   const handleExport = (char) => {
@@ -603,7 +637,7 @@ const App = () => {
     if (choices.toLevel > 20 || choices.toLevel !== (char.level || 1) + 1) return;
     await storage.save(applyLevelUpChoices(char, choices));
     await refreshCharacters();
-    setToast(lang === 'pt' ? `Nível ${choices.toLevel}! ✨` : `Level ${choices.toLevel}! ✨`);
+    setToast(lang === 'pt' ? `Nível ${choices.toLevel}!` : `Level ${choices.toLevel}!`);
   }, [storage, refreshCharacters, lang]);
 
   const handleLevelUpConfirm = async (choices) => {
@@ -614,7 +648,7 @@ const App = () => {
       await api.consumeApproval(unlockedLevelup.id, { hpGain, choice, spellsAdded, classId, skillAdded, options });
       await refreshCharacters();
       setUnlockedLevelup(null);
-      setToast(lang === 'pt' ? `Nível ${choices.toLevel}! ✨` : `Level ${choices.toLevel}! ✨`);
+      setToast(lang === 'pt' ? `Nível ${choices.toLevel}!` : `Level ${choices.toLevel}!`);
       return;
     }
     if (levelUpFlow.mode === 'changeLevel') {
@@ -627,7 +661,7 @@ const App = () => {
       await storage.save(applyLevelChoice(active, levelUpFlow.level, choices.choice));
     }
     await refreshCharacters();
-    setToast(lang === 'pt' ? 'Escolha registrada ✨' : 'Choice saved ✨');
+    setToast(lang === 'pt' ? 'Escolha registrada.' : 'Choice saved.');
   };
 
   // Troca de escolhas já feitas (linha do tempo). Fora de campanha salva a ficha
@@ -668,12 +702,12 @@ const App = () => {
       const body = respecApprovalBody(active, recalculated, { lang, title });
       for (const c of camps) await api.createApproval(c.id, body);
       await loadRespecs();
-      setToast(lang === 'pt' ? 'Troca enviada ao mestre para aprovação ✉️' : 'Change sent to your DM for approval ✉️');
+      setToast(lang === 'pt' ? 'Troca enviada ao mestre para aprovação.' : 'Change sent to your DM for approval.');
       return;
     }
     await storage.save(recalculated);
     await refreshCharacters();
-    setToast(lang === 'pt' ? 'Escolha trocada ✨' : 'Choice changed ✨');
+    setToast(lang === 'pt' ? 'Escolha trocada.' : 'Choice changed.');
   };
   const respecActions = {
     change: (req) => setLevelUpFlow(req.kind === 'level' ? { mode: 'changeLevel', level: req.level }
@@ -693,7 +727,7 @@ const App = () => {
     if (typeof active.id === 'number') await api.classOptions(active.id, { classId, ...picks });
     else await storage.save(applyClassOptions(active, classId, picks));
     await refreshCharacters();
-    setToast(lang === 'pt' ? 'Escolhas registradas ✨' : 'Choices saved ✨');
+    setToast(lang === 'pt' ? 'Escolhas registradas.' : 'Choices saved.');
   };
 
   const handleLevelUpRequest = async (classId = null) => {
@@ -745,9 +779,14 @@ const App = () => {
   const handleLevelDown = async () => {
     if (!active || active.inCampaign || (active.level || 1) <= 1) return;
     const to = active.level - 1;
-    const ok = window.confirm(lang === 'pt'
-      ? `Voltar para o nível ${to}? PV, classe, aumento de atributo/talento e magias ganhos no nível ${active.level} serão desfeitos.`
-      : `Go back to level ${to}? HP, ability increase/feat and spells gained at level ${active.level} will be undone.`);
+    const ok = await confirmDialog({
+      lang,
+      title: lang === 'pt' ? `Voltar para o nível ${to}?` : `Go back to level ${to}?`,
+      message: lang === 'pt'
+        ? `PV, classe, aumento de atributo/talento e magias ganhos no nível ${active.level} serão desfeitos.`
+        : `HP, ability increase/feat and spells gained at level ${active.level} will be undone.`,
+      confirmLabel: lang === 'pt' ? `Voltar ao nível ${to}` : `Back to level ${to}`,
+    });
     if (!ok) return;
     // Classe que voltou para antes do nível de subclasse perde a subclasse, mas a
     // escolha fica guardada: subir de novo devolve a mesma (o círculo continua selado).
@@ -853,7 +892,9 @@ const App = () => {
           lang={lang}
           characters={characters}
           onOpen={(id) => { setActiveId(id); setScreen(SCREENS.SHEET); }}
-          onNew={() => { setEditingChar(null); setInviteJoin(null); setActiveId(null); setScreen(SCREENS.CREATE); }}
+          onNew={(opts) => { setEditingChar(null); setInviteJoin(null); setActiveId(null); setResumeDraft(opts?.resume === true); setScreen(SCREENS.CREATE); }}
+          campaigns={homeCampaigns}
+          onOpenCampaign={(c) => { setActiveCampaignId(c.id); setScreen(SCREENS.CAMPAIGN); }}
           onImport={handleImport}
           onImportPdf={handleImportPdf}
           onExportAll={handleExportAll}
@@ -874,6 +915,7 @@ const App = () => {
         <CreatorWizard
           key={inviteJoin?.code || 'new'}
           lang={lang}
+          autoResume={resumeDraft && !inviteJoin}
           initialJoin={inviteJoin}
           joinEnabled={!!auth.user && auth.backendAvailable !== false}
           planCheck={!!auth.user && auth.backendAvailable !== false}
@@ -1028,12 +1070,18 @@ const App = () => {
       <AppHeader
         lang={lang}
         setLang={setLang}
-        onHome={() => { setScreen(SCREENS.HOME); setActiveId(null); }}
+        onHome={() => {
+          // Saiu do criador pelo logotipo: avisa que o que foi escolhido ficou guardado.
+          if (screen === SCREENS.CREATE && !editingChar && loadDraft()) {
+            setToast(lang === 'pt' ? 'Rascunho guardado. Continue quando quiser.' : 'Draft saved. Continue whenever you like.');
+          }
+          setScreen(SCREENS.HOME); setActiveId(null);
+        }}
         right={headerRight}
       />
       {auth.backendAvailable === false && (
         <div className="offline-banner" role="status" aria-live="polite">
-          ⚠ {lang === 'pt'
+          <Icon name="warning" size={16} /> {lang === 'pt'
             ? <><strong>Sem conexão com o servidor:</strong> fichas salvas só neste navegador. Entrar e campanhas voltam sozinhos.</>
             : <><strong>Can't reach the server:</strong> characters are saved only in this browser. Log in and campaigns return on their own.</>
           }
@@ -1041,7 +1089,7 @@ const App = () => {
       )}
       {/* container-wide: 1280px só a partir de 1024px (styles.css). A ficha usa para as duas
           colunas da aba Jogar (src/sheet/ficha.css, F14); abaixo disso continua com 720px. */}
-      <main id="main" className={`container ${screen === SCREENS.CAMPAIGN || screen === SCREENS.GRIMOIRE || screen === SCREENS.ADMIN || screen === SCREENS.SHEET ? 'container-wide' : (screen === SCREENS.CREATE || screen === SCREENS.EDIT) && !editingChar ? 'container-wide container-creator' : ''}`} tabIndex={-1}>
+      <main id="main" data-no-dice={NO_DICE_SCREENS.has(screen) ? '' : undefined} className={`container ${screen === SCREENS.CAMPAIGN || screen === SCREENS.GRIMOIRE || screen === SCREENS.ADMIN || screen === SCREENS.SHEET ? 'container-wide' : (screen === SCREENS.CREATE || screen === SCREENS.EDIT) && !editingChar ? 'container-wide container-creator' : ''}`} tabIndex={-1}>
         {screen === SCREENS.AUTH && pendingInvite && !auth.user && (
           <div className="join-hint" role="status" style={{ marginBottom: 'var(--s-4)' }}>
             {lang === 'pt'
@@ -1077,45 +1125,61 @@ const App = () => {
       <DiceRoller lang={lang} />
       <LimitDialogHost lang={lang} />
       {toast && <Toast msg={toast} onDone={() => setToast('')} />}
-      {confirm && (
-        <Modal onClose={() => setConfirm(null)}>
-          <p style={{ marginBottom: 16, color: 'var(--ink-secondary)' }}>{confirm.msg}</p>
-          <div className="row gap-3" style={{ justifyContent: 'flex-end' }}>
-            <button className="btn btn-ghost" onClick={() => setConfirm(null)}>{t('cancel', lang)}</button>
-            <button className="btn btn-danger" onClick={confirm.onConfirm}>{t('confirm', lang)}</button>
-          </div>
-        </Modal>
-      )}
     </>
   );
 };
 
 function UserChip({ user, open, setOpen, onLogout, onPlan, lang }) {
   const initials = (user.displayName || user.email || '?').slice(0, 1).toUpperCase();
-  // Fecha com clique/toque fora e com Esc.
   const ref = useRef(null);
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+  // Fecha com clique/toque fora e com Esc (o Esc devolve o foco ao botão).
   useEffect(() => {
     if (!open) return undefined;
     const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') btnRef.current?.focus(); // o foco volta ao botão da conta
+    };
     document.addEventListener('pointerdown', onDown);
     window.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('pointerdown', onDown); window.removeEventListener('keydown', onKey); };
   }, [open, setOpen]);
+  // Aberto pelo teclado: o foco entra no primeiro item.
+  const byKeyboard = useRef(false);
+  useEffect(() => {
+    if (open && byKeyboard.current) menuRef.current?.querySelector('[role="menuitem"]')?.focus();
+    byKeyboard.current = false;
+  }, [open]);
+  const onMenuKey = (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+    const items = [...(menuRef.current?.querySelectorAll('[role="menuitem"]') || [])];
+    if (!items.length) return;
+    e.preventDefault();
+    const i = items.indexOf(document.activeElement);
+    const next = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1
+      : e.key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length;
+    items[next].focus();
+  };
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button className="user-chip" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="true">
-        <span className="avatar">{initials}</span>
+    <div ref={ref} className="user-chip-wrap">
+      <button type="button" ref={btnRef} className="user-chip" aria-expanded={open} aria-haspopup="menu"
+        aria-label={lang === 'pt' ? `Conta de ${user.displayName || user.email}` : `${user.displayName || user.email}'s account`}
+        onClick={(e) => { byKeyboard.current = e.detail === 0; setOpen(!open); }}
+        onKeyDown={(e) => { if (e.key === 'ArrowDown' && !open) { e.preventDefault(); byKeyboard.current = true; setOpen(true); } }}>
+        <span className="avatar" aria-hidden="true">{initials}</span>
         <span className="user-chip-name">{user.displayName}</span>
       </button>
       {open && (
-        <div className="user-chip-menu" onClick={e => e.stopPropagation()}>
-          <div style={{ padding: '6px 10px', fontSize: '0.85em', color: 'var(--ink-secondary)' }}>{user.email}</div>
-          <button className="menu-item pl-menu-plan" onClick={onPlan}>
+        <div ref={menuRef} className="user-chip-menu" role="menu" aria-label={lang === 'pt' ? 'Conta' : 'Account'}
+          onClick={e => e.stopPropagation()} onKeyDown={onMenuKey}>
+          <div className="user-chip-email">{user.email}</div>
+          <button type="button" role="menuitem" className="menu-item pl-menu-plan" onClick={onPlan}>
             <span>{lang === 'pt' ? 'Meu plano' : 'My plan'}</span>
-            <span className="pl-menu-badge" aria-hidden="true">✦</span>
+            <span className="pl-menu-badge" aria-hidden="true"><Icon name="gem" size={14} /></span>
           </button>
-          <button className="menu-item danger" onClick={onLogout}>
+          <button type="button" role="menuitem" className="menu-item danger" onClick={onLogout}>
             {lang === 'pt' ? 'Sair' : 'Log out'}
           </button>
         </div>

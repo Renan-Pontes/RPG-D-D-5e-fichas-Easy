@@ -8,7 +8,7 @@ import { classArt, speciesArt } from '../art.js';
 import { L, heroLine, hpState, hpStateLabel } from './home-utils.js';
 import { isFork, forkLabel } from '../sheet/forks.js';
 
-export default function HeroCard({ c, lang, onOpen }) {
+export default function HeroCard({ c, lang, onOpen, tables }) {
   const id = useId();
   // Foto → arte da espécie → arte da classe → inicial (cada uma que falhar passa a vez).
   const sources = [c.avatar, speciesArt(c.race), classArt(c.className)].filter(Boolean);
@@ -50,8 +50,20 @@ export default function HeroCard({ c, lang, onOpen }) {
               <span className="home-sr">{L(lang, `${cur} de ${c.maxHp} PV, ${stateWord.toLowerCase()}`, `${cur} of ${c.maxHp} HP, ${stateWord.toLowerCase()}`)}</span>
             </span>
           )}
-          {c.inCampaign && <span className="home-tag">{L(lang, 'Em campanha', 'In campaign')}</span>}
-          {isFork(c) && <span className="home-tag is-version">{c.versionKind === 'oneshot' ? '🎲' : '🏰'} {forkLabel(c, lang)}</span>}
+          {/* Com a lista de mesas carregada, o selo diz QUAL mesa (versões já levam o nome da delas). */}
+          {c.inCampaign && !isFork(c) && (
+            <span className="home-tag home-tag-table" title={tables?.length ? tables.join(' · ') : undefined}>
+              {tables?.length
+                ? <><span className="home-tag-k">{L(lang, 'Mesa', 'Table')}</span> <span className="home-tag-v">{tables[0]}</span>{tables.length > 1 ? ` +${tables.length - 1}` : ''}</>
+                : L(lang, 'Em campanha', 'In campaign')}
+            </span>
+          )}
+          {isFork(c) && (
+            <span className="home-tag is-version home-tag-table">
+              <span className="home-tag-k">{c.versionKind === 'oneshot' ? 'One-shot' : L(lang, 'Versão', 'Version')}</span>{' '}
+              <span className="home-tag-v">{c.versionKind === 'oneshot' ? (c.versionCampaign?.name || '') : forkLabel(c, lang)}</span>
+            </span>
+          )}
         </div>
       </div>
       <Icon name="chevron-right" size={18} />

@@ -2,6 +2,7 @@
 import { StepIntro, Term, ChoiceGrid, ChoiceCard, Callout, L } from '../ui.jsx';
 import { hasRulesChoices, rulesSwitchPatch, creationJoin } from '../creation.js';
 import { JoinTableBlock } from '../JoinTable.jsx';
+import { confirmDialog } from '../../../components/ConfirmDialog.jsx';
 
 const RULES = [
   {
@@ -40,12 +41,18 @@ function WelcomeStep({ char, set, lang, joinEnabled = true }) {
   const rules = char.rulesVersion === '2014' ? '2014' : '2024';
   const leveling = char.levelingMode === 'xp' ? 'xp' : 'milestone';
 
-  const chooseRules = (id) => {
+  const chooseRules = async (id) => {
     if (id === rules) return;
     if (hasRulesChoices(char)) {
-      const ok = typeof window === 'undefined' || window.confirm(L(lang,
-        'Trocar a regra recomeça a ficha do zero (classe, espécie, atributos, magias…). O nome e a foto continuam. Trocar mesmo assim?',
-        'Switching rules restarts the sheet from scratch (class, species, abilities, spells…). Name and photo are kept. Switch anyway?'));
+      const ok = await confirmDialog({
+        lang, danger: true,
+        title: L(lang, 'Trocar a regra e recomeçar?', 'Switch rules and start over?'),
+        message: L(lang,
+          'Trocar a regra recomeça a ficha do zero (classe, espécie, atributos, magias…). O nome e a foto continuam.',
+          'Switching rules restarts the sheet from scratch (class, species, abilities, spells…). Name and photo are kept.'),
+        confirmLabel: L(lang, 'Trocar e recomeçar', 'Switch and restart'),
+        cancelLabel: L(lang, 'Manter a regra', 'Keep the rules'),
+      });
       if (!ok) return;
     }
     set(prev => rulesSwitchPatch(prev, id));

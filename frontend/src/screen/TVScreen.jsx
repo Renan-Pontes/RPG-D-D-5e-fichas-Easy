@@ -5,14 +5,15 @@ import { usePolling } from '../api/polling.js';
 import CombatGrid from '../campaigns/CombatGrid.jsx';
 import DiceStage from '../dice/DiceStage.jsx';
 import '../dice/dice-styles.css';
-import { HERO_ART, hideOnError, conditionIcon } from '../art.js';
+import { HERO_ART, hideOnError, conditionIcon, classArt, speciesArt } from '../art.js';
 import ArtThumb, { ArtIcon } from '../components/ArtThumb.jsx';
 import { loadNameIndex, needsNameIndex, portraitFor } from '../combat/monster-portrait.js';
 import { absUrl, cardKey, charLine, healthLabel, paragraphs, screenMode } from '../player/player-model.js';
-import { defaultArt } from '../world/world-model.js';
+import { defaultArt, kindIcon } from '../world/world-model.js';
+import { defaultCoverArt } from '../shell/shell-logic.js';
 import { stageNow } from '../stage/stage-now.js';
 import {
-  cardLayout, conditionsShown, histLinesFit, histPlacement, initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, sceneLayout, shortName,
+  cardLayout, combatLayout, conditionsShown, histLinesFit, histPlacement, initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, sceneLayout, shortName,
   splitNumbered, turnNow, tvLang, tvMode,
 } from './tv-logic.js';
 import { fitAll } from './tv-fit.js';
@@ -80,6 +81,9 @@ const CONDITIONS = {
 // uma faixa que EMPURRA o resto, não cobre.
 // Combate em 70/30: o mapa à esquerda e, à direita, "Vez de X" e a ordem de
 // iniciativa (✓ agiu · ▶ a vez; até 10 + "+N"; PV dos PJs se o mestre deixa).
+// Sem imagem de mapa (teatro da mente: tv-logic.combatLayout) a vez e a ordem ganham
+// o palco — "Vez de X" grande com o retrato e a ordem em linhas altas; a grade fica
+// menor embaixo da vez (as posições não se perdem) ou some se o mestre a desligou.
 // Idioma: o da campanha (`lang` do /api/screen, o do mestre); sem ele, o do
 // aparelho. Fotos e tokens por URL; a resposta igual à anterior não redesenha
 // nada (e o mapa parado não redesenha o canvas).
@@ -289,8 +293,11 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   const state = data.state || {};
   const party = partyRow(data.members);
   const turn = turnNow(combat);
-  const photos = new Map((data.members || []).filter(m => m.character).map(m => [m.character.id, m.character.avatar]));
-  const portraitOf = (c) => (c.type === 'pc' ? apiUrl(photos.get(c.character_id)) : apiUrl(c.sprite) || portraitFor(c, foeIndex));
+  // retrato do PJ: a foto dele ou, sem foto, a arte da espécie/classe (a mesma do Grupo) antes da inicial
+  const photos = new Map((data.members || []).filter(m => m.character).map(m => [m.character.id, pcPicture(m.character)]));
+  const portraitOf = (c) => (c.type === 'pc' ? photos.get(c.character_id) || null : apiUrl(c.sprite) || portraitFor(c, foeIndex));
+  const fightLayout = combatLayout(combat);
+  const nowFighter = fighting ? (combat.combatants || [])[combat.turnIndex ?? 0] || null : null;
   // Frente por cima do combate: a tarja do turno no topo.
   const tarja = stg?.over ? (
     <div className="tv-turn-tarja" aria-live="polite">
@@ -298,7 +305,8 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
     </div>
   ) : null;
   const nowName = splitNumbered(turn?.name);
-  const coverUrl = absUrl(API_BASE, data.coverUrl) || HERO_ART;
+  // a mesma capa do cabeçalho da campanha no app (a do mestre, ou a arte padrão da mesa)
+  const coverUrl = absUrl(API_BASE, data.coverUrl) || defaultCoverArt(data) || HERO_ART;
   const accent = /^#[0-9a-f]{3,8}$/i.test(data.accent || '') ? data.accent : null;
 
   const pills = (
@@ -349,23 +357,46 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
                   <Clock lang={lang} />
                 </div>
               </header>
-              <main className="tv-combat-main">
-                <div className="tv-grid-container">
-                  <CombatGrid combat={grid} readOnly={true} lang={lang} />
-                  {hist.spot === 'map' && histBox}
-                </div>
+              <main className={`tv-combat-main is-${fightLayout}`}>
+                {fightLayout === 'map' ? (
+                  <div className="tv-grid-container">
+                    <CombatGrid combat={grid} readOnly={true} lang={lang} />
+                    {hist.spot === 'map' && histBox}
+                  </div>
+                ) : (
+                  <div className="tv-fight-stage">
+                    {turn?.name && (
+                      <div className="tv-now-acting is-hero" aria-live="polite">
+                        <ArtThumb src={portraitOf(nowFighter || {})} emoji={nowFighter?.type === 'pc' ? (turn.name || '?').charAt(0).toUpperCase() : '👹'}
+                          size={60} round lang={lang} className="tv-now-pic" />
+                        <div className="tv-now-text">
+                          <span className="tv-now-label">{t(lang, 'Vez de', 'Now acting')}</span>
+                          <span className="tv-now-name" data-fit="0.45">
+                            {nowName.base}{nowName.num && <span className="tv-name-num"> {nowName.num}</span>}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {fightLayout === 'grid' ? (
+                      <div className="tv-grid-container">
+                        <CombatGrid combat={grid} readOnly={true} lang={lang} />
+                        {hist.spot === 'map' && histBox}
+                      </div>
+                    ) : hist.spot === 'map' && histBox}
+                  </div>
+                )}
                 <aside className="tv-combat-side">
-                  {turn?.name && (
+                  {fightLayout === 'map' && turn?.name && (
                     <div className="tv-now-acting" aria-live="polite">
                       <span className="tv-now-label">{t(lang, 'Vez de', 'Now acting')}</span>
-                      <span className="tv-now-name" data-fit="0.6">
+                      <span className="tv-now-name" data-fit="0.5">
                         {nowName.base}{nowName.num && <span className="tv-name-num"> {nowName.num}</span>}
                       </span>
                     </div>
                   )}
                   {!stg && card && card.type === 'entry' && <TVMiniCard card={card} lang={lang} />}
                   <InitiativeOrder combat={combat} party={prefs.party !== false} order={prefs.initiative !== false}
-                    portraitOf={portraitOf} lang={lang} />
+                    portraitOf={portraitOf} lang={lang} big={fightLayout !== 'map'} />
                   {hist.spot === 'side' && histBox}
                 </aside>
               </main>
@@ -445,6 +476,11 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   );
 }
 
+/** O retrato do PJ na Tela: a foto ou, sem ela, a arte da espécie/classe (como no Grupo do app). */
+function pcPicture(c) {
+  return apiUrl(c?.avatar) || speciesArt(c?.race) || classArt(c?.classes?.[0]?.id || c?.className) || null;
+}
+
 /** O relógio da Tela (o próprio intervalo: o resto da TV não redesenha a cada segundo). */
 function Clock({ lang }) {
   const [now, setNow] = useState(() => new Date());
@@ -461,11 +497,14 @@ function Clock({ lang }) {
  * ou a faixa de saúde, e as condições. Sem a ordem (`order` false, preferência do
  * mestre): PJs e depois monstros, sem ✓/▶.
  */
-function InitiativeOrder({ combat, party, order, portraitOf, lang }) {
+function InitiativeOrder({ combat, party, order, portraitOf, lang, big = false }) {
   const { rows, more } = initiativeRows(combat, { max: 10, party, order });
   const byId = new Map((combat.combatants || []).map(c => [c.id, c]));
+  // `big`: sem mapa, a ordem tem mais de metade do palco (linhas altas). Com o mapa, poucas
+  // linhas (até 4) crescem um pouco: sobra coluna, e as Últimas rolagens ainda cabem embaixo.
+  const few = rows.length + (more ? 1 : 0) <= 4;
   return (
-    <ol className={`tv-order ${order ? '' : 'is-plain'}`} aria-label={order ? t(lang, 'Ordem de iniciativa', 'Initiative order') : t(lang, 'No combate', 'In combat')}
+    <ol className={`tv-order ${order ? '' : 'is-plain'} ${big ? 'is-big' : few ? 'is-few' : ''}`} aria-label={order ? t(lang, 'Ordem de iniciativa', 'Initiative order') : t(lang, 'No combate', 'In combat')}
       style={{ '--rows': rows.length + (more ? 1 : 0) }}>
       {rows.map(r => (
         <li key={r.id} className={`tv-order-row is-${r.state} is-${r.kind} ${r.down ? 'is-down' : ''} ${r.fallen ? 'is-fallen' : ''} ${r.stable ? 'is-stable' : ''}`} aria-current={r.state === 'now' ? 'true' : undefined}>
@@ -618,7 +657,10 @@ function TVCard({ card, lang }) {
           {own ? (
             <div className="tv-card-art is-own"><img src={img} alt="" onLoad={onLoad} onError={() => setImgOk(false)} /></div>
           ) : card.type === 'entry' ? (
-            <div className="tv-card-art is-default"><img src={defaultArt({ id: card.entryId, kind: card.kind })} alt="" onError={hideOnError} /></div>
+            <div className="tv-card-art is-default">
+              <img src={defaultArt({ id: card.entryId, kind: card.kind })} alt="" onError={hideOnError} />
+              <span className="tv-card-medal" aria-hidden="true">{kindIcon(card.kind)}</span>
+            </div>
           ) : (
             <div className="tv-card-emblem" aria-hidden="true">🎭</div>
           )}
@@ -669,7 +711,7 @@ function TVRecap({ card, campaign, lang }) {
         <div className="tv-recap-eyebrow">{t(lang, 'Anteriormente em', 'Previously on')}</div>
         <h1 className="tv-recap-campaign">{campaign.name}</h1>
         {subtitle && <h2 className="tv-recap-title">{subtitle}</h2>}
-        <div className="tv-recap-text" data-fit="0.45" data-fit-cols="3">
+        <div className="tv-recap-text" data-fit="0.34" data-fit-cols="3">
           {paras.map((p, i) => <p key={i} style={{ '--i': i }}>{p}</p>)}
         </div>
       </div>
@@ -684,12 +726,12 @@ function CharCard({ member, lang, isActiveTurn, compact = false, dense = false }
   const tone = hpPct > 60 ? 'ok' : hpPct > 30 ? 'warn' : 'crit';
   const dead = c.currentHp != null && c.currentHp <= 0;
   const line = charLine(c, lang);
-  const photo = apiUrl(c.avatar);
+  const photo = pcPicture(c);
   return (
     <article className={`tv-char-card ${compact ? 'is-compact' : ''} ${dense ? 'is-dense' : ''} ${isActiveTurn ? 'is-active-turn' : ''} ${dead ? 'is-dead' : ''}`}>
       <div className="tv-char-head">
         {photo
-          ? <img src={photo} alt="" className="tv-avatar" />
+          ? <img src={photo} alt="" className="tv-avatar" onError={hideOnError} />
           : <div className="tv-avatar tv-avatar-placeholder">{(c.name || '?').slice(0, 1).toUpperCase()}</div>}
         {/* nome em até 2 linhas sem partir palavra; a letra encolhe (tv-fit) antes de usar a 3ª */}
         <div className="tv-char-name" data-fit="0.7">{c.name}</div>

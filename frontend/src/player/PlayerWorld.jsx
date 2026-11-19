@@ -18,6 +18,7 @@ import { usePolling } from '../api/polling.js';
 import { errorMessage } from '../api/errors.js';
 import useArea from '../shell/useArea.js';
 import { SubChips } from '../shell/AreaNav.jsx';
+import useMedia from '../play/useMedia.js';
 import { nearestHit, usePanZoom } from '../shell/usePanZoom.js';
 import { labelAt, layoutPinLabels, pinPriority, zoomControlsRect } from '../world/map-labels.js';
 import EntryCard, { EntryImage } from '../world/EntryCard.jsx';
@@ -171,7 +172,8 @@ export default function PlayerWorld({ campaign, lang = 'pt', sub: subProp, entry
         </div>
         {newIds.size > 0 && (
           <div className="pl-world-newcount" role="status">
-            ✨ {newIds.size === 1 ? L(lang, '1 novidade', '1 new discovery') : L(lang, `${newIds.size} novidades`, `${newIds.size} new discoveries`)}
+            <span className="pl-world-newdot" aria-hidden="true" />
+            {newIds.size === 1 ? L(lang, '1 novidade desde a sua última visita', '1 new discovery since your last visit') : L(lang, `${newIds.size} novidades desde a sua última visita`, `${newIds.size} new discoveries since your last visit`)}
           </div>
         )}
       </header>
@@ -239,17 +241,28 @@ function WorldSilence({ lang }) {
 function AtlasView({ entries, kind, setKind, counts, newIds, lang, onOpen, living, campaignId, fogHint }) {
   const kinds = ATLAS_KINDS.filter(k => counts[k]);
   const favs = living ? favoriteEntries(entries) : [];
-  const k = kind === 'fav' ? (favs.length ? 'fav' : 'all') : (kind !== 'all' && !counts[kind] ? 'all' : kind);
+  // "Novos": o que foi revelado desde a última visita (o mesmo conjunto do selo "Novo!")
+  const fresh = entries.filter(e => newIds.has(e.id));
+  const k = kind === 'fav' ? (favs.length ? 'fav' : 'all')
+    : kind === 'new' ? (fresh.length ? 'new' : 'all')
+      : (kind !== 'all' && !counts[kind] ? 'all' : kind);
   const list = k === 'fav'
     ? atlasEntries(favs, { kind: 'all', newIds, excludeHandouts: false })
-    : atlasEntries(entries, { kind: k, newIds });
+    : k === 'new'
+      ? atlasEntries(fresh, { kind: 'all', newIds, excludeHandouts: false })
+      : atlasEntries(entries, { kind: k, newIds });
   return (
     <section aria-label={L(lang, 'Atlas', 'Atlas')}>
-      {(kinds.length > 1 || favs.length > 0) && (
+      {(kinds.length > 1 || favs.length > 0 || fresh.length > 0) && (
         <div className="pl-filters" role="group" aria-label={L(lang, 'Filtrar por tipo', 'Filter by type')}>
           <button type="button" className={`pl-filter ${k === 'all' ? 'active' : ''}`} aria-pressed={k === 'all'} onClick={() => setKind('all')}>
             {L(lang, 'Tudo', 'All')}
           </button>
+          {fresh.length > 0 && (
+            <button type="button" className={`pl-filter pl-filter-new ${k === 'new' ? 'active' : ''}`} aria-pressed={k === 'new'} onClick={() => setKind('new')}>
+              <span className="pl-dot-new" aria-hidden="true" /> {L(lang, 'Novos', 'New')} <span className="pl-filter-n">{fresh.length}</span>
+            </button>
+          )}
           {kinds.map(kk => (
             <button key={kk} type="button" className={`pl-filter ${k === kk ? 'active' : ''}`} aria-pressed={k === kk} onClick={() => setKind(kk)}>
               <span aria-hidden="true">{KIND_META[kk].icon}</span> {kindLabel(kk, lang, true)} <span className="pl-filter-n">{counts[kk]}</span>
@@ -298,6 +311,7 @@ function MapView({ maps, mapId, setMapId, byId, fetchFull, newIds, lang, onOpen,
   const current = byId.get(currentId);
   const [full, setFull] = useState(null);
   const [failed, setFailed] = useState(false);
+  const [help, setHelp] = useState(false);          // a dica de uso (no celular fica atrás do "?")
 
   useEffect(() => {
     let alive = true;
@@ -347,11 +361,15 @@ function MapView({ maps, mapId, setMapId, byId, fetchFull, newIds, lang, onOpen,
       <div className="pl-map-frame">
         <div className="pl-map-title">
           <span>{current?.name}</span>
-          <button type="button" className="btn btn-ghost btn-sm pl-map-read" onClick={() => current && onOpen(current.id)}>{L(lang, 'Ler sobre', 'Read about it')}</button>
+          <span className="pl-map-title-acts">
+            <button type="button" className="pl-map-help" aria-expanded={help} aria-controls="pl-map-hint" onClick={() => setHelp(v => !v)}
+              aria-label={L(lang, 'Como usar o mapa', 'How to use the map')}>?</button>
+            <button type="button" className="btn btn-ghost btn-sm pl-map-read" onClick={() => current && onOpen(current.id)}>{L(lang, 'Ler sobre', 'Read about it')}</button>
+          </span>
         </div>
         {/* um por mapa: trocar de mapa volta para "ver tudo" */}
         <MapCanvas key={currentId} name={current?.name || ''} img={img} pins={pins} byId={byId} newIds={newIds} lang={lang} living={living} onPin={goPin} />
-        <p className="pl-map-hint">{L(lang, 'Pinça, ＋ e − para ver de perto; arraste para andar pelo mapa. Toque num marcador para ler sobre ele.',
+        <p id="pl-map-hint" className={`pl-map-hint${help ? ' is-open' : ''}`}>{L(lang, 'Pinça, ＋ e − para ver de perto; arraste para andar pelo mapa. Toque num marcador para ler sobre ele.',
           'Pinch, ＋ and − to look closer; drag to move around. Tap a pin to read about it.')}</p>
         {failed && <p className="muted small">{L(lang, 'Não deu para carregar os marcadores.', 'Could not load the pins.')}</p>}
       </div>
@@ -363,6 +381,7 @@ function MapView({ maps, mapId, setMapId, byId, fetchFull, newIds, lang, onOpen,
 function MapCanvas({ name, img, pins, byId, newIds, lang, living, onPin }) {
   const [ratio, setRatio] = useState(null);         // largura/altura da imagem
   const [widths, setWidths] = useState({});         // id → largura do rótulo (medida)
+  const narrow = useMedia('(max-width: 767px)');    // celular: ＋ − ⤢ numa fileira em cima à esquerda
   const stageRef = useRef(null);
   const content = { w: MAP_W, h: Math.round(MAP_W / (ratio || 1.5)) };
   const placedRef = useRef({ placed: [], labels: new Map() });
@@ -392,8 +411,12 @@ function MapCanvas({ name, img, pins, byId, newIds, lang, living, onPin }) {
     w: widths[p.id] || 0,
     prio: pinPriority({ visible: true, isNew: !!(p.entryId && newIds.has(p.entryId)) }),
   })), [pins, pz.view.x, pz.view.y, pz.scale, content.w, content.h, widths, newIds]);
-  const labels = useMemo(() => layoutPinLabels(placed, { w: pz.box.w, h: pz.box.h }, { avoid: [zoomControlsRect(pz.box, { side: 'left' })] }),
-    [placed, pz.box.w, pz.box.h]);
+  const labels = useMemo(() => {
+    // a área dos botões de zoom, de onde os rótulos fogem: coluna no PC, fileira no celular
+    const col = zoomControlsRect(pz.box, { side: 'left' });
+    const avoid = narrow && col ? { l: col.l, t: 8, r: col.l + 3 * 44 + 2 * 6, b: 8 + 44 } : col;
+    return layoutPinLabels(placed, { w: pz.box.w, h: pz.box.h }, { avoid: [avoid] });
+  }, [placed, pz.box.w, pz.box.h, narrow]); // eslint-disable-line react-hooks/exhaustive-deps
   placedRef.current = { placed, labels };
 
   // mede os rótulos (os escondidos também: visibility, não display)
@@ -445,7 +468,7 @@ function MapCanvas({ name, img, pins, byId, newIds, lang, living, onPin }) {
         onPointerDown={e => e.stopPropagation()}>
         <button type="button" onClick={pz.zoomIn} disabled={!pz.canZoomIn} aria-label={L(lang, 'Aproximar', 'Zoom in')}>＋</button>
         <button type="button" onClick={pz.zoomOut} disabled={!pz.canZoomOut} aria-label={L(lang, 'Afastar', 'Zoom out')}>－</button>
-        <button type="button" onClick={pz.fit} disabled={!pz.canZoomOut} aria-label={L(lang, 'Ver o mapa inteiro', 'Fit the whole map')}>⤢</button>
+        <button type="button" className="pl-map-fit" onClick={pz.fit} disabled={!pz.canZoomOut} aria-label={L(lang, 'Ver o mapa inteiro', 'Fit the whole map')}>⤢</button>
       </div>
     </div>
   );
@@ -500,7 +523,12 @@ function DocumentsView({ handouts, fetchFull, newIds, lang, onOpen, knownIds }) 
     <div className="pl-docs">
       {handouts.map(h => (
         <div key={h.id} className="pl-doc-wrap" role="button" tabIndex={0}
-          onClick={() => onOpen(h.id)} onKeyDown={(e) => { if (e.key === 'Enter') onOpen(h.id); }}>
+          aria-label={h.name}
+          onClick={() => onOpen(h.id)}
+          onKeyDown={(e) => {
+            if (e.target !== e.currentTarget) return;   // uma menção dentro do documento trata a própria tecla
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(h.id); }
+          }}>
           {newIds.has(h.id) && <span className="pl-new-chip pl-doc-new">{L(lang, 'Novo!', 'New!')}</span>}
           <Handout entry={fulls[h.id] || h} lang={lang} onMention={(id) => knownIds.has(id) && onOpen(id)} />
         </div>
@@ -515,6 +543,11 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
   const [missing, setMissing] = useState(false);
   const [history, setHistory] = useState([]);
   const panelRef = useRef(null);
+  const [scrolled, setScrolled] = useState(false);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  // quem abriu o cartão (lido no 1º desenho, antes de o foco entrar): recebe o foco de volta
+  const [opener] = useState(() => (typeof document !== 'undefined' ? document.activeElement : null));
 
   useEffect(() => {
     let alive = true;
@@ -524,12 +557,35 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
     return () => { alive = false; };
   }, [id, light?.updatedAt, light?.visibility]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Esc fecha; Tab dá a volta dentro do cartão (antes escapava para o dado flutuante atrás).
+  // O foco entra UMA vez (antes voltava ao painel a cada redesenho — o poll de 10 s o tirava
+  // dos botões de reação) e, ao fechar, volta para o cartão que abriu.
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e) => {
+      const d = panelRef.current;
+      if (!d) return;
+      if (e.key === 'Escape') { closeRef.current?.(); return; }
+      if (e.key !== 'Tab') return;
+      const items = [...d.querySelectorAll(FOCUSABLE)].filter(x => x.getClientRects().length > 0);
+      if (!items.length) { e.preventDefault(); d.focus(); return; }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const cur = document.activeElement;
+      if (!d.contains(cur)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+      else if (e.shiftKey && (cur === first || cur === d)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && cur === last) { e.preventDefault(); first.focus(); }
+    };
     window.addEventListener('keydown', onKey);
-    panelRef.current?.focus();
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+    try { panelRef.current?.focus({ preventScroll: true }); } catch { /* ok */ }
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      if (opener && opener !== document.body && opener.isConnected && typeof opener.focus === 'function') {
+        try { opener.focus({ preventScroll: true }); } catch { /* ok */ }
+      }
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // outro cartão (menção, relação, voltar): a leitura recomeça do topo
+  useEffect(() => { const d = panelRef.current; if (d) d.scrollTop = 0; setScrolled(false); }, [id]);
 
   const go = (nextId) => {
     if (!byId.has(nextId) || nextId === id) return;
@@ -547,18 +603,33 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
   const d = full?.data || {};
   const sub = e ? subtitleOf(full || e, lang) : '';
   const rel = useMemo(() => backlinks(entries, id).filter(b => b.entry), [entries, id]);
-  const relSeen = new Set();
-  const appearsIn = rel.filter(b => { if (relSeen.has(b.entry.id)) return false; relSeen.add(b.entry.id); return true; });
   const parent = e?.parentId && byId.get(e.parentId);
   const links = (e?.links || []).filter(l => byId.has(l.to));
   const facts = !partial && full ? factsOf(full, d, lang) : [];
+  // Relações numa lista só, sem repetir: "Fica em" (o pai), depois as ligações agrupadas
+  // pelo rótulo (a ligação "fica em" para o próprio pai não entra de novo) e, por último,
+  // "Aparece em" só com quem ainda não foi citado acima.
+  const relRows = [];
+  const relShown = new Set();
+  const addRel = (label, target, note) => {
+    let row = relRows.find(r => r.label === label);
+    if (!row) { row = { label, items: [] }; relRows.push(row); }
+    const had = row.items.find(x => x.entry.id === target.id);
+    if (had) { if (note && !had.note) had.note = note; return; }
+    row.items.push({ entry: target, note: note || '' });
+    relShown.add(target.id);
+  };
+  if (parent) addRel(L(lang, 'Fica em', 'Located in'), parent);
+  for (const l of links) addRel(relLabel(l.rel, lang), byId.get(l.to), l.note);
+  for (const b of rel) if (!relShown.has(b.entry.id)) addRel(L(lang, 'Aparece em', 'Appears in'), b.entry);
 
   return (
     <div className="pl-viewer-backdrop" onClick={onClose}>
       <div className={`pl-viewer ${partial ? 'is-rumor' : ''} pl-viewer-${e?.kind || 'lore'}`} role="dialog" aria-modal="true"
         aria-label={e?.name || L(lang, 'Cartão', 'Card')} tabIndex={-1} ref={panelRef}
+        onScroll={(ev) => { const on = ev.currentTarget.scrollTop > 24; if (on !== scrolled) setScrolled(on); }}
         onClick={ev => ev.stopPropagation()} style={{ '--wl-kind': KIND_META[e?.kind]?.color }}>
-        <div className="pl-viewer-bar">
+        <div className={`pl-viewer-bar${scrolled ? ' is-scrolled' : ''}`}>
           {history.length > 0
             ? <button type="button" className="btn btn-ghost btn-sm" onClick={back}>← {L(lang, 'Voltar', 'Back')}</button>
             : <span />}
@@ -627,31 +698,23 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
                 </button>
               )}
 
-              {(parent || links.length > 0 || appearsIn.length > 0) && (
-                <section className="pl-relations">
-                  {parent && (
-                    <div className="pl-rel-row">
-                      <span className="pl-rel-label">{L(lang, 'Fica em', 'Located in')}</span>
-                      <button type="button" className="pl-rel-chip" onClick={() => go(parent.id)}>{KIND_META[parent.kind]?.icon} {parent.name}</button>
-                    </div>
-                  )}
-                  {links.map((l, i) => (
-                    <div key={`${l.to}-${i}`} className="pl-rel-row">
-                      <span className="pl-rel-label">{relLabel(l.rel, lang)}</span>
-                      <button type="button" className="pl-rel-chip" onClick={() => go(l.to)}>{KIND_META[byId.get(l.to).kind]?.icon} {byId.get(l.to).name}</button>
-                      {l.note && <span className="pl-rel-note">{l.note}</span>}
-                    </div>
-                  ))}
-                  {appearsIn.length > 0 && (
-                    <div className="pl-rel-row">
-                      <span className="pl-rel-label">{L(lang, 'Aparece em', 'Appears in')}</span>
+              {relRows.length > 0 && (
+                <section className="pl-relations" aria-label={L(lang, 'Relações', 'Relations')}>
+                  {relRows.map(row => (
+                    <div key={row.label} className="pl-rel-row">
+                      <span className="pl-rel-label">{row.label}</span>
                       <span className="pl-rel-chips">
-                        {appearsIn.map(b => (
-                          <button key={b.entry.id} type="button" className="pl-rel-chip" onClick={() => go(b.entry.id)}>{KIND_META[b.entry.kind]?.icon} {b.entry.name}</button>
+                        {row.items.map(x => (
+                          <span key={x.entry.id} className="pl-rel-item">
+                            <button type="button" className="pl-rel-chip" onClick={() => go(x.entry.id)}>
+                              <span aria-hidden="true">{KIND_META[x.entry.kind]?.icon}</span> {x.entry.name}
+                            </button>
+                            {x.note && <span className="pl-rel-note">{x.note}</span>}
+                          </span>
                         ))}
                       </span>
                     </div>
-                  )}
+                  ))}
                 </section>
               )}
 
@@ -670,6 +733,8 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
     </div>
   );
 }
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Campos públicos por tipo (o backend já tirou statblock, destinatários etc.). */
 function factsOf(full, d, lang) {

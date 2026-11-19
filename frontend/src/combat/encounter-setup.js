@@ -169,9 +169,13 @@ export function fightLine(entries, { resolve, lang = 'pt', sep = ' ' } = {}) {
 }
 
 export function startLabel({ answered, total }, lang = 'pt') {
-  return total && answered < total
-    ? L(lang, `Usar e começar (${answered} de ${total})`, `Use and start (${answered} of ${total})`)
-    : L(lang, 'Usar e começar', 'Use and start');
+  // O botão diz o que acontece com quem ainda não respondeu ("falta 1: entra com 10"), em vez
+  // do antigo "Usar e começar (0 de 1)", que não dizia o que seria usado.
+  const left = total ? total - answered : 0;
+  if (left <= 0) return L(lang, 'Começar o combate', 'Start the combat');
+  return left === 1
+    ? L(lang, 'Começar agora (falta 1: entra com 10)', 'Start now (1 missing: enters with 10)')
+    : L(lang, `Começar agora (faltam ${left}: entram com 10)`, `Start now (${left} missing: they enter with 10)`);
 }
 
 // ------------------------------------------------------------------ 3 passos

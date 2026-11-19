@@ -118,7 +118,7 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
       {isDM && (
         <SubChips subs={SUBS} active={current} onSelect={setSub} lang={lang}
           ariaLabel={t(lang, 'Grupo', 'Group')} badges={{ requests: count }}
-          badgeLabels={{ requests: t(lang, `${count} pedido(s) pendente(s)`, `${count} pending request(s)`) }} />
+          badgeLabels={{ requests: count === 1 ? t(lang, '1 pedido pendente', '1 pending request') : t(lang, `${count} pedidos pendentes`, `${count} pending requests`) }} />
       )}
 
       {current === 'players' && (

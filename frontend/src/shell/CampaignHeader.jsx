@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react';
 import { sessionClock, sessionMeta } from '../play/now-model.js';
 import { api } from '../api/client.js';
 import { defaultCoverArt, nextSessionNumber, screenLink, t } from './shell-logic.js';
+import MesaIcon from './MesaIcon.jsx';
 import { frontIcon, frontLabel, screenLine, stageNow } from '../stage/stage-now.js';
 import { sendToStage, stageBack, stageClear, stageDark } from '../stage/stage-api.js';
 import useStage from '../stage/useStage.js';
@@ -80,15 +81,15 @@ export default function CampaignHeader({
             <div className="shell-tv-wrap shell-desk-only">
               <button type="button" className="mesa-btn shell-act" onClick={onOpenScreen}
                 title={t(lang, 'Abre a janela da Tela ao vivo (tecla T copia o link)', 'Opens the live screen window (T copies the link)')}>
-                <span aria-hidden="true">📺</span> <span className="shell-act-txt">{t(lang, 'Tela', 'Screen')}</span>
+                <MesaIcon name="tv" /> <span className="shell-act-txt">{t(lang, 'Tela', 'Screen')}</span>
               </button>
             </div>
             <button type="button" className="mesa-btn shell-act shell-desk-only" onClick={onSearch}
               title={t(lang, 'Buscar (Ctrl+K)', 'Search (Ctrl+K)')} aria-keyshortcuts="Control+K">
-              <span aria-hidden="true">🔍</span> <span className="shell-act-txt">{t(lang, 'Buscar', 'Search')}</span>
+              <MesaIcon name="search" /> <span className="shell-act-txt">{t(lang, 'Buscar', 'Search')}</span>
             </button>
             <button type="button" className="mesa-btn shell-act shell-desk-only" onClick={onSettings}>
-              <span aria-hidden="true">⚙</span> <span className="shell-act-txt">{t(lang, 'Ajustes', 'Settings')}</span>
+              <MesaIcon name="settings" /> <span className="shell-act-txt">{t(lang, 'Ajustes', 'Settings')}</span>
             </button>
           </div>
         )}

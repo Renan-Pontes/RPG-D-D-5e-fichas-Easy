@@ -42,9 +42,10 @@ function Row({ icon, art, title, desc, onClick, children }) {
  * Atalhos. Grimório sempre (até offline); Campanhas com login; "Jogar com um grupo"
  * com o servidor no ar e sem login. `first`: textos de quem ainda não tem fichas.
  */
-export function HomeLinks({ lang, auth, onGrimoire, onCampaigns, onLogin, first = false, titleId }) {
+export function HomeLinks({ lang, auth, onGrimoire, onCampaigns, onLogin, first = false, titleId, hideCampaigns = false }) {
   const online = auth.backendAvailable !== false;
-  const campaigns = online && auth.user && onCampaigns;
+  // Com a faixa "Suas mesas" na tela (ela já leva a Campanhas), a linha repetida sai.
+  const campaigns = online && auth.user && onCampaigns && !hideCampaigns;
   const group = online && !auth.user && !auth.loading && onLogin;
   if (!onGrimoire && !campaigns && !group) return null;
   return (

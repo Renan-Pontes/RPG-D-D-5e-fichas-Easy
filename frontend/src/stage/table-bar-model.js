@@ -384,15 +384,23 @@ export function flipCorner(corner) {
 }
 
 export const WIN_SIZES = ['thumb', 'live', 'pill'];
+const WIN_CALM_KEY = 'forja:tv-win-size:calm';
 const WIN_KEY = 'forja:tv-win-size';
 
 /** A janela do PC: 'thumb' (resumo) · 'live' (⤢ Ao vivo) · 'pill' (– Recolher), lembrada no aparelho. */
-export function readWinSize(storage) {
-  try { const v = local(storage)?.getItem(WIN_KEY); return WIN_SIZES.includes(v) ? v : 'thumb'; }
-  catch { return 'thumb'; }
+/**
+ * `calm`: a janela FLUTUA por cima de uma página que não é a da mesa (Preparar, Mundo, Grupo)
+ * ou de uma tela estreita (tablet, sem as 2 colunas). Ali ela nasce recolhida numa faixa de
+ * 44 px (antes abria com 320×250 em cima do "＋ Cena", da lista de salas e dos PV do combate
+ * no tablet) e o que o mestre escolher nesse contexto fica lembrado à parte.
+ */
+export function readWinSize(storage, calm = false) {
+  const fallback = calm ? 'pill' : 'thumb';
+  try { const v = local(storage)?.getItem(calm ? WIN_CALM_KEY : WIN_KEY); return WIN_SIZES.includes(v) ? v : fallback; }
+  catch { return fallback; }
 }
-export function writeWinSize(size, storage) {
-  try { if (WIN_SIZES.includes(size)) local(storage)?.setItem(WIN_KEY, size); } catch { /* ok */ }
+export function writeWinSize(size, storage, calm = false) {
+  try { if (WIN_SIZES.includes(size)) local(storage)?.setItem(calm ? WIN_CALM_KEY : WIN_KEY, size); } catch { /* ok */ }
 }
 
 /**

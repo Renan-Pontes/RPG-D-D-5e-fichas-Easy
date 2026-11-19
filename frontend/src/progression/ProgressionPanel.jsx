@@ -50,7 +50,7 @@ export default function ProgressionPanel({
       {/* A mesma linha do tempo da aba Características (mesma fonte e mesma lógica:
           traços, escolhas de classe, pendências, multiclasse, truques automáticos), aqui com
           os botões para resolver as pendências */}
-      <FeatureTimeline char={character} lang={lang} title={false} placed={placedObj}
+      <FeatureTimeline char={character} lang={lang} title={false} placed={placedObj} compact
         onResolveChoice={onResolveChoice} onResolveOptions={onResolveOptions} />
 
 
@@ -73,9 +73,11 @@ export default function ProgressionPanel({
               : t(lang, `Subir para o nível ${character.level + 1}`, `Level up to ${character.level + 1}`)}
           </button>
         )}
+        {/* Desfazer o último nível é raro e destrutivo: um botão de texto pequeno sob o
+            principal, não um irmão do mesmo tamanho (a confirmação é do app, em app.jsx). */}
         {!character.inCampaign && onLevelDown && (character.level || 1) > 1 && (
-          <button className="btn btn-ghost" onClick={onLevelDown}>
-            {t(lang, `Voltar ao nível ${character.level - 1}`, `Back to level ${character.level - 1}`)}
+          <button type="button" className="prog-level-down" onClick={onLevelDown}>
+            ↩ {t(lang, `Desfazer o nível ${character.level} (voltar ao ${character.level - 1})`, `Undo level ${character.level} (back to ${character.level - 1})`)}
           </button>
         )}
       </div>

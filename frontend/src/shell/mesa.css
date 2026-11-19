@@ -702,3 +702,65 @@ body.mesa-sheet-open :is(.dice-fab, .nudge-toast-slot) { display: none !importan
 .next-card-item-act { flex: none; min-height: 44px; padding: 6px 12px; font-size: 0.8rem; }
 .next-card-note { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink-muted); }
 
+
+/* ---------------------------------------------------------- ícones de linha (MesaIcon)
+   Um metal só: o traço usa a cor do texto de quem o cerca (ouro nas abas, tinta no botão). */
+.mesa-ico { flex: none; display: inline-block; vertical-align: -0.2em; }
+.mesa-btn > .mesa-ico, .mesa-chip > .mesa-ico, .mesa-seg-btn .mesa-ico { vertical-align: middle; }
+.shell-area-ico, .shell-bottom-ico, .shell-seg-ico { display: inline-flex; align-items: center; justify-content: center; color: var(--gold); }
+.shell-area-tab.active .shell-area-ico,
+.shell-bottom-btn.active .shell-bottom-ico,
+.mesa-seg-btn:is(.active, [aria-selected="true"]) .shell-seg-ico { color: var(--gold-bright); }
+
+/* ---------------------------------------------------------- um botão só (rodada de UX)
+   As telas mais antigas da campanha (Aventuras, cartões do Mundo, modais do Preparar, pedidos
+   de rolagem…) ainda escrevem .btn: caixa-alta com 0,15em de espaço e canto reto, um 2º
+   sistema de botões ao lado do .mesa-btn. Dentro da casca da campanha, da lista de campanhas
+   e das folhas da mesa o .btn passa a ter o MESMO desenho do .mesa-btn (versalete do Cinzel,
+   canto de 6 px, ouro). :where() mantém a especificidade baixa: a regra local de cada tela
+   (largura, alinhamento) continua valendo. */
+:where(.campaign-detail.shell, .campaign-list, .mesa-sheet, .wl-editor, .modal.prep-modal) .btn,
+:is(body:has(.campaign-detail.shell), body.mesa-sheet-open) :where(.confirm-dialog) .btn {
+  font-family: var(--display);
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  text-transform: none;
+  text-align: center;
+  padding: 8px 16px;
+  border: 1px solid var(--gold-deep);
+  border-radius: 6px;
+  background: rgba(214, 176, 100, 0.06);
+  color: var(--gold-bright);
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+:where(.campaign-detail.shell, .campaign-list, .mesa-sheet, .wl-editor, .modal.prep-modal) .btn.btn-sm { padding: 6px 12px; font-size: 0.82rem; min-height: 40px; }
+:where(.campaign-detail.shell, .campaign-list, .mesa-sheet, .wl-editor, .modal.prep-modal) .btn.btn-ghost,
+:is(body:has(.campaign-detail.shell), body.mesa-sheet-open) :where(.confirm-dialog) .btn.btn-ghost { background: transparent; }
+:where(.campaign-detail.shell, .campaign-list, .mesa-sheet, .wl-editor, .modal.prep-modal) .btn.btn-primary,
+:is(body:has(.campaign-detail.shell), body.mesa-sheet-open) :where(.confirm-dialog) .btn.btn-primary {
+  background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 45%, var(--gold-deep) 100%);
+  border-color: var(--fh-gold-hi);
+  color: var(--on-gold);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+:where(.campaign-detail.shell, .campaign-list, .mesa-sheet, .wl-editor, .modal.prep-modal) .btn.btn-danger,
+:is(body:has(.campaign-detail.shell), body.mesa-sheet-open) :where(.confirm-dialog) .btn.btn-danger {
+  background: linear-gradient(180deg, #6e1f17 0%, var(--blood-deep) 100%);
+  border-color: rgba(224, 96, 79, 0.65);
+  color: #ffe3dc;
+}
+:where(.campaign-detail.shell, .campaign-list, .mesa-sheet, .wl-editor, .modal.prep-modal) .btn:focus-visible,
+:is(body:has(.campaign-detail.shell), body.mesa-sheet-open) :where(.confirm-dialog) .btn:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+@media (hover: hover) {
+  :where(.campaign-detail.shell, .campaign-list, .mesa-sheet, .wl-editor, .modal.prep-modal) .btn:not(:disabled):hover,
+  :is(body:has(.campaign-detail.shell), body.mesa-sheet-open) :where(.confirm-dialog) .btn:not(:disabled):hover { background: var(--gold-soft); border-color: var(--gold); color: var(--fh-gold-hi); }
+  :where(.campaign-detail.shell, .campaign-list, .mesa-sheet, .wl-editor, .modal.prep-modal) .btn.btn-primary:not(:disabled):hover,
+  :is(body:has(.campaign-detail.shell), body.mesa-sheet-open) :where(.confirm-dialog) .btn.btn-primary:not(:disabled):hover { background: linear-gradient(180deg, var(--fh-gold-hi) 0%, var(--gold-bright) 50%, var(--gold) 100%); color: var(--bg-deep); }
+  :where(.campaign-detail.shell, .campaign-list, .mesa-sheet, .wl-editor, .modal.prep-modal) .btn.btn-danger:not(:disabled):hover,
+  :is(body:has(.campaign-detail.shell), body.mesa-sheet-open) :where(.confirm-dialog) .btn.btn-danger:not(:disabled):hover { background: var(--blood); border-color: var(--blood-bright); color: #fff; }
+}
+@media (pointer: coarse), (max-width: 767px) {
+  :where(.campaign-detail.shell, .campaign-list, .mesa-sheet, .wl-editor, .modal.prep-modal) .btn.btn-sm { min-height: 44px; }
+}

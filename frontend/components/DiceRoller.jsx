@@ -37,7 +37,7 @@ import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from '
 import Icon from './Icons.jsx';
 import { t } from '../data/i18n.js';
 import DieShape from '../src/dice/DieShape.jsx';
-import DiceStage, { preloadDice3D, effectiveAnimMode } from '../src/dice/DiceStage.jsx';
+import DiceStage, { effectiveAnimMode } from '../src/dice/DiceStage.jsx';
 import { parseFormula, rollFormula, breakdown, formatMod } from '../src/dice/dice-math.js';
 import {
   deviceOffline, getDiceTable, presetFromServer, purposeLabel, PURPOSES, readTarget, rollBody, sendFailure,
@@ -55,7 +55,38 @@ import '../src/dice/dice-styles.css';
 
 const DICE = [4, 6, 8, 10, 12, 20, 100];
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
-const ANIM_NEXT = { '3d': '2d', '2d': 'off', off: '3d' };
+// A animação do rolador é o dado-herói 2D: a preferência guardada ('3d' | '2d' | 'off')
+// vira um interruptor ligada/desligada. Com "reduzir movimento" no sistema ela fica desligada.
+const animIsOn = (pref) => { const m = effectiveAnimMode(pref); return m !== 'off' && m !== 'static'; };
+// Quanto tempo o resultado segura a tela: até `pass` o toque fecha (como sempre); de `pass`
+// a `close` a ficha volta a aparecer e os toques passam direto para ela; depois o resultado
+// fica no cartão discreto (.dice-pop), sem bloquear nada.
+const OVERLAY_MS = { pass: 700, close: 1900, passBig: 1300, closeBig: 2900 };
+const POP_MS = 4500;
+
+// "1d20 [13, 3̶] +3 = 16": os dados (o descartado riscado), o modificador e o total.
+const RollMath = ({ entry }) => (
+  <>
+    {(entry.groups || []).map((g, gi) => {
+      const rolls = g.rolls || [];
+      return (
+        <span key={gi} className="dice-math-g">
+          {g.sign < 0 ? '− ' : gi > 0 ? '+ ' : ''}
+          <span className="dice-math-die">{rolls.filter(r => !(typeof r === 'object' && r && r.kept === false)).length}d{g.die}</span>{' ['}
+          {rolls.map((r, i) => {
+            const v = typeof r === 'object' && r ? r.value : r;
+            const dropped = typeof r === 'object' && r && r.kept === false;
+            return <span key={i}>{i > 0 ? ', ' : ''}{dropped ? <s>{v}</s> : v}</span>;
+          })}
+          {'] '}
+        </span>
+      );
+    })}
+    {entry.mod ? <span className="dice-math-mod">{entry.mod > 0 ? '+ ' : '− '}{Math.abs(entry.mod)} </span> : null}
+    <span className="dice-math-eq">= <strong>{entry.total}</strong></span>
+  </>
+);
+const advWord = (adv, lang) => (adv === 'adv' ? L(lang, 'Vantagem', 'Advantage') : adv === 'dis' ? L(lang, 'Desvantagem', 'Disadvantage') : '');
 // Um envio para o app inteiro (espaça os POSTs da ficha; nunca tenta de novo).
 const sheetSend = createSender({ post: (characterId, body) => api.sheetRoll(characterId, body) });
 // …que só sai quando o dado para na tela do jogador (E2.1).
@@ -117,10 +148,11 @@ const renderTopHudBanner = (overlay, lang) => {
     );
   }
   if (overlay.isCheck) {
+    const init = /^\s*(iniciativa|initiative)\s*$/i.test(overlay.label || '');
     return (
       <div className="dice-top-hud-banner dice-check-target-banner is-check" aria-hidden="true">
-        <span className="dice-top-hud-icon dice-check-target-icon">🎯</span>
-        <span className="dice-top-hud-title dice-check-target-title">{pt ? 'Teste de Atributo' : 'Ability Check'}</span>
+        <span className="dice-top-hud-icon dice-check-target-icon">{init ? '⚡' : '🎯'}</span>
+        <span className="dice-top-hud-title dice-check-target-title">{init ? (pt ? 'Iniciativa' : 'Initiative') : (pt ? 'Teste de Atributo' : 'Ability Check')}</span>
       </div>
     );
   }
@@ -191,7 +223,7 @@ const DiceRoller = ({ lang }) => {
 
   // Mostra um resultado pronto (overlay 3D/2D ou pop discreto) e registra no histórico.
   const present = useCallback((entry) => {
-    const animated = effectiveAnimMode(animPref) !== 'off';
+    const animated = animIsOn(animPref);   // desligada pelo jogador ou por "reduzir movimento" → cartão discreto
     const full = { id: Date.now() + Math.random(), ts: nowLabel(lang), ...entry, animated };
     setLog(prev => [full, ...prev].slice(0, 30));
     if (!animated) {
@@ -203,7 +235,7 @@ const DiceRoller = ({ lang }) => {
       // Com o dado rolando, o tremor do crítico espera ele parar (onSettled do overlay).
       if (navigator.vibrate) navigator.vibrate(30);
       setPop(null);
-      setOverlay({ ...full, settled: false });
+      setOverlay({ ...full, settled: false, openedAt: Date.now() });
     }
     return full;
   }, [lang, animPref]);
@@ -340,7 +372,6 @@ const DiceRoller = ({ lang }) => {
   // Sheet aberto: pré-carrega o 3D e reserva espaço no fim da página.
   useEffect(() => {
     if (!open) { document.body.style.removeProperty('--dice-sheet-h'); document.body.classList.remove('dice-sheet-open'); return undefined; }
-    if (effectiveAnimMode(animPref) === '3d') preloadDice3D().catch(() => {});
     document.body.classList.add('dice-sheet-open');
     const el = sheetRef.current;
     const setH = () => el && document.body.style.setProperty('--dice-sheet-h', `${el.offsetHeight}px`);
@@ -440,16 +471,37 @@ const DiceRoller = ({ lang }) => {
     };
   }, [open]);
 
-  // Overlay: fecha sozinho alguns segundos depois de parar.
+  // Overlay: depois que o dado para, (1) por um instante o toque ainda só fecha; (2) a tela
+  // clareia, a ficha volta a aparecer e os toques passam direto para ela (atacar e já tocar
+  // em Dano); (3) o resultado vai para o cartão discreto, que fica mais alguns segundos.
+  const overlayRef = useRef(null);
+  overlayRef.current = overlay;
+  const closeOverlay = useCallback((toPop = true) => {
+    const cur = overlayRef.current;
+    if (!cur) return;
+    sheetGate.settle(cur.id);
+    setOverlay(null);
+    if (toPop) setPop({ ...cur, fromOverlay: true });
+  }, []);
   useEffect(() => {
     if (!overlay?.settled) return undefined;
-    const id = setTimeout(() => setOverlay(null), overlay.isCrit || overlay.isFumble ? 5000 : 3500);
-    return () => clearTimeout(id);
-  }, [overlay?.settled, overlay?.id]);
+    const big = overlay.isCrit || overlay.isFumble;
+    const a = setTimeout(() => setOverlay(prev => (prev && prev.id === overlay.id ? { ...prev, passable: true } : prev)), big ? OVERLAY_MS.passBig : OVERLAY_MS.pass);
+    const b = setTimeout(() => closeOverlay(true), big ? OVERLAY_MS.closeBig : OVERLAY_MS.close);
+    return () => { clearTimeout(a); clearTimeout(b); };
+  }, [overlay?.settled, overlay?.id, closeOverlay]); // eslint-disable-line react-hooks/exhaustive-deps
+  // fase (2): o primeiro toque em qualquer lugar fecha o overlay e NÃO é engolido
+  useEffect(() => {
+    if (!overlay?.passable) return undefined;
+    const onDown = () => closeOverlay(true);
+    window.addEventListener('pointerdown', onDown, true);
+    window.addEventListener('keydown', onDown, true);
+    return () => { window.removeEventListener('pointerdown', onDown, true); window.removeEventListener('keydown', onDown, true); };
+  }, [overlay?.passable, overlay?.id, closeOverlay]);
 
   useEffect(() => {
     if (!pop) return undefined;
-    const id = setTimeout(() => setPop(null), 3500);
+    const id = setTimeout(() => setPop(null), POP_MS);
     return () => clearTimeout(id);
   }, [pop?.id]);
 
@@ -469,8 +521,8 @@ const DiceRoller = ({ lang }) => {
     if (parsed) rollUi(parsed, { label: entry.label, adv: entry.adv || 'normal' });
   };
 
-  const cycleAnim = () => {
-    const next = ANIM_NEXT[animPref] || '3d';
+  const toggleAnim = () => {
+    const next = animPref === 'off' ? '2d' : 'off';
     setAnimPrefState(next);
     setAnimPref(next);
   };
@@ -514,7 +566,9 @@ const DiceRoller = ({ lang }) => {
         : sheet.mode === 'crits' && sheet.live !== false ? L(lang, 'Na sessão ao vivo, só os 20 e 1 naturais desta ficha vão à Tela (regra do mestre).', 'During the live session, only natural 20s and 1s from this sheet go on screen (the GM’s rule).')
         : sheet.live === false ? L(lang, 'Sem sessão ao vivo agora: o que você rola fica no seu aparelho.', 'No live session right now: what you roll stays on your device.')
           : L(lang, `Na sessão ao vivo, a Tela da mesa mostra o que ${sheet.name || 'a ficha'} rola.`, `During the live session, the table screen shows what ${sheet.name || 'this sheet'} rolls.`);
-  const animLabel = { '3d': '3D', '2d': '2D', off: L(lang, 'Sem animação', 'No animation') }[animPref];
+  const animOn = animIsOn(animPref);
+  // desligada pelo sistema ("reduzir movimento"), não pelo jogador: o botão diz por quê
+  const animBySystem = animPref !== 'off' && !animOn;
 
   return (
     <>
@@ -558,9 +612,12 @@ const DiceRoller = ({ lang }) => {
 
           <header className="dice-sheet-head">
             <strong className="dice-sheet-title">{t('rollDice', lang)}</strong>
-            <button type="button" className="dice-sheet-anim" onClick={cycleAnim}
-              title={L(lang, 'Animação dos dados (toque para trocar)', 'Dice animation (tap to change)')}>
-              🎬 {animLabel}
+            <button type="button" className={`dice-sheet-anim${animOn ? ' is-on' : ''}`} onClick={toggleAnim}
+              role="switch" aria-checked={animOn} disabled={animBySystem}
+              title={animBySystem
+                ? L(lang, 'Desligada porque o aparelho pede menos movimento', 'Off because this device asks for reduced motion')
+                : L(lang, 'Mostrar o dado rolando em tela cheia. Desligada, o resultado aparece num cartão no canto.', 'Show the die rolling full-screen. When off, the result shows in a card in the corner.')}>
+              <Icon name="film" size={14} aria-hidden="true" /> {L(lang, 'Animação', 'Animation')}: {animOn ? L(lang, 'ligada', 'on') : L(lang, 'desligada', 'off')}
             </button>
             <button type="button" className="dice-sheet-close" onClick={() => setOpen(false)} aria-label={L(lang, 'Fechar', 'Close')}>
               <Icon name="x" size={20}/>
@@ -730,15 +787,32 @@ const DiceRoller = ({ lang }) => {
       )}
 
       {pop && !overlay && (
-        <div className={`roll-pop dice-pop no-print ${pop.isCrit ? 'crit' : ''} ${pop.isFumble ? 'fumble' : ''}`} role="status" onClick={() => setPop(null)}>
-          <span className="dice-pop-label">{pop.label}</span> <strong>{pop.total}</strong>
-          {pop.tableNote && <span className={`dice-table-note is-${pop.tableNote}`}>{tableNoteText(pop.tableNote, lang)}</span>}
+        <div className={`roll-pop dice-pop no-print ${pop.isCrit ? 'crit' : ''} ${pop.isFumble ? 'fumble' : ''}`}
+          role={pop.fromOverlay ? undefined : 'status'} onClick={() => setPop(null)}
+          title={L(lang, 'Toque para fechar', 'Tap to dismiss')}>
+          <span className="dice-pop-main">
+            <span className="dice-pop-label">{pop.who ? `${pop.who} · ` : ''}{pop.label}</span>
+            <span className="dice-pop-detail">
+              {advWord(pop.adv, lang) && <span className={`dice-pop-adv is-${pop.adv}`}>{advWord(pop.adv, lang)} · </span>}
+              <RollMath entry={pop} />
+              {pop.isCrit && <span className="dice-pop-flag"> · {L(lang, '20 natural', 'natural 20')}</span>}
+              {pop.isFumble && <span className="dice-pop-flag"> · {L(lang, '1 natural', 'natural 1')}</span>}
+            </span>
+            {pop.tableNote && <span className={`dice-table-note is-${pop.tableNote}`}>{tableNoteText(pop.tableNote, lang)}</span>}
+          </span>
+          <strong>{pop.total}</strong>
         </div>
       )}
 
       {/* === Overlay da rolagem (Minimalist & Clean Hero Die) === */}
       {overlay && (
-        <div key={overlay.id} className="dice-overlay no-print" onClick={() => { sheetGate.settle(overlay.id); setOverlay(null); }} role="status" aria-live="polite">
+        <div key={overlay.id} className={`dice-overlay no-print${overlay.settled ? ' is-settled' : ''}${overlay.passable ? ' is-passable' : ''}`}
+          onClick={() => {
+            // o "click" sintético do toque que disparou a rolagem pode cair aqui (o overlay acabou de
+            // abrir sob o dedo): nos primeiros 400 ms o toque não fecha nada
+            if (Date.now() - (overlay.openedAt || 0) < 400) return;
+            closeOverlay(true);
+          }} role="status" aria-live="polite">
           {renderTopHudBanner(overlay, lang)}
           <div className={`dice-overlay-inner ${overlay.settled && overlay.isCrit ? 'is-crit' : ''} ${overlay.settled && overlay.isFumble ? 'is-fumble' : ''} ${overlay.isSave ? 'is-save' : ''}`}>
             <DiceStage
@@ -759,6 +833,19 @@ const DiceRoller = ({ lang }) => {
                 setOverlay(prev => (prev && prev.id === overlay.id ? { ...prev, settled: true } : prev));
               }}
             />
+            {/* O que foi rolado (desde o começo) e, quando o dado para, a conta inteira: o número
+                grande do dado é o TOTAL; aqui ficam a face do d20 e o modificador. */}
+            <div className={`dice-overlay-caption${overlay.settled ? ' is-settled' : ''}`}>
+              <div className={`dice-overlay-label${isFormulaLabel(overlay) ? ' is-formula' : ''}`}>{overlay.who ? `${overlay.who} · ` : ''}{overlay.label}</div>
+              <div className="dice-overlay-formula" aria-hidden={!overlay.settled}>
+                {overlay.settled ? (
+                  <>
+                    {advWord(overlay.adv, lang) && <span className={`dice-overlay-adv is-${overlay.adv}`}>{advWord(overlay.adv, lang)} · </span>}
+                    <RollMath entry={overlay} />
+                  </>
+                ) : '\u00a0'}
+              </div>
+            </div>
             {overlay.settled && overlay.tableNote && (
               <div className={`dice-table-note is-${overlay.tableNote}`}>{tableNoteText(overlay.tableNote, lang)}</div>
             )}

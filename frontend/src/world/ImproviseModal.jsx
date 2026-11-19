@@ -93,9 +93,9 @@ export default function ImproviseModal({ campaignId, lang = 'pt', onClose, onSav
       onClose={onClose} className="wl-impro-mesa" bodyClassName="wl-impro-body" footer={foot}>
       <p className="wl-hint">{t(lang, 'Os jogadores perguntaram algo que você não preparou? Role, ajuste e use. Nada aparece para eles.', "Players asked something you didn't prep? Roll, tweak and use it. Nothing is shown to them.")}</p>
 
-      <div className="wl-seg" role="tablist">
+      <div className="mesa-seg wl-impro-seg" role="tablist" aria-label={t(lang, 'O que improvisar', 'What to improvise')}>
         {TYPES.map(tp => (
-          <button key={tp.id} type="button" role="tab" aria-selected={type === tp.id} className={type === tp.id ? 'is-on' : ''} onClick={() => switchType(tp.id)}>
+          <button key={tp.id} type="button" role="tab" aria-selected={type === tp.id} className="mesa-seg-btn" onClick={() => switchType(tp.id)}>
             <span aria-hidden="true">{tp.icon}</span> {t(lang, tp.pt, tp.en)}
           </button>
         ))}

@@ -10,6 +10,7 @@ import { campaignNextLine, defaultCoverArt, isHexColor, loadPlanCard, saveRememb
 import { blankPlanSig, writeSkip } from '../shell/next-step.js';
 import '../shell/shell.css';
 import MesaSheet from '../shell/MesaSheet.jsx';
+import MesaIcon from '../shell/MesaIcon.jsx';
 import { TableInviteCard } from '../creator/JoinTable.jsx';
 import { normalizeInviteCode, joinFromInvite, joinToast } from '../creator/creation.js';
 import { showPlanLimit } from '../plans/plans-api.js';
@@ -35,6 +36,18 @@ export default function CampaignList({ lang = 'pt', onOpen, onBack, joinCode = n
   const [showJoin, setShowJoin] = useState(!!joinCode);
   useEffect(() => { if (joinCode) setShowJoin(true); }, [joinCode]);
   const closeJoin = () => { setShowJoin(false); onJoinCodeUsed?.(); };
+  // O limite de campanhas do plano, lido ao abrir a lista: com ele batido, "+ Nova campanha"
+  // avisa NA HORA (a folha do limite) em vez de deixar o mestre preencher os 3 passos do
+  // assistente para só então ouvir "1 de 1". O servidor continua sendo quem decide (o erro
+  // dele ainda abre a mesma folha); aqui é só para o botão não prometer o que não vai dar.
+  const my = useMyPlan(true);
+  const campMax = my?.limits?.campaigns;
+  const campUsed = my?.usage?.campaigns;
+  const atLimit = Number.isFinite(campMax) && Number.isFinite(campUsed) && campMax > 0 && campUsed >= campMax;
+  const newCampaign = () => {
+    if (atLimit) { showPlanLimit({ error: 'plan_limit', limit: 'campaigns', used: campUsed, max: campMax, plan: my?.plan?.slug || '' }); return; }
+    setShowCreate(true);
+  };
 
   const load = async () => {
     try {
@@ -53,24 +66,41 @@ export default function CampaignList({ lang = 'pt', onOpen, onBack, joinCode = n
 
   return (
     <div className="campaign-list">
-      {onBack && <button className="btn btn-ghost btn-sm camp-list-back" onClick={onBack}>← {t(lang, 'Voltar', 'Back')}</button>}
-      <div className="page-head">
+      {onBack && <button type="button" className="mesa-btn is-quiet camp-list-back" onClick={onBack}>← {t(lang, 'Voltar', 'Back')}</button>}
+      <div className="page-head camp-list-head">
         <h1>{t(lang, 'Campanhas', 'Campaigns')}</h1>
         <div className="page-head-actions">
-          <button className="btn btn-ghost" onClick={() => setShowJoin(true)}>{t(lang, 'Entrar com código', 'Join with code')}</button>
-          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>{t(lang, '+ Nova campanha', '+ New campaign')}</button>
+          <button type="button" className="mesa-btn mesa-btn-lg" onClick={() => setShowJoin(true)} aria-haspopup="dialog">{t(lang, 'Entrar com código', 'Join with code')}</button>
+          {/* no limite o botão deixa de ser o principal (ouro): ele só explica o limite */}
+          <button type="button" className={`mesa-btn mesa-btn-lg ${atLimit ? '' : 'is-primary'}`} onClick={newCampaign} aria-haspopup="dialog"
+            aria-describedby={atLimit ? 'camp-limit-note' : undefined}>
+            {t(lang, '+ Nova campanha', '+ New campaign')}
+            {atLimit && <span className="camp-limit-chip" aria-hidden="true">{campUsed}/{campMax}</span>}
+          </button>
         </div>
       </div>
+      {atLimit && (
+        <p id="camp-limit-note" className="camp-limit-note">
+          {t(lang, `Seu plano tem ${campMax === 1 ? '1 campanha' : `${campMax} campanhas`} e você já usa ${campUsed}. Para criar outra, encerre uma ou mude de plano.`,
+            `Your plan has ${campMax === 1 ? '1 campaign' : `${campMax} campaigns`} and you already use ${campUsed}. To create another, close one or change plans.`)}
+        </p>
+      )}
 
-      {loading && <p>{t(lang, 'Carregando…', 'Loading…')}</p>}
-      {error && <p style={{ color: 'var(--blood-bright)' }}>{error}</p>}
+      {loading && <p className="mesa-hint" role="status">{t(lang, 'Carregando…', 'Loading…')}</p>}
+      {error && <p className="auth-error" role="alert">{error}</p>}
 
-      {!loading && campaigns.length === 0 && (
-        <div className="empty-state">
-          <p>{t(lang, 'Você ainda não está em nenhuma campanha.', "You're not in any campaign yet.")}</p>
-          <p style={{ color: 'var(--ink-secondary)' }}>
-            {t(lang, 'Crie uma como mestre ou entre com o código de uma existente.', 'Create one as DM or join with an invite code.')}
+      {!loading && !error && campaigns.length === 0 && (
+        <div className="mesa-panel has-corners camp-empty">
+          <span className="camp-empty-ico" aria-hidden="true"><MesaIcon name="castle" size={40} /></span>
+          <h2 className="camp-empty-title">{t(lang, 'Nenhuma campanha ainda', 'No campaigns yet')}</h2>
+          <p className="camp-empty-text">
+            {t(lang, 'Vai mestrar? Crie a sua em 3 passos curtos. Vai jogar? Peça o código de 6 letras ao mestre.',
+              'Running the game? Create yours in 3 short steps. Playing? Ask your DM for the 6-letter code.')}
           </p>
+          <div className="camp-empty-acts">
+            <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={newCampaign}>{t(lang, 'Criar campanha', 'Create campaign')}</button>
+            <button type="button" className="mesa-btn mesa-btn-lg" onClick={() => setShowJoin(true)}>{t(lang, 'Entrar com código', 'Join with code')}</button>
+          </div>
         </div>
       )}
 
@@ -113,7 +143,7 @@ function CampaignCard({ c, lang, onOpen }) {
         </div>
         <h3 className="camp-card-name">{c.name}</h3>
         {(c.tagline || c.description) && <p className="camp-card-tagline">{c.tagline || c.description}</p>}
-        {next && <p className="camp-card-next"><span aria-hidden="true">{st.live ? '▶' : '📋'} </span>{next}</p>}
+        {next && <p className="camp-card-next">{st.live ? <span aria-hidden="true">▶ </span> : <><MesaIcon name="next" /> </>}{next}</p>}
         <div className="camp-card-meta">
           {st.session || st.scene
             ? [st.session && `${t(lang, 'Sessão', 'Session')} ${st.session}`, st.scene].filter(Boolean).join(' · ')
@@ -206,7 +236,7 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
   const why = busy ? '' : !canNext ? t(lang, 'Dê um nome à campanha para seguir.', 'Give the campaign a name to continue.')
     : coverWorking ? t(lang, 'Preparando a capa…', 'Preparing the cover…') : '';
   return (
-    <MesaSheet lang={lang} size="full" width="lg" className="camp-wizard" icon="🏰"
+    <MesaSheet lang={lang} size="full" width="lg" className="camp-wizard" icon={<MesaIcon name="castle" />}
       title={t(lang, 'Nova campanha', 'New campaign')}
       onClose={() => { if (!busy) onClose(); }} dirty={dirty}
       dirtyText={t(lang, 'A campanha ainda não foi criada: o que você escolheu aqui se perde.', 'The campaign was not created yet: what you picked here will be lost.')}
@@ -228,7 +258,7 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
         </div>
       )}>
       <div className="camp-wizard-body">
-        <ol className="camp-wizard-steps" aria-label={t(lang, 'Passos', 'Steps')}>
+        <ol className="camp-wizard-steps no-zebra" aria-label={t(lang, 'Passos', 'Steps')}>
           {steps.map((s, i) => (
             <li key={s} className={`${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} aria-current={i === step ? 'step' : undefined}>
               <button type="button" onClick={() => canNext && setStep(i)} disabled={!canNext && i > 0}>
@@ -270,19 +300,19 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
             <div className="camp-wizard-starts" role="radiogroup" aria-label={t(lang, 'Como começar', 'How to start')}>
               {/* as mesmas 3 portas do Plano (Preparar › Plano), com as mesmas palavras */}
               <button type="button" role="radio" aria-checked={start === 'ready'} className={`camp-start ${start === 'ready' ? 'active' : ''}`} onClick={() => { setStart('ready'); setError(''); }}>
-                <span className="camp-start-ico" aria-hidden="true">📖</span>
+                <span className="camp-start-ico" aria-hidden="true"><MesaIcon name="chronicle" size={28} /></span>
                 <strong>{t(lang, 'Usar uma aventura pronta', 'Use a ready adventure')}</strong>
                 <span className="muted text-sm">{t(lang,
                   'Cenas, pessoas, combates e imagens já prontos: o mundo, as salas, as pistas e o Plano da 1ª sessão.',
                   'Scenes, people, fights and images ready: the world, the rooms, the clues and the session 1 Plan.')}</span>
               </button>
               <button type="button" role="radio" aria-checked={start === 'blank'} className={`camp-start ${start === 'blank' ? 'active' : ''}`} onClick={() => setStart('blank')}>
-                <span className="camp-start-ico" aria-hidden="true">✎</span>
+                <span className="camp-start-ico" aria-hidden="true"><MesaIcon name="pencil" size={28} /></span>
                 <strong>{t(lang, 'Montar a minha, passo a passo', 'Build my own, step by step')}</strong>
                 <span className="muted text-sm">{t(lang, 'Mundo em branco: o Plano mostra 5 passos curtos e você cria tudo do seu jeito.', 'Blank world: the Plan shows 5 short steps and you build everything your way.')}</span>
               </button>
               <button type="button" role="radio" aria-checked={start === 'sample'} className={`camp-start ${start === 'sample' ? 'active' : ''}`} onClick={() => setStart('sample')}>
-                <span className="camp-start-ico" aria-hidden="true">✨</span>
+                <span className="camp-start-ico" aria-hidden="true"><MesaIcon name="insights" size={28} /></span>
                 <strong>{t(lang, 'Começar com um exemplo', 'Start with an example')}</strong>
                 <span className="muted text-sm">{t(lang,
                   'Uma vila pronta para você mexer: o "Vale de Brumafria", com mapa, 3 NPCs, uma facção, um rumor, um segredo, uma aventura de 3 salas e um Plano com 2 cenas. Tudo editável e apagável.',

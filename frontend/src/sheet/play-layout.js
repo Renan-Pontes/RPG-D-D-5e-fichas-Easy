@@ -8,7 +8,7 @@
  * painel pula de coluna durante o uso. */
 
 export const PLAY_H = {
-  hp: 610,                                  // PV, PV temp e os 6 medalhões
+  hp: 540,                                  // 8 medalhões, condições, PV temp, PV, exaustão, morte e a dobra de Sobrevivência
   attacks: 70, attackRow: 80, attackNote: 50, // título; uma linha por arma (+ Golpe Desarmado); cada aviso/maestria
   styles: 70, style: 60, styleExtra: 40,    // título; por estilo; sentidos e reações
   slots: 190, slotRow: 65,                  // título; por círculo com espaços
@@ -17,7 +17,7 @@ export const PLAY_H = {
   wild: 330, starry: 180,                   // Forma Selvagem; Forma Estelar (Círculo das Estrelas)
   abilities: 420,
   rest: 115,
-  progression: 1200,                        // painel Progressão (linha do tempo) vindo de fora da ficha
+  progression: 300, progressionLevel: 46,   // painel Progressão: título e botões; cada nível dobrado da linha do tempo
   traitHead: 30, trait: 45,                 // traços de classe de um painel: rótulo; por traço (fechado)
 };
 
@@ -37,4 +37,23 @@ export function splitColumns(heights, gap = 16) {
     if (tallest < bestMax) { bestMax = tallest; best = k; }
   }
   return best;
+}
+
+// Desktop (duas colunas): em qual coluna vai cada painel. `panels` vem na ordem do celular
+// (Vitalidade, Ataques, Atributos…), cada um { h, col? }. Quem pede coluna fica nela —
+// Vitalidade e Atributos à esquerda, Ataques no topo da direita, à vista sem rolar a página;
+// os demais vão, em ordem, para a coluna que estiver mais curta. Devolve ['a' | 'b', …].
+// Só layout: no celular a ordem é a da lista e esta função nem é usada.
+export function assignColumns(panels, gap = 16) {
+  const out = panels.map(p => (p.col === 'a' || p.col === 'b' ? p.col : null));
+  let a = 0;
+  let b = 0;
+  const add = (col, h) => { if (h > 0) { if (col === 'a') a += h + gap; else b += h + gap; } };
+  panels.forEach((p, i) => { if (out[i]) add(out[i], p.h); });
+  panels.forEach((p, i) => {
+    if (out[i]) return;
+    out[i] = a <= b ? 'a' : 'b';
+    add(out[i], p.h);
+  });
+  return out;
 }

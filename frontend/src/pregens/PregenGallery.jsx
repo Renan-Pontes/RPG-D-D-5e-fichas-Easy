@@ -30,6 +30,9 @@ function useOpenState(key, initial) {
 function PregenModal({ p, lang, onClose, onPick, busy }) {
   const c = p.character;
   const tips = txt(p.howToPlay, lang).split('\n').filter(Boolean);
+  // A história começa em 3 linhas ("ler mais" abre): a primeira tela termina limpa acima do botão.
+  const [more, setMore] = useState(false);
+  const longStory = String(c.backstory || '').length > 180;
   return (
     <Modal onClose={onClose} title={c.name}>
       <div className="pg-modal">
@@ -49,11 +52,21 @@ function PregenModal({ p, lang, onClose, onPick, busy }) {
             <ul className="pg-tips">{tips.map((t, i) => <li key={i}>{t.replace(/^[-•]\s*/, '')}</li>)}</ul>
           </>
         )}
-        {c.backstory && <p className="muted text-sm">{c.backstory}</p>}
+        {c.backstory && (
+          <div className="pg-story">
+            <h4>{L(lang, 'História', 'Story')}</h4>
+            <p id="pg-story-text" className={`pg-story-text${longStory && !more ? ' is-clamped' : ''}`}>{c.backstory}</p>
+            {longStory && (
+              <button type="button" className="pg-story-more" aria-expanded={more} aria-controls="pg-story-text" onClick={() => setMore(m => !m)}>
+                {more ? L(lang, 'Ler menos', 'Read less') : L(lang, 'Ler mais', 'Read more')}
+              </button>
+            )}
+          </div>
+        )}
         {/* Rodapé fixo no celular: "Pegar" sempre à vista, sem rolar até o fim. */}
         <div className="pg-modal-foot">
-          <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy} onClick={() => onPick(p)}>
-            <Icon name="plus" size={16} /> {busy ? '…' : L(lang, 'Pegar esta ficha', 'Take this character')}
+          <button type="button" className="btn btn-primary" style={{ width: '100%' }} disabled={busy} aria-busy={busy || undefined} onClick={() => onPick(p)}>
+            <Icon name="plus" size={16} /> {busy ? L(lang, 'Copiando a ficha…', 'Copying the sheet…') : L(lang, 'Pegar esta ficha', 'Take this character')}
           </button>
           <p className="text-xs muted" style={{ textAlign: 'center', margin: '6px 0 0' }}>
             {L(lang, 'Vira uma cópia sua: dá para trocar o nome, a foto e tudo mais depois.', 'It becomes your own copy: rename it, change the photo and anything else later.')}

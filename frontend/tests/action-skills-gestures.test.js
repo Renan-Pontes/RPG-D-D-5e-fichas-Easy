@@ -8,6 +8,8 @@ import {
 import {
   setElementAdvState,
   getElementAdvState,
+  consumeAdvForRoll,
+  findRollableElement,
 } from '../src/dice/dice-gestures.js';
 
 test('Action Skills - 4 Action Groups cover all 18 SRD skills', () => {
@@ -158,4 +160,37 @@ test('Keen Senses - Automatically sets Perception default advantage and notation
   // Exception list includes Perception with notation badge
   assert.ok(keenData.exceptions.some(e => e.id === 'perception'));
   assert.ok(keenData.consolidatedText.includes('11/+1 ▲ Perception'));
+});
+
+// Vantagem marcada por gesto vale para UMA rolagem: quem rola lê e gasta a marca.
+test('Dice Gestures - consumeAdvForRoll lê a marca do campo e a apaga', () => {
+  const el = {
+    attrs: {},
+    classList: { _set: new Set(), add(c) { this._set.add(c); }, remove(c) { this._set.delete(c); }, contains(c) { return this._set.has(c); } },
+    title: 'Furtividade',
+    setAttribute(k, v) { this.attrs[k] = v; },
+    removeAttribute(k) { delete this.attrs[k]; },
+    getAttribute(k) { return this.attrs[k] || null; },
+    closest() { return this; },   // o próprio campo é o que rola
+  };
+  assert.equal(consumeAdvForRoll(el), null);          // nada marcado: rolagem normal
+  setElementAdvState(el, 'dis');
+  assert.equal(el.title, 'Furtividade (Desvantagem)');
+  assert.equal(consumeAdvForRoll(el), 'dis');         // a rolagem usa a marca…
+  assert.equal(getElementAdvState(el), null);         // …e ela não sobra para a próxima
+  assert.ok(!el.classList.contains('has-dis'));
+  assert.equal(el.title, 'Furtividade');              // o título volta inteiro (sem "(" sobrando)
+  assert.equal(consumeAdvForRoll(el), null);
+  assert.equal(consumeAdvForRoll(null), null);
+});
+
+// Medalhões e botões de Ataque da aba Jogar não entram mais no gesto de deslizar (travava a
+// rolagem da página a partir deles); a vantagem deles é o seletor visível do painel.
+test('Dice Gestures - medalhão e botão de Ataque da ficha ficam fora do gesto', () => {
+  const asked = [];
+  const target = { closest(sel) { asked.push(sel); return null; } };
+  assert.equal(findRollableElement(target), null);
+  assert.ok(asked[0].includes('.fh-skill-roll'));
+  assert.ok(!asked[0].includes('.fh-medal.is-roll'));
+  assert.ok(!asked[0].includes('.fh-atk-btn'));
 });

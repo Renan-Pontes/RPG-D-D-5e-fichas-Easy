@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   recapSubtitle, isDeadScreenLink, tvMode, splitNumbered, conditionsShown, bestScale, cardLayout, sceneLayout, WIDE_TEXT_MAX,
-  histPlacement, histLinesFit, quietCorner, HIST_MAX, HIST_MAP_MAX, shortName,
+  histPlacement, histLinesFit, quietCorner, HIST_MAX, HIST_MAP_MAX, shortName, combatLayout,
 } from '../src/screen/tv-logic.js';
 import { stageNow } from '../src/stage/stage-now.js';
 
@@ -297,4 +297,15 @@ test('shortName: o primeiro nome, com o número do monstro', () => {
   assert.equal(shortName('Mestre'), 'Mestre');
   assert.equal(shortName('  '), '');
   assert.equal(shortName(null), '');
+});
+
+// Combate sem imagem de mapa (teatro da mente): a vez e a ordem ganham o palco.
+test('combatLayout: com imagem o mapa em 70%; sem imagem a grade menor, ou nada se o mestre a desligou', () => {
+  assert.equal(combatLayout({ map: { backgroundUrl: '/api/x?v=1' } }), 'map');
+  assert.equal(combatLayout({ map: { background_image: 'data:image/png;base64,AA' } }), 'map');
+  assert.equal(combatLayout({ map: { grid_size_px: 50 } }), 'grid');
+  assert.equal(combatLayout({ map: { grid_visible: true } }), 'grid');
+  assert.equal(combatLayout({ map: { grid_visible: false } }), 'theatre');
+  assert.equal(combatLayout({}), 'grid');
+  assert.equal(combatLayout(null), 'grid');
 });

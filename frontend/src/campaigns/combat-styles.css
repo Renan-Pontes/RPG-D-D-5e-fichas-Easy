@@ -1124,3 +1124,14 @@ button.cs-stat.cs-init-btn.is-guess { border-color: var(--gold-bright); color: v
   .mesa-btn.ct-step-btn { max-width: 9.5rem; white-space: normal; font-size: 0.78rem; letter-spacing: 0; padding: 4px 8px; }
   .ct-step-main strong { font-family: var(--body); font-size: 15px; font-weight: 700; letter-spacing: 0; }
 }
+
+/* ---------- estado do combate: esperando iniciativa (âmbar) e encerrado (musgo) ---------- */
+.ct-state.is-waiting { border-color: var(--amber-deep); color: var(--amber); background: rgba(227, 164, 69, 0.08); }
+.ct-state.is-ended { border-color: rgba(156, 192, 101, 0.45); color: var(--moss-bright); background: rgba(95, 115, 64, 0.12); }
+.ct-ended { display: flex; flex-direction: column; gap: 10px; }
+.ct-ended-text { margin: 0; color: var(--ink-secondary); line-height: 1.45; }
+.ct-ended-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 600px) {
+  .ct-ended-acts { flex-direction: column; }
+  .ct-ended-acts .mesa-btn { width: 100%; }
+}

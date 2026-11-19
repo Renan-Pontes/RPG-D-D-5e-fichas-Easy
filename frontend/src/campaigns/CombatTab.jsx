@@ -17,6 +17,8 @@ import Utils from '../../utils.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
+import MesaIcon from '../shell/MesaIcon.jsx';
+import { countL } from '../shell/plural.js';
 import { HpBar, PcPortrait } from '../shell/MesaPc.jsx';
 import { monsterArt, monsterEmoji } from '../art.js';
 import ArtThumb from '../components/ArtThumb.jsx';
@@ -137,6 +139,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   const [pad, setPad] = useState(null); // { id } | { multi: true } — teclado de dano
   const [marks, setMarks] = useState(null); // "Vários alvos": {id: {half}} | null
   const [wrapUp, setWrapUp] = useState(null); // combate encerrado → Fim de encontro (opt-in)
+  const [endSeen, setEndSeen] = useState(null); // o fim de combate que o mestre já "arrumou" (ver `ended`)
   const [pendings, setPendings] = useState({}); // sugestão em aberto por combatente
   const [choices, setChoices] = useState({}); // alvos escolhidos por combatente:ação
   const [view, setView] = useState(() => readView(campaign.id));
@@ -231,6 +234,13 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   // das aventuras diz se a sala em jogo tem combate (servidor antigo não manda
   // `currentFight`). 1 GET ao abrir (+ a sala da cena ligada), como antes.
   const empty = !!combat && !active && combatants.length === 0;
+  // Combate ENCERRADO (o último registro é o fim) com os combatentes ainda na lista: antes a
+  // página voltava a "Montado, ainda não começou" com os 3 passos, igual a uma luta que nunca
+  // aconteceu. Agora diz "Encerrado · N rodadas" e oferece o que se faz depois de uma luta.
+  // `endSeen`: o mestre escolheu montar outro com estes (ou tirou os monstros): volta aos 3 passos.
+  const logList = combat?.log || [];
+  const endKey = logList.length && logList[logList.length - 1]?.type === 'end' ? `${logList.length}:${combat?.round ?? ''}` : null;
+  const ended = !active && combatants.length > 0 && endKey != null && endSeen !== endKey;
   const sceneNowId = table?.pulse ? table.pulse.sceneId : campaign.state?.sceneId;
   useEffect(() => {
     if (!empty) return undefined;
@@ -374,7 +384,9 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
     load();
   };
   const endCombat = async () => {
-    if (!await ask(lang, t(lang, 'Encerrar o combate?', 'End combat?'), { confirmLabel: t(lang, 'Encerrar', 'End') })) return;
+    if (!await ask(lang, t(lang, 'A ordem dos turnos para e o combate vai para a Crônica. Os combatentes continuam na lista.', 'The turn order stops and the combat goes to the Chronicle. The combatants stay on the list.'), {
+      title: t(lang, 'Encerrar o combate?', 'End the combat?'), confirmLabel: t(lang, 'Encerrar combate', 'End combat'), danger: true,
+    })) return;
     let r;
     try { r = await api.endCombat(campaign.id); }
     catch (e) { flash(`${t(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, { error: true }); return; }
@@ -385,6 +397,20 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
     else backToNow();
   };
   endCombatRef.current = endCombat;
+  // Depois da luta: tira só os monstros (os personagens ficam, prontos para a próxima).
+  const clearMonsters = async () => {
+    if (busy) return;
+    const mons = combatants.filter(c => c.type === 'monster');
+    setBusy('clear');
+    try {
+      let fresh = null;
+      for (const m of mons) fresh = (await api.removeCombatant(campaign.id, m.id))?.combat || fresh;
+      if (fresh) applyCombat(fresh);
+      setEndSeen(endKey);
+      flash(countL(lang, mons.length, ['monstro saiu do combate', 'monstros saíram do combate'], ['monster left the combat', 'monsters left the combat']) + t(lang, '. Os personagens ficaram.', '. The characters stayed.'));
+    } catch (e) { flash(`${t(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, { error: true }); }
+    finally { setBusy(''); load(); }
+  };
   const resetCombat = async (keepMap) => {
     setShowMore(false);
     try {
@@ -622,14 +648,14 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
 
       <div className="ct-acts" role="group" aria-label={t(lang, 'Ações do combate', 'Combat actions')}>
         <button type="button" className="mesa-btn mesa-btn-lg ct-act" onClick={() => setSheetOpen('ask')} aria-keyshortcuts="P">
-          <span aria-hidden="true">🎯</span> {t(lang, 'Pedir teste', 'Ask for a check')}
+          <MesaIcon name="target" /> {t(lang, 'Pedir teste', 'Ask for a check')}
         </button>
         <button type="button" className="mesa-btn mesa-btn-lg ct-act" onClick={() => setSheetOpen('show')}>
-          <span aria-hidden="true">📺</span> {t(lang, 'Mostrar', 'Show')}
+          <MesaIcon name="tv" /> {t(lang, 'Mostrar', 'Show')}
         </button>
         <button type="button" className="mesa-btn mesa-btn-lg ct-act ct-more" onClick={() => setShowMore(true)}
-          aria-haspopup="dialog" aria-label={t(lang, 'Mais do combate', 'More combat actions')}>
-          <span aria-hidden="true">⋯</span> <span className="ct-more-label">{t(lang, 'Combate', 'Combat')}</span>
+          aria-haspopup="dialog" aria-label={t(lang, 'Mais opções do combate', 'More combat options')}>
+          <MesaIcon name="more" /> <span className="ct-more-label">{t(lang, 'Mais', 'More')}</span>
         </button>
       </div>
 
@@ -658,10 +684,12 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
           )}
         </>}
         sub={(
-          <span className={`ct-state ${active ? 'is-on' : ''}`}>
+          <span className={`ct-state ${active ? 'is-on' : ''} ${!active && initCheck ? 'is-waiting' : ''} ${ended ? 'is-ended' : ''}`}>
             {active
               ? <>{t(lang, 'Em andamento', 'In progress')} · {t(lang, 'rodada', 'round')} {combat.round}</>
-              : combatants.length > 0 ? t(lang, 'Montado, ainda não começou', 'Set up, not started yet') : t(lang, 'Vazio', 'Empty')}
+              : ended ? <>{t(lang, 'Encerrado', 'Ended')} · {countL(lang, combat.round || 1, ['rodada', 'rodadas'], ['round', 'rounds'])}</>
+                : initCheck && combatants.length > 0 ? <>{t(lang, 'Esperando iniciativa', 'Waiting for initiative')} · {t(lang, `${picked.answered} de ${picked.total}`, `${picked.answered} of ${picked.total}`)}</>
+                  : combatants.length > 0 ? t(lang, 'Montado, ainda não começou', 'Set up, not started yet') : t(lang, 'Vazio', 'Empty')}
           </span>
         )}>
         {t(lang, 'Combate', 'Combat')}
@@ -669,7 +697,35 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
 
       <EncounterDifficulty campaign={campaign} combatants={combatants} lang={lang} />
 
-      {!active && (
+      {ended && (
+        <section className="mesa-panel ct-setup ct-ended" aria-labelledby="ct-ended-h">
+          <p className="mesa-eyebrow" id="ct-ended-h">{t(lang, 'Combate encerrado', 'Combat ended')}</p>
+          <p className="ct-ended-text">
+            {t(lang, `Terminou na rodada ${combat.round || 1} e já está na Crônica. `, `It ended on round ${combat.round || 1} and is already in the Chronicle. `)}
+            {nMon > 0
+              ? `${countL(lang, nMon, ['monstro continua', 'monstros continuam'], ['monster is', 'monsters are'])} ${t(lang, 'na lista e no mapa.', 'still on the list and on the map.')}`
+              : t(lang, 'Os personagens continuam na lista.', 'The characters are still on the list.')}
+          </p>
+          <div className="ct-ended-acts">
+            {nMon > 0 && (
+              <button type="button" className="mesa-btn mesa-btn-lg is-primary" disabled={busy === 'clear'} onClick={clearMonsters}>
+                {busy === 'clear' ? '…' : t(lang, 'Tirar os monstros', 'Remove the monsters')}
+              </button>
+            )}
+            <button type="button" className="mesa-btn mesa-btn-lg" onClick={startCombat} disabled={table?.busy === 'start'}>
+              ▶ {t(lang, 'Recomeçar com os mesmos', 'Fight again with the same')}
+            </button>
+            <button type="button" className="mesa-btn mesa-btn-lg is-quiet" onClick={() => setEndSeen(endKey)}>
+              {t(lang, 'Montar outro combate', 'Set up another combat')}
+            </button>
+          </div>
+          <p className="mesa-hint">{nMon > 0
+            ? t(lang, 'Tirar os monstros deixa os personagens prontos para a próxima luta. PV e condições de todos ficam como estão.', 'Removing the monsters leaves the characters ready for the next fight. Everyone keeps their HP and conditions.')
+            : t(lang, 'PV e condições ficam como estão.', 'HP and conditions stay as they are.')}</p>
+        </section>
+      )}
+
+      {!active && !ended && (
         <section className="mesa-panel ct-setup" aria-labelledby="ct-setup-h">
           <p className="mesa-eyebrow" id="ct-setup-h">{t(lang, 'Monte o combate em 3 passos', 'Set up combat in 3 steps')}</p>
           {empty && sceneFight && (
@@ -910,7 +966,7 @@ function CombatantRow({
   const condText = [
     ...conds.map(cond => {
       const r = condRounds(c, cond);
-      return conditionLabel(cond, lang) + (r != null ? t(lang, ` (${r} rodada(s))`, ` (${r} round(s))`) : '');
+      return conditionLabel(cond, lang) + (r != null ? ` (${countL(lang, r, ['rodada', 'rodadas'], ['round', 'rounds'])})` : '');
     }),
     ...fromSheet.map(cond => `${conditionLabel(cond, lang)} (${t(lang, 'ficha', 'sheet')})`),
   ].join(', ');
@@ -992,7 +1048,7 @@ function MoreSheet({ campaign, combat, lang, active, hasMap, canBack = false, bu
     finally { setSaving(false); }
   };
   return (
-    <MesaSheet title={t(lang, 'Combate', 'Combat')} icon="⋯" size="auto" width="sm" lang={lang} dock="play"
+    <MesaSheet title={t(lang, 'Mais opções do combate', 'More combat options')} icon={<MesaIcon name="more" />} size="auto" width="sm" lang={lang} dock="play"
       onClose={onClose} className="ct-more-sheet">
       <div className="ct-more-list">
         {!active && n > 0 && (

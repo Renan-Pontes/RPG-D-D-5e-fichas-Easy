@@ -163,3 +163,44 @@
 @media (min-width: 520px) { .adm-plan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .adm-plan-field { display: flex; flex-direction: column; gap: 3px; font-size: 0.86rem; color: var(--ink-secondary); min-width: 0; }
 .adm-plan-field select, .adm-plan-field input { min-height: 38px; background: var(--bg-deep); color: var(--ink-primary); border: 1px solid var(--stroke); border-radius: 6px; padding: 4px 8px; font: inherit; min-width: 0; width: 100%; }
+
+/* ---------------------------------------------------------------- visual "Ficha Forjada"
+   Couro com filete dourado no plano atual, couro simples nos demais, ícones em traço
+   dourado (components/Icons.jsx) e a página mais larga no desktop. */
+@media (min-width: 1024px) { .container:has(> .pl-page) { max-width: 1040px; } }
+.pl-foil { background: var(--fh-foil); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.6)); }
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) { .pl-foil { color: var(--gold-bright); background: none; } }
+@media (forced-colors: active) { .pl-foil { color: CanvasText; background: none; filter: none; } }
+.pl-title { text-transform: uppercase; letter-spacing: 0.08em; }
+.pl-back { display: inline-flex; align-items: center; gap: 6px; }
+.pl-glyph { flex: none; color: var(--gold); vertical-align: -3px; }
+.pl-meter-label { display: inline-flex; align-items: center; gap: 8px; }
+.pl-plan-feats li { align-items: flex-start; }
+.pl-plan-feats li .pl-glyph { margin-top: 2px; }
+.pl-plan-feats li.is-off, .pl-plan-feats li.is-off .pl-glyph { color: var(--ink-muted); }
+.pl-plan-feats li.is-off .pl-glyph { opacity: 0.6; }
+
+.pl-current, .pl-plan.is-current {
+  border: 1px solid transparent;
+  background:
+    var(--fh-noise) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 40%, var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+}
+.pl-current { border-radius: 8px; box-shadow: 0 1px 0 rgba(255, 230, 170, 0.06) inset, 0 10px 30px rgba(0, 0, 0, 0.5); }
+.pl-current::before { content: ""; position: absolute; inset: 5px; pointer-events: none; border-radius: 4px; opacity: 0.85;
+  background: var(--fh-corner-tl) top left / 22px no-repeat, var(--fh-corner-tr) top right / 22px no-repeat,
+              var(--fh-corner-bl) bottom left / 22px no-repeat, var(--fh-corner-br) bottom right / 22px no-repeat; }
+.pl-current > * { position: relative; }
+.pl-plan { border-radius: 8px; border-color: rgba(224, 181, 94, 0.26); background: linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo)); }
+.pl-plan.plan-legend:not(.is-current) { background: radial-gradient(130% 90% at 50% 0%, rgba(159, 176, 240, 0.12), transparent 60%), linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo)); }
+.pl-plan.is-current { box-shadow: 0 0 26px rgba(237, 203, 122, 0.16); }
+.pl-meter, .pl-addon { border-radius: 8px; border-color: rgba(224, 181, 94, 0.22); background: linear-gradient(180deg, rgba(37, 26, 20, 0.9), rgba(20, 14, 11, 0.9)); }
+@media (min-width: 900px) { .pl-meters { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* "Pagamento pelo site em breve": dito antes do toque */
+.pl-soon-note { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 var(--s-4); padding: 10px 12px; border-radius: 8px;
+  border: 1px solid rgba(159, 176, 240, 0.35); background: var(--arcane-soft); color: var(--ink-primary); font-size: 0.95rem; line-height: 1.4; }
+.pl-soon-note svg { flex: none; margin-top: 1px; color: var(--arcane-bright); }
+.pl-sponsored-note svg { vertical-align: -3px; margin-right: 2px; }
+.pl-menu-badge { display: inline-grid; place-items: center; }

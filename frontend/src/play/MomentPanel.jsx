@@ -46,6 +46,13 @@ export default function MomentPanel({
     if (!pick || pick.kind !== body.kind || pick.id !== body.id) onPick?.(body);
   }, [body]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // "pedido de subida" quando tudo o que espera é nível; senão "pedido de aprovação"
+  const levelOnly = approvals.levelups != null && approvals.levelups === approvals.n;
+  const approvalText = levelOnly
+    ? (approvals.n === 1 ? L(lang, 'Um jogador pediu para subir de nível.', 'A player asked to level up.') : L(lang, `${approvals.n} jogadores pediram para subir de nível.`, `${approvals.n} players asked to level up.`))
+    : (approvals.n === 1 ? L(lang, '1 pedido de aprovação espera a sua resposta.', '1 approval request is waiting for your answer.') : L(lang, `${approvals.n} pedidos de aprovação esperam a sua resposta.`, `${approvals.n} approval requests are waiting for your answer.`));
+  // nada esperando: o painel vira uma linha só (antes guardava 120 px vazios no topo da Agora)
+  const idle = ready && counters.length === 0;
   const toTests = () => goTo?.('play', 'checks');
   const toRequests = () => goTo?.('group', 'requests');
   const active = body?.kind === 'check' ? 'checks' : body?.kind === 'danger' ? 'dangers' : body?.kind;
@@ -103,23 +110,26 @@ export default function MomentPanel({
   } else if (body.kind === 'approvals') {
     content = (
       <>
-        <p className="mp-line">⬆ {approvals.n === 1 ? L(lang, '1 pedido de aprovação esperando você', '1 approval request waiting for you') : L(lang, `${approvals.n} pedidos de aprovação esperando você`, `${approvals.n} approval requests waiting for you`)}</p>
+        <p className="mp-line">{approvalText}</p>
         <div className="mp-acts">
-          <button type="button" className="mesa-btn is-primary mp-btn" onClick={toRequests}>{L(lang, 'Grupo › Pedidos ›', 'Party › Requests ›')}</button>
+          <button type="button" className="mesa-btn is-primary mp-btn" onClick={toRequests}>{approvals.n === 1 ? L(lang, 'Ver o pedido', 'See the request') : L(lang, 'Ver os pedidos', 'See the requests')}</button>
         </div>
       </>
     );
   } else {
     // a lista curta: o que espera e onde mora (sem nada: "Nada esperando ✓")
+    // cada botão diz o que faz ("Ver 1 pedido de rolagem"), não o caminho ("🎲 1 › Testes")
     const rows = [
-      rolls.length > 0 && { id: 'rolls', text: `🎲 ${rolls.length} › ${L(lang, 'Testes', 'Checks')}`, aria: L(lang, `${rolls.length} pedido(s) de rolagem: abrir Jogar › Testes`, `${rolls.length} roll request(s): open Play › Checks`), go: toTests },
-      approvals.n > 0 && { id: 'approvals', text: `⬆ ${approvals.n} › ${L(lang, 'Grupo › Pedidos', 'Party › Requests')}`, aria: L(lang, `${approvals.n} pedido(s) de aprovação: abrir Grupo › Pedidos`, `${approvals.n} approval request(s): open Party › Requests`), go: toRequests },
+      rolls.length > 0 && { id: 'rolls', text: rolls.length === 1 ? L(lang, 'Ver 1 pedido de rolagem', 'See 1 roll request') : L(lang, `Ver ${rolls.length} pedidos de rolagem`, `See ${rolls.length} roll requests`), aria: L(lang, 'abre Jogar › Testes', 'opens Play › Checks'), go: toTests },
+      approvals.n > 0 && { id: 'approvals', text: levelOnly
+        ? (approvals.n === 1 ? L(lang, 'Ver 1 pedido de subida', 'See 1 level-up request') : L(lang, `Ver ${approvals.n} pedidos de subida`, `See ${approvals.n} level-up requests`))
+        : (approvals.n === 1 ? L(lang, 'Ver 1 pedido de aprovação', 'See 1 approval request') : L(lang, `Ver ${approvals.n} pedidos de aprovação`, `See ${approvals.n} approval requests`)), aria: L(lang, 'abre Grupo › Pedidos', 'opens Party › Requests'), go: toRequests },
     ].filter(Boolean);
     content = rows.length ? (
       <>
-        <p className="mp-line mp-quiet">{L(lang, 'Esperando você:', 'Waiting for you:')}</p>
+        <p className="mp-line mp-quiet">{L(lang, 'Esperando a sua resposta:', 'Waiting for your answer:')}</p>
         <div className="mp-acts">
-          {rows.map(r => <button key={r.id} type="button" className="mesa-btn mp-btn" aria-label={r.aria} onClick={r.go}>{r.text}</button>)}
+          {rows.map(r => <button key={r.id} type="button" className="mesa-btn mp-btn" title={r.aria} onClick={r.go}>{r.text}</button>)}
         </div>
       </>
     ) : (
@@ -130,10 +140,10 @@ export default function MomentPanel({
   }
 
   return (
-    <section className={`mesa-panel is-sunk mp ${leftFrom ? 'has-from' : ''}`} aria-label={L(lang, 'Painel do momento', 'Moment panel')}>
-      {leftFrom && <p className="mp-from">{L(lang, `Ficou da Sessão ${leftFrom}:`, `Left from session ${leftFrom}:`)}</p>}
+    <section className={`mesa-panel is-sunk mp ${leftFrom && !idle ? 'has-from' : ''} ${idle ? 'is-idle' : ''}`} aria-label={L(lang, 'Painel do momento', 'Moment panel')}>
+      {leftFrom && !idle && <p className="mp-from">{L(lang, `Ficou da Sessão ${leftFrom}:`, `Left from session ${leftFrom}:`)}</p>}
       <div className="mp-head mesa-scroll" role="group" aria-label={L(lang, 'O que está esperando', 'What is waiting')}>
-        {counters.length === 0 && <span className="mp-none">{L(lang, 'Nada esperando ✓', 'Nothing waiting ✓')}</span>}
+        {counters.length === 0 && <span className="mp-none">{L(lang, 'Nada esperando você ✓', 'Nothing waiting for you ✓')}</span>}
         {counters.map(c => (
           <button key={c.id} type="button" className="mesa-chip mp-chip" aria-pressed={active === c.id}
             onClick={() => onPick?.(pickCounter(c.id, data))}>
@@ -141,7 +151,7 @@ export default function MomentPanel({
           </button>
         ))}
       </div>
-      <div className="mp-body" aria-live="polite">{content}</div>
+      {!idle && <div className="mp-body" aria-live="polite">{content}</div>}
     </section>
   );
 }

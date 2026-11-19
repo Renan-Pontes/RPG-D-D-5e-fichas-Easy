@@ -37,11 +37,28 @@ export function tokenLabel(name, maxWidth, measure) {
   const join = (b) => (suffix ? `${b} ${suffix}` : b);
   const first = base.split(/\s+/)[0];
   if (first !== base && fits(join(first))) return join(first);
-  for (let n = first.length - 1; n >= 1; n--) {
+  // até 2 letras do nome ainda dizem algo ("Go… #2"); com 1 só ("G… #1G… #2", ilegível com
+  // três tokens encostados) vale mais o código curto, sem reticências: "G1", "G2", "Lo"
+  for (let n = first.length - 1; n >= 2; n--) {
     const s = join(`${first.slice(0, n)}…`);
     if (fits(s)) return s;
   }
-  return suffix || `${first.charAt(0)}…`;
+  return tokenCode(full);
+}
+
+/**
+ * O código curto de um token: a inicial + o número ("Goblin Guerreiro #2" → "G2"); sem
+ * número, as 2 primeiras letras ("Lobo" → "Lo"). Cabe sob qualquer token e não encosta no
+ * vizinho; o nome inteiro continua na plaquinha do token selecionado.
+ */
+export function tokenCode(name) {
+  const full = String(name || '').trim();
+  if (!full) return '';
+  const m = full.match(/^(.*?)\s*#(\d+)$/);
+  const base = (m ? m[1] : full).trim();
+  const first = base.split(/\s+/)[0] || '';
+  if (m) return `${first.charAt(0).toUpperCase()}${m[2]}`;
+  return first.length <= 2 ? first : `${first.charAt(0).toUpperCase()}${first.charAt(1)}`;
 }
 
 // Onda 3 (E2.4): na TV o canvas (1200×800) é reduzido pelo CSS até caber; com o rótulo de

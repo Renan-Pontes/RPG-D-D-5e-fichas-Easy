@@ -349,7 +349,9 @@
 .tl-table-roll.is-compact { padding: 6px 0; }
 @media (min-width: 1024px) {
   .tests-panel.is-wide { display: grid; grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); align-items: start; gap: 16px; }
-  .tests-ask-col { position: sticky; top: 64px; max-height: calc(100vh - 80px); overflow-y: auto; overscroll-behavior: contain; border-radius: 8px; }
+  /* o painel de pedir é mais alto que a tela: rola com a página. Antes tinha uma rolagem
+     própria e invisível (as salvaguardas, "Outro teste" e o Pedir ficavam cortados, sem aviso). */
+  .tests-ask-col { position: static; border-radius: 8px; }
 }
 
 /* ---------- Ligar a Tela (Jogar › Tela, StagePanel): link + Copiar · Abrir · Gerar ---------- */

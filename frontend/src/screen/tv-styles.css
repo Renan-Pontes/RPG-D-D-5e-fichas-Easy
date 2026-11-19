@@ -238,7 +238,8 @@
 }
 .tv-char-sub, .tv-char-player {
   color: var(--tv-ink-soft); font-style: italic; line-height: 1.25;
-  font-size: max(var(--tv-min), calc(var(--fit, 1) * 1.05cqw));
+  /* lido a 3 m: 1,35cqw = 26 px numa TV 1080p (era 1,05 = 20 px) */
+  font-size: max(var(--tv-min), calc(var(--fit, 1) * 1.35cqw));
   overflow: hidden; overflow-wrap: break-word;
   max-height: calc(2 * 1.25em);
 }
@@ -297,16 +298,16 @@
 .tv-hp-temp { color: #9dc8e6; margin-left: 0.3cqw; }
 
 /* === CA, deslocamento, morte === */
-.tv-stats { display: flex; flex-wrap: wrap; gap: 0.4cqh 1cqw; font-size: 1.1cqw; }
+.tv-stats { display: flex; flex-wrap: wrap; gap: 0.4cqh 1cqw; font-size: 1.3cqw; }
 .tv-stat-block { display: flex; align-items: baseline; gap: 0.4cqw; }
 .tv-stats .lbl {
   color: var(--tv-ink-soft);
   font-family: 'Cinzel', serif;
-  font-size: max(var(--tv-min), 0.88cqw);
+  font-size: max(var(--tv-min), 1.2cqw);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
-.tv-stats .val { font-family: 'JetBrains Mono', monospace; font-size: 1.3cqw; color: var(--tv-ink); }
+.tv-stats .val { font-family: 'JetBrains Mono', monospace; font-size: 1.5cqw; color: var(--tv-ink); }
 .tv-death .val { color: var(--tv-hp-crit); }
 .tv-death-succ { color: var(--tv-hp-ok); margin-right: 0.3cqw; }
 .tv-death-fail { color: var(--tv-hp-crit); }
@@ -362,6 +363,14 @@
   display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 3fr); gap: 1.2cqw;
 }
 .tv-combat-main > * { min-width: 0; min-height: 0; }
+/* Sem imagem de mapa (tv-logic.combatLayout): a vez e a ordem ganham o palco. À esquerda,
+   "Vez de X" grande com o retrato e, embaixo, a grade menor ('grid') ou nada ('theatre');
+   à direita, a ordem em linhas altas, na maior parte da largura. */
+.tv-combat-main:is(.is-grid, .is-theatre) { grid-template-columns: minmax(0, 46fr) minmax(0, 54fr); gap: 1.6cqw; }
+.tv-fight-stage { position: relative; display: flex; flex-direction: column; gap: 1.4cqh; min-height: 0; }
+.tv-fight-stage > .tv-grid-container { flex: 1 1 auto; height: auto; }
+.tv-combat-main.is-theatre .tv-fight-stage { justify-content: center; }
+.tv-fight-stage > .tv-roll-hist.is-map { left: 0; right: auto; top: auto; bottom: 0; max-width: 100%; }
 /* O mapa: o mapa inteiro, ajustado à área (contain) */
 .tv-grid-container {
   min-height: 0; height: 100%;
@@ -383,13 +392,32 @@
   border-radius: 0.3cqw;
   animation: tv-pulse 2.4s ease-in-out infinite;
 }
-.tv-now-label { font-family: 'Cinzel', serif; font-size: max(var(--tv-min), 1.05cqw); text-transform: uppercase; letter-spacing: 0.15em; color: var(--tv-ink-soft); }
-/* Quem age: até 2 linhas (a letra encolhe antes da 3ª), com o " #N" do monstro sempre junto */
+.tv-now-label { font-family: 'Cinzel', serif; font-size: max(var(--tv-min), 1.5cqw); text-transform: uppercase; letter-spacing: 0.15em; color: var(--tv-ink-soft); }
+/* Quem age: o maior nome da coluna (3,6cqw = 69 px a 1080p; as linhas da ordem têm 1,35cqw),
+   até 2 linhas (a letra encolhe antes da 3ª), com o " #N" do monstro sempre junto */
 .tv-now-name {
-  font-family: 'Cinzel', serif; font-size: calc(var(--fit, 1) * 2cqw); color: var(--tv-gold); font-weight: 600; line-height: 1.2;
-  overflow: hidden; overflow-wrap: break-word; max-height: calc(2 * 1.2em);
+  /* entrelinha 1,36 = a altura da letra do Cinzel: com menos, a tinta passa da caixa da
+     linha, o encaixe medido (tv-fit) acha que "não coube" e encolhe o nome até o piso */
+  font-family: 'Cinzel', serif; font-size: calc(var(--fit, 1) * 3.6cqw); color: var(--gold-bright); font-weight: 700; line-height: 1.36;
+  overflow: hidden; overflow-wrap: break-word; max-height: calc(2 * 1.36em);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6);
 }
-.tv-now-name.is-fit-over { max-height: calc(3 * 1.2em); }
+/* Sem mapa: a vez é o destaque do palco — retrato, "Vez de" e o nome bem grande */
+.tv-now-acting.is-hero {
+  flex-direction: row; align-items: center; gap: 2cqw; padding: 2.4cqh 2cqw;
+  border-left-width: 0.5cqw; border-radius: 0.6cqw;
+  background: linear-gradient(90deg, rgba(214, 176, 100, 0.26), rgba(214, 176, 100, 0.04));
+}
+.tv-now-acting.is-hero .tv-now-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 0; }
+.tv-now-acting.is-hero .tv-now-label { font-size: max(var(--tv-min), 1.8cqw); }
+.tv-now-acting.is-hero .tv-now-name { font-size: calc(var(--fit, 1) * 5.4cqw); }
+.tv-now-pic { --art-size: 16cqh !important; flex: none; box-shadow: 0 0 0 0.25cqw var(--tv-gold), 0 0 3cqw rgba(214, 176, 100, 0.35); }
+.tv-now-pic .art-thumb-emoji { font-size: 8cqh; }
+.tv-combat-main.is-theatre .tv-now-acting.is-hero { flex-direction: column; align-items: center; text-align: center; gap: 2.4cqh; padding: 5cqh 2cqw; border-left: 0; border-top: 0.5cqh solid var(--tv-gold); background: linear-gradient(180deg, rgba(214, 176, 100, 0.22), transparent); }
+.tv-combat-main.is-theatre .tv-now-pic { --art-size: 30cqh !important; }
+.tv-combat-main.is-theatre .tv-now-pic .art-thumb-emoji { font-size: 15cqh; }
+.tv-combat-main.is-theatre .tv-now-acting.is-hero .tv-now-name { font-size: calc(var(--fit, 1) * 6cqw); }
+.tv-now-name.is-fit-over { max-height: calc(3 * 1.36em); }
 .tv-now-name.is-fit-free { max-height: none; }
 .tv-name-num { white-space: nowrap; }
 
@@ -401,7 +429,7 @@
 }
 .tv-order-row {
   min-height: 0; min-width: 0; overflow: hidden;
-  display: grid; grid-template-columns: 1.3cqw 2.8cqw minmax(0, 1fr) minmax(0, 7.6cqw); align-items: center; column-gap: 0.6cqw;
+  display: grid; grid-template-columns: 1.3cqw 2.8cqw minmax(0, 1fr) minmax(0, 8.8cqw); align-items: center; column-gap: 0.6cqw;
   padding: 0 0.7cqw;
   border-radius: 0.4cqw; border: 1px solid transparent;
   background: rgba(0, 0, 0, 0.35);
@@ -427,10 +455,10 @@
 .tv-order-row.is-now .tv-order-name { color: var(--gold-bright); font-weight: 600; }
 .tv-order-row.is-monster .tv-order-name { color: #f0d3c9; }
 .tv-order-hp.tv-hp-bar { height: 2.8cqh; margin: 0; border-radius: 0.3cqw; }
-.tv-order-hp .tv-hp-text { font-size: max(var(--tv-min), 1.05cqw); }
+.tv-order-hp .tv-hp-text { font-size: max(var(--tv-min), 1.35cqw); }
 .tv-order-band {
   justify-self: end; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: max(var(--tv-min), 1.05cqw); padding: 0.1cqh 0.6cqw; border-radius: 999px; border: 1px solid currentColor;
+  font-size: max(var(--tv-min), 1.35cqw); padding: 0.1cqh 0.6cqw; border-radius: 999px; border: 1px solid currentColor;
 }
 /* Condições da linha: ícone + nome numa 2ª linha, até 2 e "+N" com as outras */
 .tv-order-conds { grid-column: 3 / -1; display: flex; gap: 0.3cqw; min-width: 0; overflow: hidden; }
@@ -440,7 +468,34 @@
 .tv-order-pic { --art-size: 2.8cqw !important; }
 .tv-order-row:has(.tv-order-conds) :is(.tv-order-mark, .tv-order-pic) { grid-row: 1 / span 2; }
 .tv-order-pic .art-thumb-emoji { font-size: 1.4cqw; }
-.tv-order.is-plain .tv-order-row { grid-template-columns: 0 2.8cqw minmax(0, 1fr) minmax(0, 7.6cqw); }
+.tv-order.is-plain .tv-order-row { grid-template-columns: 0 2.8cqw minmax(0, 1fr) minmax(0, 8.8cqw); }
+/* Poucas linhas (até 4) com o mapa: sobra coluna, as linhas crescem um pouco */
+.tv-order.is-few { grid-template-rows: repeat(var(--rows, 4), minmax(0, 9.4cqh)); }
+.tv-order.is-few .tv-order-row { font-size: 1.7cqw; grid-template-columns: 1.6cqw 3.6cqw minmax(0, 1fr) minmax(0, 8.8cqw); }
+.tv-order.is-few .tv-order-pic { --art-size: 3.6cqw !important; }
+.tv-order.is-few.is-plain .tv-order-row { grid-template-columns: 0 3.6cqw minmax(0, 1fr) minmax(0, 8.8cqw); }
+/* letra maior: a entrelinha acompanha a altura da letra do Cinzel, senão o encaixe medido encolhe o nome sem precisar */
+.tv-order:is(.is-few, .is-big) .tv-order-name .tv-name-base { line-height: 1.36; }
+/* Sem mapa (.is-big): a ordem tem mais de metade do palco. As linhas dividem a altura por
+   igual até 11,6cqh cada (com 10 linhas, ~7,4cqh): nome com 2,1cqw (40 px a 1080p). */
+.tv-order.is-big {
+  grid-template-rows: repeat(var(--rows, 10), minmax(0, 1fr)); gap: 0.8cqh;
+  max-height: calc(var(--rows, 10) * 11.6cqh);
+}
+.tv-order.is-big .tv-order-row {
+  /* 2,1cqw; com muitas linhas a letra acompanha a altura da linha (2 linhas de nome cabem nela) */
+  font-size: min(2.1cqw, calc((80cqh / var(--rows, 10) - 1cqh) / 2.72)); padding: 0 1.2cqw; column-gap: 1.1cqw; border-radius: 0.6cqw;
+  grid-template-columns: 2cqw 4.6cqw minmax(0, 1fr) minmax(0, 14cqw);
+}
+.tv-order.is-big.is-plain .tv-order-row { grid-template-columns: 0 4.6cqw minmax(0, 1fr) minmax(0, 14cqw); }
+.tv-order.is-big .tv-order-pic { --art-size: 4.6cqw !important; }
+.tv-order.is-big .tv-order-pic .art-thumb-emoji { font-size: 2.4cqw; }
+.tv-order.is-big .tv-order-hp.tv-hp-bar { height: 4.2cqh; }
+.tv-order.is-big .tv-order-hp .tv-hp-text, .tv-order.is-big .tv-order-band { font-size: max(var(--tv-min), 1.7cqw); }
+.tv-order.is-big .tv-order-band { padding: 0.2cqh 1cqw; }
+.tv-order.is-big .tv-order-conds .tv-condition { font-size: max(var(--tv-min), 1.2cqw); }
+.tv-order.is-big .tv-order-conds .tv-cond-icon { width: 1.5cqw; height: 1.5cqw; }
+.tv-order.is-big .tv-order-row.is-now { box-shadow: 0 0 2cqw rgba(214, 176, 100, 0.35); }
 .tv-order-row.is-acted .tv-order-pic { filter: grayscale(0.4); }
 .tv-order-row:has(.tv-order-conds) { grid-template-rows: auto auto; align-content: center; row-gap: 0.2cqh; }
 .tv-order-row.is-more {
@@ -506,7 +561,20 @@
 .tv-card.no-img .tv-card-front { grid-template-columns: minmax(0, 24%) minmax(0, 1fr); }
 .tv-card-art { position: relative; min-height: 0; background: #0b0805; }
 .tv-card-art img { width: 100%; height: 100%; object-fit: cover; display: block; position: absolute; inset: 0; }
-.tv-card-art.is-default img { filter: sepia(0.3) brightness(0.8); }
+/* Sem imagem própria, a arte padrão do tipo é AMBIENTE, nunca o retrato de alguém (o NPC
+   "anão de barba ruiva" aparecia com o rosto de uma nobre): coluna estreita, arte desfocada
+   e escura, e o ícone do tipo num medalhão; a largura que sobra vai para o texto. */
+.tv-card.is-layout-art.has-img .tv-card-front { grid-template-columns: minmax(0, 24%) minmax(0, 1fr); }
+/* com a largura que sobra, o texto do cartão sem imagem nasce maior (2cqw = 38 px a 1080p) e encolhe medido */
+.tv-card.is-layout-art .tv-card-text { font-size: max(var(--tv-min), calc(var(--fit, 1) * 2cqw)); }
+.tv-card-art.is-default { display: grid; place-items: center; overflow: hidden; }
+.tv-card .tv-card-art.is-default img { filter: blur(0.5cqw) brightness(0.5) sepia(0.3); transform: scale(1.12); }
+.tv-card-medal {
+  position: relative; z-index: 1; display: grid; place-items: center; width: 9cqw; height: 9cqw; border-radius: 50%;
+  font-size: 4.4cqw; line-height: 1; border: 0.2cqw solid transparent;
+  background: radial-gradient(circle at 50% 30%, #2c2018, #120c09 75%) padding-box, var(--fh-gilt, var(--tv-gold)) border-box;
+  box-shadow: 0 0 0 0.5cqw rgba(10, 7, 6, 0.6), 0 1cqh 3cqh rgba(0, 0, 0, 0.6);
+}
 .tv-card-art::after { content: ''; position: absolute; inset: 0; box-shadow: inset -40px 0 50px -20px #160f09; pointer-events: none; }
 .tv-card-emblem {
   display: flex; align-items: center; justify-content: center; font-size: 7cqw;
@@ -604,12 +672,16 @@
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.85); font-size: 2.1cqw; animation: tv-fade 1.2s 1.8s ease both; }
 /* Letra e colunas pelo encaixe medido (tv-fit.js): 1 coluna de ~60cqw; 2 ou 3 colunas na
    largura toda quando nem a menor letra cabe. */
+/* a letra nasce grande (2,4cqw = 46 px a 1080p, numa coluna de ~76cqw) e só encolhe, medida,
+   quando o texto não cabe: o recap curto não fica miúdo no meio de uma tela vazia */
 .tv-recap-text {
   margin-top: 1cqh; min-height: 0; overflow: hidden;
-  width: min(92cqw, calc(30cqw + var(--fit-cols, 1) * 30cqw));
-  font-size: max(var(--tv-min), calc(var(--fit, 1) * 1.8cqw));
+  width: min(92cqw, calc(46cqw + var(--fit-cols, 1) * 30cqw));
+  font-size: max(var(--tv-min), calc(var(--fit, 1) * 2.4cqw));
   column-gap: 3cqw;
 }
+/* o título dá um passo atrás antes de o texto encolher */
+.tv-recap.is-medium .tv-recap-campaign { font-size: 4.6cqw; }
 .tv-recap-text p {
   margin: 0 0 0.7em; line-height: 1.4; font-style: italic; color: var(--tv-ink);
   break-inside: avoid-column;

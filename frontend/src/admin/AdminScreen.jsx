@@ -5,8 +5,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { tName } from '../../data/i18n.js';
-import { Modal } from '../../components/Shared.jsx';
+import MesaSheet from '../shell/MesaSheet.jsx';
+import MesaTitle from '../shell/MesaTitle.jsx';
 import Icon from '../../components/Icons.jsx';
+import '../shell/mesa.css';
 import './admin.css';
 import { loadCatalog, plansApi } from '../plans/plans-api.js';
 import '../plans/plans.css';
@@ -30,14 +32,14 @@ function useLoad(fn, deps) {
 }
 
 const Status = ({ state, lang }) => (state.loading ? <p className="muted">{L(lang, 'Carregando…', 'Loading…')}</p>
-  : state.error ? <p className="adm-error">{errorMessage(state.error, lang)}</p> : null);
+  : state.error ? <p className="adm-error" role="alert">{errorMessage(state.error, lang)}</p> : null);
 
 function Stat({ label, value, sub }) {
   return (
-    <div className="adm-stat">
-      <div className="adm-stat-value mono">{value}</div>
+    <div className="mesa-panel adm-stat">
       <div className="adm-stat-label">{label}</div>
-      {sub && <div className="adm-stat-sub muted">{sub}</div>}
+      <div className="adm-stat-value">{value}</div>
+      {sub && <div className="adm-stat-sub">{sub}</div>}
     </div>
   );
 }
@@ -74,8 +76,8 @@ function Overview({ lang, openUser, openChar }) {
               sub={L(lang, `${d.totals.activeShares} links de ficha ativos`, `${d.totals.activeShares} active share links`)} />
           </div>
           <div className="adm-two">
-            <section className="adm-card">
-              <h3>{L(lang, 'Fichas por classe', 'Characters by class')}</h3>
+            <section className="mesa-panel adm-card">
+              <MesaTitle>{L(lang, 'Fichas por classe', 'Characters by class')}</MesaTitle>
               {d.byClass.map(([id, n]) => (
                 <div key={id} className="adm-bar">
                   <span>{className(id, lang)}</span>
@@ -87,8 +89,8 @@ function Overview({ lang, openUser, openChar }) {
                 {L(lang, 'Regras', 'Rules')}: {d.byRules.map(([r, n]) => `${r}: ${n}`).join(' · ')}
               </p>
             </section>
-            <section className="adm-card">
-              <h3>{L(lang, 'Contas recentes', 'Recent accounts')}</h3>
+            <section className="mesa-panel adm-card">
+              <MesaTitle>{L(lang, 'Contas recentes', 'Recent accounts')}</MesaTitle>
               {d.recentUsers.map(u => (
                 <button key={u.id} type="button" className="adm-row" onClick={() => openUser(u.id)}>
                   <span className="adm-row-main"><strong>{u.displayName}</strong> <span className="muted">{u.email}</span></span>
@@ -97,8 +99,8 @@ function Overview({ lang, openUser, openChar }) {
               ))}
             </section>
           </div>
-          <section className="adm-card">
-            <h3>{L(lang, 'Fichas criadas recentemente', 'Recently created characters')}</h3>
+          <section className="mesa-panel adm-card">
+            <MesaTitle>{L(lang, 'Fichas criadas recentemente', 'Recently created characters')}</MesaTitle>
             {d.recentCharacters.map(c => <CharacterRow key={c.id} c={c} lang={lang} onOpen={openChar} />)}
           </section>
         </>
@@ -108,16 +110,16 @@ function Overview({ lang, openUser, openChar }) {
 }
 
 function SearchBox({ value, onChange, placeholder }) {
-  return <input className="adm-search" type="search" value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} />;
+  return <input className="input adm-search" type="search" value={value} placeholder={placeholder} aria-label={placeholder} onChange={e => onChange(e.target.value)} />;
 }
 
 function Pager({ total, offset, setOffset, size = 50, lang }) {
   if (total <= size) return null;
   return (
     <div className="adm-pager">
-      <button className="btn btn-ghost btn-sm" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - size))}>{L(lang, 'Anterior', 'Previous')}</button>
+      <button type="button" className="mesa-btn" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - size))}>{L(lang, 'Anterior', 'Previous')}</button>
       <span className="muted mono">{offset + 1}–{Math.min(total, offset + size)} / {total}</span>
-      <button className="btn btn-ghost btn-sm" disabled={offset + size >= total} onClick={() => setOffset(offset + size)}>{L(lang, 'Próxima', 'Next')}</button>
+      <button type="button" className="mesa-btn" disabled={offset + size >= total} onClick={() => setOffset(offset + size)}>{L(lang, 'Próxima', 'Next')}</button>
     </div>
   );
 }
@@ -139,8 +141,8 @@ function Users({ lang, openUser }) {
       <SearchBox value={q} onChange={setQ} placeholder={L(lang, 'Buscar por e-mail ou nome…', 'Search by email or name…')} />
       <Status state={st} lang={lang} />
       {st.data && (
-        <section className="adm-card">
-          <div className="muted text-xs" style={{ marginBottom: 6 }}>{st.data.total} {L(lang, 'contas', 'accounts')}</div>
+        <section className="mesa-panel adm-card">
+          <div className="adm-count">{st.data.total} {L(lang, 'contas', 'accounts')}</div>
           {st.data.results.map(u => (
             <button key={u.id} type="button" className="adm-row" onClick={() => openUser(u.id)}>
               <span className="adm-row-main">
@@ -171,11 +173,11 @@ function Characters({ lang, openChar }) {
     <>
       <div className="adm-filters">
         <SearchBox value={q} onChange={setQ} placeholder={L(lang, 'Buscar ficha, dono ou e-mail…', 'Search character, owner or email…')} />
-        <select value={cls} onChange={e => setCls(e.target.value)}>
+        <select className="input" value={cls} aria-label={L(lang, 'Classe', 'Class')} onChange={e => setCls(e.target.value)}>
           <option value="">{L(lang, 'Todas as classes', 'All classes')}</option>
           {CLASSES.map(id => <option key={id} value={id}>{tName('class', id, lang)}</option>)}
         </select>
-        <select value={rules} onChange={e => setRules(e.target.value)}>
+        <select className="input" value={rules} aria-label={L(lang, 'Regras', 'Rules')} onChange={e => setRules(e.target.value)}>
           <option value="">{L(lang, 'Todas as regras', 'All rules')}</option>
           <option value="2024">2024</option>
           <option value="2014">2014</option>
@@ -183,8 +185,8 @@ function Characters({ lang, openChar }) {
       </div>
       <Status state={st} lang={lang} />
       {st.data && (
-        <section className="adm-card">
-          <div className="muted text-xs" style={{ marginBottom: 6 }}>{st.data.total} {L(lang, 'fichas', 'characters')}</div>
+        <section className="mesa-panel adm-card">
+          <div className="adm-count">{st.data.total} {L(lang, 'fichas', 'characters')}</div>
           {st.data.results.map(c => <CharacterRow key={c.id} c={c} lang={lang} onOpen={openChar} />)}
           <Pager total={st.data.total} offset={offset} setOffset={setOffset} lang={lang} />
         </section>
@@ -204,8 +206,8 @@ function Campaigns({ lang, openUser }) {
       <SearchBox value={q} onChange={setQ} placeholder={L(lang, 'Buscar campanha ou e-mail do mestre…', 'Search campaign or DM email…')} />
       <Status state={st} lang={lang} />
       {st.data && (
-        <section className="adm-card">
-          <div className="muted text-xs" style={{ marginBottom: 6 }}>{st.data.total} {L(lang, 'campanhas', 'campaigns')}</div>
+        <section className="mesa-panel adm-card">
+          <div className="adm-count">{st.data.total} {L(lang, 'campanhas', 'campaigns')}</div>
           {st.data.results.map(c => (
             <button key={c.id} type="button" className="adm-row" onClick={() => openUser(c.dm.id)}>
               <span className="adm-row-main"><strong>{c.name}</strong> <span className="muted">· {L(lang, 'mestre', 'DM')} {c.dm.displayName}</span></span>
@@ -224,26 +226,30 @@ function UserModal({ id, lang, onClose, openChar }) {
   const st = useLoad(() => api.adminUser(id), [id]);
   const d = st.data;
   return (
-    <Modal onClose={onClose} title={d ? d.user.displayName : L(lang, 'Conta', 'Account')}>
+    <MesaSheet onClose={onClose} lang={lang} width="md" eyebrow={L(lang, 'Conta', 'Account')} title={d ? d.user.displayName : L(lang, 'Conta', 'Account')} className="adm-sheet">
       <Status state={st} lang={lang} />
       {d && (
         <>
-          <p className="muted text-sm">
+          <p className="adm-meta">
             {d.user.email}{d.user.isAdmin && <span className="adm-tag">admin</span>}<br />
             {L(lang, 'Criada em', 'Joined')} {fmtDate(d.user.dateJoined, lang)} · {L(lang, 'último login', 'last login')} {fmtDate(d.user.lastLogin, lang)}
           </p>
           <TempPasswordEditor userId={id} pending={d.user.mustChangePassword} lang={lang} />
           <PlanEditor userId={id} initial={d.plan || d.userPlan || null} lang={lang} />
-          <h4>{L(lang, 'Fichas', 'Characters')} ({d.characters.length})</h4>
-          {d.characters.length ? d.characters.map(c => <CharacterRow key={c.id} c={c} lang={lang} onOpen={openChar} showOwner={false} />)
-            : <p className="muted text-sm">{L(lang, 'Nenhuma ficha.', 'No characters.')}</p>}
-          <h4 style={{ marginTop: 12 }}>{L(lang, 'Campanhas', 'Campaigns')}</h4>
-          {[...d.campaignsAsDm.map(c => ({ ...c, role: L(lang, 'mestre', 'DM') })), ...d.campaignsAsPlayer.map(c => ({ ...c, role: L(lang, 'jogador', 'player') }))]
-            .map(c => <div key={`${c.id}-${c.role}`} className="text-sm">{c.name} <span className="muted">({c.role})</span></div>)}
-          {!d.campaignsAsDm.length && !d.campaignsAsPlayer.length && <p className="muted text-sm">{L(lang, 'Nenhuma campanha.', 'No campaigns.')}</p>}
+          <section className="adm-sec">
+            <MesaTitle>{L(lang, 'Fichas', 'Characters')} ({d.characters.length})</MesaTitle>
+            {d.characters.length ? d.characters.map(c => <CharacterRow key={c.id} c={c} lang={lang} onOpen={openChar} showOwner={false} />)
+              : <p className="adm-empty">{L(lang, 'Nenhuma ficha.', 'No characters.')}</p>}
+          </section>
+          <section className="adm-sec">
+            <MesaTitle>{L(lang, 'Campanhas', 'Campaigns')}</MesaTitle>
+            {[...d.campaignsAsDm.map(c => ({ ...c, role: L(lang, 'mestre', 'DM') })), ...d.campaignsAsPlayer.map(c => ({ ...c, role: L(lang, 'jogador', 'player') }))]
+              .map(c => <div key={`${c.id}-${c.role}`} className="adm-line">{c.name} <span className="muted">({c.role})</span></div>)}
+            {!d.campaignsAsDm.length && !d.campaignsAsPlayer.length && <p className="adm-empty">{L(lang, 'Nenhuma campanha.', 'No campaigns.')}</p>}
+          </section>
         </>
       )}
-    </Modal>
+    </MesaSheet>
   );
 }
 
@@ -274,10 +280,11 @@ function TempPasswordEditor({ userId, pending, lang }) {
     } finally { setBusy(false); }
   };
   return (
-    <section className="adm-plan">
-      <h4 style={{ marginTop: 0 }}>{L(lang, 'Senha temporária', 'Temporary password')}
-        {waiting && <span className="adm-tag">{L(lang, 'aguardando troca', 'awaiting change')}</span>}</h4>
-      <p className="muted text-sm" style={{ marginTop: 0 }}>
+    <section className="adm-plan adm-sec">
+      <MesaTitle act={waiting ? <span className="adm-tag">{L(lang, 'aguardando troca', 'awaiting change')}</span> : null}>
+        {L(lang, 'Senha temporária', 'Temporary password')}
+      </MesaTitle>
+      <p className="adm-help">
         {L(lang, 'Para quem perdeu o acesso. Combine a senha com a pessoa por fora; as sessões abertas dela caem.',
           'For someone who lost access. Share it privately; their open sessions are logged out.')}
       </p>
@@ -293,10 +300,10 @@ function TempPasswordEditor({ userId, pending, lang }) {
         <span>{L(lang, 'Pedir para trocar no próximo login', 'Require a change on next login')}</span>
       </label>
       <div className="adm-actions">
-        <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={busy || password.length < 6}>
+        <button type="button" className="mesa-btn is-primary" onClick={save} disabled={busy || password.length < 6}>
           {busy ? '…' : L(lang, 'Definir senha', 'Set password')}
         </button>
-        {msg && <span className="text-sm">{msg}</span>}
+        {msg && <span className="adm-msg" role="status">{msg}</span>}
       </div>
     </section>
   );
@@ -331,9 +338,10 @@ function PlanEditor({ userId, initial, lang }) {
     } catch (e) { setMsg(errorMessage(e, lang)); } finally { setBusy(false); }
   };
   return (
-    <section className="adm-plan">
-      <h4 style={{ marginTop: 0 }}>{L(lang, 'Plano da conta', 'Account plan')}
-        {form.source && form.source !== 'free' && <span className="adm-tag">{form.source}</span>}</h4>
+    <section className="adm-plan adm-sec">
+      <MesaTitle act={form.source && form.source !== 'free' ? <span className="adm-tag">{form.source}</span> : null}>
+        {L(lang, 'Plano da conta', 'Account plan')}
+      </MesaTitle>
       <div className="adm-plan-grid">
         <label className="adm-plan-field">
           <span>{L(lang, 'Plano', 'Plan')}</span>
@@ -352,9 +360,9 @@ function PlanEditor({ userId, initial, lang }) {
           </label>
         ))}
       </div>
-      <div className="row gap-2" style={{ alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
-        <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={busy}>{busy ? '…' : L(lang, 'Salvar plano', 'Save plan')}</button>
-        {msg && <span className="muted text-sm" role="status">{msg}</span>}
+      <div className="adm-actions">
+        <button type="button" className="mesa-btn is-primary" onClick={save} disabled={busy}>{busy ? '…' : L(lang, 'Salvar plano', 'Save plan')}</button>
+        {msg && <span className="adm-msg" role="status">{msg}</span>}
       </div>
     </section>
   );
@@ -381,28 +389,28 @@ function CharacterModal({ id, lang, onClose, openUser }) {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   };
   return (
-    <Modal onClose={onClose} title={c ? c.name : L(lang, 'Ficha', 'Character')}>
+    <MesaSheet onClose={onClose} lang={lang} width="md" eyebrow={L(lang, 'Ficha', 'Character')} title={c ? (c.name || L(lang, 'Sem nome', 'Unnamed')) : L(lang, 'Ficha', 'Character')} className="adm-sheet">
       <Status state={st} lang={lang} />
       {c && (
         <>
           {c.data?.avatar && <img className="adm-avatar" src={c.data.avatar} alt="" />}
-          <p className="text-sm">
+          <p className="adm-line">
             {className(c.className, lang)} {c.level}
             {c.race && <> · {tName('race', c.race, lang)}</>}
             {c.background && <> · {tName('background', c.background, lang)}</>}
             {' '}· {L(lang, 'regras', 'rules')} {c.rulesVersion}
           </p>
-          <p className="text-sm muted">
+          <p className="adm-meta">
             {L(lang, 'Dono', 'Owner')}: <button type="button" className="adm-link" onClick={() => openUser(c.owner.id)}>{c.owner.displayName} ({c.owner.email})</button><br />
             {L(lang, 'Criada', 'Created')} {fmtDate(c.createdAt, lang)} · {L(lang, 'atualizada', 'updated')} {fmtDate(c.updatedAt, lang)}
           </p>
-          <div className="row gap-2" style={{ flexWrap: 'wrap', marginTop: 10 }}>
-            <button className="btn btn-primary btn-sm" onClick={pdf} disabled={busy}><Icon name="download" size={14}/> {busy ? '…' : L(lang, 'Baixar PDF', 'Download PDF')}</button>
-            <button className="btn btn-ghost btn-sm" onClick={json}><Icon name="download" size={14}/> JSON</button>
+          <div className="adm-actions">
+            <button type="button" className="mesa-btn is-primary" onClick={pdf} disabled={busy}><Icon name="download" size={16}/> {busy ? '…' : L(lang, 'Baixar PDF', 'Download PDF')}</button>
+            <button type="button" className="mesa-btn" onClick={json}><Icon name="download" size={16}/> JSON</button>
           </div>
         </>
       )}
-    </Modal>
+    </MesaSheet>
   );
 }
 
@@ -419,16 +427,16 @@ export default function AdminScreen({ lang, onBack }) {
   const openChar = (id) => { setUserId(null); setCharId(id); };
   return (
     <div className="adm">
-      <div className="row-between" style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>{L(lang, 'Administração', 'Administration')}</h2>
-        <div className="row gap-2">
-          <a className="btn btn-ghost btn-sm" href="/admin/" target="_blank" rel="noreferrer">{L(lang, 'Painel do Django', 'Django admin')}</a>
-          <button className="btn btn-ghost btn-sm" onClick={onBack}><Icon name="arrow-back" size={14}/> {L(lang, 'Voltar', 'Back')}</button>
+      <header className="adm-head">
+        <h2 className="adm-title mesa-foil">{L(lang, 'Administração', 'Administration')}</h2>
+        <div className="adm-head-acts">
+          <button type="button" className="mesa-btn" onClick={onBack}><Icon name="arrow-back" size={16}/> {L(lang, 'Voltar', 'Back')}</button>
+          <a className="mesa-btn" href="/admin/" target="_blank" rel="noreferrer">{L(lang, 'Painel do Django', 'Django admin')} <span aria-hidden="true">↗</span></a>
         </div>
-      </div>
-      <nav className="adm-tabs" role="tablist">
+      </header>
+      <nav className="mesa-seg adm-tabs" role="tablist" aria-label={L(lang, 'Seções da administração', 'Administration sections')}>
         {TABS.map(([id, pt, en]) => (
-          <button key={id} role="tab" aria-selected={tab === id} className={`adm-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>{L(lang, pt, en)}</button>
+          <button key={id} type="button" role="tab" aria-selected={tab === id} className={`mesa-seg-btn adm-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>{L(lang, pt, en)}</button>
         ))}
       </nav>
       {tab === 'overview' && <Overview lang={lang} openUser={openUser} openChar={openChar} />}

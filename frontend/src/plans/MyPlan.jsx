@@ -1,6 +1,8 @@
 // Tela "Meu plano": o que a conta usa (imagens, campanhas, personagens, vagas
-// de mesa), a comparação dos planos e os extras. Pagamento ainda não existe:
-// "Assinar"/"Adicionar" passam por startCheckout() e mostram "Pagamento em breve".
+// de mesa), a comparação dos planos e os extras. Pagamento ainda não existe: enquanto
+// o catálogo não disser paymentsEnabled, a página avisa ANTES do toque ("Pagamento pelo
+// site em breve") e os botões são pedidos ("Quero este plano" / "Pedir"), que abrem o
+// contato. Com pagamento ligado voltam "Assinar" / "Adicionar" em dourado.
 import { useCallback, useEffect, useState } from 'react';
 import { errorMessage } from '../api/errors.js';
 import {
@@ -8,9 +10,14 @@ import {
 } from './plans-logic.js';
 import { loadCatalog, loadMyPlan, startCheckout } from './plans-api.js';
 import { PaymentSoonDialog } from './LimitDialog.jsx';
+import Icon from '../../components/Icons.jsx';
 import './plans.css';
 
-const SEALS = { free: '✦', player: '🛡', dm: '📜', legend: '👑' };
+// Ícones do conjunto do app (traço dourado), não emoji: iguais em qualquer aparelho.
+const SEALS = { free: 'star', player: 'shield', dm: 'scroll', legend: 'crown' };
+const METER_ICON = { images: 'image', campaigns: 'castle', characters: 'shield' };
+const Seal = ({ slug, size }) => <Icon name={SEALS[slug] || 'star'} size={size} />;
+const Glyph = ({ name }) => <Icon name={name} size={16} className="pl-glyph" aria-hidden="true" />;
 
 export default function MyPlan({ lang = 'pt', onBack }) {
   const [my, setMy] = useState(null);
@@ -38,13 +45,14 @@ export default function MyPlan({ lang = 'pt', onBack }) {
   const curOrder = catalog?.plans.find(p => p.slug === cur?.slug)?.order ?? -1;
   const bars = usageBars(my, lang);
   const activeAddons = my ? Object.entries(my.addons).filter(([, q]) => q > 0) : [];
+  const canPay = catalog?.paymentsEnabled === true;
 
   return (
     <div className="pl-page">
-      {onBack && <button type="button" className="btn btn-ghost btn-sm pl-back" onClick={onBack}>← {L(lang, 'Voltar', 'Back')}</button>}
+      {onBack && <button type="button" className="btn btn-ghost btn-sm pl-back" onClick={onBack}><Icon name="arrow-back" size={16} /> {L(lang, 'Voltar', 'Back')}</button>}
       <header className="pl-head">
         <p className="eyebrow">{L(lang, 'Sua conta', 'Your account')}</p>
-        <h1 className="pl-title">{L(lang, 'Meu plano', 'My plan')}</h1>
+        <h1 className="pl-title"><span className="pl-foil">{L(lang, 'Meu plano', 'My plan')}</span></h1>
         <p className="pl-sub">{L(lang,
           'A Forja só limita o que custa para manter no ar: espaço de imagens, campanhas e personagens — sempre somando a conta toda.',
           'The Forge only limits what costs money to keep online: image space, campaigns and characters — always for the whole account.')}</p>
@@ -60,7 +68,7 @@ export default function MyPlan({ lang = 'pt', onBack }) {
 
       {my && (
         <section className="pl-current" aria-labelledby="pl-current-name">
-          <div className="pl-current-seal" aria-hidden="true">{SEALS[cur.slug] || '✦'}</div>
+          <div className="pl-current-seal" aria-hidden="true"><Seal slug={cur.slug} size={28} /></div>
           <div className="pl-current-main">
             <span className="eyebrow">{L(lang, 'Plano atual', 'Current plan')}</span>
             <h2 id="pl-current-name" className="pl-current-name">{planName(cur, lang)}</h2>
@@ -91,7 +99,7 @@ export default function MyPlan({ lang = 'pt', onBack }) {
             {(my.limits.slots > 0 || my.tables.length > 0) && (
               <div className="pl-meter pl-meter-slots">
                 <div className="pl-meter-top">
-                  <span className="pl-meter-label"><span aria-hidden="true">🪑</span> {L(lang, 'Vagas de jogador por campanha', 'Player seats per campaign')}</span>
+                  <span className="pl-meter-label"><Glyph name="chair" /> {L(lang, 'Vagas de jogador por campanha', 'Player seats per campaign')}</span>
                   <span className="pl-meter-num mono">{formatInt(my.limits.slots, lang)}</span>
                 </div>
                 <p className="pl-meter-hint">{L(lang,
@@ -122,6 +130,14 @@ export default function MyPlan({ lang = 'pt', onBack }) {
       {catalog && (
         <section className="pl-section" aria-labelledby="pl-plans-h">
           <h2 id="pl-plans-h" className="pl-h2">{L(lang, 'Planos', 'Plans')}</h2>
+          {!canPay && (
+            <p className="pl-soon-note" role="note">
+              <Icon name="info" size={18} aria-hidden="true" />
+              <span>{L(lang,
+                'Pagamento pelo site em breve. Para mudar de plano ou pedir um extra agora, toque no que você quer e fale com a gente: liberamos na sua conta.',
+                "Payment on the site is coming soon. To change plans or get an add-on now, tap the one you want and contact us: we enable it on your account.")}</span>
+            </p>
+          )}
           <div className="pl-plans">
             {catalog.plans.map(p => {
               const isCur = p.slug === cur?.slug;
@@ -129,24 +145,25 @@ export default function MyPlan({ lang = 'pt', onBack }) {
               return (
                 <article key={p.slug} className={`pl-plan ${isCur ? 'is-current' : ''} plan-${p.slug}`}>
                   {isCur && <span className="pl-plan-ribbon">{L(lang, 'Seu plano', 'Your plan')}</span>}
-                  <div className="pl-plan-seal" aria-hidden="true">{SEALS[p.slug] || '✦'}</div>
+                  <div className="pl-plan-seal" aria-hidden="true"><Seal slug={p.slug} size={22} /></div>
                   <h3 className="pl-plan-name">{planName(p, lang)}</h3>
                   <p className="pl-plan-price">
                     <strong>{formatPrice(p.priceCents, lang)}</strong>
                     {p.priceCents > 0 && <span className="muted">/{L(lang, 'mês', 'month')}</span>}
                   </p>
                   <ul className="pl-plan-feats">
-                    <li><span aria-hidden="true">🛡</span> {amountText('characters', p.characters, lang)}</li>
-                    <li><span aria-hidden="true">🏰</span> {amountText('campaigns', p.campaigns, lang)} {L(lang, 'como mestre', 'as GM')}</li>
-                    <li className={p.slots ? '' : 'is-off'}><span aria-hidden="true">🪑</span> {p.slots ? amountText('slots', p.slots, lang) : L(lang, 'sem vagas de mesa', 'no table seats')}</li>
-                    <li><span aria-hidden="true">🖼</span> {formatMb(p.imagesMb, lang)} {L(lang, 'de imagens', 'of images')}</li>
+                    <li><Glyph name="shield" /> <span>{amountText('characters', p.characters, lang)}</span></li>
+                    <li><Glyph name="castle" /> <span>{amountText('campaigns', p.campaigns, lang)} {L(lang, 'como mestre', 'as GM')}</span></li>
+                    <li className={p.slots ? '' : 'is-off'}><Glyph name="chair" /> <span>{p.slots ? amountText('slots', p.slots, lang) : L(lang, 'sem vagas de mesa', 'no table seats')}</span></li>
+                    <li><Glyph name="image" /> <span>{formatMb(p.imagesMb, lang)} {L(lang, 'de imagens', 'of images')}</span></li>
                   </ul>
                   {isCur
                     ? <button type="button" className="btn btn-ghost btn-sm pl-plan-btn" disabled>{L(lang, 'Plano atual', 'Current plan')}</button>
                     : p.priceCents === 0
                       ? <span className="pl-plan-free muted">{L(lang, 'Todo mundo começa aqui', 'Everyone starts here')}</span>
-                      : <button type="button" className={`btn ${up ? 'btn-primary' : 'btn-ghost'} btn-sm pl-plan-btn`} onClick={() => buy('plan', p)}>
-                        {up ? L(lang, 'Assinar', 'Subscribe') : L(lang, 'Mudar para este', 'Switch to this')}
+                      : <button type="button" className={`btn ${up && canPay ? 'btn-primary' : 'btn-ghost'} btn-sm pl-plan-btn`} onClick={() => buy('plan', p)}
+                          aria-label={canPay ? undefined : L(lang, `Quero o plano ${planName(p, lang)}: falar com a gente`, `I want the ${planName(p, lang)} plan: contact us`)}>
+                        {!canPay ? L(lang, 'Quero este plano', 'I want this plan') : up ? L(lang, 'Assinar', 'Subscribe') : L(lang, 'Mudar para este', 'Switch to this')}
                       </button>}
                 </article>
               );
@@ -168,7 +185,10 @@ export default function MyPlan({ lang = 'pt', onBack }) {
                     <strong>{L(lang, a.namePt, a.nameEn)}</strong>
                     <span className="muted text-sm">{formatPrice(a.priceCents, lang, { free: false })}/{L(lang, 'mês', 'month')}{q > 0 && <> · {L(lang, `você tem ${q}`, `you have ${q}`)}</>}</span>
                   </div>
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => buy('addon', a)}>{L(lang, 'Adicionar', 'Add')}</button>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => buy('addon', a)}
+                    aria-label={canPay ? undefined : L(lang, `Pedir ${a.namePt}: falar com a gente`, `Request ${a.nameEn}: contact us`)}>
+                    {canPay ? L(lang, 'Adicionar', 'Add') : L(lang, 'Pedir', 'Request')}
+                  </button>
                 </li>
               );
             })}
@@ -186,7 +206,7 @@ function Meter({ bar, lang }) {
   return (
     <div className={`pl-meter lvl-${bar.level}`}>
       <div className="pl-meter-top">
-        <span className="pl-meter-label"><span aria-hidden="true">{bar.icon}</span> {bar.label}</span>
+        <span className="pl-meter-label"><Glyph name={METER_ICON[bar.key] || 'star'} /> {bar.label}</span>
         <span className="pl-meter-num mono">{bar.text}</span>
       </div>
       <div className="pl-track" role="meter" aria-label={bar.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-valuetext={bar.text}>

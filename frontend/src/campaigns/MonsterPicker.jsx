@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import MesaSheet from '../shell/MesaSheet.jsx';
+import MesaIcon from '../shell/MesaIcon.jsx';
 import { BESTIARY, MONSTER_TYPES, monsterForCombat } from '../../data/bestiary.js';
 import { CR_TABLE, estimateCr } from '../combat/cr-estimate.js';
 import { loadCustomMonsters, saveCustomMonsters, deleteCustomMonster } from '../combat/custom-monsters.js';
@@ -25,7 +26,7 @@ const crText = (n) => CR_TABLE.find(r => r.numeric === n)?.cr ?? String(n);
  * (data/bestiary.js) + monstros do mestre (importados / personalizados,
  * guardados só neste navegador). Visões: lista · importar JSON · editor de
  * monstro personalizado. Na lista, o rodapé preso tem o escolhido, a
- * quantidade, a iniciativa e "Adicionar ao combate"; no importar e no editor,
+ * quantidade, a iniciativa e "Pôr no combate"; no importar e no editor,
  * Voltar/Salvar ficam presos embaixo. Também atende o Preparar.
  *
  * `members` (campaign.members, opcional): o gancho do Raio-X — a linha "× grupo" (o monstro
@@ -237,7 +238,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
               ✎ {selected.custom ? t(lang, 'Editar', 'Edit') : t(lang, 'Personalizar', 'Customize')}
             </button>
             <button type="button" className="mesa-btn mp-statblock-btn" onClick={() => setStatblockMonster(selected)}>
-              👁️ {t(lang, 'Ficha', 'Statblock')}
+              <MesaIcon name="eye" /> {t(lang, 'Ficha', 'Statblock')}
             </button>
           </>
         ) : (
@@ -268,7 +269,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
       <div className="mp-foot-btns">
         <button type="button" className="mesa-btn mesa-btn-lg" onClick={onClose}>{t(lang, 'Cancelar', 'Cancel')}</button>
         <button type="button" className="mesa-btn mesa-btn-lg is-primary mp-add" disabled={!selected} onClick={submit}>
-          {confirmLabel || t(lang, 'Adicionar ao combate', 'Add to combat')}{selected && qtyNum > 1 ? ` (${qtyNum})` : ''}
+          {confirmLabel || t(lang, 'Pôr no combate', 'Add to combat')}{selected && qtyNum > 1 ? ` (${qtyNum})` : ''}
         </button>
       </div>
     </div>
@@ -392,7 +393,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
                   </button>
                   <button type="button" className="mesa-icon-btn mp-inspect-btn" title={t(lang, 'Ver ficha completa', 'View full statblock')}
                     aria-label={t(lang, `Ver ficha de ${nm}`, `View statblock for ${nm}`)} onClick={(e) => { e.stopPropagation(); setStatblockMonster(m); }}>
-                    👁️
+                    <MesaIcon name="eye" size={20} />
                   </button>
                   {m.custom && (
                     <button type="button" className="mesa-icon-btn mp-del" aria-label={t(lang, `Apagar ${nm} da sua lista`, `Delete ${nm} from your list`)}

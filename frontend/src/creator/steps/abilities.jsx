@@ -13,6 +13,7 @@ import { classArt } from '../../art.js';
 import { preloadDice3D, effectiveAnimMode } from '../../dice/DiceStage.jsx';
 import { Echo } from '../journey-ui.jsx';
 import RollReveal from '../RollReveal.jsx';
+import Icon from '../../../components/Icons.jsx';
 import DoorsPanel from '../DoorsPanel.jsx';
 import '../journey-extra.css';
 
@@ -91,7 +92,7 @@ function RollPanel({ char, set, lang }) {
         </>
       ) : (
         <button type="button" className="btn btn-primary" style={{ width: '100%' }} onClick={roll}>
-          🎲 {L(lang, 'Rolar os dados', 'Roll the dice')}
+          <Icon name="dice" size={16} /> {L(lang, 'Rolar os dados', 'Roll the dice')}
         </button>
       )}
       <div className="text-xs muted" style={{ marginTop: 8 }}>
@@ -102,26 +103,46 @@ function RollPanel({ char, set, lang }) {
   );
 }
 
-function PoolChips({ char, lang }) {
+/** Valores do conjunto padrão: toque num valor (ele fica "na mão") e depois no atributo.
+ * Tocar num valor já usado tira ele do atributo e deixa na mão para pôr em outro. */
+function PoolChips({ char, set, lang, held, setHeld }) {
   const pool = abilityPool(char);
   const assign = abilityAssign(char);
   if (abilityMethod(char) !== 'standard') return null;
+  const pick = (i) => {
+    if (held === i) { setHeld(null); return; }
+    const k = ABILITIES.find(a => assign[a] === i);
+    if (k) set(assignPatch(char, k, null));
+    setHeld(i);
+  };
   return (
-    <div className="cr-ab-pool" aria-label={L(lang, 'Valores para distribuir', 'Scores to assign')}>
-      {pool.map((v, i) => {
-        const k = ABILITIES.find(a => assign[a] === i);
-        return (
-          <span key={i} className={`cr-ab-chip ${k ? 'used' : ''}`}>
-            <span className="mono">{v}</span>
-            <span className="text-xs">{k ? ABILITY_NAMES[k][lang].slice(0, 3) : L(lang, 'livre', 'free')}</span>
-          </span>
-        );
-      })}
-    </div>
+    <>
+      <div className="cr-ab-pool" role="group" aria-label={L(lang, 'Valores para distribuir', 'Scores to assign')}>
+        {pool.map((v, i) => {
+          const k = ABILITIES.find(a => assign[a] === i);
+          const where = k ? ABILITY_NAMES[k][lang] : '';
+          return (
+            <button key={i} type="button" className={`cr-ab-chip ${k ? 'used' : ''} ${held === i ? 'held' : ''}`} aria-pressed={held === i}
+              onClick={() => pick(i)}
+              aria-label={k
+                ? L(lang, `${v}, em ${where}. Toque para tirar e pôr em outro atributo.`, `${v}, on ${where}. Tap to take it back and put it elsewhere.`)
+                : L(lang, `${v}, livre. Toque e depois escolha o atributo.`, `${v}, free. Tap, then choose the ability.`)}>
+              <span className="mono">{v}</span>
+              <span className="text-xs">{held === i ? L(lang, 'na mão', 'held') : k ? where.slice(0, 3) : L(lang, 'livre', 'free')}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="cr-ab-held text-sm" role="status" aria-live="polite">
+        {held != null && pool[held] != null
+          ? L(lang, `${pool[held]} na mão: toque no atributo que vai recebê-lo.`, `${pool[held]} held: tap the ability that gets it.`)
+          : ''}
+      </p>
+    </>
   );
 }
 
-function AbilityRow({ char, set, lang, k, primary }) {
+function AbilityRow({ char, set, lang, k, primary, held = null, setHeld }) {
   const m = abilityMethod(char);
   const pool = abilityPool(char);
   const assign = abilityAssign(char);
@@ -154,7 +175,15 @@ function AbilityRow({ char, set, lang, k, primary }) {
         </div>
       ) : (
         <div className="stat-controls">
-          <select aria-label={L(lang, `Valor de ${name}`, `${name} score`)} value={assign[k] ?? ''} disabled={!pool.length}
+          {/* Valor na mão: um toque põe aqui (a lista continua para quem prefere escolher por ela). */}
+          {held != null && pool[held] != null && (
+            <button type="button" className="btn btn-primary btn-sm cr-ab-put"
+              onClick={() => { set(assignPatch(char, k, held)); setHeld?.(null); }}
+              aria-label={L(lang, `Pôr ${pool[held]} em ${name}`, `Put ${pool[held]} on ${name}`)}>
+              {L(lang, `Pôr ${pool[held]}`, `Put ${pool[held]}`)}
+            </button>
+          )}
+          <select className={held != null ? 'cr-ab-select is-behind' : 'cr-ab-select'} aria-label={L(lang, `Valor de ${name}`, `${name} score`)} value={assign[k] ?? ''} disabled={!pool.length}
             onChange={(e) => set(assignPatch(char, k, e.target.value === '' ? null : +e.target.value))}>
             <option value="">{L(lang, '— escolher —', '— choose —')}</option>
             {pool.map((v, i) => {
@@ -188,6 +217,10 @@ function Comp({ char, set, lang }) {
   // Dados 3D: carrega o palco quando o jogador escolhe rolar (só se for animar em 3D), para a primeira rolagem não esperar.
   useEffect(() => { try { if (m === 'roll' && effectiveAnimMode() === '3d') preloadDice3D().catch(() => {}); } catch { /* sem 3D: o palco cai para 2D */ } }, [m]);
   const changedFrom = classChangeNotice(char);
+  // Valor "na mão" (índice do conjunto padrão), esperando o toque num atributo.
+  const [held, setHeld] = useState(null);
+  useEffect(() => { setHeld(null); }, [m]);
+  const missing = m !== 'pointbuy' && ABILITIES.some(a => abilityAssign(char)[a] == null);
 
   return (
     <div>
@@ -225,9 +258,8 @@ function Comp({ char, set, lang }) {
       <MethodPicker char={char} set={set} lang={lang} />
 
       {char.className && (
-        <button type="button" className="btn btn-sm btn-ghost" disabled={!canSuggest}
-          style={{ width: '100%', margin: '12px 0', borderColor: 'var(--gold)', color: 'var(--gold)' }}
-          onClick={() => { const p = suggestionPatch(char); if (p) set(p); }}>
+        <button type="button" className={`btn cr-ab-suggest ${missing && canSuggest ? 'btn-primary' : 'btn-ghost'}`} disabled={!canSuggest}
+          onClick={() => { const p = suggestionPatch(char); if (p) { set(p); setHeld(null); } }}>
           ✦ {L(lang, `Sugestão para minha classe (${className})`, `Suggestion for my class (${className})`)}
         </button>
       )}
@@ -239,11 +271,11 @@ function Comp({ char, set, lang }) {
       {m === 'roll' && <RollPanel char={char} set={set} lang={lang} />}
       {m === 'standard' && (
         <div className="text-sm muted" style={{ marginBottom: 8 }}>
-          {L(lang, `Use cada valor (${STANDARD_ARRAY.join(', ')}) uma vez. Escolher um valor já usado troca os dois de lugar.`,
-            `Use each score (${STANDARD_ARRAY.join(', ')}) once. Picking a value already in use swaps the two.`)}
+          {L(lang, `Toque num valor e depois no atributo (ou use a lista de cada atributo). Cada valor (${STANDARD_ARRAY.join(', ')}) entra uma vez; escolher um já usado troca os dois de lugar.`,
+            `Tap a score, then the ability (or use each ability's list). Each score (${STANDARD_ARRAY.join(', ')}) is used once; picking one already in use swaps the two.`)}
         </div>
       )}
-      <PoolChips char={char} lang={lang} />
+      <PoolChips char={char} set={set} lang={lang} held={held} setHeld={setHeld} />
       {m === 'pointbuy' && (
         <>
           <div className="pointbuy-pool">
@@ -258,7 +290,7 @@ function Comp({ char, set, lang }) {
         </>
       )}
 
-      {ABILITIES.map(k => <AbilityRow key={k} char={char} set={set} lang={lang} k={k} primary={primary.includes(k)} />)}
+      {ABILITIES.map(k => <AbilityRow key={k} char={char} set={set} lang={lang} k={k} primary={primary.includes(k)} held={m === 'standard' ? held : null} setHeld={setHeld} />)}
 
       <Callout>
         {L(lang, 'Como ler o modificador: 8–9 = −1 · 10–11 = +0 · 12–13 = +1 · 14–15 = +2 · 16–17 = +3. Quanto maior, mais fácil acertar nos testes daquele atributo.',

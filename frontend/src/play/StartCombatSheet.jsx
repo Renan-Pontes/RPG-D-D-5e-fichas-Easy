@@ -20,6 +20,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
+import MesaIcon from '../shell/MesaIcon.jsx';
 import MonsterPicker from '../campaigns/MonsterPicker.jsx';
 import { encounterBody, encounterGroups, groupsTotal, MAX_ENCOUNTER_MONSTERS } from '../combat/encounter-setup.js';
 import { findMonster, monsterForCombat } from '../../data/bestiary.js';
@@ -115,6 +116,7 @@ export default function StartCombatSheet({
   const running = !!combat?.active;
   const total = groupsTotal(groups);
   const start = startNow == null ? !(askInit && withPcs) : startNow;
+  const asking = withPcs && askInit && players.length > 0;
   const tooMany = total > MAX_ENCOUNTER_MONSTERS;
   const nothing = total === 0 && !(withPcs && players.length);
 
@@ -165,14 +167,23 @@ export default function StartCombatSheet({
       {error && <p className="cc-action-error" role="alert">{error}</p>}
       {tooMany && <p className="mesa-hint sc-why">{t(lang, `No máximo ${MAX_ENCOUNTER_MONSTERS} monstros de uma vez.`, `At most ${MAX_ENCOUNTER_MONSTERS} monsters at once.`)}</p>}
       {nothing && !tooMany && <p className="mesa-hint sc-why">{t(lang, 'Ponha um monstro ou inclua os personagens.', 'Add a monster or include the characters.')}</p>}
+      {/* o botão diz o que o toque faz: só "Começar" quando o combate começa mesmo (rodada 1);
+          pedindo a iniciativa ele só monta e espera as respostas (antes dizia "Começar" e não começava) */}
+      {!start && !nothing && !tooMany && (
+        <p className="mesa-hint sc-why">{asking
+          ? t(lang, 'O combate fica montado e espera as iniciativas; você começa quando quiser.', 'The combat is set up and waits for the initiatives; you start whenever you want.')
+          : t(lang, 'O combate fica montado; ele só começa quando você tocar em Iniciar combate.', 'The combat is set up; it only starts when you tap Start combat.')}</p>
+      )}
       <button type="button" className="mesa-btn mesa-btn-lg is-primary sc-go" disabled={busy || nothing || tooMany} onClick={go}>
-        {busy ? '…' : <>⚔ {t(lang, 'Começar', 'Start')}</>}
+        {busy ? '…' : start ? t(lang, 'Começar o combate', 'Start the combat')
+          : asking ? t(lang, 'Montar e pedir iniciativa', 'Set up and ask initiative')
+            : t(lang, 'Montar o combate', 'Set up the combat')}
       </button>
     </div>
   );
 
   return (
-    <MesaSheet title={t(lang, 'Começar o combate', 'Start combat')} eyebrow={scene.name || null} icon="⚔" size="auto" width="sm"
+    <MesaSheet title={t(lang, 'Montar o combate', 'Set up the combat')} eyebrow={scene.name || null} icon={<MesaIcon name="combat" />} size="auto" width="sm"
       lang={lang} onClose={onClose} footer={footer} dock="play" className="sc-sheet">
       <ul className="sc-groups" aria-label={t(lang, 'Monstros', 'Monsters')}>
         {groups.map(g => (
@@ -195,7 +206,9 @@ export default function StartCombatSheet({
         {players.length > 0 && (
           <label className="cs-check sc-check">
             <input type="checkbox" checked={withPcs} onChange={e => setWithPcs(e.target.checked)} />
-            <span>{t(lang, `Incluir os ${players.length} personagens (em casas livres)`, `Include the ${players.length} characters (in free squares)`)}</span>
+            <span>{players.length === 1
+              ? t(lang, `Incluir ${players[0].character?.name || 'o personagem'} (numa casa livre)`, `Include ${players[0].character?.name || 'the character'} (in a free square)`)
+              : t(lang, `Incluir os ${players.length} personagens (em casas livres)`, `Include the ${players.length} characters (in free squares)`)}</span>
           </label>
         )}
         {players.length > 0 && withPcs && (

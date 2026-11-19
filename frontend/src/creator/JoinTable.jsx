@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { api, API_BASE } from '../api/client.js';
 import { L } from './ui.jsx';
+import Icon from '../../components/Icons.jsx';
 import { normalizeInviteCode, joinFromInvite, joinPatch, creationJoin, inviteCheckMessage } from './creation.js';
 import './join-table.css';
 import useMyPlan from '../plans/useMyPlan.js';
@@ -40,7 +41,7 @@ export function TableInviteCard({ table, lang, children, confirmed = false, noti
           'Você já participa desta mesa: este personagem passa a ser o seu nela.',
           'You are already in this table: this character becomes yours there.')}</p>
       )}
-      {notice && <p className="pl-sponsored-note" role="note">🪑 {notice}</p>}
+      {notice && <p className="pl-sponsored-note" role="note"><Icon name="chair" size={16} aria-hidden="true" /> {notice}</p>}
       {children && <div className="join-card-actions">{children}</div>}
     </div>
   );
@@ -96,7 +97,7 @@ export function JoinTableBlock({ char, set, lang, joinEnabled = true }) {
     <div className="join-block">
       {!open ? (
         <button type="button" className="join-toggle" onClick={() => setOpen(true)} aria-expanded="false">
-          <span className="join-toggle-ico" aria-hidden="true">🗝</span>
+          <span className="join-toggle-ico" aria-hidden="true"><Icon name="key" size={24} /></span>
           <span className="join-toggle-txt">
             <strong>{L(lang, 'Tem um código de mesa?', 'Have a table code?')}</strong>
             <span className="muted text-sm">{L(lang, 'Digite o código do mestre e o personagem já nasce dentro da campanha. Sem código, é só seguir.', "Type your GM's code and the character is created inside the campaign. No code? Just go on.")}</span>

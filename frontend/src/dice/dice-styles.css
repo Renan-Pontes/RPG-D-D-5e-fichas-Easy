@@ -1989,3 +1989,65 @@ html.dice-lock, body.dice-lock { overflow: hidden !important; overscroll-behavio
 .belt-mr-cols.n-1 .belt-mr-col { flex: 0 1 auto; }
 .belt-mr-sub { font-size: .7rem; letter-spacing: .1em; color: rgba(237,203,122,.7); margin-top: -10px; }
 .belt-mr .mr-dshape .die-shape.is-hero::before { width: 200% !important; height: 200% !important; }
+
+/* ============================================================================
+   v1.0.138 — o resultado diz O QUE foi rolado e a conta, e não segura a ficha
+   ========================================================================== */
+/* Legenda sob o dado: rótulo desde o começo; a conta ("1d20 [8] + 6 = 14") quando ele para */
+.dice-overlay-caption { display: grid; justify-items: center; gap: 6px; margin-top: 22px; max-width: min(92vw, 520px); }
+.dice-overlay-caption .dice-overlay-label {
+  font-family: var(--display); font-weight: 600; font-size: 1.05rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--dice-gold-hi); text-shadow: 0 2px 6px #000, 0 0 14px #000; text-wrap: balance; overflow-wrap: anywhere;
+}
+.dice-overlay-caption .dice-overlay-label.is-formula { font-family: var(--mono); letter-spacing: 0; text-transform: none; }
+.dice-overlay-caption .dice-overlay-formula {
+  min-height: 1.5em; padding: 3px 12px; border-radius: 999px; font-family: var(--mono); font-size: 0.95rem; letter-spacing: 0;
+  color: var(--ink-secondary); background: rgba(10, 7, 6, 0.7); border: 1px solid transparent; opacity: 0; transition: opacity 0.2s;
+}
+.dice-overlay-caption.is-settled .dice-overlay-formula { opacity: 1; border-color: var(--dice-line); }
+.dice-overlay-caption .dice-overlay-formula strong { color: var(--ink-primary); font-weight: 700; }
+.dice-overlay-caption .dice-overlay-formula s, .dice-pop-detail s { opacity: 0.55; }
+.dice-math-die { color: var(--dice-muted); }
+.dice-overlay-adv, .dice-pop-adv { font-family: var(--display); font-weight: 700; font-size: 0.8em; letter-spacing: 0.08em; text-transform: uppercase; }
+:is(.dice-overlay-adv, .dice-pop-adv).is-adv { color: var(--moss-bright); }
+:is(.dice-overlay-adv, .dice-pop-adv).is-dis { color: var(--blood-bright); }
+
+/* Fase "passável": a ficha volta a aparecer por trás e os toques passam direto para ela */
+.dice-overlay.is-passable {
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, rgba(5, 3, 2, 0.5) 0%, rgba(5, 3, 2, 0.22) 46%, rgba(0, 0, 0, 0) 78%) !important;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  transition: background 0.25s ease;
+}
+.dice-overlay.is-passable::before { opacity: 0; }
+.dice-overlay.is-passable .dice-overlay-inner { filter: drop-shadow(0 6px 24px rgba(0, 0, 0, 0.9)); }
+
+/* Cartão discreto: rótulo inteiro (até duas linhas), a conta embaixo e o total grande à direita */
+.dice-pop { align-items: center; max-width: min(360px, calc(100vw - 32px)); gap: 12px; }
+.dice-pop-main { display: grid; gap: 2px; min-width: 0; text-align: left; }
+.dice-pop .dice-pop-label {
+  max-width: none; white-space: normal; overflow: hidden; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.2;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
+.dice-pop-detail { font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0; text-transform: none; color: var(--dice-muted); }
+.dice-pop-detail strong { font: inherit !important; color: inherit !important; text-shadow: none !important; }
+.dice-pop-flag { color: var(--dice-gold-hi); }
+.dice-pop.fumble .dice-pop-flag { color: var(--dice-blood); }
+.dice-pop > strong { flex: none; min-width: 1.6ch; text-align: right; }
+
+/* interruptor da animação */
+.dice-sheet-anim[role="switch"]:disabled { opacity: 0.6; cursor: default; }
+
+/* fase passável: a legenda ganha uma placa de couro (o texto da ficha por trás não briga com ela) */
+.dice-overlay.is-passable .dice-overlay-caption {
+  padding: 8px 14px 10px; border-radius: 10px; border: 1px solid transparent;
+  background: linear-gradient(180deg, rgba(42, 29, 21, 0.96), rgba(20, 14, 11, 0.96)) padding-box, var(--dice-gilt) border-box;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+}
+.dice-overlay.is-passable .dice-overlay-caption .dice-overlay-formula { background: none; border-color: transparent; padding: 0 4px; }
+@media (max-width: 600px) {
+  .dice-overlay-caption .dice-overlay-label { font-size: 0.92rem; }
+  .dice-overlay-caption .dice-overlay-formula { font-size: 0.84rem; }
+  /* o cartão fica acima do botão de dados, sem encostar nele */
+  .dice-pop { bottom: calc(92px + env(safe-area-inset-bottom)); }
+}

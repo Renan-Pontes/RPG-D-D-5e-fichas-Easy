@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import MesaTitle from '../shell/MesaTitle.jsx';
+import MesaIcon from '../shell/MesaIcon.jsx';
 import { groupApi } from './group-api.js';
 import {
   buildHistory, charLine, keepOrder, labelType, levelupFor, levelupSummary, memberStats,
@@ -68,9 +69,9 @@ export default function RequestsPanel({ campaign, approvals, xpEvents, lang, isD
     const r = await api.grantLevelup(campaign.id, { characterIds: ids });
     if (!r.granted?.length) throw new Error(t(lang, 'Nada para liberar (já liberado ou nível 20).', 'Nothing to unlock (already unlocked or level 20).'));
     return r;
-  }, (r) => t(lang,
-    `Subida liberada para ${r.granted.length} personagem(ns). Os jogadores confirmam na ficha.`,
-    `Level up unlocked for ${r.granted.length} character(s). Players confirm on their sheet.`));
+  }, (r) => (r.granted.length === 1
+    ? t(lang, 'Subida liberada para 1 personagem. O jogador confirma na ficha.', 'Level up unlocked for 1 character. The player confirms on their sheet.')
+    : t(lang, `Subida liberada para ${r.granted.length} personagens. Os jogadores confirmam na ficha.`, `Level up unlocked for ${r.granted.length} characters. Players confirm on their sheet.`)));
 
   const grantAll = async () => {
     const ok = await ask({
@@ -140,7 +141,7 @@ export default function RequestsPanel({ campaign, approvals, xpEvents, lang, isD
             {pending.map(a => (
               <RequestRow key={a.id} a={a} lang={lang}>
                 <button type="button" className="mesa-btn mesa-btn-lg is-primary grp-req-ok" disabled={busy} onClick={() => approve(a)}>
-                  {a.type === 'levelup' ? `✨ ${t(lang, 'Liberar subida', 'Unlock level up')}` : t(lang, 'Aprovar e aplicar', 'Approve & apply')}
+                  {a.type === 'levelup' ? t(lang, 'Liberar subida', 'Unlock level up') : t(lang, 'Aprovar e aplicar', 'Approve & apply')}
                 </button>
                 <button type="button" className="mesa-btn mesa-btn-lg grp-req-no" disabled={busy} onClick={() => reject(a)}>{t(lang, 'Recusar', 'Reject')}</button>
               </RequestRow>
@@ -212,7 +213,7 @@ export default function RequestsPanel({ campaign, approvals, xpEvents, lang, isD
         <section className="grp-section grp-rules mesa-panel" aria-labelledby="grp-rules-title">
           <MesaTitle id="grp-rules-title">{t(lang, 'Evolução da mesa', 'Party progression')}</MesaTitle>
           <button type="button" className="mesa-btn is-primary grp-grant-all" disabled={busy || !players.length} onClick={grantAll}>
-            ✨ {t(lang, 'Subir a mesa toda', 'Level up the party')}
+            <MesaIcon name="level" /> {t(lang, 'Subir a mesa toda', 'Level up the party')}
           </button>
           <div className="grp-rule-row">
             <span className="grp-rule-label" id="grp-mode-label">{t(lang, 'Progressão', 'Leveling')}</span>

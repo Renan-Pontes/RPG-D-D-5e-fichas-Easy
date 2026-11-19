@@ -13,7 +13,7 @@ import { Toast } from '../../components/Shared.jsx';
 import useArea from '../shell/useArea.js';
 import { SubChips } from '../shell/AreaNav.jsx';
 import {
-  createEntry, createSampleWorld, getEntry, getSessionPlan, getWorldEchoes, isConflict, listWorld, updateEntry, worldErrorText,
+  createEntry, createSampleWorld, deleteEntry, getEntry, getSessionPlan, getWorldEchoes, isConflict, listWorld, updateEntry, worldErrorText,
 } from './world-api.js';
 import { applyPatches, mergeReorderResponse, pendingAdd, pendingDone, t, toLight } from './world-model.js';
 import { flash } from '../play/flash.js';
@@ -156,6 +156,35 @@ export default function WorldArea(props) {
     } catch (err) { setError(worldErrorText(err, lang)); return null; }
   };
 
+  // "＋ Evento" (Mundo › Tempo) cria o cartão na hora, com o nome "Novo evento", e abre o
+  // editor. Fechado sem nada escrito, ele ficava para trás como um cartão escondido no Mundo.
+  // Agora o rascunho que ninguém tocou some ao fechar (a versão do servidor diz se algo foi
+  // gravado; a espera cobre o salvamento automático que ainda estiver a caminho).
+  const draftRef = useRef(null);
+  const sigOf = (e) => `${e?.version ?? ''}|${e?.updatedAt ?? ''}|${e?.name ?? ''}`;
+  const createEvent = async (fields) => {
+    const e = await create({ ...fields, name: t(lang, 'Novo evento', 'New event') });
+    draftRef.current = e ? { id: e.id, sig: sigOf(e) } : null;
+    return e;
+  };
+  const closeEditor = () => {
+    const id = openId;
+    setOpenId(null);
+    const d = draftRef.current;
+    if (!d || d.id !== id) return;
+    draftRef.current = null;
+    setTimeout(async () => {
+      try {
+        const now = await getEntry(id);
+        if (!now || sigOf(now) !== d.sig) return;   // algo foi escrito: o cartão fica
+        await deleteEntry(id);
+        removeLocal(id);
+        setMeta(m => ({ ...m, count: Math.max(0, m.count - 1) }));
+        flash(t(lang, 'Evento vazio descartado.', 'Empty event discarded.'));
+      } catch { /* fica como está: melhor um cartão a mais do que apagar por engano */ }
+    }, 1200);
+  };
+
   // Reordenar (arrastar ou ↑ ↓): a lista muda na hora e os PATCH vão em fila, um
   // reordenar depois do outro, cada um com a versão mais nova (checagem de versão).
   // Enquanto a fila de um cartão não esvazia, a tela fica com o sort dela
@@ -232,6 +261,9 @@ export default function WorldArea(props) {
         <SubChips subs={SUBS.map(s => s.id)} active={sub} onSelect={setSub} lang={lang}
           icons={Object.fromEntries(SUBS.map(s => [s.id, s.icon]))} ariaLabel={t(lang, 'Mundo', 'World')} />
       )}
+      {/* o que a casca quer mostrar no topo do Mundo (os "Primeiros passos"): abaixo das
+          subvistas, como em toda área, e não antes delas */}
+      {props.topSlot || null}
 
       {error && <p className="wl-error" role="alert">{error} <button type="button" className="wl-linkbtn" onClick={() => { setError(''); load(); }}>{t(lang, 'Tentar de novo', 'Try again')}</button></p>}
 
@@ -254,14 +286,14 @@ export default function WorldArea(props) {
           onOpenEntry={openEntry} onEntrySaved={upsert} onEntryCreated={(e) => { upsert(e); }} />
       ) : (
         <Timeline campaign={campaign} entries={list} lang={lang} readOnly={closed} onOpenEntry={openEntry} onEntrySaved={upsert} onReload={load}
-          onCreate={closed ? null : (f) => create({ ...f, name: t(lang, 'Novo evento', 'New event') })} />
+          onCreate={closed ? null : createEvent} />
       )}
 
       {openId && (
         <>
-          <div className="wl-editor-scrim" onClick={() => setOpenId(null)} aria-hidden="true" />
+          <div className="wl-editor-scrim" onClick={closeEditor} aria-hidden="true" />
           <EntryEditor key={openId} entryId={openId} campaign={campaign} entries={list} adventures={adventures} plan={plan} lang={lang}
-            readOnly={closed} onClose={() => setOpenId(null)} onSaved={upsert}
+            readOnly={closed} onClose={closeEditor} onSaved={upsert}
             onDeleted={(id) => { removeLocal(id); setOpenId(null); setMeta(m => ({ ...m, count: Math.max(0, m.count - 1) })); setToast(t(lang, 'Cartão apagado.', 'Card deleted.')); }}
             onOpenEntry={openEntry} onOpenMap={openMap} onShow={!closed} />
         </>

@@ -4,7 +4,7 @@ import { useAuth } from './AuthContext.jsx';
 
 /**
  * Senha temporária: o admin definiu uma senha provisória e o app só libera o
- * resto depois que a pessoa escolher a dela.
+ * resto depois que a pessoa escolher a dela. Mesmo painel da tela de entrada.
  */
 export default function ForcePasswordChange({ lang = 'pt' }) {
   const { user, changePassword, logout } = useAuth();
@@ -37,36 +37,40 @@ export default function ForcePasswordChange({ lang = 'pt' }) {
   return (
     <div className="auth-screen">
       <div className="auth-card">
-        <h1 style={{ marginTop: 0 }}>{t('Crie sua nova senha', 'Create your new password')}</h1>
-        <p style={{ color: 'var(--ink-secondary)', marginTop: 0 }}>
-          {t(
-            `Olá, ${user?.displayName || ''}! Sua senha atual é temporária. Para continuar, escolha uma senha só sua.`,
-            `Hi, ${user?.displayName || ''}! Your current password is temporary. To continue, pick your own.`
-          )}
-        </p>
-        <form onSubmit={submit} className="col gap-3">
-          <label className="col gap-1">
-            <span>{t('Senha temporária', 'Temporary password')}</span>
-            <input type="password" className="input" value={current} onChange={e => setCurrent(e.target.value)}
-              required autoComplete="current-password" autoFocus />
-          </label>
-          <label className="col gap-1">
-            <span>{t('Nova senha', 'New password')}</span>
-            <input type="password" className="input" value={next} onChange={e => setNext(e.target.value)}
-              required minLength={6} autoComplete="new-password" />
-          </label>
-          <label className="col gap-1">
-            <span>{t('Repita a nova senha', 'Repeat the new password')}</span>
-            <input type="password" className="input" value={confirm} onChange={e => setConfirm(e.target.value)}
-              required minLength={6} autoComplete="new-password" />
-          </label>
-          {error && <div className="auth-error">{error}</div>}
-          <button className="btn btn-primary" type="submit" disabled={busy}>
-            {busy ? t('Aguarde…', 'Please wait…') : t('Salvar e continuar', 'Save and continue')}
-          </button>
-        </form>
-        <div className="auth-switch">
-          <a onClick={logout}>{t('Sair', 'Log out')}</a>
+        <div className="auth-body">
+          <p className="auth-eyebrow">{t('Forja de Heróis', 'Hero Forge')}</p>
+          <h1 className="auth-title"><span className="auth-foil">{t('Crie sua nova senha', 'Create your new password')}</span></h1>
+          <p className="auth-lede">
+            {t(
+              `Olá, ${user?.displayName || ''}! Sua senha atual é temporária. Para continuar, escolha uma senha só sua.`,
+              `Hi, ${user?.displayName || ''}! Your current password is temporary. To continue, pick your own.`
+            )}
+          </p>
+          <form onSubmit={submit} className="auth-form">
+            {error && <div className="auth-error" role="alert"><span>{error}</span></div>}
+            <div className="auth-field">
+              <label htmlFor="fpc-current">{t('Senha temporária', 'Temporary password')}</label>
+              <input id="fpc-current" type="password" className="input" value={current} onChange={e => setCurrent(e.target.value)}
+                required autoComplete="current-password" autoFocus />
+            </div>
+            <div className="auth-field">
+              <label htmlFor="fpc-next">{t('Nova senha', 'New password')}</label>
+              <input id="fpc-next" type="password" className="input" value={next} onChange={e => setNext(e.target.value)}
+                required minLength={6} autoComplete="new-password" aria-describedby="fpc-hint" />
+              <p className="auth-field-hint" id="fpc-hint">{t('6 caracteres ou mais.', '6 or more characters.')}</p>
+            </div>
+            <div className="auth-field">
+              <label htmlFor="fpc-confirm">{t('Repita a nova senha', 'Repeat the new password')}</label>
+              <input id="fpc-confirm" type="password" className="input" value={confirm} onChange={e => setConfirm(e.target.value)}
+                required minLength={6} autoComplete="new-password" />
+            </div>
+            <button className="btn btn-primary auth-submit" type="submit" disabled={busy}>
+              {busy ? t('Aguarde…', 'Please wait…') : t('Salvar e continuar', 'Save and continue')}
+            </button>
+          </form>
+          <div className="auth-skip">
+            <button type="button" className="auth-link" onClick={logout}>{t('Sair', 'Log out')}</button>
+          </div>
         </div>
       </div>
     </div>

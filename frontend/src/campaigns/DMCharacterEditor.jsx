@@ -6,6 +6,7 @@ import { api } from '../api/client.js';
 import ResourcesCard from '../progression/ResourcesCard.jsx';
 import { computeResources } from '../progression/resources.js';
 import { tName } from '../../data/i18n.js';
+import { conditionName } from '../combat/monster-i18n.js';
 import { editLogEntries, describeEditLogEntry } from './edit-log.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
@@ -247,7 +248,8 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved, i
                     <button key={cond} type="button" aria-pressed={on}
                       className={`mesa-chip dm-cond-chip ${on ? 'on' : ''}`}
                       onClick={() => toggleCondition(cond)}>
-                      {cond === 'exhaustion' ? t(lang, 'Exaustão', 'Exhaustion') : tName('condition', cond, lang)}
+                      {/* o mesmo nome que o mestre lê no combate e no texto dos monstros ("Caído", "Contido") */}
+                      {conditionName(cond, lang)}
                     </button>
                   );
                 })}

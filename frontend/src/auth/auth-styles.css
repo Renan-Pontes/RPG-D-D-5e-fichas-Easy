@@ -1,69 +1,109 @@
-/* Estilos da tela de auth — segue a paleta do projeto */
+/* Tela de entrada (AuthScreen): o mesmo painel de couro com filete dourado e cantoneiras
+   da tela inicial e da ficha (tokens --fh-* de styles.css), arte no topo e título em
+   folha de ouro. Celular primeiro: o cartão fica no topo, para o teclado não cobrir o
+   botão de entrar. */
 
 .auth-screen {
-  min-height: calc(100vh - 80px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 32px 16px;
+  padding: 4px 4px 32px;
+}
+@media (min-width: 700px) {
+  .auth-screen { min-height: calc(100vh - 200px); align-items: center; padding: 16px 16px 48px; }
 }
 
-.auth-card {
-  background: var(--bg-elev, var(--bg-base));
-  border: 1px solid var(--border, var(--bg-elevated));
-  border-radius: 12px;
-  padding: 32px;
-  max-width: 480px;
+.auth-screen .auth-card {
+  position: relative;
   width: 100%;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  max-width: 460px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  overflow: hidden;
+  background:
+    var(--fh-noise) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 40%, var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+  box-shadow: 0 1px 0 rgba(255, 230, 170, 0.06) inset, 0 16px 44px rgba(0, 0, 0, 0.6);
+}
+/* cantoneiras */
+.auth-card::before {
+  content: ""; position: absolute; inset: 5px; z-index: 2; pointer-events: none; border-radius: 4px; opacity: 0.85;
+  background: var(--fh-corner-tl) top left / 22px no-repeat, var(--fh-corner-tr) top right / 22px no-repeat,
+              var(--fh-corner-bl) bottom left / 22px no-repeat, var(--fh-corner-br) bottom right / 22px no-repeat;
 }
 
-.auth-card h1 {
-  font-family: 'Cinzel', serif;
-  color: var(--ink-primary, var(--ink-primary));
-}
+/* Arte: faixa larga que se desfaz no couro */
+.auth-art { position: relative; height: 104px; overflow: hidden; }
+.auth-art img { width: 100%; height: 100%; object-fit: cover; object-position: 60% 38%; display: block;
+  -webkit-mask-image: linear-gradient(180deg, #000 35%, transparent); mask-image: linear-gradient(180deg, #000 35%, transparent); }
+.auth-art-mark { position: absolute; left: 50%; bottom: -2px; transform: translateX(-50%); display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%;
+  color: var(--gold-bright); background: radial-gradient(circle at 50% 35%, #2c1f17, #120c09 75%);
+  box-shadow: 0 0 0 1px var(--gold-deep), 0 0 0 4px rgba(10, 7, 6, 0.7), 0 6px 16px rgba(0, 0, 0, 0.6); }
+@media (min-width: 700px) { .auth-art { height: 148px; } }
 
+.auth-body { position: relative; padding: 14px 18px 20px; }
+@media (min-width: 700px) { .auth-body { padding: 18px 32px 28px; } }
+
+.auth-eyebrow { margin: 0 0 2px; text-align: center; font-family: var(--display); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-muted); }
+.auth-title { margin: 0 0 12px; text-align: center; font-family: var(--display); font-weight: 600; font-size: 1.4rem !important; line-height: 1.25; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-bright); }
+.auth-foil { background: var(--fh-foil); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.6)); }
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) { .auth-foil { color: var(--gold-bright); background: none; } }
+@media (forced-colors: active) { .auth-foil { color: CanvasText; background: none; filter: none; } }
+
+/* As três vantagens da conta: uma linha cada, com o losango dourado */
+.auth-perks { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 4px; }
+.auth-perks li { background: none; display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 10px; align-items: baseline; font-size: 0.95rem; line-height: 1.35; color: var(--ink-secondary); }
+.auth-gem { width: 7px; height: 7px; transform: translateY(-1px) rotate(45deg); background: var(--fh-gilt); box-shadow: 0 0 6px rgba(240, 200, 110, 0.5); }
+
+/* Entrar | Criar conta */
+.auth-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; margin: 0 0 14px; border-radius: 999px; border: 1px solid rgba(224, 181, 94, 0.35); background: rgba(10, 7, 6, 0.55); }
+.auth-seg button { min-height: 44px; padding: 4px 10px; border: 0; border-radius: 999px; background: none; color: var(--ink-secondary);
+  font-family: var(--body); font-size: 1rem; line-height: 1.2; cursor: pointer; transition: background 0.2s, color 0.2s; }
+.auth-seg button:hover { color: var(--ink-primary); }
+.auth-seg button[aria-pressed="true"] { background: var(--gold-soft); color: var(--gold-bright); box-shadow: inset 0 0 0 1px var(--gold); font-weight: 600; }
+@media (forced-colors: active) { .auth-seg button[aria-pressed="true"] { outline: 2px solid Highlight; } }
+
+.auth-form { display: grid; gap: 12px; }
+.auth-field { display: grid; gap: 4px; min-width: 0; }
+.auth-field label { margin: 0; font-family: var(--display); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-secondary); }
+.auth-opt { font-family: var(--body); font-size: 0.82rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink-muted); }
 .auth-card .input {
-  background: var(--bg, var(--bg-deep));
-  border: 1px solid var(--border, var(--bg-elevated));
-  border-radius: 6px;
-  padding: 10px 12px;
-  color: var(--ink-primary, var(--ink-primary));
-  font-family: inherit;
+  width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(224, 181, 94, 0.35);
+  background: rgba(10, 7, 6, 0.6); color: var(--ink-primary); font-family: var(--body); font-size: 1.05rem;
 }
+.auth-card .input::placeholder { color: var(--ink-muted); }
+.auth-card .input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+.auth-card .input:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.auth-card .input[aria-invalid="true"] { border-color: var(--blood-bright); }
+.auth-pass { position: relative; }
+.auth-pass .input { padding-right: 52px; }
+.auth-eye { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--ink-muted); cursor: pointer; }
+.auth-eye:hover, .auth-eye[aria-pressed="true"] { color: var(--gold-bright); }
+.auth-card :is(button, a):focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.auth-field-hint { margin: 0; font-size: 0.86rem; color: var(--ink-muted); }
+.auth-field-err { margin: 0; font-size: 0.9rem; line-height: 1.3; color: #ffd7cf; }
+.auth-field-err::before { content: "! "; font-weight: 700; color: var(--blood-bright); }
 
-.auth-card .input:focus {
-  outline: 2px solid var(--gold, var(--gold));
-  outline-offset: -1px;
-}
+/* Erro do servidor: texto claro (contraste AAA) com filete e ícone vermelhos, acima dos campos */
+.auth-error { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 6px;
+  border: 1px solid rgba(224, 96, 79, 0.5); border-left: 3px solid var(--blood-bright); background: rgba(94, 21, 17, 0.45);
+  color: var(--ink-primary); font-size: 0.98rem; line-height: 1.35; }
+.auth-error svg { flex: none; margin-top: 2px; color: var(--blood-bright); }
+.auth-error > span { min-width: 0; }
 
-.auth-error {
-  background: rgba(224, 96, 79, 0.15);
-  border: 1px solid var(--blood);
-  border-radius: 6px;
-  padding: 8px 12px;
-  color: var(--blood-bright);
-  font-size: 0.9em;
-}
+.auth-submit { width: 100%; min-height: 48px; margin-top: 4px; justify-content: center; }
 
-.auth-switch {
-  margin-top: 20px;
-  text-align: center;
-  color: var(--ink-secondary);
-}
+.auth-lede { margin: 0 0 16px; text-align: center; font-size: 1rem; line-height: 1.4; color: var(--ink-secondary); }
+.auth-skip .auth-link { min-height: 44px; padding: 0 12px; border: 0; background: none; color: var(--gold); font: inherit; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.auth-skip .auth-link:hover { color: var(--gold-bright); }
+.auth-skip { margin-top: 18px; padding-top: 16px; text-align: center; border-top: 1px solid rgba(224, 181, 94, 0.18); }
+.auth-skip .btn { width: 100%; min-height: 44px; justify-content: center; letter-spacing: 0.08em; font-size: 0.8rem; white-space: nowrap; }
+.auth-skip-note { margin: 8px 0 0; font-size: 0.88rem; line-height: 1.3; color: var(--ink-muted); }
+@media (max-width: 380px) { .auth-skip .btn { letter-spacing: 0.04em; font-size: 0.76rem; padding-inline: 8px; } }
 
-.auth-switch a {
-  color: var(--gold, var(--gold));
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.auth-skip {
-  margin-top: 16px;
-  text-align: center;
-  border-top: 1px dashed var(--border);
-  padding-top: 16px;
-}
+@media (prefers-reduced-motion: reduce) { .auth-seg button { transition: none; } }
 
 .auth-migrated-banner {
   background: rgba(156, 192, 101, 0.18);
@@ -75,6 +115,7 @@
 }
 
 /* Header user chip */
+.user-chip-wrap { position: relative; }
 .user-chip {
   display: inline-flex;
   align-items: center;
@@ -98,21 +139,28 @@
   font-weight: 600;
   font-size: 0.85em;
 }
+/* Menu da conta: couro com filete, itens de 44 px */
 .user-chip-menu {
   position: absolute;
-  top: 56px;
-  right: 12px;
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
+  top: calc(100% + 8px);
+  right: 0;
+  border: 1px solid transparent;
   border-radius: 8px;
   padding: 6px;
-  min-width: 200px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  min-width: 220px;
+  max-width: min(300px, calc(100vw - 24px));
+  background:
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
   z-index: 1000;
 }
+.user-chip-email { padding: 6px 10px 8px; margin-bottom: 4px; font-size: 0.88rem; color: var(--ink-muted); overflow-wrap: anywhere; border-bottom: 1px solid rgba(224, 181, 94, 0.18); }
 .user-chip-menu .menu-item {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
+  min-height: 44px;
   text-align: left;
   background: none;
   border: none;
@@ -122,7 +170,9 @@
   border-radius: 4px;
   font: inherit;
 }
-.user-chip-menu .menu-item:hover {
-  background: var(--bg);
+.user-chip-menu .menu-item:hover,
+.user-chip-menu .menu-item:focus-visible {
+  background: var(--gold-soft);
 }
+.user-chip-menu .menu-item:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
 .user-chip-menu .menu-item.danger { color: var(--blood-bright); }

@@ -12,6 +12,7 @@ import { tName } from '../../data/i18n.js';
 import { gemLabel } from '../sheet/gem-text.js';
 import FhFeatures, { FhFeatureBody } from '../sheet/FhFeatures.jsx';
 import { levelTag } from '../sheet/feature-placement.js';
+import { useSheetToast } from '../sheet/sheet-toast.jsx';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
@@ -19,6 +20,8 @@ export default function ResourcesCard({ char, lang, update, canRestore = !!char.
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(() => new Set());   // recursos com a descrição aberta
   const [stale, setStale] = useState(() => new Set()); // recursos de talento que o servidor ainda não conhece
+  const [whyLocked, setWhyLocked] = useState(null);    // recurso cuja gema gasta foi tocada: mostra quando volta
+  const toast = useSheetToast();                       // null no editor do mestre
   const toggle = (k) => setOpen(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const list = computeResources(char);
   const keys = new Set(list.map(r => r.key));
@@ -31,8 +34,8 @@ export default function ResourcesCard({ char, lang, update, canRestore = !!char.
   const grouped = list.map((r, i) => [r, i]).sort((a, b) => RANK[cadence(a[0])] - RANK[cadence(b[0])] || a[1] - b[1]).map(x => x[0]);
 
   const change = async (r, delta) => {
-    if (busy) return;
-    if (delta < 0 && !canRestore) return;
+    if (busy) return false;
+    if (delta < 0 && !canRestore) return false;
     setBusy(true);
     try {
       if (!local && typeof char.id === 'number') {
@@ -44,8 +47,31 @@ export default function ResourcesCard({ char, lang, update, canRestore = !!char.
       } else {
         update({ resourcesUsed: spendResource(char, r.key, delta).resourcesUsed });
       }
-    } catch (e) { console.warn('resource failed', e); }
+      return true;
+    } catch (e) { console.warn('resource failed', e); return false; }
     finally { setBusy(false); }
+  };
+  const backWhen = (r) => (r.recharge === 'short'
+    ? t(lang, 'volta no descanso curto', 'comes back on a short rest')
+    : r.recharge === 'long' ? t(lang, 'volta no descanso longo', 'comes back on a long rest')
+      : t(lang, 'volta quando a regra do recurso disser', 'comes back when the resource says so'));
+  // Gastar pelo toque: SEMPRE um uso por toque (como as gemas de espaço de magia); o aviso
+  // da ficha oferece "Desfazer" por alguns segundos.
+  const spend = async (r, n = 1) => {
+    const ok = await change(r, n);
+    if (!ok) return;
+    setWhyLocked(null);
+    const name = r.name[lang];
+    // "Desfazer" só aparece onde funciona: ficha do aparelho ou editor do mestre. Ficha da
+    // conta: o servidor só devolve usos no descanso, pelo mestre ou no modo trapaça (regra
+    // do backend), então o aviso só confirma o gasto e diz quanto resta.
+    const canUndo = !!toast?.patchChar && (local || typeof char.id !== 'number');
+    const rest = r.max - r.used - n;
+    toast?.show({
+      text: (n === 1 ? t(lang, `${name}: −1 uso`, `${name}: −1 use`) : t(lang, `${name}: −${n} usos`, `${name}: −${n} uses`))
+        + t(lang, ` (restam ${rest}/${r.max})`, ` (${rest}/${r.max} left)`),
+      onAction: canUndo ? () => toast.patchChar(c => ({ resourcesUsed: spendResource(c, r.key, -n).resourcesUsed })) : undefined,
+    });
   };
 
   return (
@@ -94,23 +120,31 @@ export default function ResourcesCard({ char, lang, update, canRestore = !!char.
                   {Array.from({ length: r.max }).map((_, i) => {
                     const used = i < r.used;
                     const locked = used && !canRestore;
+                    // gema gasta sem modo trapaça: continua tocável (aria-disabled) só para
+                    // dizer quando o uso volta; gema livre: gasta UM uso, seja qual for a tocada
                     return (
                       <button key={i} type="button" className={`slot-pip ${used ? 'used' : ''} ${locked ? 'locked' : ''}`}
-                        disabled={busy || locked}
-                        aria-label={gemLabel(r.name[lang], i, r.max, used, lang)}
-                        onClick={() => change(r, used ? -(r.used - i) : i + 1 - r.used)} />
+                        disabled={busy} aria-disabled={locked || undefined}
+                        title={locked ? t(lang, `Gasto: ${backWhen(r)}`, `Spent: ${backWhen(r)}`) : undefined}
+                        aria-label={gemLabel(r.name[lang], i, r.max, used, lang) + (locked ? t(lang, `. ${backWhen(r)}`, `. ${backWhen(r)}`) : '')}
+                        onClick={() => (locked ? setWhyLocked(k => (k === r.key ? null : r.key)) : used ? change(r, -1) : spend(r, 1))} />
                     );
                   })}
                 </div>
               ) : (
                 <div className="row gap-1">
-                  <button className="btn btn-sm btn-ghost" disabled={busy || left <= 0} onClick={() => change(r, 1)}>−1</button>
-                  <button className="btn btn-sm btn-ghost" disabled={busy || left < 5} onClick={() => change(r, 5)}>−5</button>
+                  <button className="btn btn-sm btn-ghost" disabled={busy || left <= 0} onClick={() => spend(r, 1)}>−1</button>
+                  <button className="btn btn-sm btn-ghost" disabled={busy || left < 5} onClick={() => spend(r, 5)}>−5</button>
                   {canRestore && <button className="btn btn-sm btn-ghost" disabled={busy || !r.used} onClick={() => change(r, -1)}>+1</button>}
                 </div>
               )}
               <span className="text-xs muted mono">{left}/{r.max}</span>
             </div>
+            {whyLocked === r.key && (
+              <div className="fh-res-why" role="status">
+                {t(lang, `Uso gasto: ${backWhen(r)}.`, `Use spent: it ${backWhen(r)}.`)}
+              </div>
+            )}
             {own && isOpen && <div className="fh-res-desc"><FhFeatureBody item={own} lang={lang} /></div>}
             {/* a linha já diz a classe quando há recursos de mais de uma: o traço só leva o nível */}
             <FhFeatures items={more} multi={multiclass && !multi} lang={lang} label={null} className="fh-res-feats" />

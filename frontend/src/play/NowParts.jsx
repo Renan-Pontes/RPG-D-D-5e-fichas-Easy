@@ -360,7 +360,7 @@ export function ToolsSheet({ lang, onClose, onPick, wizardOn, onWizard, busy, pa
         <label className="tn-toggle now-tool-toggle">
           <input type="checkbox" checked={wizardOn} disabled={busy || closed} onChange={e => onWizard(e.target.checked)} />
           <span>
-            <strong>☐ {L(lang, 'Fim de combate guiado', 'Guided end of combat')}</strong>
+            <strong>{L(lang, 'Fim de combate guiado', 'Guided end of combat')}</strong>
             <span className="tn-toggle-hint">{L(lang,
               'Ao encerrar o combate: XP, descanso, tesouro e nota no Diário (tudo opcional).',
               'When combat ends: XP, rest, treasure and a Diary note (all optional).')}</span>

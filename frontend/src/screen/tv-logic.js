@@ -111,6 +111,20 @@ const MAP_H = 800;
 const CORNERS = ['bl', 'br', 'tl', 'tr'];
 
 /**
+ * O desenho do combate na TV: 'map' = há imagem de mapa → o mapa em 70% e a coluna da
+ * iniciativa em 30%, como sempre. Sem imagem de mapa (teatro da mente, o normal numa mesa
+ * iniciante) 70% da TV era uma grade vazia com tokens ilegíveis: a vez e a ordem ganham o
+ * palco — 'grid' = a grade continua, menor, embaixo de "Vez de X" (quem posicionou os
+ * tokens sem imagem não perde as posições); 'theatre' = o mestre desligou a grade
+ * (`grid_visible: false`): só a vez e a ordem.
+ */
+export function combatLayout(combat) {
+  const map = combat?.map || {};
+  if (map.backgroundUrl || map.background_image) return 'map';
+  return map.grid_visible === false ? 'theatre' : 'grid';
+}
+
+/**
  * O canto do mapa do combate com menos tokens: 'bl' | 'br' | 'tl' | 'tr'. Conta quem está
  * (posição em px do mapa) na região do canto que a caixa compacta cobre, ~45% da largura ×
  * 40% da altura; no empate fica o primeiro de bl, br, tl, tr (embaixo à esquerda, como antes).

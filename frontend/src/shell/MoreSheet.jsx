@@ -12,6 +12,7 @@
 import { useId } from 'react';
 import MesaSheet from './MesaSheet.jsx';
 import MesaTitle from './MesaTitle.jsx';
+import MesaIcon from './MesaIcon.jsx';
 import { TvPanel } from './CampaignHeader.jsx';
 import { BarPrefs } from '../stage/LiveScreenSheet.jsx';
 import { nextSessionNumber, SETTINGS_SECTIONS, settingsSectionLabel, settingsSummary, t } from './shell-logic.js';
@@ -74,7 +75,7 @@ export default function MoreSheet({
             title={t(lang, `Começar a Sessão ${next}`, `Start session ${next}`)}
             sub={t(lang, 'Pergunta onde começa e abre Jogar › Agora', 'Asks where it starts and opens Play › Now')} />
         ))}
-        <Row icon="🔍" onClick={onSearch}
+        <Row icon={<MesaIcon name="search" />} onClick={onSearch}
           title={t(lang, 'Buscar', 'Search')}
           sub={t(lang, 'NPC, lugar, jogador, aventura, item, monstro', 'NPC, place, player, adventure, item, monster')} />
       </div>
@@ -83,7 +84,7 @@ export default function MoreSheet({
         <MesaTitle as="h3" id={tvId}>{t(lang, 'Tela', 'Screen')}</MesaTitle>
         {onOpenLive && (
           <div className="shell-more-list mesa-panel is-sunk shell-more-live">
-            <Row icon="📺" onClick={onOpenLive} title={t(lang, 'Abrir a Tela ao vivo', 'Open the live screen')}
+            <Row icon={<MesaIcon name="tv" />} onClick={onOpenLive} title={t(lang, 'Abrir a Tela ao vivo', 'Open the live screen')}
               sub={t(lang, 'A TV de verdade, o que está nela e o Próximo turno', 'The real TV, what is on it and the Next turn')} />
           </div>
         )}
@@ -93,7 +94,7 @@ export default function MoreSheet({
 
       {campaign.advancedDice && (
         <div className="shell-more-list mesa-panel is-sunk">
-          <Row icon="🎲" onClick={() => onSettings('dice')}
+          <Row icon={<MesaIcon name="dice" />} onClick={() => onSettings('dice')}
             title={t(lang, 'Dados preparados', 'Prepared dice')}
             sub={t(lang, 'Próximos resultados das rolagens do app', 'Next results of the rolls made in the app')} />
         </div>
@@ -112,7 +113,7 @@ export default function MoreSheet({
 
       {onGuide && (
         <div className="shell-more-list mesa-panel is-sunk">
-          <Row icon="📘" onClick={onGuide} title={t(lang, 'Guia do mestre', 'GM guide')}
+          <Row icon={<MesaIcon name="book" />} onClick={onGuide} title={t(lang, 'Guia do mestre', 'GM guide')}
             sub={t(lang, 'Preparar, começar, Tela, combate e encerrar, com "Me leve lá"', 'Prepare, start, screen, combat and end, with "Take me there"')} />
         </div>
       )}

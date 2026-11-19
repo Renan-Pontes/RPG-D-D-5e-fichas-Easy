@@ -1,0 +1,80 @@
+/* Editor da ficha (components/Creator.jsx): o mesmo couro com filete dourado da ficha e
+   do assistente de criação. Barra de seções com nome (um toque leva direto à seção),
+   corpo em painel de couro e rodapé com Cancelar · ‹ › · Salvar em todas as seções.
+   Só tokens de styles.css. Celular primeiro. */
+
+/* Não há o que rolar aqui, e no celular o dado flutuante cobria campos e botões. */
+body:has(.ed-nav) .dice-fab { display: none !important; }
+body:has(.ed-nav) { overflow-x: clip; }
+
+/* ---------- Topo fixo: que ficha é e a barra de seções ---------- */
+.ed-top { padding-top: 8px; padding-bottom: 6px; margin-bottom: var(--s-4); background: var(--bg-base); }
+.ed-head { display: flex; align-items: baseline; gap: 10px; min-width: 0; margin-bottom: 6px; }
+.ed-head .eyebrow { flex: none; }
+.ed-head-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--display); font-weight: 600; font-size: 0.95rem; letter-spacing: 0.04em; color: var(--gold-bright); }
+.ed-head-count { flex: none; margin-left: auto; font-size: 0.78rem; color: var(--ink-muted); }
+
+.ed-nav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 3px 12px 4px; margin: 0 -12px; scroll-padding-inline: 48px;
+  /* bordas esmaecidas: mostram que a barra rola para os lados */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%); }
+.ed-nav::-webkit-scrollbar { display: none; }
+.ed-nav-step { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 14px 4px 6px; border-radius: 999px;
+  border: 1px solid var(--stroke); background: rgba(10, 7, 6, 0.55); color: var(--ink-secondary);
+  font-family: var(--body); font-size: 0.98rem; line-height: 1.2; white-space: nowrap; cursor: pointer; transition: border-color 0.2s, background 0.2s, color 0.2s; }
+.ed-nav-step:hover:not(:disabled) { border-color: var(--gold-deep); color: var(--ink-primary); }
+.ed-nav-step:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.ed-nav-step:disabled { opacity: 0.45; cursor: not-allowed; }
+.ed-nav-dot { width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 0.76rem;
+  background: var(--bg-raised); border: 1px solid var(--stroke); color: var(--ink-muted); }
+.ed-nav-step.active { background: var(--gold-soft); border-color: var(--gold); color: var(--gold-bright); font-weight: 600; }
+.ed-nav-step.active .ed-nav-dot { background: radial-gradient(circle at 35% 30%, #fff0bf, var(--gold-bright) 45%, var(--gold-deep) 100%); color: var(--on-gold); border-color: var(--gold-bright); }
+.ed-nav-step.pending .ed-nav-dot { background: var(--amber-soft); border-color: var(--amber); color: var(--amber); }
+
+/* ---------- Corpo: painel de couro com cantoneiras ---------- */
+.ed-stage { position: relative; min-width: 0; padding: 16px 12px 18px; border: 1px solid transparent; border-radius: 8px;
+  background:
+    var(--fh-noise) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 40%, var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+  box-shadow: 0 1px 0 rgba(255, 230, 170, 0.06) inset, 0 10px 30px rgba(0, 0, 0, 0.5); }
+.ed-stage::before { content: ""; position: absolute; inset: 5px; pointer-events: none; border-radius: 4px; opacity: 0.85;
+  background: var(--fh-corner-tl) top left / 22px no-repeat, var(--fh-corner-tr) top right / 22px no-repeat,
+              var(--fh-corner-bl) bottom left / 22px no-repeat, var(--fh-corner-br) bottom right / 22px no-repeat; }
+.ed-stage > div { position: relative; }
+@media (min-width: 700px) { .ed-stage { padding: 24px 24px 26px; } }
+
+/* Título da seção: escala "Section Title" do DESIGN.md, em folha de ouro */
+.ed-stage > div > h2:first-child, .ed-stage > div > div > h2:first-child { margin: 0 0 4px; font-family: var(--display); font-weight: 600; font-size: 1.4rem !important; line-height: 1.25; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-bright); }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .ed-stage > div > h2:first-child { width: fit-content; background: var(--fh-foil); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.6)); }
+}
+@media (forced-colors: active) { .ed-stage > div > h2:first-child { background: none; color: CanvasText; filter: none; } }
+
+/* Cartões e opções sobre o couro: superfície rebaixada, como os campos da ficha */
+.ed-stage .option { background: rgba(10, 7, 6, 0.45); border-color: rgba(224, 181, 94, 0.26); }
+.ed-stage .option:hover { border-color: var(--gold-deep); }
+.ed-stage .option.selected { border-color: var(--gold); background: linear-gradient(180deg, rgba(214, 176, 100, 0.14), rgba(10, 7, 6, 0.45)); box-shadow: 0 0 0 1px var(--gold), 0 4px 16px rgba(201, 169, 97, 0.15); }
+.ed-stage .option:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.ed-stage .card { background: rgba(10, 7, 6, 0.45); border-color: rgba(224, 181, 94, 0.22); }
+.ed-stage .cr-card-thumb { width: 56px; height: 56px; border-radius: 8px; }
+.ed-lock { color: var(--gold); vertical-align: -2px; margin-right: 2px; }
+
+/* ---------- Rodapé: Cancelar · ‹ › · Salvar ---------- */
+.ed-foot .wizard-footer-inner { align-items: stretch; gap: 8px; }
+.ed-foot .ed-cancel { flex: 0 1 auto; padding-inline: 14px; }
+.ed-arrows { flex: none; display: flex; gap: 6px; }
+.ed-foot .ed-arrow { flex: 0 0 48px; width: 48px; min-width: 48px; padding: 0; justify-content: center; }
+.ed-foot .ed-save { flex: 1 1 auto; justify-content: center; }
+.ed-hint-go { display: block; width: 100%; min-height: 28px; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ed-hint-go b { font-weight: 600; color: var(--ink-primary); }
+.ed-hint-link { margin-left: 4px; white-space: nowrap; color: var(--gold-bright); text-decoration: underline; text-underline-offset: 3px; }
+.ed-hint-go:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; border-radius: 4px; }
+@media (max-width: 380px) {
+  .ed-foot .ed-cancel { padding-inline: 8px; letter-spacing: 0.04em; }
+  .ed-foot .ed-arrow { flex-basis: 44px; width: 44px; min-width: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .ed-nav-step { transition: none; } }
+
+/* Desktop: o rodapé tem a largura do painel da seção */
+@media (min-width: 760px) { .ed-foot .wizard-footer-inner, .ed-foot .wizard-hint { max-width: 696px; } }

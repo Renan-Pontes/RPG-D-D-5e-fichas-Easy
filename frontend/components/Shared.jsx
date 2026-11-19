@@ -1,5 +1,5 @@
 /* Shared UI components */
-import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect, useId } from 'react';
 import Icon from './Icons.jsx';
 import './header.css';
 
@@ -19,7 +19,9 @@ const Filigree = ({ children }) => (
 );
 
 // === Modal ===
+const storedLang = () => { try { return localStorage.getItem('dnd5e-forge:lang') || 'pt'; } catch { return 'pt'; } };
 const Modal = ({ children, onClose, title }) => {
+  const titleId = useId();
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -27,9 +29,9 @@ const Modal = ({ children, onClose, title }) => {
   }, [onClose]);
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose} aria-label="Close"><Icon name="x" size={20}/></button>
-        {title && <h2 style={{ marginBottom: 16 }}>{title}</h2>}
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined} onClick={e => e.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={onClose} aria-label={storedLang() === 'en' ? 'Close' : 'Fechar'}><Icon name="x" size={20}/></button>
+        {title && <h2 id={titleId} style={{ marginBottom: 16 }}>{title}</h2>}
         {children}
       </div>
     </div>
@@ -37,12 +39,22 @@ const Modal = ({ children, onClose, title }) => {
 };
 
 // === Toast ===
+/** Tempo na tela: 1,8 s para "Salvo", mais ~55 ms por caractere, até 7 s. */
+export const toastDuration = (msg) => Math.max(1800, Math.min(7000, 1200 + 55 * String(msg ?? '').length));
 const Toast = ({ msg, onDone }) => {
+  const [paused, setPaused] = useState(false);
+  const doneRef = useRef(onDone);
+  doneRef.current = onDone;
   useEffect(() => {
-    const t = setTimeout(onDone, 1800);
+    if (paused) return undefined;
+    const t = setTimeout(() => doneRef.current(), toastDuration(msg));
     return () => clearTimeout(t);
-  }, [msg, onDone]);
-  return <div className="toast">{msg}</div>;
+  }, [msg, paused]);
+  const long = String(msg ?? '').length > 24;
+  return (
+    <div className={`toast${long ? ' is-long' : ''}`} role="status" aria-live="polite"
+      onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>{msg}</div>
+  );
 };
 
 // === Lang toggle ===
@@ -59,10 +71,11 @@ const LangToggle = ({ lang, setLang }) => (
 const AppHeader = ({ lang, setLang, onHome, right }) => {
   return (
     <header className="app-header no-print">
-      <div className="brand" onClick={onHome}>
-        <div className="brand-mark"><Icon name="logo" size={32}/></div>
-        <div className="brand-name">{lang === 'pt' ? 'Forja' : 'Hero'} <span>{lang === 'pt' ? 'de Heróis' : 'Forge'}</span></div>
-      </div>
+      <button type="button" className="brand" onClick={onHome}
+        aria-label={lang === 'pt' ? 'Forja de Heróis: início' : 'Hero Forge: home'}>
+        <span className="brand-mark"><Icon name="logo" size={32}/></span>
+        <span className="brand-name">{lang === 'pt' ? 'Forja' : 'Hero'} <span>{lang === 'pt' ? 'de Heróis' : 'Forge'}</span></span>
+      </button>
       <div className="header-actions">
         {right}
         <LangToggle lang={lang} setLang={setLang} />

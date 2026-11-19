@@ -318,3 +318,13 @@
 /* Troca de escolhas (respec): o que muda na ficha, em linhas curtas */
 .grp-req-changes { margin: 6px 0 0; padding-left: 16px; font-size: .82rem; line-height: 1.45; color: var(--ink-secondary, #cbb); }
 .grp-req-changes li { list-style: none; margin-left: -12px; }
+
+/* ---------- Adicionar personagem: papel (Jogador · NPC) no segmentado da mesa ---------- */
+.grp-role-label { margin: 0 0 6px; }
+.grp-role-seg { margin: 0 0 6px; }
+.grp-role-seg .mesa-seg-btn { min-width: 0; white-space: normal; }
+.grp-role-hint { margin: 0 0 12px; }
+.grp-assign-empty { margin: 0; padding: 16px 12px; text-align: center; }
+.grp-assign-role { flex: none; font-size: 0.8rem; color: var(--ink-muted); }
+.grp-assign-extra { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(214, 176, 100, 0.15); }
+.grp-assign-extra .mesa-btn { width: 100%; }

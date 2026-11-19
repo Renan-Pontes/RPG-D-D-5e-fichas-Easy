@@ -356,15 +356,17 @@
 /* Assistente de criação: o botão de dados flutuante some (não há o que rolar e,
    no celular, ele subia para fugir dos cartões e cobria textos e o rodapé). */
 body:has(.cr-progress) .dice-fab { display: none !important; }
-body:has(.cr-progress) .wizard-hint { padding-right: 0; }
 
 /* Motivo do "Próximo" travado no criador */
 .wizard-footer { flex-direction: column; }
+/* O visual do aviso (cartão sólido, nunca sobre o conteúdo) está em styles.css,
+   ".wizard-footer .wizard-hint"; aqui só a largura, igual à dos botões. */
 .wizard-hint {
   max-width: 900px; width: 100%; margin: 0 auto;
   font-size: 0.85rem; color: var(--amber);
-  padding-right: 64px; /* não passa por baixo do botão de dados */
 }
+/* Com avisos no rodapé ele fica mais alto: o fim da página rola livre dele. */
+body:has(.wizard-footer .wizard-hint) .container { padding-bottom: calc(250px + env(safe-area-inset-bottom, 0px)); }
 
 /* === 19. Botão de dados (canto inferior direito) nunca cobre avisos com botão:
    o aviso do sininho e o "desfazer" do diário sobem acima dele. === */

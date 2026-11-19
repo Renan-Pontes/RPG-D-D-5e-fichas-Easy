@@ -44,7 +44,7 @@ const d = (n) => 1 + Math.floor(Math.random() * n);
  * { label, tone } para a lente (ou null = nada); `commit(dx)` aplica ao soltar.
  * Teclado: setas acumulam o arrasto em passos, Enter aplica, Esc desfaz.
  */
-function DragBar({ className, pct, label, valueText, read, commit, disabled, children, knob = 16, grow = false }) {
+function DragBar({ className, pct, label, valueText, valueNow, valueMax, read, commit, disabled, children, knob = 16, grow = false }) {
   const ref = useRef(null);
   const start = useRef(null);
   const [dx, setDx] = useState(0);
@@ -89,6 +89,7 @@ function DragBar({ className, pct, label, valueText, read, commit, disabled, chi
       {typeof children === 'function' ? children(shown, drag) : children}
       {/* só o botão pega o arrasto (a barra em volta não) */}
       <span className="fh-knob" role="slider" tabIndex={disabled ? -1 : 0} aria-label={label}
+        aria-valuemin={valueMax != null ? 0 : undefined} aria-valuemax={valueMax ?? undefined} aria-valuenow={valueNow ?? undefined}
         aria-valuetext={info ? info.label : valueText} aria-disabled={disabled || undefined}
         style={{ width: knob, height: knob, marginTop: -r, left: `max(0px, calc(${shown / 100} * 100% - ${knob}px))` }}
         onPointerDown={e => {
@@ -103,9 +104,12 @@ function DragBar({ className, pct, label, valueText, read, commit, disabled, chi
         onLostPointerCapture={() => { if (start.current != null) end(true); }}
         onKeyDown={e => {
           if (disabled) return;
-          const step = e.shiftKey ? 40 : 14;
-          if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); setDx(v => clamp(v + step)); }
-          else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); setDx(v => clamp(v - step)); }
+          // uma seta = 1 ponto (a barra inteira vale `valueMax`); Shift = 5. Sem escala, passos fixos.
+          const unit = valueMax ? w / valueMax : 14;
+          const step = e.shiftKey ? Math.max(40, unit * 5) : Math.max(unit, 1);
+          const snap = (v, dir) => (valueMax ? Math.round((v + dir * step) / unit) * unit : v + dir * step);
+          if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); setDx(v => clamp(snap(v, 1))); }
+          else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); setDx(v => clamp(snap(v, -1))); }
           else if (e.key === 'Enter') { e.preventDefault(); end(true); }
           else if (e.key === 'Escape') end(false);
         }}
@@ -145,6 +149,14 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
   const pools = hitDicePools(byDie, char);
   const hdLeft = pools.reduce((a, p) => a + p.left, 0);
   const [note, setNote] = useState(null);     // última rolagem (dados de vida / morte)
+  // a frase do último teste contra a morte vale enquanto o personagem está caído (ou acabou
+  // de voltar com 1 PV no 20 natural: fica 6 s e some)
+  useEffect(() => {
+    if (!note || down) return undefined;
+    const id = setTimeout(() => setNote(null), note.death === 'crit' ? 6000 : 0);
+    return () => clearTimeout(id);
+  }, [down, note]);
+  useEffect(() => { setNote(null); }, [char.id]);
 
   // PV: dano à esquerda; à direita cura — ou, no descanso curto, Dados de Vida
   // O botão marca o PV final: soltar em X deixa X PV (sem ir e voltar). Para baixo, o dano
@@ -241,11 +253,13 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
     <div className={`fh-hpt${short ? ' is-short-rest' : ''}`}>
       <DragBar className="is-temp" knob={16} grow pct={Math.min(100, (temp / max) * 100)}
         label={L(lang, 'PV temporários: arraste para a direita para ganhar', 'Temporary HP: drag right to gain')} valueText={String(temp)}
+        valueNow={temp} valueMax={max}
         read={readTemp} commit={commitTemp}>
         {(fill) => (
           <>
             <div className="fh-gauge-wrap">
-              <div className="fh-hpt-temp fh-gauge" style={gaugeStyle(SLICES)} aria-hidden="true">
+              <div className="fh-hpt-temp fh-gauge" style={gaugeStyle(SLICES)} aria-hidden="true"
+                data-label={temp ? L(lang, `PV temporários ${temp}`, `Temporary HP ${temp}`) : L(lang, 'PV temporários', 'Temporary HP')}>
                 <div className="fh-hpt-temp-fill" style={{ width: `${fill}%` }} />
               </div>
               <GaugeFrame n={SLICES} />
@@ -258,7 +272,8 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
         label={short
           ? L(lang, 'Pontos de Vida: arraste para a direita para gastar Dados de Vida, para a esquerda para dano', 'Hit points: drag right to spend Hit Dice, left for damage')
           : L(lang, 'Pontos de Vida: arraste para a esquerda para dano, para a direita para cura', 'Hit points: drag left for damage, right for healing')}
-        valueText={`${char.currentHp}`} read={readHp} commit={commitHp}>
+        valueText={L(lang, `${char.currentHp} de ${max}`, `${char.currentHp} of ${max}`)} valueNow={char.currentHp || 0} valueMax={max}
+        read={readHp} commit={commitHp}>
         {(fill) => (
           <div className="fh-gauge-wrap">
           <div className={`hp-bar fh-hpt-bar fh-gauge${bloodied ? ' is-bloodied' : ''}`} style={gaugeStyle(SLICES)} aria-hidden="true">
@@ -292,15 +307,30 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
           onPick={lv => update(setExhaustion(char, lv))} />
       </div>
 
+      {down && (
+        <div className="fh-hpt-downline" role="status">
+          <strong>{L(lang, 'Caído', 'Down')}</strong>
+          <span>{char.stabilized?.hours
+            ? L(lang, 'estável: não rola mais testes contra a morte', 'stable: no more death saves')
+            : ds.fail >= 3 ? L(lang, 'três falhas: morto', 'three failures: dead')
+              : L(lang, 'role o teste contra a morte no dado vermelho', 'roll the death save on the red die')}</span>
+          {hints.death}
+        </div>
+      )}
       <div className={`fh-hpt-row is-death${down ? ' is-down' : ''}`}>
         <Pips n={3} on={ds.fail} kind="ko" reverse label={L(lang, 'Falhas', 'Failures')} inside={L(lang, 'Falhas', 'Failures')} onPick={n => update({ deathSaves: { ...ds, fail: n } })} />
         <button type="button" className={`fh-death-die${rolling ? ' is-rolling' : ''}`} disabled={!down || rolling} onClick={deathRoll}
           aria-label={down ? L(lang, 'Rolar teste contra a morte', 'Roll death save') : L(lang, 'Teste contra a morte (só a 0 PV)', 'Death save (only at 0 HP)')}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 7v10l-9 5-9-5V7z" /><path d="M12 2v20M3 7l9 5 9-5" /></svg>
+          {down && <span className="fh-death-die-t">{L(lang, 'Rolar', 'Roll')}</span>}
         </button>
         <Pips n={3} on={ds.success} kind="ok" label={L(lang, 'Sucessos', 'Successes')} inside={L(lang, 'Sucessos', 'Successes')} onPick={n => update({ deathSaves: { ...ds, success: n } })} />
-
       </div>
+      {note && (
+        <div key={note.key} className={`fh-hpt-note is-${note.death}`} role="status">
+          <span className="fh-hpt-note-k">{L(lang, 'Teste contra a morte', 'Death save')}</span> {note.text}
+        </div>
+      )}
 
       {/* Sobrevivência (src/sheet/survival.js): dias sem comida/água, fôlego, água gélida */}
       {(() => {
@@ -318,7 +348,17 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
             <span className="fh-surv-s">{sub}</span>
           </div>
         );
+        const breathTxt = 1 + conMod < 1 ? '30 s' : `${1 + conMod} min`;
+        const counting = (s.food || 0) > 0 || (s.water || 0) > 0;
         return (
+          <details className={`fh-surv-fold${counting ? ' is-counting' : ''}`} open={counting || undefined}>
+          <summary>
+            <span className="fh-surv-fold-t">{L(lang, 'Sobrevivência', 'Survival')}</span>
+            <span className={`fh-surv-fold-s${st.nourished ? ' is-ok' : ' is-over'}`}>
+              {st.nourished ? L(lang, 'nutrido ✓', 'nourished ✓') : L(lang, 'sem comida ou água ✗', 'short of food or water ✗')}
+              {' · '}{L(lang, `fôlego ${breathTxt}`, `breath ${breathTxt}`)}
+            </span>
+          </summary>
           <div className="fh-surv" role="group" aria-label={L(lang, 'Sobrevivência', 'Survival')}>
             <div className={`fh-surv-tile is-state${st.nourished ? ' is-ok' : ' is-over'}`}>
               <span className="fh-surv-k">{L(lang, 'Nutrido', 'Nourished')}</span>
@@ -333,7 +373,7 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
               st.waterOver ? L(lang, '+1 exaustão ao fim do dia', '+1 exhaustion at day end') : L(lang, '1 galão/dia · ½: CD 15 CON', '1 gal/day · ½: DC 15 CON'))}
             <div className="fh-surv-tile">
               <span className="fh-surv-k">{L(lang, 'Fôlego', 'Breath')}</span>
-              <b className="fh-surv-big">{1 + conMod < 1 ? '30 s' : `${1 + conMod} min`}</b>
+              <b className="fh-surv-big">{breathTxt}</b>
               <span className="fh-surv-s">{breathLabel(conMod, lang)}</span>
             </div>
             <div className="fh-surv-tile">
@@ -342,9 +382,53 @@ export default function HpTracker({ char, lang, update, applyHp, byDie, conMod, 
               <span className="fh-surv-s">{L(lang, 'depois CD 10 CON/min', 'then DC 10 CON/min')}</span>
             </div>
           </div>
+          </details>
         );
       })()}
 
+    </div>
+  );
+}
+
+/**
+ * Painel "Dano · Cura · PV temp." (aberto pelo coração de PV da aba Jogar): digitar o
+ * número em vez de arrastar o botão da barra. Só chama os handlers de quem usa
+ * (applyHp e a troca dos PV temporários ficam em components/Sheet.jsx).
+ */
+export function HpPad({ lang, onDamage, onHeal, onTemp, onClose, max = 999 }) {
+  const [raw, setRaw] = useState('');
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current?.focus({ preventScroll: true }); }, []);
+  const n = Math.max(0, Math.min(999, parseInt(raw, 10) || 0));
+  const bump = (v) => setRaw(String(Math.max(0, Math.min(999, n + v))));
+  const run = (fn) => { if (!n) { inputRef.current?.focus(); return; } fn(n); setRaw(''); };
+  return (
+    <div className="fh-hp-pad" role="group" aria-label={L(lang, 'Ajustar Pontos de Vida', 'Adjust hit points')}
+      onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}>
+      <div className="fh-hp-pad-num">
+        <button type="button" className="fh-hp-pad-step" onClick={() => bump(-1)} disabled={!n} aria-label={L(lang, 'Menos 1', 'Minus 1')}>−</button>
+        <input ref={inputRef} className="fh-hp-pad-input" type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="off" enterKeyHint="done"
+          value={raw} placeholder="0" maxLength={3}
+          aria-label={L(lang, 'Quantos pontos', 'How many points')}
+          onChange={e => setRaw(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))} />
+        <button type="button" className="fh-hp-pad-step" onClick={() => bump(1)} aria-label={L(lang, 'Mais 1', 'Plus 1')}>+</button>
+        <span className="fh-hp-pad-quick" role="group" aria-label={L(lang, 'Somar ao número', 'Add to the number')}>
+          {[5, 10].map(v => <button key={v} type="button" onClick={() => bump(v)}>+{v}</button>)}
+        </span>
+        <button type="button" className="fh-hp-pad-x" onClick={onClose} aria-label={L(lang, 'Fechar o ajuste de PV', 'Close the HP pad')}>✕</button>
+      </div>
+      <div className="fh-hp-pad-acts">
+        <button type="button" className="fh-hp-pad-btn is-hurt" aria-disabled={!n} onClick={() => run(onDamage)}>
+          <span aria-hidden="true">−</span> {L(lang, 'Dano', 'Damage')}
+        </button>
+        <button type="button" className="fh-hp-pad-btn is-heal" aria-disabled={!n} onClick={() => run(onHeal)}>
+          <span aria-hidden="true">+</span> {L(lang, 'Cura', 'Heal')}
+        </button>
+        <button type="button" className="fh-hp-pad-btn is-temp" aria-disabled={!n} onClick={() => run((v) => onTemp(Math.min(v, max)))}
+          title={L(lang, 'PV temporários não somam: o número digitado vira o novo valor', 'Temporary HP do not stack: the number typed becomes the new value')}>
+          {L(lang, 'PV temp.', 'Temp HP')}
+        </button>
+      </div>
     </div>
   );
 }

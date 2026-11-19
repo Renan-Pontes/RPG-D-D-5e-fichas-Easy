@@ -84,3 +84,22 @@ h2.pg-head-wrap { font-size: inherit !important; letter-spacing: inherit; color:
   .pg-card { transition: none; }
   .pg-card:hover { transform: none; }
 }
+
+/* Rodapé do modal: cobre até a borda (o texto que rola não aparece mais por baixo dele).
+   O modal fica com um respiro próprio, o mesmo que o rodapé usa para sangrar. */
+.modal:has(> .pg-modal) { --pg-pad: 20px; padding: var(--pg-pad) var(--pg-pad) calc(var(--pg-pad) + env(safe-area-inset-bottom, 0px)) !important; }
+.pg-modal-foot {
+  bottom: calc(-1 * (var(--pg-pad, 20px) + env(safe-area-inset-bottom, 0px)));
+  margin: 12px calc(-1 * var(--pg-pad, 20px)) calc(-1 * (var(--pg-pad, 20px) + env(safe-area-inset-bottom, 0px)));
+  padding: 12px var(--pg-pad, 20px) calc(14px + env(safe-area-inset-bottom, 0px));
+  background: var(--fh-leather-lo, #140e0b);
+  border-top: 1px solid rgba(224, 181, 94, 0.22);
+  box-shadow: 0 -10px 18px rgba(20, 14, 11, 0.9);
+}
+.pg-modal h4 { margin: 12px 0 4px; font-family: var(--display); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); }
+.pg-story-text { margin: 0; font-size: 0.95rem; line-height: 1.5; color: var(--ink-secondary); }
+.pg-story-text.is-clamped { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.pg-story-more { min-height: 44px; margin: 0 0 -6px; padding: 0 2px; border: 0; background: none; color: var(--gold); font: inherit; font-size: 0.92rem;
+  text-decoration: underline dashed rgba(214, 176, 100, 0.6); text-underline-offset: 4px; cursor: pointer; }
+.pg-story-more:hover { color: var(--gold-bright); }
+.pg-story-more:focus-visible { outline: 2px solid var(--fh-gold-hi, #fbe4a3); outline-offset: 2px; border-radius: 4px; }

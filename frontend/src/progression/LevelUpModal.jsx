@@ -385,14 +385,20 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
         aria-label={lang === 'pt' ? `Passo ${step + 1} de ${steps.length}` : `Step ${step + 1} of ${steps.length}`}>
         {steps.map((s, i) => <div key={s} style={{ flex: 1, height: 4, borderRadius: 2, background: i <= step ? 'var(--gold)' : 'var(--stroke-faint)' }}/>)}
       </div>
-      <div className="lu-scroll" style={{ maxHeight: '60vh', overflowY: 'auto', marginBottom: 14 }}>{render()}</div>
-      {error && <div className="text-sm" style={{ color: 'var(--blood-bright)', marginBottom: 8 }}>{error}</div>}
-      <div className="row gap-2">
-        {step > 0 && <button className="btn btn-ghost" onClick={() => setStep(step - 1)}>{t('back', lang)}</button>}
-        <button className="btn btn-ghost" onClick={onClose}>{t('cancel', lang)}</button>
+      {/* altura fixa: o modal não encolhe nem cresce de um passo para o outro, então o botão
+          principal fica sempre no mesmo lugar (no celular a folha ocupa a tela: mobile-styles.css) */}
+      <div className="lu-scroll" style={{ height: 'min(60vh, 520px)', minHeight: 'min(46vh, 380px)', overflowY: 'auto', marginBottom: 14 }}>{render()}</div>
+      {error && <div className="text-sm" role="alert" style={{ color: 'var(--blood-bright)', marginBottom: 8 }}>{error}</div>}
+      {/* Rodapé igual no celular e no computador: o botão principal sozinho na 1ª linha,
+          largura toda; "Voltar" e "Cancelar" embaixo, discretos (nada quebra em duas linhas) */}
+      <div className="lu-foot" style={{ display: 'grid', gap: 8 }}>
         {isLast
-          ? <button className="btn btn-primary" style={{ flex: 1 }} disabled={busy || !stepValid} onClick={confirm}><Icon name="star-fill" size={14}/> {lang === 'pt' ? 'Confirmar' : 'Confirm'}</button>
-          : <button className="btn btn-primary" style={{ flex: 1 }} disabled={!stepValid} onClick={() => setStep(step + 1)}>{lang === 'pt' ? 'Próximo' : 'Next'} →</button>}
+          ? <button className="btn btn-primary lu-foot-main" style={{ width: '100%', whiteSpace: 'nowrap' }} disabled={busy || !stepValid} onClick={confirm}><Icon name="star-fill" size={14}/> {lang === 'pt' ? 'Confirmar' : 'Confirm'}</button>
+          : <button className="btn btn-primary lu-foot-main" style={{ width: '100%', whiteSpace: 'nowrap' }} disabled={!stepValid} onClick={() => setStep(step + 1)}>{lang === 'pt' ? 'Próximo' : 'Next'} →</button>}
+        <div className="lu-foot-sec" style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
+          {step > 0 ? <button className="btn btn-ghost btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={() => setStep(step - 1)}>← {t('back', lang)}</button> : <span />}
+          <button className="btn btn-ghost btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={onClose}>{t('cancel', lang)}</button>
+        </div>
       </div>
     </Modal>
   );

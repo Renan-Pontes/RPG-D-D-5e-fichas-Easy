@@ -121,14 +121,14 @@ export default function PlayPanel({
 
       <div className="prep-play-actions">
         {!isCurrent && (
-          <button type="button" className="btn btn-primary btn-sm" disabled={!!busy} onClick={() => onPlay('enter', { nodeId: node.id })}>
+          <button type="button" className="mesa-btn mesa-btn-lg is-primary prep-enter" disabled={!!busy} onClick={() => onPlay('enter', { nodeId: node.id })}>
             ▶ {t(lang, 'O grupo entrou aqui', 'The party entered here')}
           </button>
         )}
         {isCurrent && (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onPlay('leave')}>{t(lang, 'Tirar marcação de atual', 'Clear current')}</button>
+          <button type="button" className="mesa-btn" onClick={() => onPlay('leave')}>{t(lang, 'Tirar marcação de atual', 'Clear current')}</button>
         )}
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => onPlay(visited ? 'unvisit' : 'visit', { nodeId: node.id })}>
+        <button type="button" className="mesa-btn" onClick={() => onPlay(visited ? 'unvisit' : 'visit', { nodeId: node.id })}>
           {visited ? t(lang, 'Desmarcar visitado', 'Unmark visited') : t(lang, 'Marcar visitado', 'Mark visited')}
         </button>
         <label className="me-check small">

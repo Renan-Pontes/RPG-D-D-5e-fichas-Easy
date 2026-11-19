@@ -235,16 +235,6 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
         {asSheet && bestHint}
       </div>
       <div className="gc-field">
-        <span className="gc-label">{L(lang, 'Iniciativa', 'Initiative')}</span>
-        <div className="gc-quick gc-quick-init">
-          <button type="button" className="gc-quick-btn is-init" disabled={busy}
-            onClick={() => send({ kind: 'custom', key: INITIATIVE_KEY })}>
-            <span className="gc-quick-name">⚡ {L(lang, 'Iniciativa', 'Initiative')}</span>
-            <span className="gc-quick-best">{L(lang, 'cada um rola a sua', 'everyone rolls theirs')}</span>
-          </button>
-        </div>
-      </div>
-      <div className="gc-field">
         <span className="gc-label">{L(lang, 'Resistência', 'Save')}</span>
         <div className="gc-quick gc-quick-saves">
           {QUICK_SAVES.map(k => (
@@ -254,6 +244,16 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
               {best[`save:${k}`] && <span className="gc-quick-best" aria-hidden="true">{bestLine(best[`save:${k}`])}</span>}
             </button>
           ))}
+        </div>
+      </div>
+      <div className="gc-field">
+        <span className="gc-label">{L(lang, 'Iniciativa', 'Initiative')}</span>
+        <div className="gc-quick gc-quick-init">
+          <button type="button" className="gc-quick-btn is-init" disabled={busy}
+            onClick={() => send({ kind: 'custom', key: INITIATIVE_KEY })}>
+            <span className="gc-quick-name">{L(lang, 'Pedir iniciativa', 'Ask for initiative')}</span>
+            <span className="gc-quick-best">{L(lang, 'cada um rola a sua', 'everyone rolls theirs')}</span>
+          </button>
         </div>
       </div>
       <div className="gc-field">

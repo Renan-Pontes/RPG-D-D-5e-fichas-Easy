@@ -353,24 +353,30 @@ export function Echo({ art, children, lang }) {
 export const HOLD_MS = 1200;
 const HOLD_WORDS = { pt: ['Você hesita…', '…respira fundo…', '…e decide.'], en: ['You hesitate…', '…take a breath…', '…and decide.'] };
 
-export function HoldButton({ label, onComplete, lang, disabled, className = '' }) {
+/** Depois de um toque curto o botão fica "armado" por este tempo: um segundo toque sela. */
+export const ARMED_MS = 4000;
+
+export function HoldButton({ label, onComplete, lang, disabled, className = '', breaking = false }) {
   const [holding, setHolding] = useState(false);
   const [word, setWord] = useState(null);
   const [nudge, setNudge] = useState(false);
-  const [tip, setTip] = useState(false);
+  const [armed, setArmed] = useState(false);
   const timers = useRef([]);
-  const tipTimer = useRef(null);
+  const armTimer = useRef(null);
   const holdingRef = useRef(false); // ref, não estado: o pointerup chega antes do novo render
+  const armedRef = useRef(false);
+  const armedAt = useRef(0);
   const firedAt = useRef(0);
   const clear = () => { timers.current.forEach(clearTimeout); timers.current = []; };
-  useEffect(() => () => { clear(); clearTimeout(tipTimer.current); }, []);
+  const disarm = () => { clearTimeout(armTimer.current); armedRef.current = false; setArmed(false); };
+  useEffect(() => () => { clear(); clearTimeout(armTimer.current); }, []);
   const fire = () => {
     // Uma vez só (Espaço + o click nativo, ou o timer + um clique de tecnologia assistiva).
     if (disabled || Date.now() - firedAt.current < 500) return;
     firedAt.current = Date.now();
-    clear(); clearTimeout(tipTimer.current);
+    clear(); disarm();
     holdingRef.current = false;
-    setHolding(false); setWord(null); setNudge(false); setTip(false);
+    setHolding(false); setWord(null); setNudge(false);
     onComplete();
   };
   const start = (e) => {
@@ -378,37 +384,50 @@ export function HoldButton({ label, onComplete, lang, disabled, className = '' }
     // Movimento reduzido: sela no clique (ao soltar dentro do botão), que ainda dá para cancelar arrastando para fora.
     if (reduced()) return;
     holdingRef.current = true;
-    setNudge(false); setTip(false); setHolding(true);
+    setNudge(false); setHolding(true);
     HOLD_WORDS[k(lang)].forEach((w, i) => timers.current.push(setTimeout(() => setWord(w), i * (HOLD_MS / 3))));
     timers.current.push(setTimeout(fire, HOLD_MS));
   };
   const stop = () => {
     if (!holdingRef.current) return;
     clear(); holdingRef.current = false;
-    setHolding(false); setWord(null); setNudge(true); setTip(true);
-    clearTimeout(tipTimer.current);
-    tipTimer.current = setTimeout(() => setTip(false), 5000);
+    setHolding(false); setWord(null);
+    // Soltou antes de encher: um toque nunca é beco sem saída. O botão fica armado e o
+    // próximo toque sela (segurar continua valendo).
+    if (!armedRef.current) {
+      armedRef.current = true; armedAt.current = Date.now();
+      setArmed(true); setNudge(true);
+    }
+    clearTimeout(armTimer.current);
+    armTimer.current = setTimeout(disarm, ARMED_MS);
   };
   // Clique sem ponteiro (leitor de tela, comando de voz, acesso por botão, Enter) sela na hora, como o teclado.
-  const onClick = (e) => { if (e.detail === 0 || reduced()) fire(); };
+  // Com ponteiro: sela se o botão já estava armado por um toque anterior (não o deste mesmo clique).
+  const onClick = (e) => {
+    if (e.detail === 0 || reduced()) { fire(); return; }
+    if (armedRef.current && Date.now() - armedAt.current > 250) fire();
+  };
+  // breaking: o botão quebra um selo já feito (troca de escolha), não sela um novo.
+  const hint = breaking
+    ? (armed ? L(lang, 'para quebrar', 'to break it') : L(lang, 'segure para quebrar', 'hold to break'))
+    : (armed ? L(lang, 'para selar', 'to seal') : L(lang, 'segure para selar', 'hold to seal'));
   return (
     <span className="cr-hold-wrap">
-      <button type="button" className={`btn cr-hold ${holding ? 'holding' : ''} ${nudge ? 'nudge' : ''} ${className}`} disabled={disabled}
+      <button type="button" className={`btn cr-hold ${holding ? 'holding' : ''} ${nudge ? 'nudge' : ''} ${armed ? 'armed' : ''} ${className}`} disabled={disabled}
         onPointerDown={start} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop} onContextMenu={(e) => e.preventDefault()}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(); } }}
         onClick={onClick}
         onAnimationEnd={() => setNudge(false)}
-        aria-label={reduced() ? label : `${label}. ${L(lang, 'Mantenha pressionado; no teclado ou leitor de tela, Enter.', 'Press and hold; with a keyboard or screen reader, Enter.')}`}>
+        aria-label={reduced() ? label : `${label}. ${L(lang, 'Mantenha pressionado ou toque duas vezes; no teclado ou leitor de tela, Enter.', 'Press and hold or tap twice; with a keyboard or screen reader, Enter.')}`}>
         <span className="cr-hold-fill" style={{ '--hold': `${HOLD_MS}ms` }} />
-        <span className="cr-hold-txt">{word || label}</span>
-      </button>
-      {tip && (
-        <span className="cr-hold-tip" role="status">
-          {L(lang, 'Segure um pouco mais, até o selo encher.', 'Hold a little longer, until the seal fills.')}{' '}
-          {/* Para quem não consegue segurar (acesso por botão, comando de voz). */}
-          <button type="button" className="cr-hold-now" onClick={fire}>{L(lang, 'Selar sem segurar', 'Seal without holding')}</button>
+        <span className="cr-hold-txt">
+          <span className="cr-hold-label">{word || (armed ? L(lang, 'Toque de novo', 'Tap again') : label)}</span>
+          {!word && !reduced() && <span className="cr-hold-sub">{hint}</span>}
         </span>
-      )}
+      </button>
+      <span className="cr-sr" role="status">
+        {armed ? L(lang, 'Toque de novo para confirmar, ou segure até o selo encher.', 'Tap again to confirm, or hold until the seal fills.') : ''}
+      </span>
     </span>
   );
 }

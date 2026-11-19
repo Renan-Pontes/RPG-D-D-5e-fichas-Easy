@@ -50,8 +50,10 @@
    contadores (a fila continua com a largura toda: o ⚠ perigo não sai da tela). Ela fica a
    sessão parada inteira (também com "Nada esperando ✓"): o painel cresce 16 px fixos e não
    muda de altura quando um contador zera */
-.mesa-panel.is-sunk.mp.has-from { height: 136px; min-height: 136px; max-height: 136px; grid-template-rows: 14px 44px minmax(0, 1fr); }
-.mp-from { margin: 0; padding-left: 4px; min-width: 0; font-size: 12px; line-height: 14px; color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mesa-panel.is-sunk.mp.has-from { height: 140px; min-height: 140px; max-height: 140px; grid-template-rows: 18px 44px minmax(0, 1fr); }
+.mp-from { margin: 0; padding-left: 4px; min-width: 0; font-size: 0.85rem; line-height: 18px; color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* nada esperando: uma linha só. O painel volta aos 120 px quando algo chega. */
+.mesa-panel.is-sunk.mp.is-idle { height: 48px; min-height: 48px; max-height: 48px; grid-template-rows: 44px; }
 .mp-body { display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; min-width: 0; min-height: 0; }
 .mp-line {
   flex: none; margin: 0; min-width: 0; font-size: 14px; line-height: 18px; height: 18px;

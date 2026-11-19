@@ -76,8 +76,10 @@ test('Sheet: um botão Exportar no lugar dos 5 soltos, sem duplicar as saídas',
   const s = src('../components/Sheet.jsx');
   const start = s.indexOf('<div className="fh-hero-tools');
   const bar = s.slice(start, s.indexOf('</div>', start));
-  // Exportar, Editar (fora de campanha; em campanha é um <span> travado) e Modo trapaça
-  assert.equal((bar.match(/<button/g) || []).length, 3);
+  // Exportar, Editar (fora de campanha) OU o lápis travado (em campanha: agora também é um
+  // <button aria-disabled>, que explica o porquê ao toque) e Modo trapaça: 4 <button no código
+  assert.equal((bar.match(/<button/g) || []).length, 4);
+  assert.match(bar, /is-locked" aria-disabled="true"/);
   assert.match(bar, /onClick=\{\(\) => setExportOpen\(true\)\}/);
   assert.equal((s.match(/<div className="fh-hero-tools/g) || []).length, 1);
   assert.match(s, /const hideBrokenImg = /);

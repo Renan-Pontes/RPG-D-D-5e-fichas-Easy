@@ -5,7 +5,20 @@ import './monster-statblock.css';
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 
 import { ACTION_SKILL_GROUPS, computeActionGroupData, hasKeenSenses } from './monster-action-skills.js';
+import {
+  abilityLabel, conditionListLabel, damageListLabel, damageTypeLabel, feetText, languagesLabel, monsterMetaLine,
+  rangeLabel, sensesLabel, speedLabel,
+} from './monster-i18n.js';
 export { ACTION_SKILL_GROUPS, computeActionGroupData, hasKeenSenses };
+
+// Nome da perícia no idioma da tela ("stealth" → "Furtividade"), pela mesma tabela das ações de perícia.
+const SKILL_NAMES = new Map(ACTION_SKILL_GROUPS.flatMap(g => g.skills.map(sk => [sk.id.toLowerCase(), sk])));
+const skillName = (id, lang) => {
+  const sk = SKILL_NAMES.get(String(id || '').toLowerCase().replace(/[\s_\-]/g, ''));
+  if (sk) return lang === 'en' ? sk.nameEn : sk.namePt;
+  const raw = String(id || '');
+  return raw.charAt(0).toUpperCase() + raw.slice(1).replace(/([A-Z])/g, ' $1');
+};
 
 
 const mod = (score) => {
@@ -21,7 +34,12 @@ const getLocalizedText = (val, lang) => {
   return String(val);
 };
 
-export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, className = '' }) {
+/**
+ * Ficha de monstro. Mostra só o que o monstro tem: sem tipo/tamanho/alinhamento a linha de
+ * tipo some; sem sentidos ou idiomas as linhas somem (nada de "Medium monstrosity" inventado).
+ * `name`: nome de reserva quando o objeto não traz um (combatente: "Goblin Guerreiro #1").
+ */
+export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, className = '', name: nameProp = '' }) {
   if (!m) return null;
 
   const keen = useMemo(() => hasKeenSenses(m), [m]);
@@ -39,17 +57,12 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
     }
   };
 
-  const name = getLocalizedText(m.name, lang) || 'Monster';
-  const typeLine = m.typeLine || `${m.size || 'Medium'} ${m.type || 'monstrosity'}, ${m.alignment || 'unaligned'}`;
-  const acText = m.acText || (m.ac != null ? String(m.ac) : '10');
-  const hpText = m.hpText || (m.hitDice ? `${m.hp || 10} (${m.hitDice})` : String(m.hp || 10));
-  const speedText = m.speedText || (
-    typeof m.speed === 'number'
-      ? `${m.speed} ft.`
-      : Object.entries(m.speed || { walk: 30 })
-          .map(([k, v]) => `${k !== 'walk' ? `${k} ` : ''}${v} ft.`)
-          .join(', ')
-  );
+  const name = getLocalizedText(m.name, lang) || nameProp || t(lang, 'Criatura', 'Creature');
+  const typeLine = monsterMetaLine(m, lang);
+  const acText = m.acText || (m.ac != null ? String(m.ac) : '');
+  const hpNum = m.hp != null ? m.hp : m.max_hp;
+  const hpText = m.hpText || (hpNum != null ? (m.hitDice ? `${hpNum} (${m.hitDice})` : String(hpNum)) : '');
+  const speedText = m.speedText ? feetText(m.speedText, lang) : speedLabel(m.speed, lang);
 
   const abils = m.abilities || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
   const dexScore = abils.dex ?? 10;
@@ -93,28 +106,28 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
     ? Object.entries(skillsObj).map(([k, v]) => {
         const bonus = Number(v) || 0;
         const bonusStr = bonus >= 0 ? `+${bonus}` : `${bonus}`;
-        const displayName = k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, ' $1');
-        return { name: displayName, bonus, bonusStr };
+        return { name: skillName(k, lang), bonus, bonusStr };
       })
     : (m.skillText
         ? m.skillText.split(',').map(s => s.trim()).filter(Boolean).map(s => {
             const match = s.match(/^([A-Za-z\s]+)\s*([+-]\s*\d+)$/);
             if (match) {
               const b = parseInt(match[2].replace(/\s+/g, ''), 10);
-              return { name: match[1].trim(), bonus: b, bonusStr: b >= 0 ? `+${b}` : `${b}` };
+              return { name: skillName(match[1].trim(), lang), bonus: b, bonusStr: b >= 0 ? `+${b}` : `${b}` };
             }
             return { name: s, bonus: 0, bonusStr: '+0' };
           })
         : []);
 
-  const vulnText = m.vulnText || (m.damageVulnerabilities || []).join(', ');
-  const resistText = m.resistText || (m.damageResistances || []).join(', ');
-  const immuneText = m.immuneText || (m.damageImmunities || []).join(', ');
-  const conditionImmuneText = m.conditionImmuneText || (m.conditionImmunities || []).join(', ');
-  const sensesText = m.senses || '—';
-  const languagesText = m.languages || '—';
+  // O retrato do combate guarda estas listas em snake_case; o catálogo, em camelCase.
+  const vulnText = m.vulnText || damageListLabel(m.damageVulnerabilities || m.damage_vulnerabilities, lang);
+  const resistText = m.resistText || damageListLabel(m.damageResistances || m.damage_resistances, lang);
+  const immuneText = m.immuneText || damageListLabel(m.damageImmunities || m.damage_immunities, lang);
+  const conditionImmuneText = m.conditionImmuneText || conditionListLabel(m.conditionImmunities || m.condition_immunities, lang);
+  const sensesText = sensesLabel(m.senses, lang);
+  const languagesText = languagesLabel(m.languages, lang);
 
-  const cr = m.cr ?? '0';
+  const cr = m.cr ?? null;
   const xp = m.xp != null ? m.xp : null;
   const pb = m.proficiencyBonus != null ? m.proficiencyBonus : (m.proficiency || 2);
 
@@ -139,10 +152,16 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
     const desc = getLocalizedText(act.desc, lang);
     if (desc) return desc;
     const parts = [];
-    if (act.atk != null) parts.push(`${act.atk >= 0 ? '+' : ''}${act.atk} to hit`);
-    if (act.range) parts.push(`range ${act.range}`);
-    if (act.damage) parts.push(`Hit: ${act.damage} ${act.damageType || ''} damage`);
-    if (act.save) parts.push(`DC ${act.save.dc} ${act.save.ability} save`);
+    if (act.atk != null) parts.push(`${act.atk >= 0 ? '+' : ''}${act.atk} ${t(lang, 'para acertar', 'to hit')}`);
+    if (act.range) parts.push(`${t(lang, 'alcance', 'range')} ${rangeLabel(act.range, lang)}`);
+    if (act.damage) {
+      const ty = act.damageType ? damageTypeLabel(act.damageType, lang) : '';
+      parts.push(t(lang, `Acerto: ${act.damage} de dano${ty ? ` ${ty}` : ''}`, `Hit: ${act.damage} ${ty ? `${ty} ` : ''}damage`));
+    }
+    if (act.save) {
+      const ab = abilityLabel(act.save.ability, lang);
+      parts.push(t(lang, `salvaguarda de ${ab} CD ${act.save.dc}`, `DC ${act.save.dc} ${ab} save`));
+    }
     return parts.join(', ');
   };
 
@@ -151,24 +170,30 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
       {/* Cabeçalho */}
       <header className="statblock-header">
         <h3 className="statblock-name">{name}</h3>
-        <p className="statblock-meta">{typeLine}</p>
+        {typeLine && <p className="statblock-meta">{typeLine}</p>}
       </header>
 
       <hr className="statblock-taper" />
 
       {/* Métricas Primárias de Combate (D&D 5e 2024 Layout com Iniciativa) */}
-      <div className="statblock-prop">
-        <span className="statblock-prop-label">{t(lang, 'Classe de Armadura', 'Armor Class')}:</span>
-        <span className="statblock-prop-val">{acText}</span>
-      </div>
-      <div className="statblock-prop">
-        <span className="statblock-prop-label">{t(lang, 'Pontos de Vida', 'Hit Points')}:</span>
-        <span className="statblock-prop-val">{hpText}</span>
-      </div>
-      <div className="statblock-prop">
-        <span className="statblock-prop-label">{t(lang, 'Deslocamento', 'Speed')}:</span>
-        <span className="statblock-prop-val">{speedText}</span>
-      </div>
+      {acText && (
+        <div className="statblock-prop">
+          <span className="statblock-prop-label">{t(lang, 'Classe de Armadura', 'Armor Class')}:</span>
+          <span className="statblock-prop-val">{acText}</span>
+        </div>
+      )}
+      {hpText && (
+        <div className="statblock-prop">
+          <span className="statblock-prop-label">{t(lang, 'Pontos de Vida', 'Hit Points')}:</span>
+          <span className="statblock-prop-val">{hpText}</span>
+        </div>
+      )}
+      {speedText && (
+        <div className="statblock-prop">
+          <span className="statblock-prop-label">{t(lang, 'Deslocamento', 'Speed')}:</span>
+          <span className="statblock-prop-val">{speedText}</span>
+        </div>
+      )}
       <div className="statblock-prop statblock-prop-init">
         <span className="statblock-prop-label">{t(lang, 'Iniciativa', 'Initiative')}:</span>
         <button
@@ -194,6 +219,11 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
 
       {/* Tabela dos 6 Atributos - D&D 5e 2024 Layout com Atributos e Salvaguardas Integradas */}
       <div className="statblock-abilities dnd-2024-grid" role="table" aria-label={t(lang, 'Atributos e Salvaguardas', 'Ability Scores & Saves')}>
+        <div className="statblock-abil-col statblock-abil-rows" aria-hidden="true">
+          <span className="statblock-abil-head">&nbsp;</span>
+          <span className="statblock-abil-rowlabel">{t(lang, 'Teste', 'Check')}</span>
+          <span className="statblock-abil-rowlabel is-save">{t(lang, 'Salv.', 'Save')}</span>
+        </div>
         {[
           { key: 'str', label: t(lang, 'FOR', 'STR'), full: t(lang, 'Força', 'Strength') },
           { key: 'dex', label: t(lang, 'DES', 'DEX'), full: t(lang, 'Destreza', 'Dexterity') },
@@ -258,9 +288,9 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
       <hr className="statblock-taper" />
 
       {/* Ações de Perícias D&D 5e 2024: Busca, Estudo, Influência, Furtividade */}
-      <div className="statblock-actions-skills" aria-label={t(lang, 'Ações e Perícias (D&D 2024)', 'Action & Skill Groups (D&D 2024)')}>
+      <div className="statblock-actions-skills" aria-label={t(lang, 'Perícias e passivas', 'Skills & passive scores')}>
         <div className="statblock-prop-label" style={{ marginBottom: 4 }}>
-          {t(lang, 'Ações de Perícias & Pontuações Passivas (D&D 2024)', 'Action Skills & Passive Scores (D&D 2024)')}:
+          {t(lang, 'Perícias e passivas', 'Skills & passive scores')}:
         </div>
         {actionSkillData.map((grp) => (
           <details key={grp.key} className="statblock-action-details">
@@ -423,20 +453,26 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
           <span className="statblock-prop-val">{conditionImmuneText}</span>
         </div>
       )}
-      <div className="statblock-prop">
-        <span className="statblock-prop-label">{t(lang, 'Sentidos', 'Senses')}:</span>
-        <span className="statblock-prop-val">{sensesText}</span>
-      </div>
-      <div className="statblock-prop">
-        <span className="statblock-prop-label">{t(lang, 'Idiomas', 'Languages')}:</span>
-        <span className="statblock-prop-val">{languagesText}</span>
-      </div>
-      <div className="statblock-prop">
-        <span className="statblock-prop-label">{t(lang, 'Desafio', 'Challenge')}:</span>
-        <span className="statblock-prop-val">
-          {cr} {xp != null ? `(${xp.toLocaleString('en-US')} XP)` : ''} · <span className="statblock-prop-label">{t(lang, 'Bônus de Proficiência', 'Proficiency Bonus')}:</span> +{pb}
-        </span>
-      </div>
+      {sensesText && (
+        <div className="statblock-prop">
+          <span className="statblock-prop-label">{t(lang, 'Sentidos', 'Senses')}:</span>
+          <span className="statblock-prop-val">{sensesText}</span>
+        </div>
+      )}
+      {languagesText && (
+        <div className="statblock-prop">
+          <span className="statblock-prop-label">{t(lang, 'Idiomas', 'Languages')}:</span>
+          <span className="statblock-prop-val">{languagesText}</span>
+        </div>
+      )}
+      {cr != null && cr !== '' && (
+        <div className="statblock-prop">
+          <span className="statblock-prop-label">{t(lang, 'Desafio', 'Challenge')}:</span>
+          <span className="statblock-prop-val">
+            {cr} {xp != null ? `(${Number(xp).toLocaleString(lang === 'en' ? 'en-US' : 'pt-BR')} XP)` : ''} · <span className="statblock-prop-label">{t(lang, 'Bônus de Proficiência', 'Proficiency Bonus')}:</span> +{pb}
+          </span>
+        </div>
+      )}
 
       <hr className="statblock-taper" />
 

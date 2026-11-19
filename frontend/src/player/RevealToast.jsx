@@ -6,7 +6,9 @@
 //   2. campaign.worldNewCount subiu (o mestre revelou sem mostrar) — busca a
 //      lista leve uma vez para saber o nome.
 // Some sozinho em 10 s; "Ver no Mundo" abre o cartão. Não interrompe nada
-// (não é modal) e não aparece para o mestre.
+// (não é modal) e não aparece para o mestre. No celular entra por CIMA, numa
+// linha compacta (embaixo ele parava em cima do "Rolar no app" do teste); fica
+// abaixo das folhas e da busca, e não se desenha enquanto um diálogo está aberto.
 //
 // Props: campaign, lang, onOpenWorld?(entryId) — sem ela, usa useArea().goTo.
 import { useEffect, useRef, useState } from 'react';
@@ -15,6 +17,7 @@ import { listWorld, worldImageUrl } from '../world/world-api.js';
 import { defaultArt, kindIcon } from '../world/world-model.js';
 import { cardKey, L, shouldToastCard, toastTitle } from './player-model.js';
 import { cardRevealKey, freshReveals, isRevealShow, revealKey } from './reveal-toast-model.js';
+import '../shell/mesa.css';
 import './player-styles.css';
 
 const SHOW_MS = 10_000;
@@ -107,7 +110,18 @@ export default function RevealToast({ campaign, lang = 'pt', onOpenWorld }) {
     return () => clearTimeout(id);
   }, [toast?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!isPlayer || !toast) return null;
+  // Um diálogo aberto (folha "Mais ações", busca, cartão do Mundo, confirmação): o aviso
+  // não cobre o título dele. Olha enquanto o aviso existe (o selo "Novo!" continua avisando).
+  const [covered, setCovered] = useState(false);
+  useEffect(() => {
+    if (!toast) { setCovered(false); return undefined; }
+    const look = () => setCovered(!!document.querySelector('[aria-modal="true"], .modal-backdrop'));
+    look();
+    const id = setInterval(look, 400);
+    return () => clearInterval(id);
+  }, [toast?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!isPlayer || !toast || covered) return null;
 
   const open = () => {
     const id = toast.entryId;
@@ -126,10 +140,15 @@ export default function RevealToast({ campaign, lang = 'pt', onOpenWorld }) {
         <div className="pl-toast-body">
           <div className="pl-toast-title"><span aria-hidden="true">✨ </span>{toast.title}</div>
           {text && <div className="pl-toast-text">{text}</div>}
-          <div className="pl-toast-actions">
-            <button type="button" className="btn btn-primary btn-sm" onClick={open}>{L(lang, 'Ver no Mundo', 'See in World')}</button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setToast(null)}>{L(lang, 'Fechar', 'Close')}</button>
-          </div>
+        </div>
+        <div className="pl-toast-actions">
+          <button type="button" className="mesa-btn is-primary pl-toast-go" onClick={open} aria-label={L(lang, 'Ver no Mundo', 'See in World')}>
+            <span className="pl-toast-go-long">{L(lang, 'Ver no Mundo', 'See in World')}</span>
+            <span className="pl-toast-go-short" aria-hidden="true">{L(lang, 'Ver', 'See')}</span>
+          </button>
+          <button type="button" className="mesa-icon-btn pl-toast-x" onClick={() => setToast(null)} aria-label={L(lang, 'Fechar o aviso', 'Dismiss')}>
+            <span aria-hidden="true">✕</span>
+          </button>
         </div>
         <div className="pl-toast-timer" aria-hidden="true" />
       </div>

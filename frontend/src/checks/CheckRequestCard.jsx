@@ -76,7 +76,7 @@ export default function CheckRequestCard({ check, char, lang = 'pt', onAnswered,
     } catch (err) { fail(err); } finally { setBusy(false); }
   };
 
-  const dcText = check.dc != null ? `CD ${check.dc}` : check.dcHidden ? L(lang, 'CD secreta', 'Secret DC') : '';
+  const dcText = check.dc != null ? `${L(lang, 'CD', 'DC')} ${check.dc}` : check.dcHidden ? L(lang, 'CD secreta', 'Secret DC') : '';
   const preview = (() => {
     const n = parseInt(value, 10);
     if (mode !== 'natural' || Number.isNaN(n) || sheetMod == null) return null;

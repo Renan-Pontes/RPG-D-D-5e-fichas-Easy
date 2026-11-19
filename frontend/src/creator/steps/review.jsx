@@ -55,8 +55,8 @@ export function readyText(lang, char, joinEnabled) {
         `All set! Tap "Create and join table" to save and join ${table}. You can change almost everything later on the sheet.`);
   }
   return L(lang,
-    'Tudo pronto! Toque em "Criar personagem" para salvar. Você pode mudar quase tudo depois, na ficha.',
-    'All set! Tap "Create character" to save. You can change almost everything later on the sheet.');
+    'Tudo pronto! Toque no botão dourado, logo abaixo, para criar e salvar. Você pode mudar quase tudo depois, na ficha.',
+    'All set! Tap the gold button just below to create and save. You can change almost everything later on the sheet.');
 }
 
 function ReviewStep({ char, lang, goTo, steps, joinEnabled = false }) {

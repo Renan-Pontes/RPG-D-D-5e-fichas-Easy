@@ -417,13 +417,8 @@ function AssignSheet({ lang, member, members = [], characters, released, onPick,
       </div>
 
       {onAddAsExtra && (
-        <div style={{ marginTop: 12, textAlign: 'center', borderTop: '1px solid rgba(214,176,100,0.15)', paddingTop: 10 }}>
-          <button
-            type="button"
-            className="mesa-btn btn-sm btn-ghost"
-            style={{ fontSize: '0.82rem', fontWeight: 600, width: '100%' }}
-            onClick={onAddAsExtra}
-          >
+        <div className="grp-assign-extra">
+          <button type="button" className="mesa-btn" onClick={onAddAsExtra}>
             + {t(lang, 'Adicionar nova ficha à mesa (sem substituir)', 'Add new sheet to table (without replacing)')}
           </button>
         </div>
@@ -444,30 +439,26 @@ function AddCharacterSheet({ lang, members = [], characters = [], onPick, onClos
       footer={<div className="mesa-actions"><button type="button" className="mesa-btn" onClick={onClose}>{t(lang, 'Cancelar', 'Cancel')}</button></div>}>
       <p className="mesa-sheet-text">{t(lang, 'Escolha uma ficha da sua conta para colocar nesta campanha:', 'Choose a sheet from your account to add to this campaign:')}</p>
 
-      {/* Seletor de Papel: Jogador Ativo vs NPC (Não consome vaga) */}
-      <div style={{ display: 'flex', gap: 6, margin: '0 0 12px', background: 'rgba(0,0,0,0.35)', padding: 4, borderRadius: 6, border: '1px solid rgba(214,176,100,0.2)' }}>
-        <button
-          type="button"
-          className={`mesa-btn btn-sm ${!asNpc ? 'btn-primary' : 'btn-ghost'}`}
-          style={{ flex: 1, fontSize: '0.82rem', fontWeight: 700 }}
-          onClick={() => setAsNpc(false)}
-        >
-          👤 {t(lang, 'Jogador Ativo', 'Active Player')}
+      {/* Papel da ficha na mesa: o segmentado da mesa, com o escolhido marcado (antes os dois
+          botões eram iguais: as classes btn-primary/btn-ghost não valem num .mesa-btn) */}
+      <p className="mesa-eyebrow grp-role-label" id="grp-role-label">{t(lang, 'Entra como', 'Joins as')}</p>
+      <div className="mesa-seg grp-role-seg" role="radiogroup" aria-labelledby="grp-role-label">
+        <button type="button" role="radio" aria-checked={!asNpc} className={`mesa-seg-btn ${!asNpc ? 'active' : ''}`} onClick={() => setAsNpc(false)}>
+          {t(lang, 'Jogador', 'Player')}
         </button>
-        <button
-          type="button"
-          className={`mesa-btn btn-sm ${asNpc ? 'btn-primary' : 'btn-ghost'}`}
-          style={{ flex: 1, fontSize: '0.82rem', fontWeight: 700 }}
-          onClick={() => setAsNpc(true)}
-        >
-          🎭 {t(lang, 'NPC / Inativo (Sem vaga)', 'NPC / Inactive (No seat)')}
+        <button type="button" role="radio" aria-checked={asNpc} className={`mesa-seg-btn ${asNpc ? 'active' : ''}`} onClick={() => setAsNpc(true)}>
+          {t(lang, 'NPC (não ocupa vaga)', 'NPC (takes no seat)')}
         </button>
       </div>
+      <p className="mesa-hint grp-role-hint" aria-live="polite">{asNpc
+        ? t(lang, 'A ficha entra como NPC do mestre: aparece no grupo, mas não usa uma vaga de jogador.', "The sheet joins as the DM's NPC: it shows in the party but uses no player seat.")
+        : t(lang, 'A ficha entra como personagem jogador e ocupa uma vaga da mesa.', 'The sheet joins as a player character and takes a seat at the table.')}</p>
 
       <div className="grp-assign-list mesa-panel is-sunk" role="radiogroup" aria-label={t(lang, 'Adicionar personagem à mesa', 'Add character to table')}>
         {available.length === 0 ? (
-          <p className="muted small" style={{ padding: '16px 12px', margin: 0, textAlign: 'center' }}>
-            {t(lang, 'Todas as suas fichas já estão nesta mesa ou você não tem outras fichas na conta.', 'All your characters are already at this table or you have no other characters in your account.')}
+          <p className="mesa-hint grp-assign-empty">
+            {t(lang, 'Não há ficha sua fora desta mesa. Crie uma em “Seus Heróis” (o logo da Forja, no topo) e volte aqui para adicioná-la.',
+              'You have no sheet outside this table. Create one in “Your Heroes” (the Forge logo, at the top) and come back to add it.')}
           </p>
         ) : (
           available.map(ch => {
@@ -480,7 +471,7 @@ function AddCharacterSheet({ lang, members = [], characters = [], onPick, onClos
                   <span className="mesa-row-title">{ch.name || t(lang, 'Sem nome', 'Unnamed')}</span>
                   {cls && <span className="mesa-row-sub">{cls}</span>}
                 </span>
-                <span className="muted small" style={{ fontSize: '0.74rem' }}>{asNpc ? '🎭 NPC' : '👤'}</span>
+                <span className="grp-assign-role">{asNpc ? 'NPC' : t(lang, 'Jogador', 'Player')}</span>
               </button>
             );
           })

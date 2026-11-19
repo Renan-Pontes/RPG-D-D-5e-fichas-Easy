@@ -5,6 +5,7 @@
 // "próxima sessão" → Plano, "encontro" → Combate, "recap" → Resumo) e o Guia do mestre.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
+import Icon from '../../components/Icons.jsx';
 import { listWorld } from '../world/world-api.js';
 import { kindIcon, kindLabel } from '../world/world-model.js';
 import { navSearchItems, searchItems, t } from './shell-logic.js';
@@ -93,7 +94,7 @@ export default function QuickSearch({ campaign, lang, isDM, onClose, onPick, ini
     <div className="modal-backdrop shell-search-backdrop" onClick={onClose}>
       <div className="shell-search" role="dialog" aria-modal="true" aria-label={t(lang, 'Buscar', 'Search')} onClick={(e) => e.stopPropagation()}>
         <div className="shell-search-bar">
-          <span aria-hidden="true">🔍</span>
+          <span className="shell-search-glyph" aria-hidden="true"><Icon name="search" size={18} /></span>
           <input
             ref={inputRef}
             className="shell-search-input"

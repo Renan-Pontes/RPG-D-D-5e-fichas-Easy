@@ -7,7 +7,11 @@ import { useRef } from 'react';
 import { areaLabel, SUB_ICONS, subLabel, subShortLabel, t } from './shell-logic.js';
 import useScrollEdges from './useScrollEdges.js';
 import { OfflineNote } from '../stage/TableBar.jsx';
+import MesaIcon, { hasMesaIcon } from './MesaIcon.jsx';
 import './mesa.css';
+
+/** Ícone de linha da área/subvista (MesaIcon); sem desenho para o id, o símbolo antigo. */
+const ico = (id, fallback) => (hasMesaIcon(id) ? <MesaIcon name={id} /> : fallback);
 
 /**
  * onMore: 5ª casa "Mais" (mestre) — abre a folha; moreOpen marca a casa.
@@ -40,10 +44,10 @@ export default function AreaNav({ areas, active, onSelect, onSearch, onMore, mor
             aria-keyshortcuts={showKeys ? String(i + 1) : undefined}
             title={showKeys ? t(lang, `Atalho: tecla ${i + 1}`, `Shortcut: key ${i + 1}`) : undefined}
           >
-            <span className="shell-area-ico" aria-hidden="true">{a.icon}</span>
+            <span className="shell-area-ico" aria-hidden="true">{ico(a.id, a.icon)}</span>
             <span className="shell-area-label">{areaLabel(a, lang)}</span>
             {markSpans(a.id, 'is-tab')}
-            {badges[a.id] > 0 && <span className="shell-badge" aria-label={t(lang, `${badges[a.id]} novo(s)`, `${badges[a.id]} new`)}>{badges[a.id]}</span>}
+            {badges[a.id] > 0 && <span className="shell-badge" aria-label={badges[a.id] === 1 ? t(lang, '1 novo', '1 new') : t(lang, `${badges[a.id]} novos`, `${badges[a.id]} new`)}>{badges[a.id]}</span>}
             {showKeys && <kbd className="shell-area-key" aria-hidden="true">{i + 1}</kbd>}
           </button>
         ))}
@@ -60,7 +64,7 @@ export default function AreaNav({ areas, active, onSelect, onSearch, onMore, mor
             aria-current={active === a.id ? 'page' : undefined}
             onClick={() => onSelect(a.id)}
           >
-            <span className="shell-bottom-ico" aria-hidden="true">{a.icon}</span>
+            <span className="shell-bottom-ico" aria-hidden="true">{ico(a.id, a.icon)}</span>
             <span className="shell-bottom-label">{areaLabel(a, lang)}</span>
             {(marks[a.id] || []).length > 0 && <span className="shell-marks">{markSpans(a.id, 'is-bottom')}</span>}
             {badges[a.id] > 0 && <span className="shell-badge shell-badge-dot">{badges[a.id]}</span>}
@@ -70,12 +74,12 @@ export default function AreaNav({ areas, active, onSelect, onSearch, onMore, mor
           <button type="button" className={`shell-bottom-btn shell-bottom-more ${moreOpen ? 'active' : ''}`} onClick={onMore}
             aria-haspopup="dialog" aria-expanded={moreOpen}
             aria-label={t(lang, 'Mais: sessão, busca, Tela e ajustes', 'More: session, search, screen and settings')}>
-            <span className="shell-bottom-ico" aria-hidden="true">☰</span>
+            <span className="shell-bottom-ico" aria-hidden="true"><MesaIcon name="menu" /></span>
             <span className="shell-bottom-label" aria-hidden="true">{t(lang, 'Mais', 'More')}</span>
           </button>
         ) : onSearch && (
           <button type="button" className="shell-bottom-btn" onClick={onSearch} aria-label={t(lang, 'Buscar', 'Search')}>
-            <span className="shell-bottom-ico" aria-hidden="true">🔍</span>
+            <span className="shell-bottom-ico" aria-hidden="true"><MesaIcon name="search" /></span>
             <span className="shell-bottom-label">{t(lang, 'Buscar', 'Search')}</span>
           </button>
         )}
@@ -134,7 +138,7 @@ export function SubChips({ subs, active, onSelect, lang, labels = {}, icons = {}
                 className={`mesa-seg-btn shell-seg-tab ${on ? 'active' : ''}`}
                 onClick={() => pick(s)}
               >
-                {icon && <span className="shell-seg-ico" aria-hidden="true">{icon}</span>}
+                {icon && <span className="shell-seg-ico" aria-hidden="true">{ico(s, icon)}</span>}
                 {/* data-label: o CSS reserva a largura do rótulo em negrito (o ativo) */}
                 {short === long
                   ? <span className="shell-seg-label" data-label={long}>{long}</span>

@@ -15,7 +15,7 @@ const ABILITY_EN = { Strength: 'str', Dexterity: 'dex', Constitution: 'con', Int
 const CONTROL_CONDITIONS = ['charmed', 'frightened', 'paralyzed', 'prone', 'restrained', 'stunned', 'incapacitated', 'grappled'];
 const CONDITION_LABELS = {
   charmed: ['enfeitiçado', 'charmed'], frightened: ['amedrontado', 'frightened'], paralyzed: ['paralisado', 'paralyzed'],
-  prone: ['derrubado', 'prone'], restrained: ['contido', 'restrained'], stunned: ['atordoado', 'stunned'],
+  prone: ['caído', 'prone'], restrained: ['contido', 'restrained'], stunned: ['atordoado', 'stunned'],
   incapacitated: ['incapacitado', 'incapacitated'], grappled: ['agarrado', 'grappled'],
 };
 

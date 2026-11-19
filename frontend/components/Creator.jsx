@@ -1,4 +1,6 @@
-/* Step-by-step character creator (mobile-first) */
+/* Editor da ficha (mobile-first). Fichas novas usam o assistente de src/creator; aqui a
+ * pessoa edita uma ficha existente: vai direto à seção que quer (barra de seções com
+ * nome) e salva de qualquer uma delas. */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { unknownSpells } from '../src/progression/known.js';
 import SRD from '../data/srd.js';
@@ -10,6 +12,9 @@ import { t, tName } from '../data/i18n.js';
 import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
 import Icon from './Icons.jsx';
 import { Filigree, Modal, NumStepper, AvatarUpload } from './Shared.jsx';
+import { confirmDialog } from './ConfirmDialog.jsx';
+import { classArt, speciesArt, backgroundArt, hideOnError } from '../src/art.js';
+import '../src/creator/editor.css';
 import { FeatChoices } from '../src/progression/FeatPicker.jsx';
 import { originFeatFromText, featPicksIssues } from '../src/progression/feat-rules.js';
 import SpeciesChoices from '../src/progression/SpeciesChoices.jsx';
@@ -53,12 +58,29 @@ const optimizeAbilities = (className) => {
   return result;
 };
 
+// Título de cada seção: no editor é o nome do que se edita ("Espécie"); na criação
+// (ficha nova por este componente) continua o convite ("Escolha uma espécie").
+const SECTION_TITLE = {
+  identity: ['Identidade', 'Identity', 'Identidade', 'Identity'],
+  race: ['Espécie', 'Species', 'Escolha uma espécie', 'Choose a species'],
+  class: ['Classe', 'Class', 'Escolha uma classe', 'Choose a class'],
+  background: ['Antecedente', 'Background', 'Escolha um antecedente', 'Choose a background'],
+  abilities: ['Atributos', 'Abilities', 'Distribua seus atributos', 'Distribute your ability scores'],
+  skills: ['Perícias', 'Skills', 'Escolha suas perícias', 'Choose your skills'],
+  equipment: ['Equipamento', 'Equipment', 'Equipamento', 'Equipment'],
+  spells: ['Magias', 'Spells', 'Escolha suas magias', 'Choose your spells'],
+  story: ['História', 'Story', 'História', 'Story'],
+};
+const sectionTitle = (id, lang, isNew) => SECTION_TITLE[id][(isNew ? 2 : 0) + (lang === 'pt' ? 0 : 1)];
+/** Miniatura da opção (classe, espécie, antecedente); some se a arte não existir. */
+const OptionThumb = ({ src }) => (src ? <img className="cr-card-thumb" src={src} alt="" loading="lazy" decoding="async" onError={hideOnError} /> : null);
+
 // === Step Components ===
 
 // 1. Identity
 const StepIdentity = ({ char, set, lang, isNew }) => (
   <div>
-    <h2>{t('stepIdentity', lang)}</h2>
+    <h2>{sectionTitle('identity', lang, isNew)}</h2>
     <Filigree />
     <div style={{ display: 'grid', gap: 'var(--s-3)', gridTemplateColumns: '1fr' }}>
       <div className="creator-avatar">
@@ -129,7 +151,7 @@ const StepIdentity = ({ char, set, lang, isNew }) => (
 );
 
 // 2. Race
-const StepRace = ({ char, set, lang }) => {
+const StepRace = ({ char, set, lang, isNew }) => {
   const [query, setQuery] = useState('');
   const select = (id) => {
     const bonus = Utils.applyRaceBonus(char, id);
@@ -153,7 +175,7 @@ const StepRace = ({ char, set, lang }) => {
   }, [char.race, hasChoices]);
   return (
     <div>
-      <h2>{t('chooseRace', lang)}</h2>
+      <h2>{sectionTitle('race', lang, isNew)}</h2>
       <Filigree />
       {hasChoices && (
         <div ref={choicesRef} className="card" style={{ padding: 16, marginBottom: 16 }}>
@@ -166,7 +188,7 @@ const StepRace = ({ char, set, lang }) => {
           )}
         </div>
       )}
-      <input aria-label={lang === 'pt' ? 'Buscar raça' : 'Search species'} placeholder={lang === 'pt' ? 'Buscar raça ou espécie…' : 'Search species…'} value={query} onChange={e => setQuery(e.target.value)} style={{ marginBottom: 16 }} />
+      <input aria-label={lang === 'pt' ? 'Buscar espécie' : 'Search species'} placeholder={lang === 'pt' ? 'Buscar espécie…' : 'Search species…'} value={query} onChange={e => setQuery(e.target.value)} style={{ marginBottom: 16 }} />
       <div className="options-list cols-2">
         {Utils.races(char).filter(r => `${tName('race', r.id, lang)} ${r.id}`.toLowerCase().includes(query.toLowerCase())).map(r => {
           const isSel = char.race === r.id;
@@ -176,7 +198,8 @@ const StepRace = ({ char, set, lang }) => {
             return `+${v} ${t(k + 'Sh', lang)}`;
           }).join(', ');
           return (
-            <button key={r.id} className={`option ${isSel ? 'selected' : ''}`} onClick={() => select(r.id)}>
+            <button key={r.id} type="button" aria-pressed={isSel} className={`option ${isSel ? 'selected' : ''}`} onClick={() => select(r.id)}>
+              <OptionThumb src={speciesArt(r.id)} />
               <div className="option-title">{tName('race', r.id, lang)}</div>
               <div className="option-meta">
                 {char.rulesVersion !== '2024' && <span><strong>{asiTxt || (lang === 'pt' ? 'Atributos flexíveis' : 'Flexible abilities')}</strong></span>}
@@ -254,7 +277,7 @@ const SubclassSelector = ({ char, set, lang, saved }) => {
       <Filigree />
       {sealedSub.length > 0 && (
         <div className="card text-sm" style={{ padding: 12, marginTop: 12 }}>
-          🔒 {lang === 'pt'
+          <Icon name="lock" size={14} className="ed-lock" aria-hidden="true" /> {lang === 'pt'
             ? 'Subclasse selada: para trocar, ligue o modo trapaça na ficha.'
             : 'Subclass sealed: to change it, turn on cheat mode on the sheet.'}
         </div>
@@ -307,7 +330,7 @@ const SubclassSelector = ({ char, set, lang, saved }) => {
   );
 };
 
-const StepClass = ({ char, set, lang, saved }) => {
+const StepClass = ({ char, set, lang, saved, isNew }) => {
   // Trocar a classe apagaria a subclasse selada (e daria para escolher outra na volta):
   // na edição, a classe trava junto com ela.
   const classLock = saved ? classChangeLock(saved, subclassesFor(saved)) : NO_LOCK;
@@ -326,11 +349,11 @@ const StepClass = ({ char, set, lang, saved }) => {
   };
   return (
     <div>
-      <h2>{t('chooseClass', lang)}</h2>
+      <h2>{sectionTitle('class', lang, isNew)}</h2>
       <Filigree />
       {classLock.locked && (
         <div className="card text-sm" style={{ padding: 12, marginBottom: 12 }}>
-          🔒 {lang === 'pt'
+          <Icon name="lock" size={14} className="ed-lock" aria-hidden="true" /> {lang === 'pt'
             ? 'Classe selada junto com a subclasse: para trocar, ligue o modo trapaça na ficha.'
             : 'Class sealed along with the subclass: to change it, turn on cheat mode on the sheet.'}
         </div>
@@ -340,7 +363,8 @@ const StepClass = ({ char, set, lang, saved }) => {
           const isSel = char.className === c.id;
           const subLv = char.rulesVersion === '2024' ? 3 : SUBCLASS_LEVEL[c.id];
           return (
-            <button key={c.id} className={`option ${isSel ? 'selected' : ''}`} onClick={() => select(c.id)}>
+            <button key={c.id} type="button" aria-pressed={isSel} className={`option ${isSel ? 'selected' : ''}`} onClick={() => select(c.id)}>
+              <OptionThumb src={classArt(c.id)} />
               <div className="option-title">{tName('class', c.id, lang)}</div>
               <div className="option-meta">
                 <span><strong>d{c.hitDie}</strong> {t('hitDie', lang)}</span>
@@ -372,10 +396,10 @@ const StepAbilities = ({ char, set, lang, isNew }) => {
   if (!isNew && !char.cheatMode) {
     return (
       <div>
-        <h2>{t('abilitiesTitle', lang)}</h2>
+        <h2>{sectionTitle('abilities', lang, isNew)}</h2>
         <Filigree />
         <div className="card" style={{ padding: 12, marginBottom: 12 }}>
-          🔒 {lang === 'pt'
+          <Icon name="lock" size={14} className="ed-lock" aria-hidden="true" /> {lang === 'pt'
             ? 'Atributos travados: mude pelo Aumento de Atributo ao subir de nível, ou ligue o modo trapaça na ficha.'
             : 'Abilities locked: change them through Ability Score Improvements when leveling up, or turn on cheat mode on the sheet.'}
         </div>
@@ -422,7 +446,7 @@ const StepAbilities = ({ char, set, lang, isNew }) => {
 
   return (
     <div>
-      <h2>{t('abilitiesTitle', lang)}</h2>
+      <h2>{sectionTitle('abilities', lang, isNew)}</h2>
       <div className="text-sm muted" style={{ marginBottom: 16 }}>{t('abilitiesSub', lang)}</div>
       <Filigree />
 
@@ -554,7 +578,7 @@ const OriginFeat = ({ char, set, lang }) => {
 };
 
 // 5. Background
-const StepBackground = ({ char, set, lang }) => {
+const StepBackground = ({ char, set, lang, isNew }) => {
   // Troca as perícias do antecedente anterior pelas do novo.
   const selectBg = (b) => {
     const oldSkills = Utils.backgroundSkills(char);
@@ -568,13 +592,14 @@ const StepBackground = ({ char, set, lang }) => {
   };
   return (
   <div>
-    <h2>{t('chooseBackground', lang)}</h2>
+    <h2>{sectionTitle('background', lang, isNew)}</h2>
     <Filigree />
     <div className="options-list cols-2">
       {Utils.backgrounds(char).map(b => {
         const isSel = char.background === b.id;
         return (
-          <button key={b.id} className={`option ${isSel ? 'selected' : ''}`} onClick={() => selectBg(b)}>
+          <button key={b.id} type="button" aria-pressed={isSel} className={`option ${isSel ? 'selected' : ''}`} onClick={() => selectBg(b)}>
+            <OptionThumb src={backgroundArt(b.id)} />
             <div className="option-title">{tName('background', b.id, lang)}</div>
             <div className="option-meta">
               <span>{t('skills', lang)}: <strong>{b.skills.map(s => tName('skill', s, lang)).join(', ')}</strong></span>
@@ -595,7 +620,7 @@ const StepBackground = ({ char, set, lang }) => {
 };
 
 // 6. Skills
-const StepSkills = ({ char, set, lang }) => {
+const StepSkills = ({ char, set, lang, isNew }) => {
   const cls = SRD.CLASSES.find(c => c.id === char.className);
   const bg = Utils.backgrounds(char).find(b => b.id === char.background);
   const bgSkills = Utils.backgroundSkills(char);
@@ -625,7 +650,7 @@ const StepSkills = ({ char, set, lang }) => {
 
   return (
     <div>
-      <h2>{t('chooseSkills', lang)}</h2>
+      <h2>{sectionTitle('skills', lang, isNew)}</h2>
       <div className="text-sm muted" style={{ marginBottom: 8 }}>
         {t('chooseSkillsSub', lang)} {limit} {t('fromClass', lang)} ({remaining} {lang === 'pt' ? 'restantes' : 'left'})
       </div>
@@ -810,7 +835,7 @@ const StepEquipment = ({ char, set, lang }) => {
 };
 
 // 8. Spells
-const StepSpells = ({ char, set, lang }) => {
+const StepSpells = ({ char, set, lang, isNew }) => {
   const cls = SRD.CLASSES.find(c => c.id === char.className);
   if (!Utils.spellcastingAbility(char)) {
     return (
@@ -904,7 +929,7 @@ const StepSpells = ({ char, set, lang }) => {
   if (isPrepared) {
     return (
       <div>
-        <h2>{t('chooseSpells', lang)}</h2>
+        <h2>{sectionTitle('spells', lang, isNew)}</h2>
         <Filigree>{tName('class', char.className, lang)}</Filigree>
         <div className="card" style={{ padding: 12, marginBottom: 16 }}>
           <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>
@@ -951,7 +976,7 @@ const StepSpells = ({ char, set, lang }) => {
 
   return (
     <div>
-      <h2>{t('chooseSpells', lang)}</h2>
+      <h2>{sectionTitle('spells', lang, isNew)}</h2>
       <Filigree>{tName('class', char.className, lang)}</Filigree>
       {cantripLimit > 0 && (
         <SpellGroup label={t('cantrips', lang)} list={cantrips} limit={cantripLimit} currentCount={cantripCount} />
@@ -1051,6 +1076,7 @@ const Creator = ({ lang, initial, onSave, onCancel }) => {
     return { ...Utils.makeNew(), level: 1, xp: 0 };
   });
 
+  const firstChar = useRef(char);
   const set = useCallback((patch) => setChar(prev => ({ ...prev, ...patch })), []);
 
   // When class/level/race change, recompute defaults
@@ -1081,25 +1107,46 @@ const Creator = ({ lang, initial, onSave, onCancel }) => {
   ];
 
   const Cur = steps[step].comp;
-  const canNext = steps[step].valid();
-  // Motivo do "Próximo" travado, mostrado junto dos botões.
-  const blockedHint = canNext ? '' : ({
-    identity: lang === 'pt' ? 'Dê um nome ao personagem para continuar.' : 'Name your character to continue.',
+  const pt = lang === 'pt';
+  const L = (a, b) => (pt ? a : b);
+  // No editor o rótulo da seção é o nome do que se edita (o i18n ainda diz "Raça").
+  const labelOf = (s) => (isNew ? s.label : SECTION_TITLE[s.id][pt ? 0 : 1]);
+  const HINTS = {
+    identity: L('Dê um nome ao personagem.', 'Name your character.'),
     race: !char.race
-      ? (lang === 'pt' ? 'Escolha uma espécie para continuar.' : 'Choose a species to continue.')
-      : (lang === 'pt' ? 'Complete as escolhas da espécie (no topo da página).' : 'Finish the species choices (top of the page).'),
-    class: lang === 'pt' ? 'Escolha uma classe para continuar.' : 'Choose a class to continue.',
+      ? L('Escolha uma espécie.', 'Choose a species.')
+      : L('Complete as escolhas da espécie (no topo da seção).', 'Finish the species choices (top of the section).'),
+    class: L('Escolha uma classe.', 'Choose a class.'),
     background: !char.background
-      ? (lang === 'pt' ? 'Escolha um antecedente para continuar.' : 'Choose a background to continue.')
-      : (lang === 'pt' ? 'Complete as escolhas do talento de origem.' : 'Finish the origin feat choices.'),
-    abilities: lang === 'pt' ? 'Distribua os +3 de bônus de atributo do antecedente.' : 'Assign the background\'s +3 ability bonuses.',
-    skills: lang === 'pt' ? 'Escolha os idiomas que faltam.' : 'Choose the remaining languages.',
-  }[steps[step].id] || '');
-  // Cada passo começa do topo (a lista de espécies é longa).
+      ? L('Escolha um antecedente.', 'Choose a background.')
+      : L('Complete as escolhas do talento de origem.', 'Finish the origin feat choices.'),
+    abilities: L('Distribua os +3 de bônus de atributo do antecedente.', 'Assign the background\'s +3 ability bonuses.'),
+    skills: L('Escolha os idiomas que faltam.', 'Choose the remaining languages.'),
+  };
+  const validity = steps.map(s => s.valid());
+  const canNext = validity[step];
+  const firstInvalid = validity.findIndex(v => !v);
+  // Criação por este componente: caminha passo a passo. Edição: salva de qualquer seção,
+  // desde que nenhuma esteja incompleta (a pendência aparece com o nome da seção).
+  const pendingStep = isNew ? (canNext ? -1 : step) : firstInvalid;
+  const blockedHint = pendingStep < 0 ? '' : (HINTS[steps[pendingStep].id] || '');
+  // Cada seção começa do topo (a lista de espécies é longa).
   useEffect(() => { window.scrollTo(0, 0); }, [step]);
   const isLast = step === steps.length - 1;
+  const isFirst = step === 0;
 
-  const handleFinish = () => {
+  // Barra de seções: a atual fica à vista (no celular a barra rola para os lados).
+  const navRef = useRef(null);
+  useEffect(() => {
+    const el = navRef.current?.querySelector('[aria-current="step"]');
+    if (el && typeof el.scrollIntoView === 'function') {
+      try { el.scrollIntoView({ inline: 'center', block: 'nearest' }); } catch { /* navegador antigo */ }
+    }
+  }, [step]);
+
+  const [saving, setSaving] = useState(false);
+  const handleFinish = async () => {
+    if (saving) return;
     const maxHp = Utils.maxHpDefault(char);
     const normalized = {
       ...char,
@@ -1108,44 +1155,99 @@ const Creator = ({ lang, initial, onSave, onCancel }) => {
     };
     // Ficha existente: o que estava selado (classe, subclasse, terreno) volta como estava.
     const final = isNew ? { ...normalized, maxHp, currentHp: maxHp } : restoreSealed(initial, normalized, subclassesFor(initial));
-    onSave(final);
+    setSaving(true);
+    try { await onSave(final); } catch { /* o app já avisou (toast ou limite do plano) */ } finally { setSaving(false); }
   };
 
+  // Sair sem salvar: só pergunta se algo mudou.
+  const dirty = char !== (initial || firstChar.current);
+  const handleCancel = async () => {
+    if (dirty && !isNew) {
+      const ok = await confirmDialog({
+        lang, danger: true,
+        title: L('Sair sem salvar?', 'Leave without saving?'),
+        message: L('As alterações feitas nesta edição serão perdidas.', 'The changes made in this edit will be lost.'),
+        confirmLabel: L('Descartar alterações', 'Discard changes'),
+        cancelLabel: L('Continuar editando', 'Keep editing'),
+      });
+      if (!ok) return;
+    }
+    onCancel();
+  };
+
+  const saveLabel = saving ? L('Salvando…', 'Saving…') : L('Salvar', 'Save');
   return (
-    <>
-      <div className="wizard no-print">
-        <div className="wizard-progress">
-          {steps.map((s, i) => (
-            <div key={s.id} className={`wizard-step ${i === step ? 'active' : i < step ? 'done' : ''}`} />
-          ))}
+    <div className={`ed ${isNew ? 'is-new' : 'is-edit'}`}>
+      <div className="wizard ed-top no-print">
+        <div className="ed-head">
+          <span className="eyebrow">{isNew ? L('Novo personagem', 'New character') : L('Editando a ficha', 'Editing the sheet')}</span>
+          {!isNew && <b className="ed-head-name">{char.name || L('Sem nome', 'Unnamed')}</b>}
+          <span className="ed-head-count mono">{step + 1}/{steps.length}</span>
         </div>
-        <div className="wizard-meta">
-          <div className="eyebrow">{steps[step].label}</div>
-          <div className="mono text-xs">{t('step', lang)} {step + 1} {t('of', lang)} {steps.length}</div>
-        </div>
+        <nav className="ed-nav" ref={navRef} aria-label={L('Seções da ficha', 'Sheet sections')}>
+          {steps.map((s, i) => {
+            const bad = !validity[i] && (!isNew || i === step);
+            // Criação: só a seção atual e as anteriores; edição: qualquer uma.
+            const locked = isNew && i > step && validity.slice(0, i).some(v => !v);
+            return (
+              <button key={s.id} type="button" className={`ed-nav-step${i === step ? ' active' : ''}${bad ? ' pending' : ''}`}
+                aria-current={i === step ? 'step' : undefined} disabled={locked} onClick={() => setStep(i)}>
+                <span className="ed-nav-dot" aria-hidden="true">{bad ? '!' : i + 1}</span>
+                <span className="ed-nav-label">{labelOf(s)}</span>
+                {bad && <span className="cr-sr"> ({L('incompleta', 'incomplete')})</span>}
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
-      <Cur char={char} set={set} lang={lang} isNew={isNew} saved={initial} />
+      <section className="ed-stage" aria-label={labelOf(steps[step])}>
+        <Cur char={char} set={set} lang={lang} isNew={isNew} saved={initial} />
+      </section>
 
-      <div className="wizard-footer no-print">
-        {blockedHint && <div className="wizard-hint" role="status" aria-live="polite">{blockedHint}</div>}
+      <div className="wizard-footer ed-foot no-print">
+        {blockedHint && (
+          <div className="wizard-hint" role="status" aria-live="polite">
+            {pendingStep !== step ? (
+              <button type="button" className="ed-hint-go" onClick={() => setStep(pendingStep)}>
+                <b>{labelOf(steps[pendingStep])}:</b> {blockedHint} <span className="ed-hint-link">{L('Ir para lá', 'Go there')}</span>
+              </button>
+            ) : blockedHint}
+          </div>
+        )}
         <div className="wizard-footer-inner">
-          <button className="btn btn-ghost" onClick={step === 0 ? onCancel : () => setStep(step - 1)}>
-            <Icon name="chevron-left" size={16}/>
-            {step === 0 ? t('cancel', lang) : t('back', lang)}
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={isLast ? handleFinish : () => setStep(step + 1)}
-            disabled={!canNext}
-          >
-            {isLast ? t('finish', lang) : t('next', lang)}
-            {!isLast && <Icon name="chevron-right" size={16}/>}
-            {isLast && <Icon name="check" size={16}/>}
-          </button>
+          {isNew ? (
+            <>
+              <button type="button" className="btn btn-ghost" onClick={isFirst ? onCancel : () => setStep(step - 1)}>
+                <Icon name="chevron-left" size={16}/>
+                {isFirst ? t('cancel', lang) : t('back', lang)}
+              </button>
+              <button type="button" className="btn btn-primary" onClick={isLast ? handleFinish : () => setStep(step + 1)} disabled={!canNext || saving}>
+                {isLast ? t('finish', lang) : t('next', lang)}
+                <Icon name={isLast ? 'check' : 'chevron-right'} size={16}/>
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="btn btn-ghost ed-cancel" onClick={handleCancel} disabled={saving}>{t('cancel', lang)}</button>
+              <span className="ed-arrows" role="group" aria-label={L('Trocar de seção', 'Change section')}>
+                <button type="button" className="btn btn-ghost ed-arrow" onClick={() => setStep(step - 1)} disabled={isFirst}
+                  aria-label={isFirst ? L('Seção anterior', 'Previous section') : L(`Seção anterior: ${labelOf(steps[step - 1])}`, `Previous section: ${labelOf(steps[step - 1])}`)}>
+                  <Icon name="chevron-left" size={18}/>
+                </button>
+                <button type="button" className="btn btn-ghost ed-arrow" onClick={() => setStep(step + 1)} disabled={isLast}
+                  aria-label={isLast ? L('Próxima seção', 'Next section') : L(`Próxima seção: ${labelOf(steps[step + 1])}`, `Next section: ${labelOf(steps[step + 1])}`)}>
+                  <Icon name="chevron-right" size={18}/>
+                </button>
+              </span>
+              <button type="button" className="btn btn-primary ed-save" onClick={handleFinish} disabled={firstInvalid >= 0 || saving} aria-busy={saving || undefined}>
+                <Icon name="check" size={16}/> {saveLabel}
+              </button>
+            </>
+          )}
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

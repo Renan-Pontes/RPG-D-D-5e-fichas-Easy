@@ -21,18 +21,21 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { errorMessage } from '../api/errors.js';
 import { api } from '../api/client.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
+import MesaIcon from '../shell/MesaIcon.jsx';
+import { countL } from '../shell/plural.js';
 import { HpBar } from '../shell/MesaPc.jsx';
 import AttackResultCard from '../play/AttackResultCard.jsx';
 import SaveResultCard from '../play/SaveResultCard.jsx';
 import { attackPreview } from '../play/play-api.js';
 import { flash } from '../play/flash.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
-import { CONDITIONS, conditionLabel } from '../combat/monster-i18n.js';
+import { CONDITIONS, conditionLabel, conditionName } from '../combat/monster-i18n.js';
 import { DamagePadBody, undoFlash } from '../play/DamagePad.jsx';
 import { newOpId } from '../play/damage-model.js';
 import { conditionIcon, CONDITION_EMOJI } from '../art.js';
 import { ArtIcon } from '../components/ArtThumb.jsx';
 import MonsterStatblock from '../combat/MonsterStatblock.jsx';
+import { findMonster } from '../../data/bestiary.js';
 import {
   KIND_ORDER, KIND_LABEL, actionName, actionStatus, actionSummary, groupCombatActions, hasLair,
   isAttack, isSave, legendaryInfo, legendaryResistanceInfo, limitLabel, reasonLabel,
@@ -66,7 +69,7 @@ export function ConditionAsk({ cond, who, lang, busy = false, onYes, onNo }) {
   return (
     <div className="cs-ask" role="group" aria-label={t(lang, 'Tirar condição', 'Remove condition')}>
       <p className="cs-ask-q">
-        {t(lang, 'Tirar ', 'Remove ')}<strong>{conditionLabel(cond, lang)}</strong>{t(lang, ` de ${who}?`, ` from ${who}?`)}
+        {t(lang, 'Tirar ', 'Remove ')}<strong>{conditionName(cond, lang)}</strong>{t(lang, ` de ${who}?`, ` from ${who}?`)}
       </p>
       <div className="cs-ask-btns">
         <button type="button" className="mesa-btn is-danger" disabled={busy} onClick={onYes}>{busy ? '…' : t(lang, 'Tirar', 'Remove')}</button>
@@ -78,12 +81,12 @@ export function ConditionAsk({ cond, who, lang, busy = false, onYes, onNo }) {
 
 /** Chip de condição. Com onRemove: botão (pergunta antes de tirar). Sem: só leitura ("ficha"). */
 export function ConditionChip({ cond, rounds = null, lang, onRemove, fromSheet = false, className = '' }) {
-  const label = conditionLabel(cond, lang);
+  const label = conditionName(cond, lang);   // chip: inicial maiúscula, como na ficha do mestre
   const inner = (
     <>
       <ArtIcon src={conditionIcon(cond)} emoji={CONDITION_EMOJI[cond]} size={16} />
       <span className="cs-cond-label">{label}</span>
-      {rounds != null && <span className="cs-cond-rounds" aria-label={t(lang, `${rounds} rodada(s)`, `${rounds} round(s)`)}>{rounds}</span>}
+      {rounds != null && <span className="cs-cond-rounds" aria-label={countL(lang, rounds, ['rodada', 'rodadas'], ['round', 'rounds'])}>{rounds}</span>}
       {fromSheet && <em className="cs-cond-sheet">{t(lang, 'ficha', 'sheet')}</em>}
       {onRemove && <span className="cs-cond-x" aria-hidden="true">×</span>}
     </>
@@ -98,14 +101,40 @@ export function ConditionChip({ cond, rounds = null, lang, onRemove, fromSheet =
   }
   return (
     <button type="button" className={`cs-cond ${className}`.trim()} onClick={onRemove}
-      aria-label={t(lang, `Remover ${label}`, `Remove ${label}`) + (rounds != null ? t(lang, ` (${rounds} rodada(s))`, ` (${rounds} round(s))`) : '')}>
+      aria-label={t(lang, `Remover ${label}`, `Remove ${label}`) + (rounds != null ? ` (${countL(lang, rounds, ['rodada', 'rodadas'], ['round', 'rounds'])})` : '')}>
       {inner}
     </button>
   );
 }
 
+/**
+ * A ficha que a aba "Ficha" mostra. O retrato guardado no combate (`c.stats`) só tem o que a
+ * conta precisa (CA, PV, atributos, ações): sem nome, tipo, sentidos, idiomas nem traços. Com
+ * `monster_id` a ficha completa vem do catálogo (o mesmo objeto do "Ver ficha" do seletor), e o
+ * combatente manda no que é dele: nome ("Goblin Guerreiro #1"), CA e PV máximo. Sem catálogo
+ * (monstro do mestre), mostra o retrato com o nome do combatente, sem inventar tipo.
+ */
+export function statblockOf(c) {
+  const stats = c?.stats || {};
+  if (stats.monster) return { ...stats.monster, name: c.name || stats.monster.name };
+  const full = c?.monster_id ? findMonster(c.monster_id) : null;
+  const maxHp = stats.max_hp != null ? stats.max_hp : full?.hp;
+  if (!full) return { ...stats, name: c?.name, hp: maxHp };
+  return {
+    ...full,
+    name: c.name || full.name,
+    ac: stats.ac != null ? stats.ac : full.ac,
+    hp: maxHp,
+    // os dados de vida só valem para o PV do catálogo; se o mestre mudou o PV, fica só o número
+    hitDice: maxHp === full.hp ? full.hitDice : undefined,
+    abilities: stats.abilities || full.abilities,
+    saves: stats.saves || full.saves,
+  };
+}
+
 const TAB_IDS = ['actions', 'statblock', 'hp', 'conditions', 'resources'];
-const TAB_ICON = { actions: '⚔', statblock: '📜', hp: '❤', conditions: '✦', resources: '◆' };
+// ícones de linha (MesaIcon), o mesmo metal das abas da casca; antes eram emoji coloridos
+const TAB_ICON = { actions: 'combat', statblock: 'sheet', hp: 'heart', conditions: 'insights', resources: 'items' };
 
 function hasResources(c) {
   if (c?.type !== 'monster') return false;
@@ -265,7 +294,7 @@ export function CombatantPanel({
           <button key={id} type="button" role="tab" id={`${panelId}-t-${id}`} aria-controls={`${panelId}-p`}
             aria-selected={activeTab === id} className={`mesa-seg-btn cs-tab ${activeTab === id ? 'active' : ''}`}
             onClick={() => setTab(id)}>
-            <span className="cs-tab-ico" aria-hidden="true">{TAB_ICON[id]}</span>
+            <span className="cs-tab-ico" aria-hidden="true"><MesaIcon name={TAB_ICON[id]} /></span>
             <span className="cs-tab-label">
               {id === 'actions' && t(lang, 'Ações', 'Actions')}
               {id === 'statblock' && t(lang, 'Ficha', 'Statblock')}
@@ -323,7 +352,7 @@ export function CombatantPanel({
 
         {activeTab === 'statblock' && (
           <div className="cs-statblock-tab">
-            <MonsterStatblock monster={c.stats?.monster || c.stats} lang={lang} />
+            <MonsterStatblock monster={statblockOf(c)} name={c.name} lang={lang} />
           </div>
         )}
 
@@ -349,7 +378,7 @@ export function CombatantPanel({
                   <button key={cond} type="button" className={`mesa-chip cs-cond-btn ${on ? 'active' : ''}`} aria-pressed={on}
                     onClick={() => (on ? askDrop(cond, 'tab') : addCondition(cond))}>
                     <ArtIcon src={conditionIcon(cond)} emoji={CONDITION_EMOJI[cond]} size={16} />
-                    <span>{conditionLabel(cond, lang)}{r != null ? ` (${r})` : ''}</span>
+                    <span>{conditionName(cond, lang)}{r != null ? ` (${r})` : ''}</span>
                   </button>
                 );
               })}

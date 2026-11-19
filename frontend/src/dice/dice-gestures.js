@@ -16,6 +16,7 @@
  */
 
 const SWIPE_THRESHOLD_PX = 24;
+const ADV_TITLE_RE = /\s*\((?:Vantagem|Desvantagem)\)/gi;
 const TAP_THRESHOLD_PX = 10;
 
 /**
@@ -30,17 +31,17 @@ export function setElementAdvState(el, nextState) {
     el.setAttribute('data-roll-adv', 'adv');
     el.classList.add('has-adv');
     el.classList.remove('has-dis');
-    el.title = (el.title || '').replace(/\s*\(Vantagem|Desvantagem\)/gi, '') + ' (Vantagem)';
+    el.title = (el.title || '').replace(ADV_TITLE_RE, '') + ' (Vantagem)';
   } else if (nextState === 'dis') {
     el.setAttribute('data-roll-adv', 'dis');
     el.classList.add('has-dis');
     el.classList.remove('has-adv');
-    el.title = (el.title || '').replace(/\s*\(Vantagem|Desvantagem\)/gi, '') + ' (Desvantagem)';
+    el.title = (el.title || '').replace(ADV_TITLE_RE, '') + ' (Desvantagem)';
   } else {
     el.removeAttribute('data-roll-adv');
     el.classList.remove('has-adv');
     el.classList.remove('has-dis');
-    el.title = (el.title || '').replace(/\s*\(Vantagem|Desvantagem\)/gi, '');
+    el.title = (el.title || '').replace(ADV_TITLE_RE, '');
   }
 }
 
@@ -89,19 +90,39 @@ export function findRollableElement(target) {
     '.fh-skill',
     '.fh-hex',
     '.fh-skill-roll',
-    '.fh-atk-btn.is-hit',
-    '.fh-medal.is-roll',
   ].join(', '));
 }
 
 /** Seletor CSS dos campos que rolam d20: neles o gesto vertical é vantagem/desvantagem,
  *  nunca rolagem da página nem encaixe de painel (ficha.css usa `touch-action: pan-x`). */
-export const ROLL_FIELD_SELECTOR = '[data-roll-attack], [data-roll-save], [data-roll-check], [data-d20-interactive], [data-roll-adv], .abil-btn, .save-btn, .init-btn, .fh-stat, .fh-save, .fh-skill, .fh-hex, .fh-skill-roll, .fh-atk-btn.is-hit, .fh-medal.is-roll';
+export const ROLL_FIELD_SELECTOR = '[data-roll-attack], [data-roll-save], [data-roll-check], [data-d20-interactive], [data-roll-adv], .abil-btn, .save-btn, .init-btn, .fh-stat, .fh-save, .fh-skill, .fh-hex, .fh-skill-roll';
 
 /** Último estado de vantagem escolhido por gesto num campo, para o rolador da ficha usar. */
 export function advForTarget(target) {
   const el = findRollableElement(target);
   return el ? getElementAdvState(el) : null;
+}
+
+// O campo de rolagem que o dedo (ou o mouse) acabou de apertar. O rolador da ficha lê a
+// vantagem DELE, e não de document.activeElement: no Safari um botão tocado não ganha foco.
+let lastPressed = null;   // { el, at }
+const PRESS_WINDOW_MS = 1500;
+
+/**
+ * Vantagem/desvantagem marcada por gesto no campo que disparou a rolagem — e a marca é
+ * GASTA aqui: vale para uma rolagem só (antes ficava presa, só com cor, para as seguintes).
+ * `fallbackTarget`: quem rolou pelo teclado (document.activeElement).
+ * @returns {'adv'|'dis'|null}
+ */
+export function consumeAdvForRoll(fallbackTarget) {
+  const pressed = lastPressed && Date.now() - lastPressed.at < PRESS_WINDOW_MS && lastPressed.el.isConnected !== false
+    ? lastPressed.el : null;
+  lastPressed = null;
+  const el = pressed || findRollableElement(fallbackTarget);
+  if (!el) return null;
+  const adv = getElementAdvState(el);
+  if (adv) setElementAdvState(el, null);
+  return adv;
 }
 
 /**
@@ -140,10 +161,11 @@ export function setupGlobalDiceSwipeListener() {
                   el.classList.contains('fh-stat') ||
                   el.classList.contains('fh-save') ||
                   el.classList.contains('fh-skill') ||
-                  el.matches('.fh-hex, .fh-skill-roll, .fh-atk-btn.is-hit, .fh-medal.is-roll');
+                  el.matches('.fh-hex, .fh-skill-roll');
 
     if (!isD20) return;
 
+    lastPressed = { el, at: Date.now() };
     activeTrack = {
       el,
       startX: e.clientX,
@@ -199,6 +221,7 @@ export function setupGlobalDiceSwipeListener() {
         if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30);
       }
       setElementAdvState(el, nextAdv);
+      lastPressed = null;   // deslizar só marca; a rolagem é o próximo toque
 
       // Prevent click handler from firing roll immediately on swipe release
       const killClick = (ev) => {
@@ -214,6 +237,7 @@ export function setupGlobalDiceSwipeListener() {
   };
 
   const onPointerCancel = () => {
+    lastPressed = null;
     if (activeTrack) {
       activeTrack.el.classList.remove('is-swiping', 'preview-adv', 'preview-dis');
       activeTrack = null;

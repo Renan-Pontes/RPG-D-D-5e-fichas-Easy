@@ -9,9 +9,11 @@ import { useEffect, useState } from 'react';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import { L, contactHref, limitMessage } from './plans-logic.js';
 import { CONTACT_EMAIL, loadCatalog, onPlanLimit, openMyPlan, startCheckout } from './plans-api.js';
+import Icon from '../../components/Icons.jsx';
 import './plans.css';
 
-const ICONS = { images: '🖼', campaigns: '🏰', characters: '🛡', slots: '🪑', cards: '🗺' };
+// Ícones do conjunto do app (não emoji): MesaSheet aceita um nó no lugar do texto.
+const ICONS = { images: 'image', campaigns: 'castle', characters: 'shield', slots: 'chair', cards: 'map' };
 
 export function LimitDialog({ info, catalog, lang, onClose, onSeePlans }) {
   const [soon, setSoon] = useState(null);
@@ -23,7 +25,7 @@ export function LimitDialog({ info, catalog, lang, onClose, onSeePlans }) {
   };
   return (
     <MesaSheet lang={lang} size="auto" width="sm" role="alertdialog" className="pl-sheet pl-limit-sheet"
-      icon={ICONS[info.limit] || '✦'} title={msg.title} describedBy="pl-limit-body"
+      icon={<Icon name={ICONS[info.limit] || 'star'} size={20} />} title={msg.title} describedBy="pl-limit-body"
       onClose={onClose}
       footer={(
         <div className="pl-limit-actions">
@@ -66,7 +68,7 @@ export function LimitDialog({ info, catalog, lang, onClose, onSeePlans }) {
 export function PaymentSoonDialog({ lang, kind = 'plan', name = '', email = '', onClose }) {
   const to = email || CONTACT_EMAIL;
   return (
-    <MesaSheet lang={lang} size="auto" width="sm" className="pl-sheet pl-soon-sheet" icon="✉"
+    <MesaSheet lang={lang} size="auto" width="sm" className="pl-sheet pl-soon-sheet" icon={<Icon name="mail" size={20} />}
       title={L(lang, 'Pagamento em breve', 'Payments coming soon')}
       onClose={onClose}
       footer={(

@@ -8,7 +8,10 @@ import Icon from './Icons.jsx';
 import { t } from '../data/i18n.js';
 import { useAuth } from '../src/auth/AuthContext.jsx';
 import HeroCard from '../src/home/HeroCard.jsx';
-import { groupWithForks } from '../src/sheet/forks.js';
+import { groupWithForks, isFork } from '../src/sheet/forks.js';
+import { loadDraft, clearDraft } from '../src/creator/creation.js';
+import { confirmDialog } from './ConfirmDialog.jsx';
+import { HomeTables, HomeDraft, draftLine, homeTables, tablesByCharacter } from '../src/home/HomeTables.jsx';
 import { HomeActions, HomeLinks, HomeTitle, ImportError } from '../src/home/HomeActions.jsx';
 import { L, filterCharacters, sortCharacters, readFlag, writeFlag } from '../src/home/home-utils.js';
 import { PregenHead, pregenSectionClass } from '../src/pregens/PregenHead.jsx';
@@ -50,7 +53,7 @@ function Pregens({ lang, onPick, startOpen, variant }) {
 
 const CharacterList = ({
   lang, characters, listState = 'ready', onOpen, onNew, onImport, onImportPdf, onExportAll, onBlankPdf, onPickPregen,
-  onRetry, onLogin, onCampaigns, onGrimoire,
+  onRetry, onLogin, onCampaigns, onGrimoire, campaigns = null, onOpenCampaign,
 }) => {
   const auth = useAuth();
   const fileRef = useRef(null);
@@ -74,7 +77,37 @@ const CharacterList = ({
 
   const sorted = useMemo(() => sortCharacters(characters, sort), [characters, sort]);
   // versões (fichas próprias de outras mesas) logo depois do seu modelo: src/sheet/forks.js
-  const filtered = useMemo(() => groupWithForks(filterCharacters(sorted, query, lang)), [sorted, query, lang]);
+  // Só agrupa quando há versões (elas só existem em fichas da conta), e cada ficha entra
+  // uma vez: com ids locais ('local-…') o agrupamento repetia a lista inteira por herói.
+  const filtered = useMemo(() => {
+    const list = filterCharacters(sorted, query, lang);
+    const grouped = list.some(isFork) ? groupWithForks(list) : list;
+    const seen = new Set();
+    return grouped.filter(c => (seen.has(c.id) ? false : (seen.add(c.id), true)));
+  }, [sorted, query, lang]);
+
+  // Criação em andamento (rascunho do assistente): a inicial mostra e deixa continuar.
+  const [draft, setDraft] = useState(() => loadDraft());
+  const draftText = draft ? draftLine(draft, lang) : '';
+  const continueDraft = () => onNew({ resume: true });
+  const discardDraft = async () => {
+    const ok = await confirmDialog({
+      lang, danger: true,
+      title: L(lang, 'Descartar a criação em andamento?', 'Discard the creation in progress?'),
+      message: draftText ? L(lang, `${draftText}. As escolhas feitas até aqui são apagadas.`, `${draftText}. The choices made so far are erased.`)
+        : L(lang, 'As escolhas feitas até aqui são apagadas.', 'The choices made so far are erased.'),
+      confirmLabel: L(lang, 'Descartar', 'Discard'), cancelLabel: L(lang, 'Manter', 'Keep'),
+    });
+    if (!ok) return;
+    clearDraft();
+    setDraft(null);
+  };
+
+  // Mesas da conta: faixa "Suas mesas" e o nome da mesa no selo de cada herói.
+  const tables = useMemo(() => homeTables(campaigns), [campaigns]);
+  const tableNames = useMemo(() => tablesByCharacter(campaigns), [campaigns]);
+  const tablesStrip = onOpenCampaign && tables.length > 0
+    ? <HomeTables lang={lang} campaigns={campaigns} onOpen={onOpenCampaign} onAll={onCampaigns} /> : null;
 
   const mode = listState === 'loading' ? 'loading' : listState === 'error' ? 'error' : characters.length ? 'list' : 'empty';
   const online = auth.backendAvailable !== false;
@@ -109,7 +142,7 @@ const CharacterList = ({
 
   const n = characters.length;
   const links = (first) => (
-    <HomeLinks lang={lang} auth={auth} first={first} titleId="home-links-t"
+    <HomeLinks lang={lang} auth={auth} first={first} titleId="home-links-t" hideCampaigns={!!tablesStrip}
       onGrimoire={onGrimoire} onCampaigns={onCampaigns} onLogin={onLogin} />
   );
   const actions = (
@@ -129,11 +162,13 @@ const CharacterList = ({
             {mode === 'list' && <span className="home-count">{n} {n === 1 ? L(lang, 'herói', 'hero') : L(lang, 'heróis', 'heroes')}</span>}
           </div>
           {mode === 'empty' && (
-            <p className="home-lede"><b>{t('noHeroes', lang)}.</b> {t('noHeroesSub', lang)}</p>
+            tablesStrip
+              ? <p className="home-lede"><b>{L(lang, 'Nenhum herói seu ainda.', 'No hero of your own yet.')}</b> {L(lang, 'Suas mesas estão logo abaixo.', 'Your tables are right below.')}</p>
+              : <p className="home-lede"><b>{t('noHeroes', lang)}.</b> {t('noHeroesSub', lang)}</p>
           )}
         </div>
         {mode === 'list' && (
-          <button type="button" className="btn btn-primary home-top-new" onClick={onNew}>
+          <button type="button" className="btn btn-primary home-top-new" onClick={() => onNew()}>
             <Icon name="plus" size={18} /> {t('newCharacter', lang)}
           </button>
         )}
@@ -148,6 +183,8 @@ const CharacterList = ({
         </div>
       )}
 
+      {(mode === 'empty' || mode === 'list') && tablesStrip}
+
       {mode === 'empty' ? (
         <>
           <section className="home-start" aria-labelledby="home-start-t">
@@ -157,9 +194,18 @@ const CharacterList = ({
                 <img className="home-door-art" src={backgroundArt('guildArtisan')} alt="" decoding="async" onError={hideOnError} />
                 <div className="home-door-body">
                   <h3 className="home-door-title">
-                    <button type="button" className="home-door-btn" onClick={onNew}>{L(lang, 'Criar meu herói', 'Create my hero')}</button>
+                    <button type="button" className="home-door-btn" onClick={draft ? continueDraft : () => onNew()}>
+                      {draft ? L(lang, 'Continuar a criação', 'Continue creating') : L(lang, 'Criar meu herói', 'Create my hero')}
+                    </button>
                   </h3>
-                  <p>{L(lang, 'Passo a passo, cada escolha explicada.', 'Step by step, every choice explained.')}</p>
+                  <p>{draft
+                    ? (draftText || L(lang, 'Seu rascunho ficou guardado neste aparelho.', 'Your draft is kept on this device.'))
+                    : L(lang, 'Passo a passo, cada escolha explicada.', 'Step by step, every choice explained.')}</p>
+                  {draft && (
+                    <button type="button" className="home-door-link is-on-gold" onClick={discardDraft}>
+                      {L(lang, 'Descartar e começar de novo', 'Discard and start over')}
+                    </button>
+                  )}
                 </div>
                 <Icon name="chevron-right" size={20} />
               </section>
@@ -204,7 +250,7 @@ const CharacterList = ({
                   : L(lang, 'Não consegui ler as fichas salvas neste navegador. Nada foi apagado.', 'I couldn’t read the characters saved in this browser. Nothing was deleted.')}</p>
                 <div className="home-error-actions">
                   {onRetry && <button type="button" className="btn btn-primary" onClick={onRetry}>{L(lang, 'Tentar de novo', 'Try again')}</button>}
-                  <button type="button" className="btn btn-ghost" onClick={onNew}><Icon name="plus" size={16} /> {t('newCharacter', lang)}</button>
+                  <button type="button" className="btn btn-ghost" onClick={() => onNew()}><Icon name="plus" size={16} /> {t('newCharacter', lang)}</button>
                 </div>
               </div>
             )}
@@ -213,6 +259,7 @@ const CharacterList = ({
               <>
                 {/* Título da seção para leitor de tela (o H1 acima é o da página): H1 → H2 → H3 de cada herói */}
                 <h2 className="home-sr">{L(lang, 'Suas fichas', 'Your characters')}</h2>
+                <HomeDraft lang={lang} draft={draft} onContinue={continueDraft} onDiscard={discardDraft} />
                 {n > 1 && (
                   <div className="home-tools">
                     {n > 4 && (
@@ -250,7 +297,7 @@ const CharacterList = ({
                   </div>
                 ) : (
                   <div className="home-cards">
-                    {filtered.map(c => <HeroCard key={c.id} c={c} lang={lang} onOpen={onOpen} />)}
+                    {filtered.map(c => <HeroCard key={c.id} c={c} lang={lang} onOpen={onOpen} tables={tableNames.get(String(c.id))} />)}
                   </div>
                 )}
               </>
@@ -273,7 +320,7 @@ const CharacterList = ({
       {/* Celular e tablet: "Novo personagem" fixo embaixo, com a vaga do dado à direita. */}
       {mode === 'list' && (
         <div className="home-dock">
-          <button type="button" className="btn btn-primary" onClick={onNew}>
+          <button type="button" className="btn btn-primary" onClick={() => onNew()}>
             <Icon name="plus" size={18} /> {t('newCharacter', lang)}
           </button>
           <span className="home-dock-slot" aria-hidden="true" />

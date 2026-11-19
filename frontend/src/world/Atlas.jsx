@@ -10,6 +10,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import EntryCard, { EntryRow, MoveButtons } from './EntryCard.jsx';
 import MesaSheet from '../shell/MesaSheet.jsx';
+import MesaIcon from '../shell/MesaIcon.jsx';
+import { countL } from '../shell/plural.js';
 import '../shell/mesa.css';
 import useScrollEdges from '../shell/useScrollEdges.js';
 import useMedia from '../play/useMedia.js';
@@ -148,6 +150,7 @@ export default function Atlas({
   } : null);
 
   const empty = entries.length === 0;
+  const topAfter = entries.length < 5;
   const clearFilters = () => { setKind('all'); setVis('all'); setTag(''); setQ(''); };
   const quick = creating && onCreate ? (
     phone ? (
@@ -169,7 +172,7 @@ export default function Atlas({
       {!empty && (
         <div className="wl-atlas-bar">
           <div className="wl-search">
-            <span aria-hidden="true">🔍</span>
+            <MesaIcon name="search" />
             <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={t(lang, 'Buscar no mundo…', 'Search the world…')} aria-label={t(lang, 'Buscar no mundo', 'Search the world')} />
           </div>
           {onCreate && (
@@ -179,7 +182,7 @@ export default function Atlas({
           )}
           {onImprovise && (
             <button type="button" className="mesa-btn wl-bar-impro" onClick={onImprovise} aria-label={t(lang, 'Improvisar', 'Improvise')}>
-              🎲<span className="wl-bar-impro-txt"> {t(lang, 'Improvisar', 'Improvise')}</span>
+              <MesaIcon name="dice" /><span className="wl-bar-impro-txt"> {t(lang, 'Improvisar', 'Improvise')}</span>
             </button>
           )}
         </div>
@@ -187,7 +190,10 @@ export default function Atlas({
 
       {!empty && quick}
 
-      {top /* Mundo vivo (céu, páginas em branco, ecos, rumores) — montado pelo WorldArea */}
+      {/* Mundo vivo (céu, páginas em branco, ecos, rumores) — montado pelo WorldArea. Com o
+          mundo cheio ele abre a página; com poucos cartões (céu quase vazio) fica depois da
+          grade: antes empurrava os próprios cartões duas telas para baixo. */}
+      {!topAfter && top}
 
       {!empty && (
         <div className="wl-filter-rows">
@@ -232,7 +238,7 @@ export default function Atlas({
             </p>
           ) : (
             <p className="wl-list-count">
-              {filtered ? t(lang, `${shown.length} de ${entries.length} cartões`, `${shown.length} of ${entries.length} cards`) : t(lang, `${entries.length} cartões`, `${entries.length} cards`)}
+              {filtered ? t(lang, `${shown.length} de ${countL('pt', entries.length, ['cartão', 'cartões'], ['card', 'cards'])}`, `${shown.length} of ${countL('en', entries.length, ['cartão', 'cartões'], ['card', 'cards'])}`) : countL(lang, entries.length, ['cartão', 'cartões'], ['card', 'cards'])}
             </p>
           )}
           {canOrder && (
@@ -257,9 +263,9 @@ export default function Atlas({
                 'Create a place — just the name is enough. Then an NPC who lives there, a secret they keep… and the world starts breathing.')}</p>
               <p className="wl-muted wl-small">{t(lang, 'Exemplo: "Vale de Brumafria — vila de pescadores onde a névoa nunca se levanta."', 'Example: "Mistfrost Vale — a fishing village where the mist never lifts."')}</p>
               <div className="wl-row wl-wrap">
-                {!creating && onCreate && <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>＋ {t(lang, 'Criar o primeiro cartão', 'Create the first card')}</button>}
-                {onSample && <button type="button" className="btn btn-ghost" disabled={sampleBusy} onClick={onSample}>{sampleBusy ? t(lang, 'Criando…', 'Creating…') : t(lang, '✨ Começar com um exemplo', '✨ Start with an example')}</button>}
-                {onImprovise && <button type="button" className="btn btn-ghost" onClick={onImprovise}>🎲 {t(lang, 'Improvisar um NPC', 'Improvise an NPC')}</button>}
+                {!creating && onCreate && <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={() => setCreating(true)}>＋ {t(lang, 'Criar o primeiro cartão', 'Create the first card')}</button>}
+                {onSample && <button type="button" className="mesa-btn mesa-btn-lg" disabled={sampleBusy} onClick={onSample}>{sampleBusy ? t(lang, 'Criando…', 'Creating…') : t(lang, 'Começar com um exemplo', 'Start with an example')}</button>}
+                {onImprovise && <button type="button" className="mesa-btn mesa-btn-lg" onClick={onImprovise}><MesaIcon name="dice" /> {t(lang, 'Improvisar um NPC', 'Improvise an NPC')}</button>}
               </div>
             </div>
           </div>
@@ -268,7 +274,7 @@ export default function Atlas({
       ) : shown.length === 0 ? (
         <div className="wl-empty wl-empty-small">
           <p>{t(lang, 'Nada com esse filtro.', 'Nothing matches this filter.')}</p>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={clearFilters}>{t(lang, 'Limpar filtros', 'Clear filters')}</button>
+          <button type="button" className="mesa-btn" onClick={clearFilters}>{t(lang, 'Limpar filtros', 'Clear filters')}</button>
         </div>
       ) : phone ? (
         <div className="wl-list" ref={gridRef}>
@@ -293,6 +299,8 @@ export default function Atlas({
           ))}
         </div>
       )}
+
+      {topAfter && top}
 
       {!empty && (count != null && count >= max * 0.9 || dragHint) && (
         <p className="wl-hint wl-atlas-foot">

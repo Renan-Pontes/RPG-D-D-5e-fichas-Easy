@@ -336,20 +336,18 @@ export default function MapCanvas({
       {nodes.length === 0 && (
         <div className="prep-canvas-empty">
           {editable
-            ? t(lang, 'Mapa vazio. Use “+ Sala” ou dê duplo clique aqui para criar a primeira sala/cena.', 'Empty map. Use “+ Room” or double-click here to create the first room/scene.')
+            ? t(lang, 'Mapa vazio. Toque em “＋ Sala”, lá em cima, ou dê duplo clique aqui para criar a primeira sala.', 'Empty map. Tap “＋ Room”, up there, or double-click here to create the first room.')
             : t(lang, 'Nada preparado ainda.', 'Nothing prepared yet.')}
         </div>
       )}
       <div className="prep-canvas-tools" onPointerDown={e => e.stopPropagation()}>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => zoomAt(1.2, size.w / 2, size.h / 2)} aria-label={t(lang, 'Aproximar', 'Zoom in')}>＋</button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => zoomAt(1 / 1.2, size.w / 2, size.h / 2)} aria-label={t(lang, 'Afastar', 'Zoom out')}>－</button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={fit}>{t(lang, 'Enquadrar', 'Fit')}</button>
-        {editable && (
-          <button type="button" className="btn btn-primary btn-sm"
-            onClick={() => onCreateNode(Math.round((size.w / 2 - v.x) / v.k - NODE_W / 2), Math.round((size.h / 2 - v.y) / v.k - NODE_H / 2), visibleBounds())}>
-            + {t(lang, 'Sala', 'Room')}
-          </button>
-        )}
+        {/* só a vista (＋ − e enquadrar), como no mapa do combate; o ＋ Sala mora na barra de cima */}
+        <button type="button" className="mesa-icon-btn prep-zbtn" onClick={() => zoomAt(1 / 1.2, size.w / 2, size.h / 2)}
+          aria-label={t(lang, 'Afastar', 'Zoom out')} title={t(lang, 'Afastar', 'Zoom out')}>−</button>
+        <button type="button" className="mesa-icon-btn prep-zbtn" onClick={() => zoomAt(1.2, size.w / 2, size.h / 2)}
+          aria-label={t(lang, 'Aproximar', 'Zoom in')} title={t(lang, 'Aproximar', 'Zoom in')}>＋</button>
+        <button type="button" className="mesa-icon-btn prep-zbtn" onClick={fit}
+          aria-label={t(lang, 'Enquadrar todas as salas', 'Fit all rooms')} title={t(lang, 'Enquadrar todas as salas', 'Fit all rooms')}>⤢</button>
       </div>
       {editable && nodes.length > 0 && (
         <p className="prep-canvas-hint">{t(lang,

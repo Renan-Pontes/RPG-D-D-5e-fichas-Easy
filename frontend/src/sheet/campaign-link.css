@@ -1,11 +1,14 @@
-/* Modal "Campanha" da ficha (CampaignLinkModal.jsx). Fica dentro de .ficha (os
-   modais da ficha não são portais): o couro e o título em ouro vêm de ficha.css
-   (.ficha .modal). Aqui só o miolo; alvos de toque com 44px. */
-.cl-modal { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; }
+/* Folha "Campanha" da ficha (CampaignLinkModal.jsx) e o miolo comum com a folha "Mesas e
+   cópias" (VersionsModal.jsx). As duas abrem na folha da mesa (src/shell/MesaSheet.jsx:
+   de baixo no celular, diálogo no PC; couro, título em folha de ouro e botões .mesa-btn
+   vêm de src/shell/mesa.css). Aqui só o miolo; alvos de toque com 44px, letra ≥ 12px. */
+.cl-modal { display: flex; flex-direction: column; gap: var(--s-5); min-width: 0; }
 .cl-modal p { margin: 0; }
+.cl-sec { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; }
+.cl-sec > .mesa-title, .cl-npc-tables > .mesa-title { margin-bottom: 0; }
 .cl-state { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-3); padding: var(--s-2) 0; }
 .cl-lead { color: var(--ink-secondary); line-height: 1.45; }
-.cl-hint { font-size: 0.88rem; line-height: 1.4; }
+.cl-hint { font-size: 0.9rem; line-height: 1.45; color: var(--ink-muted); }
 .cl-note {
   font-size: 0.9rem; line-height: 1.4; color: var(--ink-secondary);
   padding: var(--s-2) var(--s-3); border-radius: var(--radius); background: var(--amber-soft);
@@ -19,16 +22,37 @@
 /* botões: nunca menores que 44px; quebram em linha quando não cabem */
 .cl-modal .cl-btn { min-height: 44px; width: auto; }
 .cl-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); justify-content: flex-end; }
+.cl-actions.is-start { justify-content: flex-start; }
 .cl-actions .btn { flex: 1 1 140px; min-height: 44px; }
+.cl-confirm .cl-actions .mesa-btn { flex: 1 1 140px; }
+.cl-modal .cl-move, .cl-modal .cl-back { align-self: flex-start; }
+@media (max-width: 480px) {
+  /* celular: os botões empilham na largura toda (rótulo longo não quebra em 4 linhas) */
+  .cl-actions { flex-direction: column; align-items: stretch; }
+  .cl-actions .mesa-btn, .cl-actions .btn { flex: none; width: 100%; min-height: 48px; }
+  .cl-confirm .cl-actions { flex-direction: column-reverse; }   /* a ação principal perto do polegar */
+  .cl-modal .cl-move, .cl-modal .cl-back, .cl-modal .cl-code-toggle { align-self: stretch; }
+}
 
-/* Campanha atual */
+/* Onde a ficha joga: uma linha por mesa, com o "Desatrelar daqui" de cada uma */
+.cl-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-2); }
 .cl-current {
-  display: flex; flex-direction: column; gap: var(--s-1); align-items: flex-start;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s-2) var(--s-3);
   padding: var(--s-3) var(--s-3) var(--s-3) calc(var(--s-3) + 3px);
   border: 1px solid rgba(116, 214, 180, 0.38); border-radius: 8px;
   background: linear-gradient(90deg, rgba(18, 63, 52, 0.5), rgba(10, 7, 6, 0.4) 80%);
   box-shadow: inset 3px 0 0 var(--fh-verdigris, #74d6b4);
 }
+.cl-current-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cl-current-tags { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.cl-current > .cl-note { grid-column: 1 / -1; }
+@media (max-width: 340px) {
+  .cl-current { grid-template-columns: minmax(0, 1fr); }
+  .cl-current .cl-btn { width: 100%; }
+}
+.cl-current .cl-btn { padding-inline: 12px; }
+/* a porta para a folha "Mesas e cópias" (cópia separada, one-shot, cópias guardadas) */
+.cl-more { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-2); padding-top: var(--s-4); border-top: 1px solid rgba(214, 176, 100, 0.25); }
 .cl-current.is-closed { border-color: var(--stroke); box-shadow: inset 3px 0 0 var(--ink-muted); background: var(--bg-elevated); }
 .cl-eyebrow {
   font-family: var(--display); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.16em;
@@ -38,8 +62,6 @@
   font-family: var(--display); font-weight: 600; font-size: 1.15rem; color: var(--ink-primary);
   overflow-wrap: anywhere;
 }
-.cl-current .cl-note { align-self: stretch; margin-top: var(--s-1); }
-.cl-current .cl-btn { margin-top: var(--s-1); }
 
 /* Mesas em que a pessoa joga */
 .cl-tables { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-2); }
@@ -50,8 +72,8 @@
 }
 .cl-table-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
 .cl-table-text strong { font-family: var(--display); font-weight: 600; color: var(--ink-primary); overflow-wrap: anywhere; }
-.cl-tagline { font-size: 0.86rem; color: var(--ink-muted); overflow-wrap: anywhere; }
-.cl-seat { font-size: 0.84rem; color: var(--ink-secondary); }
+.cl-tagline { font-size: 0.9rem; color: var(--ink-muted); overflow-wrap: anywhere; }
+.cl-seat { font-size: 0.88rem; color: var(--ink-secondary); }
 .cl-seat.is-free { color: var(--moss-bright); }
 .cl-seat.is-other { color: var(--amber, #e3a445); }
 .cl-seat.is-family { color: var(--ink-secondary); font-style: italic; }
@@ -85,10 +107,10 @@
 }
 
 /* Mesas que a pessoa mestra: ficha como NPC no Mundo */
-.cl-npc-tables { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(214, 176, 100, 0.25); }
-.cl-npc-title { margin: 0 0 4px; font-family: var(--display); letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.8rem; color: var(--gold-bright, #edcb7a); }
+.cl-npc-tables { display: flex; flex-direction: column; gap: var(--s-3); padding-top: var(--s-4); border-top: 1px solid rgba(214, 176, 100, 0.25); }
 .cl-npc-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-.cl-status { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
-  font-size: 0.7rem; letter-spacing: 0.06em; border: 1px solid rgba(214, 176, 100, 0.35); color: var(--ink-muted, #a89a80); text-transform: none; }
-.cl-status.is-player { color: #bbf7d0; border-color: rgba(74, 222, 128, 0.45); }
-.cl-status.is-npc { color: #e9d5ff; border-color: rgba(192, 132, 252, 0.5); }
+.cl-status { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; align-self: flex-start;
+  font-size: 12px; line-height: 1.4; letter-spacing: 0.04em; border: 1px solid rgba(214, 176, 100, 0.35); color: var(--ink-muted); text-transform: none; }
+.cl-status.is-player { color: var(--fh-verdigris); border-color: rgba(116, 214, 180, 0.45); }
+.cl-status.is-npc { color: var(--arcane-bright); border-color: rgba(159, 176, 240, 0.5); }
+.cl-table-text .cl-status { margin-top: 2px; }

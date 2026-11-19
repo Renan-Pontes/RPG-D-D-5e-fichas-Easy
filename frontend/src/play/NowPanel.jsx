@@ -38,6 +38,7 @@ import { sceneMoments } from '../prep/scene-model.js';
 import { loadRoom } from '../prep/prep-api.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
+import MesaIcon from '../shell/MesaIcon.jsx';
 import NextStepCard from '../shell/NextStepCard.jsx';
 import { nextStep, readSkips, sessionWasPlayed, writeSkip } from '../shell/next-step.js';
 import { nextSessionNumber, screenLink } from '../shell/shell-logic.js';
@@ -471,13 +472,13 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
         )}
         <div className="now-actions" role="group" aria-label={L(lang, 'Ações da mesa', 'Table actions')}>
           <button type="button" className="mesa-btn now-act" aria-haspopup="dialog" disabled={closed} onClick={() => setSheet('check')}>
-            <span aria-hidden="true">🎯</span> {L(lang, 'Pedir teste', 'Ask a check')}
+            <MesaIcon name="target" /> {L(lang, 'Pedir teste', 'Ask a check')}
           </button>
           <button type="button" className="mesa-btn now-act" aria-haspopup="dialog" onClick={() => setSheet('show')}>
-            <span aria-hidden="true">📺</span> {L(lang, 'Mostrar', 'Show')}
+            <MesaIcon name="tv" /> {L(lang, 'Mostrar', 'Show')}
           </button>
           <button type="button" className="mesa-btn now-act" aria-haspopup="dialog" onClick={() => setSheet('tools')}>
-            <span aria-hidden="true">⋯</span> {L(lang, 'Ferramentas', 'Tools')}
+            <MesaIcon name="tools" /> {L(lang, 'Ferramentas', 'Tools')}
           </button>
         </div>
         {!wide && moment}

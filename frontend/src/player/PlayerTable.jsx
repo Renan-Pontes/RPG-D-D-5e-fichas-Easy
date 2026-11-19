@@ -19,10 +19,16 @@ import { usePolling } from '../api/polling.js';
 import { errorMessage } from '../api/errors.js';
 import { HERO_ART } from '../art.js';
 import useArea from '../shell/useArea.js';
+import { defaultCoverArt } from '../shell/shell-logic.js';
+import MesaTitle from '../shell/MesaTitle.jsx';
+import { HpBar, PcBadges, PcPortrait } from '../shell/MesaPc.jsx';
+import '../shell/mesa.css';
+import '../campaigns/combat-styles.css';   // o desenho do retrato e da barra de PV (bloco "MesaPc")
+import { charLine, memberStats } from '../group/group-model.js';
 import CheckRequestCard from '../checks/CheckRequestCard.jsx';
 import '../checks/checks-styles.css';
 import { worldImageUrl } from '../world/world-api.js';
-import { kindIcon } from '../world/world-model.js';
+import { defaultArt, kindIcon } from '../world/world-model.js';
 import { absUrl, combatStrip, L, paragraphs, turnJustStarted } from './player-model.js';
 import { playerScreen } from '../stage/stage-now.js';
 import { useOnRev, usePlayerPulse } from '../play/table-store.js';
@@ -30,6 +36,8 @@ import { quietSlot } from '../play/damage-model.js';
 import './player-styles.css';
 
 const DICE = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'];
+const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+const signed = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0');
 
 export default function PlayerTable({ campaign, lang = 'pt', onOpenWorld, onOpenSheet }) {
   const area = useArea();
@@ -37,48 +45,139 @@ export default function PlayerTable({ campaign, lang = 'pt', onOpenWorld, onOpen
   const pulse = pp?.enabled ? pp.pulse : null;
   const state = campaign.state || {};
   const card = campaign.screenCard;
-  const cover = absUrl(API_BASE, campaign.coverUrl) || HERO_ART;
-  const me = (campaign.members || []).find(m => m.character?.data);
+  // a mesma capa do cabeçalho da campanha (CampaignHeader): a do mestre, ou a arte padrão da mesa
+  const coverFallback = defaultCoverArt(campaign) || HERO_ART;
+  const cover = absUrl(API_BASE, campaign.coverUrl) || coverFallback;
+  // os personagens da pessoa nesta mesa (só os dela chegam com a ficha inteira)
+  const mine = (campaign.members || []).filter(m => m.character?.data);
+  const me = mine[0];
   const char = me?.character?.data ? { ...me.character.data, id: me.character.id } : null;
   const openWorld = (entryId) => {
     if (onOpenWorld) onOpenWorld(entryId);
     else area?.goTo?.('world', 'atlas', entryId ? { entryId } : {});
   };
+  // Teste aberto: no celular ele sobe para o topo da Mesa (acima da cena), para o
+  // "Rolar no app" ficar à vista sem rolar. Só a ordem muda (CSS): nada remonta.
+  const [openChecks, setOpenChecks] = useState(0);
 
   return (
-    <div className="pl-table">
+    <div className={`pl-table${openChecks > 0 ? ' has-open-check' : ''}`}>
       <CombatStrip ready={!!pulse} combat={pulse?.combat} lang={lang}
         onOpenSheet={char && onOpenSheet ? () => onOpenSheet(char.id) : null} />
 
-      <section className="pl-scene" style={{ '--pl-cover': `url("${cover}")` }}>
-        <div className="pl-scene-bg" aria-hidden="true" />
-        <div className="pl-scene-content">
-          <div className="pl-scene-pills">
-            {state.live && <span className="pl-live"><span className="pl-live-dot" aria-hidden="true" />{L(lang, 'Ao vivo', 'Live')}</span>}
-            {state.session && <span className="pl-pill">{L(lang, 'Sessão', 'Session')} {state.session}</span>}
-            {state.weather && <span className="pl-pill pl-pill-soft">☁ {state.weather}</span>}
+      <div className="pl-col pl-col-main">
+        <MyCharacters members={mine} lang={lang} onOpenSheet={onOpenSheet}
+          onGroup={area?.goTo ? () => area.goTo('group') : null} />
+
+        <section className={`pl-scene${state.sceneText ? ' has-text' : ''}`} style={{ '--pl-cover': `url("${cover}")`, '--pl-cover-fallback': `url("${coverFallback}")` }}
+          aria-label={L(lang, 'Cena', 'Scene')}>
+          <div className="pl-scene-bg" aria-hidden="true" />
+          <div className="pl-scene-content">
+            {/* "Ao vivo", a sessão e o nome da campanha já estão no cabeçalho da casca: aqui só o clima */}
+            <div className="pl-scene-top">
+              <span className="pl-scene-eyebrow">{state.scene
+                ? (state.live === false ? L(lang, 'Onde paramos', 'Where we left off') : L(lang, 'Cena', 'Scene'))
+                : L(lang, 'A mesa', 'The table')}</span>
+              {state.weather && (
+                <span className="pl-pill pl-pill-soft">
+                  <WeatherIcon />
+                  <span className="sr-only">{L(lang, 'Clima: ', 'Weather: ')}</span>{state.weather}
+                </span>
+              )}
+            </div>
+            <h2 className="pl-scene-name">
+              {state.scene || (state.live ? L(lang, 'A aventura continua…', 'The adventure goes on…') : L(lang, 'Entre uma sessão e outra', 'Between sessions'))}
+            </h2>
+            {!state.scene && !state.live && campaign.tagline && <p className="pl-scene-tagline">{campaign.tagline}</p>}
+            {state.sceneText && (
+              <blockquote className="pl-read-aloud">
+                {paragraphs(state.sceneText).map((p, i) => <p key={i}>{p}</p>)}
+              </blockquote>
+            )}
           </div>
-          <div className="pl-eyebrow">{campaign.name}</div>
-          <h2 className="pl-scene-name">
-            {state.scene || (state.live ? L(lang, 'A aventura continua…', 'The adventure goes on…') : L(lang, 'Entre uma sessão e outra', 'Between sessions'))}
-          </h2>
-          {!state.scene && !state.live && campaign.tagline && <p className="pl-scene-tagline">{campaign.tagline}</p>}
-          {state.sceneText && (
-            <blockquote className="pl-read-aloud">
-              {paragraphs(state.sceneText).map((p, i) => <p key={i}>{p}</p>)}
-            </blockquote>
+        </section>
+
+        {campaign.stage
+          ? <OnScreenNow now={playerScreen({ stage: campaign.stage, combat: campaign.combatNow, lang })} lang={lang} onOpen={openWorld} />
+          : card && <OnScreenNow now={legacyNow(card, lang)} lang={lang} onOpen={openWorld} />}
+      </div>
+
+      <div className="pl-col pl-col-side">
+        <ChecksSection campaign={campaign} char={char} lang={lang} onOpenCount={setOpenChecks} />
+
+        <DiceSection campaign={campaign} lang={lang} />
+      </div>
+    </div>
+  );
+}
+
+/** Ícone de linha do clima (no lugar do emoji ☁). */
+function WeatherIcon() {
+  return (
+    <svg className="pl-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M7 18h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.1 11.1 3.5 3.5 0 0 0 7 18z" />
+    </svg>
+  );
+}
+
+/**
+ * "Meu personagem": quem eu sou nesta mesa, com a vida à vista e a porta para a ficha
+ * (antes só havia [Ir para a minha ficha] na vez do combate). Um por linha quando a
+ * pessoa senta mais de um personagem na mesma mesa. Sem personagem: diz isso e leva
+ * ao Grupo, onde se escolhe um.
+ */
+function MyCharacters({ members, lang, onOpenSheet, onGroup }) {
+  if (!members.length) {
+    return (
+      <section className="mesa-panel pl-me is-empty" aria-label={L(lang, 'Meu personagem', 'My character')}>
+        <div className="pl-me-row">
+          <span className="mesa-pc-pic is-initial pl-me-pic" style={{ '--pc-pic': '48px' }} aria-hidden="true">?</span>
+          <div className="pl-me-main">
+            <strong className="pl-me-name">{L(lang, 'Você está sem personagem nesta mesa', 'You have no character at this table')}</strong>
+            <span className="pl-me-sub">{L(lang, 'Escolha uma ficha no Grupo para rolar com os bônus dela.', 'Pick a sheet in Party to roll with its bonuses.')}</span>
+          </div>
+          {onGroup && (
+            <button type="button" className="mesa-btn pl-me-open" onClick={onGroup}>{L(lang, 'Ir para o Grupo', 'Go to Party')}</button>
           )}
         </div>
       </section>
-
-      {campaign.stage
-        ? <OnScreenNow now={playerScreen({ stage: campaign.stage, combat: campaign.combatNow, lang })} lang={lang} onOpen={openWorld} />
-        : card && <OnScreenNow now={legacyNow(card, lang)} lang={lang} onOpen={openWorld} />}
-
-      <ChecksSection campaign={campaign} char={char} lang={lang} />
-
-      <DiceSection campaign={campaign} lang={lang} />
-    </div>
+    );
+  }
+  return (
+    <section className="mesa-panel pl-me" aria-label={members.length > 1 ? L(lang, 'Meus personagens', 'My characters') : L(lang, 'Meu personagem', 'My character')}>
+      {members.map(m => {
+        const stats = memberStats(m);
+        const c = m.character;
+        const name = c.name || L(lang, 'Sem nome', 'Unnamed');
+        const line = charLine(c.summary || c.data, lang);
+        return (
+          <div key={m.id ?? c.id} className="pl-me-row">
+            <PcPortrait stats={stats} name={name} size={48} className="pl-me-pic" />
+            <div className="pl-me-main">
+              <strong className="pl-me-name">{name}</strong>
+              {line && <span className="pl-me-sub">{line}</span>}
+              <div className="pl-me-vitals">
+                <HpBar hp={stats.hp} max={stats.maxHp} temp={stats.tempHp} lang={lang} units className="pl-me-hp" />
+                {stats.ac != null && (
+                  <span className="pl-me-stat" title={L(lang, 'Classe de Armadura', 'Armor Class')}>
+                    <span className="pl-me-stat-lbl">{L(lang, 'CA', 'AC')}</span>
+                    <span className="pl-me-stat-val">{stats.ac}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+            {onOpenSheet && (
+              <button type="button" className="mesa-btn is-primary pl-me-open" onClick={() => onOpenSheet(c.id)}
+                aria-label={L(lang, `Abrir ficha de ${name}`, `Open sheet: ${name}`)}>
+                {L(lang, 'Abrir ficha', 'Open sheet')}
+              </button>
+            )}
+            <PcBadges stats={stats} lang={lang} className="pl-me-badges" />
+          </div>
+        );
+      })}
+    </section>
   );
 }
 
@@ -120,8 +219,9 @@ function CombatStrip({ ready, combat, lang, onOpenSheet }) {
         {s.sub && <span className="pl-fight-sub">{s.sub}</span>}
       </div>
       {s.mine && onOpenSheet && (
-        <button type="button" className="pl-fight-go" onClick={onOpenSheet}>
-          {L(lang, 'Ir para a minha ficha', 'Go to my sheet')}{'\u00a0→'}
+        <button type="button" className="pl-fight-go" onClick={onOpenSheet}
+          aria-label={L(lang, 'Ir para a minha ficha', 'Go to my sheet')}>
+          {L(lang, 'Minha ficha', 'My sheet')}{'\u00a0→'}
         </button>
       )}
     </section>
@@ -142,26 +242,40 @@ function OnScreenNow({ now, lang, onOpen }) {
   const [imgOk, setImgOk] = useState(true);
   if (!now) return null;
   const img = worldImageUrl(now.imageUrl);
-  const head = (
-    <div className="pl-section-eyebrow">📺 {L(lang, 'Na tela agora', 'On screen now')}{now.over ? <span className="pl-onscreen-over"> · {now.over}</span> : null}</div>
+  // O modificador é `is-<tipo>` (antes `pl-onscreen-<tipo>`: o do cartão era o mesmo nome
+  // da caixa de dentro, `.pl-onscreen-card`, e a seção herdava a moldura e o flex dela).
+  const title = (
+    <MesaTitle sub={now.over ? <span className="pl-onscreen-over">{now.over}</span> : null}>
+      {L(lang, 'Na tela agora', 'On screen now')}
+    </MesaTitle>
   );
   if (now.kind === 'combat' || now.kind === 'dark' || now.kind === 'map') {
     return (
-      <section className={`pl-onscreen pl-onscreen-${now.kind}`} aria-label={L(lang, 'Na tela agora', 'On screen now')}>
-        {head}
+      <section className={`mesa-panel pl-onscreen is-${now.kind}`} aria-label={L(lang, 'Na tela agora', 'On screen now')}>
+        {title}
         <p className="pl-onscreen-line">{now.title}</p>
       </section>
     );
   }
   const paras = paragraphs(now.text);
+  // Cartão do Mundo sem imagem própria: a arte padrão do tipo como ambiente (esmaecida, com
+  // o ícone do tipo por cima) — nunca como o retrato de alguém. Recap, cena e texto: o ícone.
+  const fallbackArt = now.kind === 'card' && now.entryId != null ? defaultArt({ id: now.entryId, kind: now.entryKind }) : null;
   const icon = now.kind === 'recap' ? '📖' : now.kind === 'scene' ? '🎭' : now.kind === 'image' ? '🖼' : now.kind === 'text' ? '📝' : kindIcon(now.entryKind);
   return (
-    <section className={`pl-onscreen pl-onscreen-${now.kind}`} aria-label={L(lang, 'Na tela agora', 'On screen now')}>
-      {head}
+    <section className={`mesa-panel pl-onscreen is-${now.kind}`} aria-label={L(lang, 'Na tela agora', 'On screen now')}>
+      {title}
       <div className="pl-onscreen-card">
         {img && imgOk
           ? <img className={`pl-onscreen-img ${now.kind === 'image' ? 'is-contain' : ''}`} src={img} alt="" onError={() => setImgOk(false)} />
-          : <div className="pl-onscreen-icon" aria-hidden="true">{icon}</div>}
+          : fallbackArt
+            ? (
+              <div className="pl-onscreen-img pl-defart" aria-hidden="true">
+                <img src={fallbackArt} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                <span className="pl-defart-ico">{icon}</span>
+              </div>
+            )
+            : <div className="pl-onscreen-icon" aria-hidden="true">{icon}</div>}
         <div className="pl-onscreen-body">
           {now.eyebrow && <div className="pl-onscreen-kind">{now.eyebrow}</div>}
           {now.title && <h3 className="pl-onscreen-title">{now.title}</h3>}
@@ -169,7 +283,7 @@ function OnScreenNow({ now, lang, onOpen }) {
           {now.partial && <div className="pl-rumor-tag">{L(lang, 'Rumores…', 'Rumors…')}</div>}
           {paras.slice(0, now.kind === 'recap' ? 8 : 3).map((p, i) => <p key={i}>{p}</p>)}
           {now.kind === 'card' && now.entryId && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpen(now.entryId)}>{L(lang, 'Ver no Mundo', 'See in World')}</button>
+            <button type="button" className="mesa-btn pl-onscreen-go" onClick={() => onOpen(now.entryId)}>{L(lang, 'Ver no Mundo', 'See in World')}</button>
           )}
         </div>
       </div>
@@ -177,7 +291,7 @@ function OnScreenNow({ now, lang, onOpen }) {
   );
 }
 
-function ChecksSection({ campaign, char, lang }) {
+function ChecksSection({ campaign, char, lang, onOpenCount }) {
   const [checks, setChecks] = useState(null);
   const pp = usePlayerPulse();
   const load = useCallback(async () => {
@@ -187,14 +301,19 @@ function ChecksSection({ campaign, char, lang }) {
   // (o pedido de iniciativa também é um teste): sem busca de segurança.
   useOnRev(pp?.pulse?.checksRev, load, { table: pp, fallbackMs: 3000, safetyMs: Infinity });
   const open = (checks || []).filter(c => !c.myResponse);
+  const openCount = open.length;
+  useEffect(() => { onOpenCount?.(openCount); }, [openCount]); // eslint-disable-line react-hooks/exhaustive-deps
+  const empty = !!checks && checks.length === 0;
   return (
-    <section className="pl-section" aria-label={L(lang, 'Testes pedidos pelo mestre', 'Checks requested by the DM')}>
-      <h3 className="pl-section-title">
-        🎯 {L(lang, 'Testes', 'Checks')}
-        {open.length > 0 && <span className="pl-count">{open.length}</span>}
-      </h3>
-      {checks && checks.length === 0 && (
-        <p className="muted small">{L(lang, 'Nenhum teste pendente. Quando o mestre pedir um, ele aparece aqui — role no app ou digite o dado físico.', 'No pending checks. When the DM asks for one it shows up here — roll in the app or type your physical die.')}</p>
+    <section className={`mesa-panel pl-section pl-checks${openCount > 0 ? ' has-open' : ''}${empty ? ' is-empty' : ''}`}
+      aria-label={L(lang, 'Testes pedidos pelo mestre', 'Checks requested by the DM')}>
+      <MesaTitle act={openCount > 0
+        ? <span className="pl-count" aria-label={L(lang, `${openCount} aguardando você`, `${openCount} waiting for you`)}>{openCount}</span>
+        : null}>
+        {L(lang, 'Testes', 'Checks')}
+      </MesaTitle>
+      {empty && (
+        <p className="pl-section-hint">{L(lang, 'Nenhum teste pendente. Quando o mestre pedir um, ele aparece aqui — role no app ou digite o dado físico.', 'No pending checks. When the DM asks for one it shows up here — roll in the app or type your physical die.')}</p>
       )}
       <div className="player-checks">
         {(checks || []).map(c => (
@@ -226,52 +345,76 @@ function DiceSection({ campaign, lang }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState([]);
 
+  const pendingRef = useRef(pending);
+  pendingRef.current = pending;
   const loadPending = useCallback(async () => {
     try {
       const [p, r] = await Promise.all([api.listPendingRolls(campaign.id), api.listRecentRolls(campaign.id)]);
       const pend = p.rolls || [];
       // Pedido meu que o mestre acabou de resolver: mostra o dado com o valor do servidor.
-      setPending(prev => {
-        const gone = prev.filter(x => !pend.some(y => y.id === x.id));
-        for (const g of gone) {
-          const done = (r.rolls || []).find(x => x.id === g.id);
-          if (done && done.status !== 'cancelled' && done.rolls?.length) {
-            window.__diceShow?.({
-              label: done.label || done.diceType,
-              groups: [{ die: parseInt(String(done.diceType).replace('d', ''), 10) || 20, rolls: done.rolls }],
-              mod: done.modifier || 0, total: done.total, isCrit: done.isCritical, isFumble: done.isCriticalFail,
-            });
-            setLast({ label: done.label, results: done.rolls.filter(x => x.kept !== false), total: done.total, modifier: done.modifier, fromDm: true });
-          }
+      // (Fora do setPending: mexer no palco de dados dentro do atualizador de estado
+      // rodava durante o desenho — "Cannot update a component while rendering…".)
+      const gone = pendingRef.current.filter(x => !pend.some(y => y.id === x.id));
+      setPending(pend);
+      for (const g of gone) {
+        const done = (r.rolls || []).find(x => x.id === g.id);
+        if (done && done.status !== 'cancelled' && done.rolls?.length) {
+          window.__diceShow?.({
+            label: done.label || done.diceType,
+            groups: [{ die: parseInt(String(done.diceType).replace('d', ''), 10) || 20, rolls: done.rolls }],
+            mod: done.modifier || 0, total: done.total, isCrit: done.isCritical, isFumble: done.isCriticalFail,
+          });
+          setLast({ label: done.label, results: done.rolls.filter(x => x.kept !== false), total: done.total, modifier: done.modifier, fromDm: true });
         }
-        return pend;
-      });
+      }
     } catch { /* polling */ }
   }, [campaign.id]);
   // Só consulta pedidos enquanto houver algum aguardando o mestre: com o pulso do jogador,
   // quando os pedidos dele mudam (`rollsRev`: o mestre resolveu); sem ele, a cada 3 s.
   const pp = usePlayerPulse();
   const rollsRev = pp?.enabled && pp.pulse ? pp.pulse.rollsRev : undefined;
-  const pendingRef = useRef(pending);
-  pendingRef.current = pending;
   useEffect(() => { loadPending(); }, [loadPending]);
   useEffect(() => {
     if (rollsRev !== undefined && pendingRef.current.length) loadPending();
   }, [rollsRev]); // eslint-disable-line react-hooks/exhaustive-deps
-  usePolling(() => (rollsRev === undefined && pending.length ? loadPending() : null), 3000,
+  // Com o pulso, uma busca de segurança a cada 12 s enquanto houver pedido esperando: o
+  // `rollsRev` é o conjunto dos pedidos pendentes, e um pedido resolvido entre dois pulsos
+  // (ou trocado por outro) não o mudaria — "Aguardando o mestre" ficaria preso na tela.
+  usePolling(() => (pending.length ? loadPending() : null), rollsRev === undefined ? 3000 : 12000,
     [campaign.id, pending.length > 0, rollsRev === undefined]);
+
+  // Vantagem/desvantagem (só no pedido ao mestre, só no d20): é UM d20 rolado duas vezes
+  // (fica o maior ou o menor). A quantidade trava em 1 — antes ia "2d20 com vantagem".
+  const d20 = diceType === 'd20';
+  const advOn = ask && d20 && adv !== 'normal';
+  const dice = advOn ? 1 : count;
+  const formula = `${dice}${diceType}${modifier ? (modifier > 0 ? `+${modifier}` : `−${Math.abs(modifier)}`) : ''}`;
+  const [cancelling, setCancelling] = useState(null);
+
+  const cancel = async (r) => {
+    if (cancelling != null) return;
+    setCancelling(r.id); setError('');
+    try {
+      await api.cancelRoll(r.id);
+      setPending(prev => prev.filter(x => x.id !== r.id));
+    } catch (e) {
+      setError(errorMessage(e, lang, L(lang, 'Não deu para cancelar o pedido. Tente de novo.', 'Could not cancel the request. Try again.')));
+    } finally { setCancelling(null); }
+  };
 
   const roll = async () => {
     setBusy(true); setError('');
     try {
       if (ask) {
-        const d20 = diceType === 'd20';
         await api.createRoll(campaign.id, {
-          label: label || L(lang, 'Rolagem', 'Roll'), diceType, count, modifier,
+          label: label || L(lang, 'Rolagem', 'Roll'), diceType, count: dice, modifier,
           hasAdvantage: d20 && adv === 'adv', hasDisadvantage: d20 && adv === 'dis',
         });
         await loadPending();
-        setLabel('');
+        // o pedido foi: o formulário volta ao começo e o resultado antigo sai da frente
+        // (ele parecia a resposta do pedido que ainda espera o mestre)
+        setLast(null);
+        setLabel(''); setCount(1); setModifier(0);
         setAdv('normal');
       } else {
         const r = await api.rollDice({ diceType, count, campaignId: campaign.id, label, modifier: modifier || 0 });
@@ -290,29 +433,26 @@ function DiceSection({ campaign, lang }) {
     } finally { setBusy(false); }
   };
 
+  const advWord = adv === 'adv' ? L(lang, 'vantagem', 'advantage') : L(lang, 'desvantagem', 'disadvantage');
   return (
-    <section className="pl-section pl-dice" aria-label={L(lang, 'Rolar dados', 'Roll dice')}>
-      <h3 className="pl-section-title">🎲 {L(lang, 'Rolar dados', 'Roll dice')}</h3>
-      <p className="muted small pl-dice-hint">{L(lang, 'Prefere dados de verdade? Ótimo — use os seus e diga o resultado ao mestre.', 'Prefer real dice? Great — roll yours and tell the DM the result.')}</p>
+    <section className="mesa-panel pl-section pl-dice" aria-label={L(lang, 'Rolar dados', 'Roll dice')}>
+      <MesaTitle>{L(lang, 'Rolar dados', 'Roll dice')}</MesaTitle>
       <div className="pl-dice-row" role="group" aria-label={L(lang, 'Dado', 'Die')}>
         {DICE.map(d => (
           <button key={d} type="button" className={`pl-die ${diceType === d ? 'active' : ''}`} aria-pressed={diceType === d} onClick={() => setDiceType(d)}>{d}</button>
         ))}
       </div>
       <div className="pl-dice-form">
-        <label className="pl-field">
-          <span>{L(lang, 'Quantos', 'How many')}</span>
-          <input className="input" type="number" inputMode="numeric" min={1} max={20} value={count}
-            onChange={e => setCount(Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)))} />
-        </label>
-        <label className="pl-field">
-          <span>{L(lang, 'Bônus', 'Bonus')}</span>
-          <input className="input" type="number" inputMode="numeric" min={-20} max={40} value={modifier}
-            onChange={e => setModifier(Math.max(-20, Math.min(40, parseInt(e.target.value, 10) || 0)))} />
-        </label>
-        <label className="pl-field pl-field-grow">
+        <Stepper id="pl-dice-count" label={L(lang, 'Quantos dados', 'How many dice')} value={dice} min={1} max={20}
+          onChange={setCount} disabled={advOn} lang={lang}
+          hint={advOn ? (adv === 'adv'
+            ? L(lang, 'O d20 rola 2 vezes: fica o maior.', 'The d20 rolls twice: the higher stays.')
+            : L(lang, 'O d20 rola 2 vezes: fica o menor.', 'The d20 rolls twice: the lower stays.')) : null} />
+        <Stepper id="pl-dice-mod" label={L(lang, 'Bônus', 'Bonus')} value={modifier} min={-20} max={40}
+          onChange={setModifier} showSign lang={lang} />
+        <label className="pl-field pl-field-grow" htmlFor="pl-dice-label">
           <span>{L(lang, 'Para quê? (opcional)', 'What for? (optional)')}</span>
-          <input className="input" value={label} maxLength={60} onChange={e => setLabel(e.target.value)}
+          <input id="pl-dice-label" className="input" value={label} maxLength={60} onChange={e => setLabel(e.target.value)}
             placeholder={L(lang, 'ex.: Percepção', 'e.g. Perception')} />
         </label>
       </div>
@@ -325,45 +465,111 @@ function DiceSection({ campaign, lang }) {
           <div className="pl-adv-row" role="group" aria-label={L(lang, 'Vantagem ou desvantagem', 'Advantage or disadvantage')}>
             {[['normal', L(lang, 'Normal', 'Normal')], ['adv', L(lang, 'Vantagem', 'Advantage')], ['dis', L(lang, 'Desvantagem', 'Disadvantage')]].map(([k, lbl]) => (
               <button key={k} type="button" className={`pl-adv-btn ${k} ${adv === k ? 'active' : ''}`} aria-pressed={adv === k}
-                disabled={diceType !== 'd20'} onClick={() => setAdv(k)}>{lbl}</button>
+                disabled={!d20} onClick={() => setAdv(k)}>{lbl}</button>
             ))}
           </div>
-          {diceType !== 'd20' && <p className="pl-adv-hint">{L(lang, 'Vantagem e desvantagem valem para o d20.', 'Advantage and disadvantage apply to the d20.')}</p>}
+          {!d20 && <p className="pl-adv-hint">{L(lang, 'Vantagem e desvantagem valem para o d20.', 'Advantage and disadvantage apply to the d20.')}</p>}
         </div>
       )}
       <button type="button" className="btn btn-primary pl-roll-btn" onClick={roll} disabled={busy}>
         {busy ? '…' : ask
-          ? (diceType === 'd20' && adv !== 'normal'
-            ? L(lang, `Pedir ${count}${diceType} com ${adv === 'adv' ? 'vantagem' : 'desvantagem'}`, `Request ${count}${diceType} with ${adv === 'adv' ? 'advantage' : 'disadvantage'}`)
-            : L(lang, `Pedir ${count}${diceType}`, `Request ${count}${diceType}`))
-          : L(lang, `Rolar ${count}${diceType}${modifier ? (modifier > 0 ? `+${modifier}` : modifier) : ''}`, `Roll ${count}${diceType}${modifier ? (modifier > 0 ? `+${modifier}` : modifier) : ''}`)}
+          ? (advOn
+            ? L(lang, `Pedir ${formula} com ${advWord}`, `Request ${formula} with ${advWord}`)
+            : L(lang, `Pedir ${formula}`, `Request ${formula}`))
+          : L(lang, `Rolar ${formula}`, `Roll ${formula}`)}
       </button>
+      <p className="pl-dice-hint">{L(lang, 'Prefere dados de verdade? Ótimo — use os seus e diga o resultado ao mestre.', 'Prefer real dice? Great — roll yours and tell the DM the result.')}</p>
       {error && <p className="pl-error" role="alert">{error}</p>}
 
       {pending.length > 0 && (
-        <ul className="pl-pending">
-          {pending.map(r => (
-            <li key={r.id}>
-              <span>{r.label || r.diceType}</span>
-              {r.hasAdvantage && <span className="pl-pending-adv"> · {L(lang, 'vantagem', 'advantage')}</span>}
-              {r.hasDisadvantage && <span className="pl-pending-adv"> · {L(lang, 'desvantagem', 'disadvantage')}</span>}
-              {' '}<span className="muted small">{L(lang, 'aguardando o mestre…', 'waiting for the DM…')}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="pl-pending-box">
+          <h4 className="pl-pending-title">{L(lang, 'Aguardando o mestre', 'Waiting for the DM')}</h4>
+          <ul className="pl-pending">
+            {pending.map(r => {
+              const n = r.count || 1;
+              const mod = Number(r.modifier) || 0;
+              const what = `${n}${r.diceType || ''}${mod ? (mod > 0 ? `+${mod}` : `−${Math.abs(mod)}`) : ''}`;
+              return (
+                <li key={r.id}>
+                  <span className="pl-pending-dot" aria-hidden="true" />
+                  <span className="pl-pending-main">
+                    <strong className="pl-pending-label">{r.label || r.diceType}</strong>
+                    <span className="pl-pending-what">
+                      {what}
+                      {r.hasAdvantage && <span className="pl-pending-adv"> · {L(lang, 'vantagem', 'advantage')}</span>}
+                      {r.hasDisadvantage && <span className="pl-pending-adv"> · {L(lang, 'desvantagem', 'disadvantage')}</span>}
+                    </span>
+                  </span>
+                  <button type="button" className="mesa-btn is-quiet pl-pending-cancel" onClick={() => cancel(r)} disabled={cancelling != null}
+                    aria-label={L(lang, `Cancelar o pedido: ${r.label || r.diceType}`, `Cancel the request: ${r.label || r.diceType}`)}>
+                    {cancelling === r.id ? '…' : L(lang, 'Cancelar', 'Cancel')}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
 
       {last && (
-        <div className="pl-last" aria-live="polite">
-          <span className="pl-last-label">{last.label || L(lang, 'Resultado', 'Result')}{last.fromDm ? ` · ${L(lang, 'resolvido pelo mestre', 'resolved by the DM')}` : ''}</span>
+        <div className={`pl-last${last.fromDm ? ' is-dm' : ''}`} aria-live="polite">
+          <span className="pl-last-label">
+            <span className="pl-last-by">{last.fromDm ? L(lang, 'O mestre resolveu', 'Resolved by the DM') : L(lang, 'Você rolou', 'You rolled')}</span>
+            {last.label ? <span className="pl-last-what"> · {last.label}</span> : null}
+          </span>
           <span className="pl-last-dice">
             {last.results.map((r, i) => <span key={i} className="pl-last-die">{r.value}</span>)}
-            {last.modifier ? <span className="pl-last-mod">{last.modifier > 0 ? `+${last.modifier}` : last.modifier}</span> : null}
+            {last.modifier ? <span className="pl-last-mod">{signed(last.modifier)}</span> : null}
           </span>
-          <span className="pl-last-total">{last.total}</span>
-          {last.shown && <span className="pl-last-shown">📺 {L(lang, 'apareceu na Tela', 'shown on the screen')}</span>}
+          <span className="pl-last-total" aria-label={L(lang, `Total ${last.total}`, `Total ${last.total}`)}>{last.total}</span>
+          {last.shown && <span className="pl-last-shown">{L(lang, 'Apareceu na Tela da mesa', 'Shown on the table screen')}</span>}
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Campo de número com − e ＋ de 44 px e o valor no meio (dá para digitar: aceita vazio
+ * e "-" enquanto a pessoa escreve; o valor só é ajustado aos limites quando vale).
+ * Antes eram dois <input type="number"> que corrigiam a cada tecla: apagar o "1" para
+ * escrever "2" dava "12", e o teclado numérico do iPhone não tem "−" (bônus negativo
+ * era impossível — o − daqui resolve).
+ */
+function Stepper({ id, label, value, min, max, onChange, showSign = false, disabled = false, hint = null, lang }) {
+  const [raw, setRaw] = useState(null);   // texto enquanto digita; null = mostra o valor
+  const text = raw != null ? raw : (showSign ? signed(value) : String(value));
+  const step = (d) => { setRaw(null); onChange(clamp(value + d, min, max)); };
+  const type = (e) => {
+    const v = e.target.value.replace(/−/g, '-');
+    const neg = min < 0 && v.trim().startsWith('-');
+    const digits = v.replace(/[^0-9]/g, '').slice(0, 2);
+    setRaw(`${neg ? '-' : ''}${digits}`);
+    if (digits) onChange(clamp((neg ? -1 : 1) * parseInt(digits, 10), min, max));
+  };
+  return (
+    <div className={`pl-step${disabled ? ' is-off' : ''}`}>
+      <label className="pl-step-label" htmlFor={id}>{label}</label>
+      <div className="pl-step-row">
+        <button type="button" className="pl-step-btn" onClick={() => step(-1)} disabled={disabled || value <= min}
+          aria-label={L(lang, `${label}: diminuir`, `${label}: decrease`)}>
+          <span aria-hidden="true">−</span>
+        </button>
+        <input id={id} className="pl-step-val" type="text" inputMode="numeric" autoComplete="off" pattern="-?[0-9]*"
+          value={text} disabled={disabled}
+          onFocus={(e) => { const el = e.currentTarget; setRaw(String(value)); requestAnimationFrame(() => { try { el.select(); } catch { /* ok */ } }); }}
+          onChange={type}
+          onBlur={() => setRaw(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowUp') { e.preventDefault(); step(1); }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); step(-1); }
+          }} />
+        <button type="button" className="pl-step-btn" onClick={() => step(1)} disabled={disabled || value >= max}
+          aria-label={L(lang, `${label}: aumentar`, `${label}: increase`)}>
+          <span aria-hidden="true">+</span>
+        </button>
+      </div>
+      {hint && <p className="pl-step-hint">{hint}</p>}
+    </div>
   );
 }

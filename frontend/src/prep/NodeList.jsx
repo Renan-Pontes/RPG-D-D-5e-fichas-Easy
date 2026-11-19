@@ -13,8 +13,9 @@ export default function NodeList({ data, play, mode, selectedId, available, lang
   if (!order.length) {
     return (
       <div className="prep-list-empty">
-        <p>{t(lang, 'Nenhuma sala/cena ainda.', 'No rooms/scenes yet.')}</p>
-        {mode === 'prep' && <button type="button" className="btn btn-primary btn-sm" onClick={onCreate}>+ {t(lang, 'Sala', 'Room')}</button>}
+        <p>{mode === 'prep'
+          ? t(lang, 'Nenhuma sala ainda. Toque em “＋ Sala”, lá em cima, para criar a primeira.', 'No rooms yet. Tap “＋ Room”, up there, to create the first one.')
+          : t(lang, 'Nenhuma sala ainda. Troque para “Editar” para criar a primeira.', 'No rooms yet. Switch to “Edit” to create the first one.')}</p>
       </div>
     );
   }
@@ -66,7 +67,7 @@ export default function NodeList({ data, play, mode, selectedId, available, lang
           );
         })}
       </ol>
-      {mode === 'prep' && <button type="button" className="btn btn-ghost btn-sm" onClick={onCreate}>+ {t(lang, 'Sala', 'Room')}</button>}
+      {mode === 'prep' && <button type="button" className="mesa-btn is-quiet prep-list-add" onClick={onCreate}>＋ {t(lang, 'Sala', 'Room')}</button>}
     </div>
   );
 }

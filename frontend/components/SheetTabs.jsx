@@ -1,5 +1,7 @@
 /* Spells / Inventory / Story / Notes tabs */
 import { useRestMode } from '../src/sheet/rest-mode.jsx';
+import { useSheetToast } from '../src/sheet/sheet-toast.jsx';
+import { createPortal } from 'react-dom';
 import { unknownSpells } from '../src/progression/known.js';
 import { exhaustionLevel, setExhaustion, usedByAfterRest } from '../src/sheet/hp-logic.js';
 import { errorMessage } from '../src/api/errors.js';
@@ -89,6 +91,7 @@ const UsesTag = ({ uses, char, lang }) => {
 const RestButtons = ({ char, lang, update, seals = false }) => {
   const [busy, setBusy] = useState(false);
   const rest = useRestMode();            // null fora da ficha: descansa direto, como antes
+  const sheetToast = useSheetToast();    // null fora da ficha
   // Depois do descanso longo: exaustão −1 e o gasto de Dados de Vida por tipo acertado.
   const afterLong = (hitDiceUsed) => {
     const p = {};
@@ -165,30 +168,71 @@ const RestButtons = ({ char, lang, update, seals = false }) => {
       {icon} {on === type ? (pt ? 'Concluir' : 'Finish') : (type === 'short' ? (pt ? 'Curto' : 'Short') : (pt ? 'Longo' : 'Long'))}
     </button>
   );
-  // Selos (linha do nome, depois da Inspiração): mesmo anel dos outros selos; descansando,
-  // o selo brilha com o ✓ orbitando (tocar de novo conclui) e um ✕ ao lado sai sem descansar.
+  // Selos (linha do nome, depois da Inspiração): mesmo anel dos outros selos, com o nome
+  // embaixo (no toque não existe o balão do title).
+  //  · Longo: um passo só, com a confirmação do app — não há nada para fazer "durante".
+  //  · Curto: liga o modo (libera gastar Dados de Vida na barra de PV). Ligado, o selo mostra
+  //    uma ampulheta (ainda não descansou: nada de ✓) e uma faixa de texto logo abaixo do
+  //    topo da ficha diz o que está acontecendo, com "Concluir descanso" e "Cancelar".
   if (seals) {
-    const seal = (type, icon, label) => (
+    const finishShort = async () => {
+      await restore('short');
+      rest?.setMode(null);
+      sheetToast?.show({ tone: 'heal', ms: 3500, text: pt ? 'Descanso curto concluído.' : 'Short rest finished.' });
+    };
+    const pressSeal = async (type) => {
+      if (!rest) return restore(type);
+      if (type === 'long') {
+        const ok = await confirmDialog({
+          lang,
+          title: pt ? 'Fazer um descanso longo?' : 'Take a long rest?',
+          message: pt
+            ? 'Recupera os Pontos de Vida, os espaços de magia, Dados de Vida e os recursos de descanso longo.'
+            : 'Restores hit points, spell slots, Hit Dice and long-rest resources.',
+          confirmLabel: pt ? 'Descansar' : 'Rest',
+        });
+        if (!ok) return undefined;
+        rest.setMode(null);
+        await restore('long');
+        sheetToast?.show({ tone: 'heal', ms: 3500, text: pt ? 'Descanso longo concluído.' : 'Long rest finished.' });
+        return undefined;
+      }
+      if (on === 'short') return finishShort();
+      rest.setMode('short');
+      return undefined;
+    };
+    const seal = (type, icon, label, cap) => (
       <button key={type} type="button" className={`fh-seal hero-rest no-print is-${type}${on === type ? ' is-on' : ''}`}
-        onClick={() => press(type)} disabled={busy} aria-pressed={rest ? on === type : undefined}
-        aria-label={on === type ? (pt ? `Concluir: ${label}` : `Finish: ${label}`) : label}
+        onClick={() => pressSeal(type)} disabled={busy} aria-pressed={rest && type === 'short' ? on === type : undefined}
+        aria-label={on === type ? (pt ? `${label} em andamento: concluir` : `${label} in progress: finish`) : label}
         title={on === type ? (pt ? 'Concluir o descanso' : 'Finish the rest') : label}>
         <svg className="fh-seal-ring" viewBox="0 0 64 64" aria-hidden="true">
           <circle cx="32" cy="32" r="30" fill="none" stroke="#e0b55e" strokeWidth="1.2" strokeDasharray="2 4"/>
           <circle cx="32" cy="32" r="27" fill="none" stroke="#9a7231" strokeWidth="0.8"/>
         </svg>
         <span className="fh-seal-core"><span className="hero-rest-icon" aria-hidden="true">{icon}</span></span>
-        {on === type && <span className="hero-level-up hero-rest-pip" aria-hidden="true">✓</span>}
+        {on === type && <span className="hero-level-up hero-rest-pip" aria-hidden="true">⏳</span>}
+        <span className="fh-seal-cap" aria-hidden="true">{cap}</span>
       </button>
     );
+    const strip = on === 'short' && rest?.slot ? createPortal(
+      <div className="fh-rest-strip no-print" role="status">
+        <span className="fh-rest-strip-t">
+          <strong>☕ {pt ? 'Descanso curto em andamento' : 'Short rest in progress'}</strong>
+          <span>{pt ? 'Gaste Dados de Vida puxando a barra de PV para a direita. Os recursos voltam ao concluir.' : 'Spend Hit Dice by pulling the HP bar to the right. Resources come back when you finish.'}</span>
+        </span>
+        <span className="fh-rest-strip-acts">
+          <button type="button" className="btn btn-primary btn-sm" onClick={finishShort} disabled={busy}>{pt ? 'Concluir descanso' : 'Finish rest'}</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => rest.setMode(null)} disabled={busy}>{pt ? 'Cancelar' : 'Cancel'}</button>
+        </span>
+      </div>,
+      rest.slot,
+    ) : null;
     return (
       <>
-        {seal('short', '☕', pt ? 'Descanso curto' : 'Short rest')}
-        {seal('long', '🛌', pt ? 'Descanso longo' : 'Long rest')}
-        {on && (
-          <button type="button" className="fh-rest-seal-cancel no-print" onClick={() => rest.setMode(null)} disabled={busy}
-            aria-label={pt ? 'Sair do descanso sem concluir' : 'Leave the rest without finishing'} title={pt ? 'Sair sem descansar' : 'Leave without resting'}>✕</button>
-        )}
+        {seal('short', '☕', pt ? 'Descanso curto' : 'Short rest', pt ? 'Curto' : 'Short')}
+        {seal('long', '🛌', pt ? 'Descanso longo' : 'Long rest', pt ? 'Longo' : 'Long')}
+        {strip}
       </>
     );
   }

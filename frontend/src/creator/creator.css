@@ -331,3 +331,59 @@
   .cr-stage .options-list > .option:has(.options-list) { grid-column: 1 / -1; }
   .cr-stage .options-list > .option:has(.options-list) .options-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ---------- Segurar para selar: a instrução mora no botão; um toque arma, o segundo sela ---------- */
+.cr-hold { min-height: 56px; }
+.cr-hold-txt { display: grid; justify-items: center; gap: 1px; line-height: 1.15; }
+.cr-hold-label { display: block; }
+.cr-hold-sub { display: block; font-family: var(--display); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-secondary); }
+.cr-hold.holding .cr-hold-sub { color: #fff8e6; }
+.cr-hold.armed { border-color: var(--gold-bright); color: #fff3cc;
+  background: radial-gradient(120% 140% at 50% 120%, rgba(255, 120, 40, 0.5), transparent 65%), var(--bg-elevated);
+  box-shadow: 0 0 0 4px rgba(255, 148, 70, 0.35), 0 0 26px rgba(255, 148, 70, 0.5); animation: cr-armed 1.1s ease-in-out infinite; }
+.cr-hold.armed.nudge { animation: cr-nudge 0.35s; }
+.cr-hold.armed .cr-hold-sub { color: var(--gold-bright); }
+@keyframes cr-armed { 50% { box-shadow: 0 0 0 6px rgba(255, 148, 70, 0.5), 0 0 34px rgba(255, 148, 70, 0.7); } }
+@media (max-width: 700px) { .cr-hold { min-height: 52px; } .cr-hold-sub { font-size: 0.6rem; letter-spacing: 0.12em; } }
+@media (prefers-reduced-motion: reduce) { .cr-hold.armed { animation: none; } }
+
+/* Rótulo curto do último botão no celular ("Criar herói"), longo no resto */
+.cr-lbl-short { display: none; }
+@media (max-width: 480px) { .cr-lbl-long { display: none; } .cr-lbl-short { display: inline; } }
+
+/* ---------- Atributos (conjunto padrão): valores tocáveis ---------- */
+.cr-ab-pool { gap: 8px; margin-bottom: 4px; }
+button.cr-ab-chip { min-width: 52px; min-height: 52px; padding: 5px 8px; font: inherit; cursor: pointer; gap: 1px;
+  background: linear-gradient(180deg, var(--bg-elevated), var(--bg-raised)); transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s; }
+button.cr-ab-chip .mono { font-size: 1.15rem; font-weight: 600; }
+button.cr-ab-chip:hover { border-color: var(--gold); }
+button.cr-ab-chip:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+button.cr-ab-chip.used { opacity: 1; border-color: var(--stroke); color: var(--ink-muted); background: rgba(10, 7, 6, 0.4); }
+button.cr-ab-chip.used .mono { text-decoration: line-through; text-decoration-color: rgba(171, 154, 126, 0.6); }
+button.cr-ab-chip.held { border-color: var(--gold-bright); color: var(--gold-bright); transform: translateY(-2px);
+  box-shadow: 0 0 0 3px var(--gold-soft), 0 0 16px rgba(237, 203, 122, 0.45); }
+.cr-ab-held { min-height: 1.4em; margin: 0 0 8px; color: var(--gold-bright); }
+.cr-ab-put { min-height: 44px; white-space: nowrap; }
+/* com um valor na mão, o botão "Pôr N" assume o lugar da lista */
+.cr-ab-select.is-behind { display: none; }
+.cr-ab-suggest { width: 100%; margin: 12px 0; min-height: 48px; justify-content: center; }
+.cr-ab-suggest.btn-ghost { border-color: var(--gold); color: var(--gold); }
+@media (prefers-reduced-motion: reduce) { button.cr-ab-chip { transition: none; } button.cr-ab-chip.held { transform: none; } }
+
+/* ---------- Alvos de toque (DESIGN.md 7.1) ---------- */
+/* capítulos do mapa, etapas e termos do glossário: a área tocável chega a 44 px sem mexer no desenho */
+.cr-mile::after, .cr-substeps .cr-progress-step::after, .cr-term-btn::after { content: ""; position: absolute; }
+.cr-mile::after { left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.cr-substeps .cr-progress-step { position: relative; min-height: 36px; }
+.cr-substeps .cr-progress-step::after { inset: -4px 0; }
+.cr-term-btn { position: relative; }
+.cr-term-btn::after { inset: -10px -4px; }
+.cr-mile:focus-visible, .cr-progress-step:focus-visible, .cr-term-btn:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.cr-draft .btn, .cr-plan-notice .btn { min-height: 44px; }
+
+/* Tablet (700–1023 px): os nomes dos capítulos não quebram sob os nós */
+@media (min-width: 701px) and (max-width: 1023px) { .cr-mile-name { white-space: nowrap; font-size: 0.6rem; letter-spacing: 0.06em; } }
+
+.join-toggle-ico { display: grid; place-items: center; }
+
+@media (max-width: 480px) { .cr-ab-suggest { letter-spacing: 0.06em; font-size: 0.8rem; padding-inline: 10px; } }

@@ -48,18 +48,20 @@ const safeIssues = (s, char) => {
  * planCheck: consulta o plano (GET /api/me/plan) para avisar, sem bloquear, se
  *   o limite de personagens já foi atingido.
  */
-export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = null, joinEnabled = true, planCheck = false }) {
+export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = null, joinEnabled = true, planCheck = false, autoResume = false }) {
   const myPlan = useMyPlan(planCheck);
+  // "Continuar a criação" na tela inicial (autoResume): abre direto no rascunho, sem perguntar de novo.
+  const boot = useRef(autoResume ? loadDraft() : null).current;
   // Rascunho salvo (F5 no meio da criação): oferece continuar antes de começar outro.
-  const [draft, setDraft] = useState(() => loadDraft());
+  const [draft, setDraft] = useState(() => (boot ? null : loadDraft()));
   const withInitialJoin = (c) => (initialJoin ? { ...c, ...joinPatch(c, initialJoin) } : c);
-  const [char, setChar] = useState(() => withInitialJoin(newCharacter()));
+  const [char, setChar] = useState(() => withInitialJoin(boot ? boot.char : newCharacter()));
   const set = useCallback((patch) => setChar(prev => ({ ...prev, ...(typeof patch === 'function' ? patch(prev) : patch) })), []);
 
   // Só as etapas que se aplicam a este personagem (ex.: magias só para conjuradores).
   const steps = useMemo(() => STEPS.filter(s => !s.applies || s.applies(char)), [char]);
-  const [stepId, setStepId] = useState(STEPS[0].id);
-  const [visited, setVisited] = useState(() => [STEPS[0].id]);
+  const [stepId, setStepId] = useState(() => (boot && STEPS.some(s => s.id === boot.stepId) ? boot.stepId : STEPS[0].id));
+  const [visited, setVisited] = useState(() => (boot?.visited?.length ? boot.visited : [STEPS[0].id]));
   const index = Math.max(0, steps.findIndex(s => s.id === stepId));
   const step = steps[index];
   const stepIssues = useMemo(() => steps.map(s => safeIssues(s, char)), [steps, char]);
@@ -283,7 +285,7 @@ export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = nu
 
       {!draft && index === 0 && !creationJoin(char) && creatorLimitNotice(myPlan, lang) && (
         <div className="card cr-plan-notice" role="note">
-          <p className="text-sm" style={{ margin: 0 }}>🛡 {creatorLimitNotice(myPlan, lang)}</p>
+          <p className="text-sm" style={{ margin: 0 }}><Icon name="shield" size={14} style={{ color: 'var(--gold)', verticalAlign: '-2px', marginRight: 4 }} />{creatorLimitNotice(myPlan, lang)}</p>
           <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={openMyPlan}>
             {L(lang, 'Ver meu plano', 'See my plan')}
           </button>
@@ -309,11 +311,11 @@ export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = nu
         )}
         {/* Leitor de tela: só uma linha curta sobre a escolha em análise. */}
         <div className="cr-sr" role="status" aria-live="polite">
-          {pending ? L(lang, `Em análise: ${pendingName(pending, 'pt')}. Segure o selo, ou Enter, para selar; Esc para desistir.`, `Considering: ${pendingName(pending, 'en')}. Hold the seal, or press Enter, to seal; Esc to cancel.`) : ''}
+          {pending ? L(lang, `Em análise: ${pendingName(pending, 'pt')}. Segure o selo, toque duas vezes ou Enter para selar; Esc para desistir.`, `Considering: ${pendingName(pending, 'en')}. Hold the seal, tap twice or press Enter to seal; Esc to cancel.`) : ''}
         </div>
         {pending && (
           <div className="wizard-hint cr-seal-status" aria-hidden="true">
-            {L(lang, 'Segure o selo até a forja brilhar. No teclado, Enter; Esc desiste.', 'Hold the seal until the forge glows. On a keyboard, Enter; Esc cancels.')}
+            {L(lang, 'Segure o selo até a forja brilhar, ou toque duas vezes. No teclado, Enter; Esc desiste.', 'Hold the seal until the forge glows, or tap twice. On a keyboard, Enter; Esc cancels.')}
           </div>
         )}
         {/* Pendências da etapa continuam à vista; em análise, as que sobrariam depois de selar. */}
@@ -329,14 +331,16 @@ export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = nu
             {index === 0 ? L(lang, 'Cancelar', 'Cancel') : L(lang, 'Voltar', 'Back')}
           </button>
           {pending ? (
-            <HoldButton lang={lang} onComplete={seal} disabled={saving || !!draft}
+            <HoldButton key={pendingName(pending, 'pt')} lang={lang} onComplete={seal} disabled={saving || !!draft} breaking={!!pending.current}
               label={pending.current ? L(lang, 'Quebrar o selo', 'Break the seal') : pendingAdvances ? L(lang, 'Selar e avançar', 'Seal and continue') : L(lang, 'Selar', 'Seal')} />
-          ) : (
-          <button className="btn btn-primary" onClick={next} disabled={issues.length > 0 || saving || !!draft} aria-busy={saving || undefined}>
+          ) : !draft && (
+          <button className="btn btn-primary" onClick={next} disabled={issues.length > 0 || saving} aria-busy={saving || undefined}>
             {isLast
               ? (saving ? L(lang, 'Salvando…', 'Saving…')
-                : joinEnabled && creationJoin(char) ? L(lang, 'Criar e entrar na mesa', 'Create and join table')
-                : L(lang, 'Criar personagem', 'Create character'))
+                : joinEnabled && creationJoin(char)
+                  /* rótulo curto no celular: o botão não quebra em duas linhas */
+                  ? <><span className="cr-lbl-long">{L(lang, 'Criar e entrar na mesa', 'Create and join table')}</span><span className="cr-lbl-short">{L(lang, 'Criar e entrar', 'Create and join')}</span></>
+                  : <><span className="cr-lbl-long">{L(lang, 'Criar personagem', 'Create character')}</span><span className="cr-lbl-short">{L(lang, 'Criar herói', 'Create hero')}</span></>)
               : L(lang, 'Avançar', 'Next')}
             <Icon name={isLast ? 'check' : 'chevron-right'} size={16}/>
           </button>

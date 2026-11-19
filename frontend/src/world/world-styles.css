@@ -1153,3 +1153,9 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
   color: var(--ink);
   font-size: 0.9rem;
 }
+
+/* ---------- rodada de UX: ícones de linha na barra do Mundo e o segmentado do Improvisar ---------- */
+.wl-search > .mesa-ico { flex: none; color: var(--gold); }
+.wl-impro-seg { margin: 10px 0 12px; }
+.wl-impro-seg .mesa-seg-btn { min-width: 0; padding: 4px 8px; }
+.wl-area > .shell-onboarding, .wl-area > .shell-ob { margin-bottom: 14px; }

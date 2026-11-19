@@ -230,8 +230,9 @@ export default function SessionPlanPanel({ campaign, lang = 'pt', goTo, onSaveSt
 
         {(view.npcs.length > 0 || view.places.length > 0) && (
           <p className="mesa-hint spp-note">
-            🧑 {L(lang, `${view.npcs.length + view.places.length} NPC(s)/lugar(es) preparados — os cartões estão em “Nesta cena”.`,
-              `${view.npcs.length + view.places.length} prepared NPC(s)/place(s) — their cards are in “In this scene”.`)}
+            {view.npcs.length + view.places.length === 1
+              ? L(lang, '1 pessoa ou lugar preparado: o cartão está em “Nesta cena”.', '1 prepared person or place: its card is in “In this scene”.')
+              : L(lang, `${view.npcs.length + view.places.length} pessoas e lugares preparados: os cartões estão em “Nesta cena”.`, `${view.npcs.length + view.places.length} prepared people and places: their cards are in “In this scene”.`)}
           </p>
         )}
 
