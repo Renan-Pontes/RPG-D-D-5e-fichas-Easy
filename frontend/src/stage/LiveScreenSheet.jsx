@@ -196,13 +196,17 @@ export default function LiveScreenSheet({ campaign, lang = 'pt', onClose, onFull
         </div>
         {closed ? <p className="mesa-hint stage-closed-note" role="note">{L(lang, 'Campanha encerrada: a Tela fica só para ver.', 'Campaign closed: the screen is view-only.')}</p> : (
         <div className="stage-ctl live-ctl">
-          <button type="button" className="mesa-btn stage-ctl-btn is-undo" disabled={busy || !undo} title={undo || undefined}
+          <button type="button" className="mesa-btn stage-ctl-btn is-undo" disabled={busy || !undo}
+            title={undo || L(lang, 'Nada para desfazer', 'Nothing to undo')}
             onClick={() => act(() => stageUndo(cid), { done: L(lang, 'Desfeito ✓', 'Undone ✓') })}>
-            <span className="stage-clamp is-one">{undo || L(lang, '↶ Nada para desfazer', '↶ Nothing to undo')}</span>
+            <span className="stage-clamp is-one">{undo || L(lang, '↶ Desfazer', '↶ Undo')}</span>
+            {!undo && <span className="sr-only"> ({L(lang, 'nada para desfazer', 'nothing to undo')})</span>}
           </button>
           <button type="button" className="mesa-btn stage-ctl-btn" disabled={busy || clean}
+            title={clean ? L(lang, 'A Tela já está limpa', 'The screen is already clear') : undefined}
             onClick={() => act(() => stageClear(cid), { done: L(lang, 'Tela limpa ✓', 'Screen cleared ✓'), name: L(lang, 'só o fundo', 'background only') })}>
-            <span className="stage-clamp">🧹 {clean ? L(lang, 'Limpar: já está limpa', 'Clear: already clear') : L(lang, 'Limpar a tela', 'Clear screen')}</span>
+            <span className="stage-clamp">{L(lang, 'Limpar a Tela', 'Clear the screen')}</span>
+            {clean && <span className="sr-only"> ({L(lang, 'já está limpa', 'already clear')})</span>}
           </button>
           <button type="button" className="mesa-btn stage-ctl-btn" disabled={busy || !(now.mode === 'front' && now.over)}
             onClick={() => act(() => stageBack(cid), { done: L(lang, 'Combate na Tela ✓', 'Combat on screen ✓') })}>

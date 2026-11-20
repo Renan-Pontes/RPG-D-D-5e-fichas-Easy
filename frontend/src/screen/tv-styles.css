@@ -101,7 +101,10 @@
 /* === Topo: ao vivo, sessão, clima e relógio === */
 .tv-cover-top { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 1.2cqw; }
 .tv-cover-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 0.9cqw; font-size: 1.45cqw; }
-.tv-weather { color: var(--tv-ink-soft); font-style: italic; }
+.tv-weather { display: inline-flex; align-items: center; gap: 0.5cqw; color: var(--tv-ink-soft); font-style: italic; }
+/* ícones de linha no lugar dos emoji (clima, teste, últimas rolagens): do tamanho da letra ao lado */
+.tv-ico { flex: none; width: 1.15em; height: 1.15em; margin-right: 0.4em; vertical-align: -0.2em; color: var(--tv-gold); }
+.tv-weather .tv-ico { margin-right: 0; }
 .tv-live {
   display: inline-flex; align-items: center; gap: 0.6cqw;
   padding: 0.3cqh 1.1cqw; border-radius: 999px;
@@ -571,10 +574,11 @@
 .tv-card .tv-card-art.is-default img { filter: blur(0.5cqw) brightness(0.5) sepia(0.3); transform: scale(1.12); }
 .tv-card-medal {
   position: relative; z-index: 1; display: grid; place-items: center; width: 9cqw; height: 9cqw; border-radius: 50%;
-  font-size: 4.4cqw; line-height: 1; border: 0.2cqw solid transparent;
+  font-size: 4.4cqw; line-height: 1; border: 0.2cqw solid transparent; color: var(--gold-bright);
   background: radial-gradient(circle at 50% 30%, #2c2018, #120c09 75%) padding-box, var(--fh-gilt, var(--tv-gold)) border-box;
   box-shadow: 0 0 0 0.5cqw rgba(10, 7, 6, 0.6), 0 1cqh 3cqh rgba(0, 0, 0, 0.6);
 }
+.tv-card-medal svg { width: 4.6cqw; height: 4.6cqw; stroke-width: 1.3; }
 .tv-card-art::after { content: ''; position: absolute; inset: 0; box-shadow: inset -40px 0 50px -20px #160f09; pointer-events: none; }
 .tv-card-emblem {
   display: flex; align-items: center; justify-content: center; font-size: 7cqw;
@@ -611,7 +615,9 @@
   background: rgba(214, 176, 100, 0.08); font-size: 1.2cqw;
 }
 .tv-card.is-partial .tv-card-text { color: var(--tv-ink-soft); font-style: italic; }
-.tv-card.is-partial .tv-card-art img { filter: sepia(0.35) contrast(0.95); }
+/* só na imagem do próprio cartão: a arte padrão do tipo continua desfocada e escura no rumor
+   (antes esta regra vencia o desfoque e o rumor mostrava um retrato qualquer, nítido) */
+.tv-card.is-partial .tv-card-art.is-own img { filter: sepia(0.35) contrast(0.95); }
 /* --- Onda 3 (E2.2): cartão com imagem própria — a imagem grande e INTEIRA (contain).
    O palco usa a altura que sobra (sem o nome da campanha); o grupo fica embaixo, compacto. --- */
 .tv-stage.has-image { gap: 0; }
@@ -1049,16 +1055,23 @@
 /* ========================================================================
    Link da Tela que não existe mais (404)
    ======================================================================== */
+/* Lido da mesa, a 3 m: medidas pela largura da tela (vw), como o resto da TV — a 1920 px o
+   título fica com ~65 px e o texto com ~36 px (antes 37 e 22, numa caixa de 640 px). No
+   celular de quem abriu um link velho valem os mínimos do clamp. */
 .tv-dead { padding: 24px; }
 .tv-dead-box {
-  max-width: 640px; text-align: center; padding: 32px 28px; border-radius: 14px;
-  border: 1px solid rgba(214, 176, 100, 0.35);
-  background: radial-gradient(ellipse at top, rgba(214, 176, 100, 0.1), transparent 65%), rgba(20, 15, 10, 0.85);
+  max-width: min(92vw, 62vw + 240px); text-align: center; padding: clamp(28px, 4vh, 72px) clamp(24px, 4vw, 96px); border-radius: 14px;
+  border: 1px solid transparent;
+  background:
+    radial-gradient(ellipse at top, rgba(214, 176, 100, 0.1), transparent 65%) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi, #251a14), var(--fh-leather-lo, #140e0b)) padding-box,
+    var(--fh-gilt, linear-gradient(135deg, #f7dc93, #8c6427 28%, #ecc777 50%, #7b5721 74%, #f2d38a)) border-box;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
 }
-.tv-dead-ico { font-size: 3rem; margin-bottom: 8px; filter: grayscale(0.4); }
-.tv-dead h1 { font-family: 'Cinzel', serif; color: var(--gold-bright, #edcb7a); font-size: clamp(1.4rem, 3vw, 2.2rem); margin: 0 0 12px; }
-.tv-dead p { font-family: 'EB Garamond', Georgia, serif; margin: 0; color: var(--tv-ink-soft, #c0b090); font-size: clamp(1rem, 1.6vw, 1.3rem); line-height: 1.5; }
+.tv-dead-ico { display: flex; justify-content: center; margin-bottom: clamp(8px, 1.6vh, 28px); color: var(--tv-gold, #d6b064); }
+.tv-dead-ico svg { width: clamp(3rem, 6vw, 7rem); height: clamp(3rem, 6vw, 7rem); }
+.tv-dead h1 { font-family: 'Cinzel', serif; color: var(--gold-bright, #edcb7a); font-size: clamp(1.4rem, 3.4vw, 4.2rem); line-height: 1.15; margin: 0 0 clamp(12px, 1.6vh, 28px); }
+.tv-dead p { font-family: 'EB Garamond', Georgia, serif; margin: 0; color: var(--tv-ink-soft, #c0b090); font-size: clamp(1.05rem, 1.9vw, 2.3rem); line-height: 1.45; }
 
 /* Sem animação para quem pede menos movimento */
 @media (prefers-reduced-motion: reduce) {

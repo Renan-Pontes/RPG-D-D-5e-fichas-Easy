@@ -4,7 +4,7 @@
    character_already_in_campaign). Atrelar a outra mesa NÃO tira a ficha das atuais;
    só "Trocar de campanha" tira, e pergunta antes. A lógica e os textos ficam em
    campaign-link.js; aqui só a apresentação (folha da mesa: src/shell/MesaSheet.jsx). */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
@@ -32,6 +32,15 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone, 
   const [confirm, setConfirm] = useState(null);      // { title, text, ok, danger, run }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const bodyRef = useRef(null);
+  // Esc, ✕ ou toque fora com uma confirmação aberta: volta um passo (para a lista), em vez de
+  // fechar a folha inteira; o foco fica na folha.
+  const closeOrBack = () => {
+    if (!confirm) { onClose?.(); return; }
+    if (busy) return;
+    setConfirm(null); setError('');
+    try { bodyRef.current?.closest('.mesa-sheet')?.focus({ preventScroll: true }); } catch { /* ok */ }
+  };
 
   const load = useCallback(async () => {
     setLoadErr('');
@@ -177,9 +186,10 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone, 
         <h3 id="cl-confirm-title">{confirm.title}</h3>
         <p id="cl-confirm-text">{confirm.text}</p>
         {error && <p className="cl-error" role="alert">{error}</p>}
+        {/* ação perigosa (desatrelar): o foco entra no "Voltar" — Enter não confirma sem querer */}
         <div className="cl-actions">
-          <button type="button" className="mesa-btn" onClick={() => { setConfirm(null); setError(''); }} disabled={busy}>{L(lang, 'Voltar', 'Back')}</button>
-          <button type="button" className={`mesa-btn ${confirm.danger ? 'is-danger' : 'is-primary'}`} onClick={confirm.run} disabled={busy} autoFocus>
+          <button type="button" className="mesa-btn" onClick={() => { setConfirm(null); setError(''); }} disabled={busy} autoFocus={!!confirm.danger}>{L(lang, 'Voltar', 'Back')}</button>
+          <button type="button" className={`mesa-btn ${confirm.danger ? 'is-danger' : 'is-primary'}`} onClick={confirm.run} disabled={busy} autoFocus={!confirm.danger}>
             {busy ? '…' : confirm.ok}
           </button>
         </div>
@@ -278,8 +288,8 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone, 
   }
 
   return (
-    <MesaSheet title={L(lang, 'Campanha', 'Campaign')} eyebrow={charName || undefined} onClose={onClose} lang={lang} width="md" className="cl-sheet">
-      <div className="cl-modal">
+    <MesaSheet title={L(lang, 'Campanha', 'Campaign')} eyebrow={charName || undefined} onClose={closeOrBack} lang={lang} width="md" className="cl-sheet">
+      <div className="cl-modal" ref={bodyRef}>
         {body}
         {data && !confirm && !switching && <DmNpcTables char={char} lang={lang} campaigns={(data.campaigns || []).filter(c => c.role === 'dm' && c.status !== 'closed')} />}
         {data && !confirm && !switching && onCopies && (

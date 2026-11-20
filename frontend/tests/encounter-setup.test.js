@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   encounterGroups, encounterBody, groupsTotal, initiativeRows, legacyBodies, openInitiativeCheck, setupSteps,
-  pickInitiatives, startLabel, lateInitiatives, lateLabel, fightLine, legacyReadds,
+  pickInitiatives, startLabel, lateInitiatives, lateLabel, fightLine, legacyReadds, endedKey,
 } from '../src/combat/encounter-setup.js';
 import { logLine } from '../src/campaigns/monster-actions.js';
 import { findMonster, monsterForCombat } from '../data/bestiary.js';
@@ -146,4 +146,21 @@ test('servidor antigo: "Usar e começar" tira e põe de novo cada personagem com
   ], 'só personagens que estão no combate; o monstro e o id desconhecido ficam');
   assert.deepEqual(legacyReadds(combat, []), []);
   assert.deepEqual(legacyReadds(null, [{ id: 'pc1', initiative: 3 }]), []);
+});
+
+test('combate encerrado continua encerrado depois de curar, dar dano ou tirar alguém (só montar ou começar de novo desfaz)', () => {
+  const start = { type: 'start', ts: 't1' };
+  const end = { type: 'end', ts: 't2' };
+  assert.equal(endedKey([]), null);
+  assert.equal(endedKey(null), null);
+  assert.equal(endedKey([start]), null, 'combate em andamento');
+  assert.equal(endedKey([start, end]), 'end:t2');
+  assert.equal(endedKey([start, end, { type: 'hp_set', ts: 't3' }]), 'end:t2', 'a cura depois da luta não volta aos 3 passos');
+  assert.equal(endedKey([start, end, { type: 'monster', ts: 't3' }, { type: 'undo', ts: 't4' }, { type: 'remove_combatant', ts: 't5' }]), 'end:t2');
+  assert.equal(endedKey([start, end, { type: 'hp_set' }, { type: 'start', ts: 't4' }]), null, 'recomeçou');
+  assert.equal(endedKey([start, end, { type: 'add_combatant', ts: 't3' }]), null, 'pôr um monstro novo é montar outro combate');
+  assert.equal(endedKey([start, end, { type: 'encounter', ts: 't3' }, { type: 'hp_set', ts: 't4' }]), null);
+  assert.equal(endedKey([start, end, start, { type: 'end', ts: 't9' }, { type: 'hp_set' }]), 'end:t9', 'a chave é a do ÚLTIMO fim');
+  // o registro é cortado em 100 linhas: a chave não depende da posição
+  assert.equal(endedKey([end, { type: 'hp_set' }]), endedKey([{ type: 'hp_set' }, start, end, { type: 'hp_set' }]));
 });

@@ -47,7 +47,7 @@ function writeSub(id, v) {
  *    (null ao desmontar: a casca volta a contar pelo GET da campanha)
  *  - onLeaveCampaign(): jogador saiu da mesa → a casca volta para Campanhas
  */
-export default function GroupArea({ campaign, lang = 'pt', isDM, characters = [], onChange, sub, onSubChange, params, hasJoinRoute = false, onPendingCount, onLeaveCampaign }) {
+export default function GroupArea({ campaign, lang = 'pt', isDM, characters = [], onChange, sub, onSubChange, params, hasJoinRoute = false, onPendingCount, onLeaveCampaign, onOpenSheet }) {
   const { clearParams } = useArea();
   const [ownSub, setOwnSub] = useState(() => readSub(campaign.id) || 'players');
   const current = !isDM ? 'players' : (SUBS.includes(sub) ? sub : ownSub);
@@ -126,7 +126,7 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
           {/* convite: grande no topo com a mesa vazia; com gente, no fim (compacto com mais de 2) */}
           {isDM && tableEmpty && invite(false)}
           <PlayersPanel campaign={shown} lang={lang} isDM={isDM} characters={characters} approvals={approvals || []}
-            ask={ask} notify={notify} onChange={refresh} onLeft={onLeaveCampaign}
+            ask={ask} notify={notify} onChange={refresh} onLeft={onLeaveCampaign} onOpenSheet={onOpenSheet}
             focusMember={params?.membershipId ?? null}
             afterMine={!isDM ? requests : null} />
           {isDM && !tableEmpty && invite((shown.members || []).length > 2)}

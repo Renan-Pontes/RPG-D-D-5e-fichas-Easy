@@ -187,7 +187,7 @@ export function DuplicateCallout({ char, lang, cantrips }) {
   return (
     <Callout kind="warn">
       <b>{L(lang, 'Escolha repetida:', 'Repeated pick:')}</b>
-      <ul className="cr-spell-granted">{issues.map((i, k) => <li key={k}>{i[lang] || i.pt}</li>)}</ul>
+      <ul className="cr-spell-granted no-zebra">{issues.map((i, k) => <li key={k}>{i[lang] || i.pt}</li>)}</ul>
       <span className="muted text-sm">{L(lang, 'Use "Voltar" para ir até essa etapa.', 'Use "Back" to go to that step.')}</span>
     </Callout>
   );
@@ -201,7 +201,7 @@ export function GrantedCallout({ char, lang, cantrips }) {
     <Callout kind="ok">
       <b>{cantrips ? L(lang, 'Truques que você já tem de graça', 'Cantrips you already get for free') : L(lang, 'Magias que você já tem de graça', 'Spells you already get for free')}</b>
       {' — '}{L(lang, 'não contam no limite e não aparecem na lista abaixo:', "they don't count toward the limit and aren't in the list below:")}
-      <ul className="cr-spell-granted">
+      <ul className="cr-spell-granted no-zebra">
         {granted.map(g => (
           <li key={g.id}>
             {tName('spellName', g.id, lang)} <span className="muted">— {L(lang, 'já vem de', 'comes from')} {g.from?.[lang] || g.from?.pt}</span>
@@ -228,7 +228,7 @@ export function InvalidCallout({ char, set, lang, kind }) {
   return (
     <Callout kind="warn">
       <b>{L(lang, 'Estas escolhas não valem para o seu personagem:', "These picks don't work for your character:")}</b>
-      <ul className="cr-spell-granted">
+      <ul className="cr-spell-granted no-zebra">
         {bad.map(x => <li key={x.id}>{tName('spellName', x.id, lang)} <span className="muted">— {why(x)}</span></li>)}
       </ul>
       <button type="button" className="btn btn-sm btn-ghost" onClick={() => set({ spells: withoutInvalid(char, kind) })}>

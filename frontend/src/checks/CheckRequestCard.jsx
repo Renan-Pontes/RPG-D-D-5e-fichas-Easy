@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { api } from '../api/client.js';
 import { isInitiativeCheck, modifierFor, responseDiceGroups } from './check-logic.js';
 import { formatMod, physicalEntry } from '../dice/dice-math.js';
+import MesaIcon from '../shell/MesaIcon.jsx';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
@@ -86,7 +87,7 @@ export default function CheckRequestCard({ check, char, lang = 'pt', onAnswered,
   return (
     <article className={`check-card ${resp ? 'is-answered' : 'is-open'} ${compact ? 'is-compact' : ''}`} aria-live="polite">
       <header className="check-card-head">
-        <span className="check-card-eyebrow">{initiative ? '⚡' : '🎯'} {initiative ? L(lang, 'O combate vai começar', 'Combat is starting') : L(lang, 'O mestre pede', 'The DM asks for')}</span>
+        <span className="check-card-eyebrow"><MesaIcon name={initiative ? 'combat' : 'target'} /> {initiative ? L(lang, 'O combate vai começar', 'Combat is starting') : L(lang, 'O mestre pede', 'The DM asks for')}</span>
         {onDismiss && !resp && (
           <button type="button" className="check-card-later" onClick={onDismiss}>{L(lang, 'Depois', 'Later')}</button>
         )}
@@ -124,20 +125,25 @@ export default function CheckRequestCard({ check, char, lang = 'pt', onAnswered,
           <div className="check-card-actions">
             {!editing && (
               <button type="button" className="btn btn-primary check-btn-roll" onClick={rollInApp} disabled={busy}>
-                🎲 {L(lang, 'Rolar no app', 'Roll in app')}
+                <MesaIcon name="dice" /> {L(lang, 'Rolar no app', 'Roll in app')}
               </button>
             )}
             <form className="check-physical" onSubmit={sendPhysical}>
-              <div className="check-physical-mode" role="group" aria-label={L(lang, 'O que você vai digitar', 'What you will enter')}>
-                {sheetMod != null && (
+              {/* Sem bônus da ficha (sem personagem, teste livre) só existe "Total": um
+                  interruptor de uma opção parecia um 2º botão dourado e não fazia nada —
+                  vira o rótulo do campo. */}
+              {sheetMod != null ? (
+                <div className="check-physical-mode" role="group" aria-label={L(lang, 'O que você vai digitar', 'What you will enter')}>
                   <button type="button" className={mode === 'natural' ? 'active' : ''} aria-pressed={mode === 'natural'} onClick={() => setMode('natural')}>
                     {L(lang, 'Dado', 'Die')}
                   </button>
-                )}
-                <button type="button" className={mode === 'total' ? 'active' : ''} aria-pressed={mode === 'total'} onClick={() => setMode('total')}>
-                  {L(lang, 'Total', 'Total')}
-                </button>
-              </div>
+                  <button type="button" className={mode === 'total' ? 'active' : ''} aria-pressed={mode === 'total'} onClick={() => setMode('total')}>
+                    {L(lang, 'Total', 'Total')}
+                  </button>
+                </div>
+              ) : (
+                <span className="check-physical-only">{L(lang, 'Total do seu dado', 'Your die total')}</span>
+              )}
               <input
                 className="input check-physical-input"
                 type="number"

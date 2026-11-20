@@ -58,7 +58,7 @@ function ClassDetails({ char, lang, boxRef }) {
   return (
     <div className="card cr-class-details" style={{ marginTop: 16, scrollMarginTop: 12 }} ref={boxRef} id="cr-class-details">
       <h3 style={{ marginBottom: 8 }}>{tName('class', char.className, lang)}</h3>
-      <ul className="cr-class-facts">
+      <ul className="cr-class-facts no-zebra">
         <li>
           <strong><Term id="hitDie" lang={lang} />:</strong> d{s.hitDie} —{' '}
           {L(lang, `você começa com ${s.hitDie} + seu modificador de Constituição em `, `you start with ${s.hitDie} + your Constitution modifier in `)}

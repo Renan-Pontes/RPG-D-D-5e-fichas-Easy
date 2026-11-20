@@ -2833,132 +2833,18 @@
 .ficha .fh-cond-add input { min-width: 0; }
 .ficha .fh-cond-temp input { background: rgba(10, 7, 6, 0.55); }
 
-/* Camadas das condições: a ficha muda de aparência (só design, nada muda número).
-   Raiz .ficha.c-<condição> (e .is-down com PV 0), src/sheet/FhConditions.jsx.
-   1) Retrato do topo: efeito só na <img> (folha), somando as condições ativas por
-      variáveis (o filter de uma regra não somaria com o de outra). */
-.ficha.c-poisoned { --fh-pf-poison: hue-rotate(35deg) saturate(0.8) brightness(0.9); }
-.ficha.c-charmed { --fh-pf-charm: saturate(1.15) brightness(1.05); }
-.ficha.c-frightened { --fh-pf-fear: saturate(0.55) brightness(0.75) contrast(1.1); }
-.ficha.c-paralyzed,
-.ficha.c-stunned { --fh-pf-still: saturate(0.35) brightness(0.9); }
-.ficha.c-petrified { --fh-pf-stone: grayscale(1) contrast(1.25) brightness(0.8); }
-.ficha.c-unconscious,
-.ficha.is-down { --fh-pf-sleep: brightness(0.45) saturate(0.6); }
-.ficha.c-blinded { --fh-pf-blind: blur(5px) brightness(0.4); }
-.ficha.c-invisible { --fh-pf-ghost: saturate(0.4) brightness(1.15); --fh-p-alpha: 0.28; }
-.ficha.c-prone { --fh-p-move: rotate(-8deg) translate(14px, 34px) scale(1.04); }
-.ficha .fh-hero-art img {
-  filter: var(--fh-pf-poison,) var(--fh-pf-charm,) var(--fh-pf-fear,) var(--fh-pf-still,) var(--fh-pf-stone,) var(--fh-pf-sleep,) var(--fh-pf-blind,) var(--fh-pf-ghost,);
-  transform: var(--fh-p-move, none);
-  opacity: var(--fh-p-alpha, 0.94);
-  transition: filter 0.7s var(--fh-ease), transform 0.7s var(--fh-ease), opacity 0.7s var(--fh-ease);
-}
-/* 2) Por cima do retrato (dentro de .fh-hero-art, que é aria-hidden e sem toque) */
-.ficha .fh-cart {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  animation: fh-cart-in 0.6s var(--fh-ease) both;
-}
-@keyframes fh-cart-in { from { opacity: 0; } }
-.ficha .fh-cart-still { background: linear-gradient(180deg, rgba(150, 170, 255, 0.3), rgba(70, 80, 190, 0.42)); mix-blend-mode: color; }
-.ficha .fh-cart-stone {
-  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0.9 0.6 0 0 -0.55'/></filter><rect width='160' height='160' filter='url(%23s)'/></svg>");
-  mix-blend-mode: overlay;
-}
-.ficha .fh-cart-charm {
-  background:
-    radial-gradient(60% 50% at 55% 35%, rgba(255, 120, 190, 0.55), transparent 70%),
-    radial-gradient(90% 80% at 50% 50%, rgba(255, 90, 170, 0.18), transparent 80%);
-  mix-blend-mode: screen;
-  animation: fh-cart-in 0.6s var(--fh-ease) both, fh-charm 3s ease-in-out 0.6s infinite;
-}
-@keyframes fh-charm { 50% { opacity: 0.55; } }
-.ficha .fh-cart-chains { width: 100%; height: 100%; overflow: visible; }
-.ficha .fh-cart-chains path { fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-.ficha .fh-chain-back { stroke: rgba(10, 7, 6, 0.7); stroke-width: 9; }
-.ficha .fh-chain-link { stroke: #8a7a66; stroke-width: 5; stroke-dasharray: 12 6; animation: fh-chain-in 0.7s var(--fh-ease); }
-.ficha .fh-chain-shine { stroke: #e2d2b0; stroke-width: 1.4; stroke-dasharray: 7 11; stroke-dashoffset: -2; opacity: 0.6; animation: fh-chain-in 0.7s var(--fh-ease); }
-@keyframes fh-chain-in { from { stroke-dashoffset: 300; } }
-.ficha .fh-cart-zz {
-  inset: auto;
-  left: 16%;
-  top: 12%;
-  font-family: var(--fh-deco);
-  font-weight: 900;
-  font-size: 2.4rem;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  color: #e8e4ff;
-  text-shadow: 0 0 14px rgba(160, 170, 255, 0.85), 0 2px 0 rgba(0, 0, 0, 0.6);
-  animation: fh-cart-in 0.6s var(--fh-ease) both, fh-zz 3.2s ease-in-out 0.6s infinite;
-}
-.ficha .fh-cart-zz small { font-size: 0.62em; }
-.ficha .fh-cart-zz small + small { font-size: 0.45em; }
-@keyframes fh-zz { 50% { transform: translateY(-8px); opacity: 0.7; } }
-@media (min-width: 720px) {
-  .ficha .fh-cart:not(.fh-cart-zz) {
-    -webkit-mask-image: linear-gradient(to left, #000 50%, transparent 100%);
-    mask-image: linear-gradient(to left, #000 50%, transparent 100%);
-  }
-  .ficha .fh-cart-zz { left: 50%; top: 14%; } /* longe do nome (à esquerda) e da estrela (à direita) */
-}
-@media (max-width: 719px) {
-  .ficha .fh-cart:not(.fh-cart-zz) {
-    -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
-    mask-image: linear-gradient(to bottom, #000 55%, transparent);
-  }
-}
-/* 3) Bordas da tela: faixas coloridas fixas nas laterais (envenenado, amedrontado,
-   paralisado/atordoado). Só nas laterais e estreitas no celular (22px), para não
-   passarem por cima do texto dos painéis; no desktop ocupam a margem fora da ficha.
-   z-index 3: abaixo do clarão de PV (4), das abas fixas (5), do botão de dados e dos
-   modais. Anima só opacity. */
-.ficha .fh-cfx {
-  --fh-cfx-w: clamp(22px, (100vw - 720px) / 2 - 8px, 240px);
-  position: fixed;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  background:
-    linear-gradient(to right, var(--fh-cfx-c) 0, var(--fh-cfx-c2) 40%, transparent) left / var(--fh-cfx-w) 100% no-repeat,
-    linear-gradient(to left, var(--fh-cfx-c) 0, var(--fh-cfx-c2) 40%, transparent) right / var(--fh-cfx-w) 100% no-repeat;
-  animation: fh-cart-in 0.6s var(--fh-ease) both;
-}
-.ficha .fh-cfx-poison {
-  --fh-cfx-c: rgba(120, 200, 60, 0.5);
-  --fh-cfx-c2: rgba(120, 200, 60, 0.16);
-  animation: fh-cart-in 0.6s var(--fh-ease) both, fh-queasy 4s ease-in-out 0.6s infinite;
-}
-.ficha .fh-cfx-fear {
-  --fh-cfx-c: rgba(150, 18, 40, 0.62);
-  --fh-cfx-c2: rgba(120, 10, 30, 0.2);
-  animation: fh-cart-in 0.6s var(--fh-ease) both, fh-heartbeat 1.3s ease-in-out 0.6s infinite;
-}
-.ficha .fh-cfx-still { --fh-cfx-c: rgba(120, 140, 255, 0.45); --fh-cfx-c2: rgba(110, 130, 255, 0.14); }
-@keyframes fh-queasy { 50% { opacity: 0.6; } }
-@keyframes fh-heartbeat { 0%, 100% { opacity: 0.55; } 12% { opacity: 1; } 24% { opacity: 0.7; } 36% { opacity: 1; } }
-
+/* Camadas das condições (retrato, bordas da tela, moldura do painel, marcas): saíram daqui.
+   Tudo em src/sheet/condition-fx.css, com a lógica em src/sheet/FhConditions.jsx. */
 @media (prefers-reduced-motion: reduce) {
-  /* as camadas ficam (não são movimento), paradas */
   .ficha .cond-chip,
-  .ficha .cond-chip .art-icon,
-  .ficha .fh-hero-art img { transition: none; }
+  .ficha .cond-chip .art-icon { transition: none; }
   .ficha .cond-chip:active { transform: none; }
-  .ficha .fh-cart,
-  .ficha .fh-cfx,
-  .ficha .fh-chain-link,
-  .ficha .fh-chain-shine { animation: none; }
 }
 @media (forced-colors: active) {
   .ficha .cond-chip.on { border: 2px solid Highlight; }
   .ficha .cond-chip .art-icon { forced-color-adjust: none; }
-  .ficha .fh-cfx { display: none; }
 }
 @media print {
-  .ficha .fh-cfx,
-  .ficha .fh-cart { display: none; }
   .ficha .cond-chip.on { color: #7a1c12; background: none; box-shadow: none; }
   .ficha .cond-chip { color: #3a2e22; background: none; }
 }
@@ -7309,3 +7195,187 @@
 /* Linha do tempo: "PENDENTE · Escolher agora · Trocar" quebra para a linha de baixo em vez de
    vazar pela esquerda do painel no celular */
 .ficha .fh-timeline .fh-cf-name + .fh-origin:has(.prog-choose) { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
+
+/* ==========================================================================
+   Rodada 2 da revisão de UX da aba Jogar e do topo da ficha
+   --------------------------------------------------------------------------
+   Mesmo visual "Ficha Forjada". O que muda: uma postura só ("Próximo d20") para
+   medalhões, ataques e hexágonos; PV e CA na primeira tela do celular; truques
+   de ataque no painel Ataques; legendas legíveis; alvos de toque de 44px.
+   ========================================================================== */
+
+/* ---------- "Próximo d20" na linha do título do painel ----------
+   Desktop: [◆ VITALIDADE ———— PRÓXIMO D20 (Desv.|Normal|Vant.)]. Celular: só o seletor,
+   sem a etiqueta (o grupo continua com aria-label), para não gastar uma linha inteira
+   acima dos medalhões. Se não couber ao lado do título (telas de 360px), desce sozinho. */
+.ficha .fh-title-act > .fh-adv3 { flex-wrap: nowrap; }
+.ficha .fh-title:has(> .fh-title-act > .fh-adv3) { row-gap: 6px; }
+@media (max-width: 599px) {
+  .ficha .fh-title-act > .fh-adv3 .fh-adv3-k { display: none; }
+  .ficha .fh-title-act > .fh-adv3 .fh-adv3-b { padding: 0 6px; font-size: 0.76rem; gap: 3px; }
+  .ficha .fh-title:has(> .fh-title-act > .fh-adv3) { column-gap: 8px; }
+  .ficha .fh-title:has(> .fh-title-act > .fh-adv3) .fh-title-main { flex: 0 1 auto; }
+  .ficha .fh-title:has(> .fh-title-act > .fh-adv3) .fh-title-main::after { display: none; }
+}
+@media (pointer: coarse) {
+  .ficha .fh-adv3-b { min-height: 36px; }
+  .ficha .fh-adv3-b::after { content: ''; position: absolute; inset: -4px 0; }   /* 36 + 8 = 44px de alvo */
+}
+
+/* ---------- Hexágonos: a postura do painel aparece em cada metade (▲/▼), não só no brilho ---------- */
+.ficha .fh-honey-stance { margin-left: 1px; font-size: 0.5em; line-height: 1; vertical-align: 0.5em; font-family: var(--body); }
+.ficha .fh-honey-stance.is-adv { color: #1d6b34; }
+.ficha .fh-honey-stance.is-dis { color: #a01624; }
+/* na colmeia da aba Jogar os oito hexágonos armam juntos: sem o clarão de borda em cada um
+   (lavava os hexágonos do meio); o seletor do título, o anel do botão central e as setas
+   nas metades dizem o estado */
+.ficha .fh-belt.is-hive-only .fh-belt-glow-svg { display: none; }
+.ficha .fh-belt.is-hive-only .fh-belt-badge:is(.adv-adv, .adv-dis) { transform: translate(-50%, -50%); }
+/* ◆ da resistência com proficiência: dentro da legenda curta ("◆ RES.") */
+.ficha .fh-honey-prof { font-size: 0.85em; letter-spacing: 0; }
+
+/* ---------- Legendas e rótulos pequenos: mínimo de 10px (DESIGN.md §3.2) ---------- */
+.ficha .fh-belt-hex-wrap:not(.is-action) .fh-honey-cap { font-size: 0.62rem; letter-spacing: 0.04em; }
+.ficha .fh-belt-hex-wrap.is-action .fh-honey-cap { font-size: 0.62rem; letter-spacing: 0.06em; }
+.ficha .fh-seal-cap { font-size: 0.65rem; letter-spacing: 0.08em; }
+.ficha .fh-hp .fh-hp-row .fh-medal-label { font-size: 0.65rem; }
+@media (max-width: 480px) { .ficha .fh-hp .fh-hp-row .fh-medal-label { font-size: 0.65rem; letter-spacing: 0; } }
+@media (max-width: 359px) { .ficha .fh-hp .fh-hp-row .fh-medal-label { white-space: normal; overflow-wrap: anywhere; line-height: 1.15; } }
+/* desktop: a colmeia usava pouco mais da metade do painel; cresce ~15% e as legendas com ela */
+@media (min-width: 1024px) {
+  .ficha .fh-abil-panel .fh-belt.is-hive-only { --belt-w: 128px; }
+  .ficha .fh-abil-panel .fh-belt-hex-wrap:not(.is-action) .fh-honey-cap { font-size: 0.68rem; }
+}
+
+/* ---------- Ataques: nota de Maestria dobrada no celular; truques de ataque ---------- */
+.ficha .fh-atk-note.is-fold { display: grid; }
+.ficha .fh-atk-note-toggle {
+  display: inline-flex; align-items: center; gap: 6px; justify-self: start; min-height: 32px; padding: 2px 0;
+  border: 0; background: none; cursor: pointer; font: inherit; color: var(--ink-secondary); text-align: left;
+}
+.ficha .fh-atk-note-chev { color: var(--fh-verdigris); transition: transform 0.2s; }
+.ficha .fh-atk-note.is-open .fh-atk-note-chev { transform: rotate(180deg); }
+.ficha .fh-atk-note-body { padding: 2px 0 4px; color: var(--ink-secondary); }
+.ficha .fh-atk-note-toggle:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; border-radius: 3px; }
+@media (pointer: coarse) {
+  .ficha .fh-atk-note-toggle { position: relative; }
+  .ficha .fh-atk-note-toggle::after { content: ''; position: absolute; inset: -6px -8px; }
+}
+@media (prefers-reduced-motion: reduce) { .ficha .fh-atk-note-chev { transition: none; } }
+.ficha .fh-atk-spells { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(224, 181, 94, 0.22); }
+.ficha .fh-atk-group {
+  margin: 0 0 12px; font: 700 0.68rem/1 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--arcane-bright);
+}
+/* etiqueta parada no lugar do botão de ataque: mesma medida, sem moldura de botão */
+.ficha .fh-atk-chip {
+  display: inline-flex; align-items: baseline; justify-content: center; gap: 7px; min-width: 112px; min-height: 44px; padding: 11px 12px 9px;
+  border: 1px dashed rgba(159, 176, 240, 0.4); border-radius: 5px; color: var(--arcane-bright); white-space: nowrap; background: rgba(38, 45, 82, 0.25);
+}
+.ficha .fh-atk-chip .fh-atk-btn-v { font-size: 1.05rem; }
+.ficha .fh-atk-more {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; margin-top: 12px; padding: 0 12px;
+  border: 1px solid var(--stroke); border-radius: 5px; background: rgba(8, 5, 4, 0.4); cursor: pointer;
+  font: 600 0.72rem/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); text-align: left;
+}
+.ficha .fh-atk-more:first-child { margin-top: 0; }
+.ficha .fh-atk-more:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+@media (hover: hover) { .ficha .fh-atk-more:hover { color: var(--gold-bright); border-color: var(--gold); background: rgba(214, 176, 100, 0.08); } }
+@media (max-width: 600px) {
+  .ficha .fh-atk-acts:has(> .fh-atk-chip:only-child) { grid-template-columns: minmax(0, 1fr); }
+  .ficha .fh-atk-chip { min-width: 0; }
+}
+
+/* ---------- Topo: escolha pendente dobrada; morto no retrato ---------- */
+.ficha .fh-hero-fold-pending {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  font: 700 0.65rem/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--amber);
+}
+@media (max-width: 420px) { .ficha .fh-hero-classfold .fh-hero-classchips { flex: 1 1 0; } }
+
+/* ---------- Barra da campanha aberta ---------- */
+/* fora de campanha: só a frase e o botão, alinhados à esquerda */
+.ficha .fh-hero-copy.is-active.is-none { flex-wrap: wrap; row-gap: 8px; padding: 10px 12px; }
+.ficha .fh-hero-copy.is-none .fh-hero-copy-why { flex: 1 1 auto; font-size: 0.9rem; color: var(--ink-secondary); }
+.ficha .fh-hero-copy.is-active.is-none .fh-hero-copy-acts { flex: 1 1 100%; justify-content: flex-start; margin-left: 0; padding-left: 0; }
+/* "+ Atrelar a outra campanha": uma linha tracejada, não uma caixa dentro de outra */
+.ficha .fh-hero-copy.is-add { border-style: dashed; border-color: rgba(201, 162, 74, 0.45); background: none; padding: 0; }
+.ficha .fh-hero-copy.is-add > .fh-hero-copy-head { padding: 8px 12px; min-height: 40px; justify-content: center; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.72rem; }
+@media (hover: hover) { .ficha .fh-hero-copy.is-add > .fh-hero-copy-head:hover { background: rgba(201, 162, 74, 0.08); color: var(--gold-bright); } }
+.ficha .fh-hero-copy-head:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; border-radius: 6px; }
+/* "+1": a ficha está em mais de uma mesa */
+.ficha .fh-hero-campbar-n { font-family: var(--mono); font-weight: 700; color: var(--gold-bright); line-height: 18px; }
+/* toque: linhas e botões da lista com 44px; "Sair" (ação que remove) longe de "Rolagens na Tela" */
+@media (pointer: coarse) {
+  .ficha .fh-hero-copy-acts .btn { min-height: 44px !important; padding: 0 12px !important; display: inline-flex; align-items: center; }
+  .ficha .fh-hero-copy-acts .fh-roll-target :is(button, select, .btn) { min-height: 44px; }
+  .ficha .fh-hero-copy:not(.is-active) > .fh-hero-copy-head,
+  .ficha .fh-hero-copy.is-add > .fh-hero-copy-head { min-height: 44px; }
+  .ficha .fh-hero-copy.is-active:not(.is-none) .fh-hero-copy-acts { flex: 1 1 100%; justify-content: space-between; padding-left: 0; gap: 8px 16px; }
+}
+
+/* ---------- Modo trapaça: lista simples; no celular a folha tem a altura do conteúdo ---------- */
+.ficha .fh-cheat-list { margin: 0 0 12px; padding-left: 1.1rem; color: var(--ink-secondary); }
+.ficha .fh-cheat-list > li { margin-bottom: 4px; background: none; }
+@media (max-width: 699px) {
+  .ficha .modal:has(> .fh-cheat-list) { width: 100%; max-width: 100% !important; height: auto; min-height: 0; border-radius: 16px 16px 0 0 !important; }
+}
+
+/* ---------- Recursos: a seta de abrir é o mesmo desenho das outras dobras da ficha ---------- */
+.ficha .fh-res-chev.is-drawn {
+  flex: none; width: 7px; height: 7px; margin: 0 4px 3px auto; border-right: 1.5px solid var(--ink-muted); border-bottom: 1.5px solid var(--ink-muted);
+  transform: rotate(45deg); transition: transform 0.2s;
+}
+.ficha .fh-res-row.is-open .fh-res-chev.is-drawn { transform: rotate(-135deg); margin-bottom: -3px; }
+@media (prefers-reduced-motion: reduce) { .ficha .fh-res-chev.is-drawn { transition: none; } }
+
+/* ---------- Conjuração: rótulos em texto ("CD de magia INT"); gemas de espaço maiores no toque ---------- */
+.ficha .fh-spell-stat-ab {
+  display: inline-block; margin-left: 4px; padding: 1px 5px; border: 1px solid rgba(159, 176, 240, 0.4); border-radius: 3px;
+  font-family: var(--mono); font-size: 0.86em; letter-spacing: 0.02em; text-transform: uppercase; color: var(--arcane-bright); vertical-align: 1px;
+}
+.ficha .fh-spellcasting > .fh-atk-more { margin-top: 12px; }
+@media (pointer: coarse) {
+  .ficha .fh-slot-matrix { --fh-sm-cell: 36px; row-gap: 10px; }
+  .ficha .fh-sm-gem { width: 24px; height: 24px; }
+  .ficha .fh-sm-gem::after { inset: -11px -4px; }   /* 24 + 22 = 46px de alvo na vertical, 32px na horizontal */
+}
+@media (pointer: coarse) and (max-width: 480px) { .ficha .fh-slot-matrix { --fh-sm-cell: 34px; --fh-sm-gap-col: 10px; column-gap: 2px; } }
+
+/* ---------- Alvos de toque de 44px que faltavam ---------- */
+@media (pointer: coarse) {
+  /* "Escolher agora" na linha do tempo: a ação principal de uma pendência */
+  .ficha .fh-timeline .fh-origin .prog-choose { min-height: 44px; padding: 0 14px; display: inline-flex; align-items: center; }
+  /* selo do nível (38px no celular) e botão central do hexágono (30px) */
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) > .fh-seal.hero-level { position: relative; }
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) > .fh-seal.hero-level::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+  .ficha .fh-belt.is-hive-only .fh-belt-badge::before { inset: -7px; }
+}
+/* "NÍVEL" dentro do selo pequeno do celular ficava com 5,5px: o selo mostra só o número
+   (o nome acessível do botão já diz "Nível N") */
+@media (max-width: 719px) {
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) > .fh-seal .hero-level-label { display: none; }
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) > .fh-seal .hero-level-num { font-size: 17px !important; }
+}
+@media (min-width: 720px) {
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) > .fh-seal .hero-level-label { font-size: 8px !important; letter-spacing: 0.04em !important; }
+}
+
+/* ---------- Cerimônia de nível: nome numa linha, "subiu de nível" na outra ---------- */
+.ficha .fh-lu-title { overflow-wrap: break-word; }
+.ficha .fh-lu-name, .ficha .fh-lu-verb { display: block; }
+
+/* A colmeia é um contexto de empilhamento próprio: as fileiras usam z-index 5/6 para se
+   encaixarem e, sem isto, os hexágonos passavam POR CIMA da barra de abas fixa do celular
+   ao rolar a página. (Dentro da colmeia não há nada que abra Modal.) */
+.ficha .fh-belt.is-hive-only { isolation: isolate; }
+/* botões do descanso curto: rótulo e fórmula centrados na altura do botão */
+.ficha .fh-hpt-rest-btn { align-items: center; }
+
+.ficha .fh-hero-copy.is-none .fh-hero-copy-lv { display: none; }   /* o nível já está no selo logo abaixo */
+/* o grupo "Próximo d20" não recorta mais os botões (o recorte anulava a área de toque
+   ampliada): os cantos arredondados passam para o primeiro e o último botão */
+.ficha .fh-adv3-set { overflow: visible; }
+.ficha .fh-adv3-b:first-child { border-radius: 5px 0 0 5px; }
+.ficha .fh-adv3-b:last-child { border-radius: 0 5px 5px 0; }
+/* a seta de abrir fica colada no nome do recurso (no desktop ela boiava no meio da linha) */
+.ficha .fh-res-title .fh-res-chev.is-drawn { margin-left: 8px; }

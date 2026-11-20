@@ -8,6 +8,7 @@ import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
 import { subclassLock, landTypeLock, classChangeLock, restoreSealed } from '../src/progression/subclass-lock.js';
 import * as Book from '../src/progression/spellbook.js';
+import { grantedSpells, isGrantedEntry, editorCantripCount, editorToggleCantrip } from '../src/creator/spell-helpers.js';
 import { t, tName } from '../data/i18n.js';
 import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
 import Icon from './Icons.jsx';
@@ -72,6 +73,20 @@ const SECTION_TITLE = {
   story: ['História', 'Story', 'História', 'Story'],
 };
 const sectionTitle = (id, lang, isNew) => SECTION_TITLE[id][(isNew ? 2 : 0) + (lang === 'pt' ? 0 : 1)];
+// Edição: a escolha que a ficha já tem abre a lista (sem precisar rolar até ela) e
+// aparece numa linha "Atual: …" sob o título. "pinned" é a escolha ao abrir a seção,
+// para a lista não se reordenar enquanto o jogador experimenta outras opções.
+const pinFirst = (list, id) => {
+  const i = list.findIndex(x => x.id === id);
+  return i > 0 ? [list[i], ...list.slice(0, i), ...list.slice(i + 1)] : list;
+};
+const CurrentChoice = ({ lang, name }) => (name ? (
+  <p className="ed-current">
+    <span className="ed-current-k">{lang === 'pt' ? 'Atual' : 'Current'}</span>
+    <strong>{name}</strong>
+  </p>
+) : null);
+
 /** Miniatura da opção (classe, espécie, antecedente); some se a arte não existir. */
 const OptionThumb = ({ src }) => (src ? <img className="cr-card-thumb" src={src} alt="" loading="lazy" decoding="async" onError={hideOnError} /> : null);
 
@@ -167,6 +182,7 @@ const StepRace = ({ char, set, lang, isNew }) => {
   // embaixo, leva o jogador até elas (senão o "Próximo" fica travado sem motivo aparente).
   const choicesRef = useRef(null);
   const pickedRef = useRef(false);
+  const [pinned] = useState(char.race);
   useEffect(() => {
     if (!pickedRef.current || !hasChoices || !choicesRef.current) return;
     pickedRef.current = false;
@@ -176,6 +192,7 @@ const StepRace = ({ char, set, lang, isNew }) => {
   return (
     <div>
       <h2>{sectionTitle('race', lang, isNew)}</h2>
+      {!isNew && <CurrentChoice lang={lang} name={char.race ? tName('race', char.race, lang) : ''} />}
       <Filigree />
       {hasChoices && (
         <div ref={choicesRef} className="card" style={{ padding: 16, marginBottom: 16 }}>
@@ -190,7 +207,7 @@ const StepRace = ({ char, set, lang, isNew }) => {
       )}
       <input aria-label={lang === 'pt' ? 'Buscar espécie' : 'Search species'} placeholder={lang === 'pt' ? 'Buscar espécie…' : 'Search species…'} value={query} onChange={e => setQuery(e.target.value)} style={{ marginBottom: 16 }} />
       <div className="options-list cols-2">
-        {Utils.races(char).filter(r => `${tName('race', r.id, lang)} ${r.id}`.toLowerCase().includes(query.toLowerCase())).map(r => {
+        {(isNew ? Utils.races(char) : pinFirst(Utils.races(char), pinned)).filter(r => `${tName('race', r.id, lang)} ${r.id}`.toLowerCase().includes(query.toLowerCase())).map(r => {
           const isSel = char.race === r.id;
           const asiTxt = Object.entries(r.asi || {}).map(([k, v]) => {
             if (k === 'all') return `+${v} ${lang === 'pt' ? 'todos' : 'all'}`;
@@ -347,9 +364,11 @@ const StepClass = ({ char, set, lang, saved, isNew }) => {
       starFormType: '',
     });
   };
+  const [pinned] = useState(char.className);
   return (
     <div>
       <h2>{sectionTitle('class', lang, isNew)}</h2>
+      {!isNew && <CurrentChoice lang={lang} name={char.className ? tName('class', char.className, lang) : ''} />}
       <Filigree />
       {classLock.locked && (
         <div className="card text-sm" style={{ padding: 12, marginBottom: 12 }}>
@@ -359,7 +378,7 @@ const StepClass = ({ char, set, lang, saved, isNew }) => {
         </div>
       )}
       <div className="options-list cols-2">
-        {SRD.CLASSES.filter(c => !classLock.locked || c.id === char.className).map(c => {
+        {(isNew ? SRD.CLASSES : pinFirst(SRD.CLASSES, pinned)).filter(c => !classLock.locked || c.id === char.className).map(c => {
           const isSel = char.className === c.id;
           const subLv = char.rulesVersion === '2024' ? 3 : SUBCLASS_LEVEL[c.id];
           return (
@@ -370,7 +389,7 @@ const StepClass = ({ char, set, lang, saved, isNew }) => {
                 <span><strong>d{c.hitDie}</strong> {t('hitDie', lang)}</span>
                 <span>{t('saves', lang)}: {c.saves.map(s => t(s + 'Sh', lang)).join(', ')}</span>
                 {c.spellcaster && <span style={{ color: 'var(--gold)' }}>✦ {t('spellcaster', lang)}</span>}
-                {subLv && <span className="text-xs muted">{lang === 'pt' ? `Subclasse Lv${subLv}` : `Subclass Lv${subLv}`}</span>}
+                {subLv && <span className="text-xs muted">{lang === 'pt' ? `Subclasse no nível ${subLv}` : `Subclass at level ${subLv}`}</span>}
               </div>
               {isSel && (
                 <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--stroke-faint)' }}>
@@ -590,12 +609,14 @@ const StepBackground = ({ char, set, lang, isNew }) => {
       ...(char.rulesVersion === '2024' ? { raceBonus: {}, originFeat: b.feat, ...(keepFeat ? {} : { feats: withOriginFeat(char.feats, b) }) } : {}),
     });
   };
+  const [pinned] = useState(char.background);
   return (
   <div>
     <h2>{sectionTitle('background', lang, isNew)}</h2>
+    {!isNew && <CurrentChoice lang={lang} name={char.background ? tName('background', char.background, lang) : ''} />}
     <Filigree />
     <div className="options-list cols-2">
-      {Utils.backgrounds(char).map(b => {
+      {(isNew ? Utils.backgrounds(char) : pinFirst(Utils.backgrounds(char), pinned)).map(b => {
         const isSel = char.background === b.id;
         return (
           <button key={b.id} type="button" aria-pressed={isSel} className={`option ${isSel ? 'selected' : ''}`} onClick={() => selectBg(b)}>
@@ -855,10 +876,24 @@ const StepSpells = ({ char, set, lang, isNew }) => {
   const isPrepared = Utils.isPreparedCaster(char);
   const cantripLimit = Utils.cantripsKnown(char);
 
-  const cantripCount = (char.spells || []).filter(s => {
-    const def = Utils.spellCatalog(char).find(x => x.id === s.id);
-    return def && def.level === 0;
-  }).length;
+  // Só os truques ESCOLHIDOS na classe contam para o limite: os que vêm de talento
+  // ou espécie (auto/feat/species) são de graça e não aparecem na lista.
+  const isGranted = isGrantedEntry;
+  const cantripCount = editorCantripCount(char);
+  // Magias que a ficha já tem de graça (talento, espécie, classe): só leitura.
+  let free = [];
+  try { free = grantedSpells(char); } catch { free = []; }
+  const freeNames = [...new Set(free.map(g => tName('spellName', g.id, lang)))];
+  const freeSpells = freeNames.length > 0 ? (
+    <p className="ed-free-spells text-sm">
+      <Icon name="sparkle" size={14} aria-hidden="true" />
+      <span>
+        <strong>{lang === 'pt' ? 'Você já tem de graça' : 'You already have for free'}:</strong>{' '}
+        {freeNames.join(', ')}
+        <span className="muted"> — {lang === 'pt' ? 'não contam no limite abaixo.' : "they don't count toward the limit below."}</span>
+      </span>
+    </p>
+  ) : null;
 
   // Mago: grimório inicial (6 magias de nível 1; +2 por nível acima do 1º).
   const book = Book.usesSpellbook(char);
@@ -866,12 +901,17 @@ const StepSpells = ({ char, set, lang, isNew }) => {
   const bookCount = book ? Book.spellbookIds(char).length : 0;
 
   const toggle = (id) => {
-    const has = char.spells.find(s => s.id === id);
+    const def = Utils.spellCatalog(char).find(x => x.id === id);
+    if (def && def.level === 0) {
+      // Truques: regra pura e testada (tests/creator-spells.test.js).
+      const next = editorToggleCantrip(char, id, cantripLimit);
+      if (next) set({ spells: next });
+      return;
+    }
+    const has = (char.spells || []).find(s => s.id === id && !isGranted(s));
     if (has) {
-      set({ spells: char.spells.filter(s => s.id !== id) });
+      set({ spells: char.spells.filter(s => s.id !== id || isGranted(s)) });
     } else {
-      const def = Utils.spellCatalog(char).find(x => x.id === id);
-      if (def && def.level === 0 && cantripCount >= cantripLimit) return;
       if (book && def && def.level > 0) {
         if (bookCount >= bookLimit) return;
         set({ spells: Book.addToSpellbook(char, [id]) });
@@ -889,10 +929,16 @@ const StepSpells = ({ char, set, lang, isNew }) => {
           <span className="text-xs muted mono">{currentCount}/{limit}</span>
         )}
       </div>
+      {typeof limit === 'number' && currentCount >= limit && list.some(sp => !(char.spells || []).some(s => s.id === sp.id)) && (
+        <p className="ed-limit-note text-sm">
+          {lang === 'pt' ? 'Limite atingido: para trocar, desmarque uma opção primeiro.' : 'Limit reached: to swap, uncheck one first.'}
+        </p>
+      )}
       <div className="options-list">
         {list.map(sp => {
-          const sel = char.spells.some(s => s.id === sp.id);
+          const sel = (char.spells || []).some(s => s.id === sp.id);
           const isCantrip = sp.level === 0;
+          const meta = Utils.spellMeta(sp, lang);
           const limitReached = !sel && (isCantrip ? cantripCount >= cantripLimit : (book && bookCount >= bookLimit));
           return (
             <div
@@ -911,8 +957,8 @@ const StepSpells = ({ char, set, lang, isNew }) => {
                   <div className="option-title" style={{ fontSize: '1rem' }}>{tName('spellName', sp.id, lang)}</div>
                   <div className="spell-meta">
                     <span>{tName('school', sp.school, lang)}</span>
-                    <span>{sp.castingTime}</span>
-                    <span>{sp.range}</span>
+                    <span>{meta.castingTime}</span>
+                    <span>{meta.range}</span>
                   </div>
                   <div className={`text-sm ${sel ? '' : 'spell-desc-clamp'}`} style={{ color: 'var(--ink-secondary)', marginTop: 6 }}>
                     {sp.desc[lang]}
@@ -933,11 +979,20 @@ const StepSpells = ({ char, set, lang, isNew }) => {
         <Filigree>{tName('class', char.className, lang)}</Filigree>
         <div className="card" style={{ padding: 12, marginBottom: 16 }}>
           <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>
-            {lang === 'pt'
-              ? `Como ${tName('class', char.className, lang)}, você tem acesso a todas as magias da classe e prepara um número delas a cada descanso longo. Escolha apenas seus truques agora — você poderá preparar magias de níveis 1+ na ficha.`
-              : `As a ${tName('class', char.className, lang)}, you have access to every class spell and prepare a number of them after each long rest. Pick your cantrips now — you'll prepare leveled spells from the sheet.`}
+            {!isNew
+              ? (lang === 'pt'
+                ? (book
+                  ? 'Marque os truques e as magias do grimório deste personagem. A preparação do dia fica na ficha, na aba Magias.'
+                  : 'Marque os truques deste personagem. A preparação do dia fica na ficha, na aba Magias.')
+                : (book
+                  ? "Check this character's cantrips and spellbook spells. Daily preparation happens on the sheet, in the Spells tab."
+                  : "Check this character's cantrips. Daily preparation happens on the sheet, in the Spells tab."))
+              : (lang === 'pt'
+                ? `Como ${tName('class', char.className, lang)}, você tem acesso a todas as magias da classe e prepara um número delas a cada descanso longo. Escolha apenas seus truques agora — você poderá preparar magias de níveis 1+ na ficha.`
+                : `As a ${tName('class', char.className, lang)}, you have access to every class spell and prepare a number of them after each long rest. Pick your cantrips now — you'll prepare leveled spells from the sheet.`)}
           </div>
         </div>
+        {freeSpells}
         {cantripLimit > 0 && cantrips.length > 0 && (
           <SpellGroup label={t('cantrips', lang)} list={cantrips} limit={cantripLimit} currentCount={cantripCount} />
         )}
@@ -978,6 +1033,7 @@ const StepSpells = ({ char, set, lang, isNew }) => {
     <div>
       <h2>{sectionTitle('spells', lang, isNew)}</h2>
       <Filigree>{tName('class', char.className, lang)}</Filigree>
+      {freeSpells}
       {cantripLimit > 0 && (
         <SpellGroup label={t('cantrips', lang)} list={cantrips} limit={cantripLimit} currentCount={cantripCount} />
       )}

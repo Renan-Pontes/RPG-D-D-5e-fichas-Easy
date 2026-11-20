@@ -1135,3 +1135,28 @@ button.cs-stat.cs-init-btn.is-guess { border-color: var(--gold-bright); color: v
   .ct-ended-acts { flex-direction: column; }
   .ct-ended-acts .mesa-btn { width: 100%; }
 }
+
+/* ---------- celular com o combate andando (.is-lean): a lista ganha a 1ª tela ----------
+   Antes: título, "0 avisos" + Encerrar combate, o selo do estado, a dificuldade e o Lista|Mapa
+   somavam 583 px antes do 1º combatente. Agora o título, o estado e o sino (só o número) ficam
+   numa linha; Encerrar combate e a dificuldade moram em ⋯ Mais. */
+.mesa-title.ct-title.is-lean { flex-wrap: nowrap; gap: 8px; }
+.mesa-title.ct-title.is-lean .mesa-title-main { flex: none; }
+.mesa-title.ct-title.is-lean .mesa-title-main > :is(h2, h3, h4) { white-space: nowrap; overflow-wrap: normal; }
+.mesa-title.ct-title.is-lean .mesa-title-main::after { display: none; }
+.mesa-title.ct-title.is-lean .mesa-title-sub { order: 2; flex: 1 1 auto; margin: 0; padding: 0; min-width: 0; }
+.mesa-title.ct-title.is-lean .mesa-title-act { order: 3; flex: none; }
+.mesa-title.ct-title.is-lean .ct-state { min-width: 0; overflow: hidden; text-overflow: ellipsis; display: inline-block; line-height: 22px; max-width: 100%; }
+.ct-more-sheet .enc-diff { margin: 0; }
+/* ✚ Monstro · ✚ Personagem como o último item da lista */
+.ct-item.ct-adds-item { margin-top: 4px; background: none; border: 0; padding: 0; }
+.combat-tab.is-wide .ct-adds-item .ct-adds { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.ct-item.ct-adds-item .ct-adds { margin: 0; }
+/* combate vazio no PC: sem a lista, o mapa ocupa a largura toda (ficava empurrado para a
+   direita ao lado de uma coluna em branco) */
+@media (min-width: 1024px) {
+  .campaign-detail.is-dm .combat-body:not(.has-screen):not(:has(> .combatants-list)) .ct-map { grid-column: 1 / -1; }
+}
+/* PC: a linha presa do ↶ tem o fundo do app (cobre a lista que rola por baixo). O botão ocupa a
+   linha toda: antes tinha 300 px sobre um retângulo escuro de 400 que acabava no meio da página. */
+.combat-tab.is-wide:not(:has(.ct-turn-wrap)) .mesa-btn.ct-undo-last { flex: 1 1 auto; max-width: none; }

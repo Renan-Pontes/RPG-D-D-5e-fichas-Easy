@@ -150,8 +150,8 @@ export default [
       en: 'Lia is keeping Bless on the party when an orc hits her for 22 damage. DC = half of 22 = 11 (higher than 10). She rolls d20 + 2 (Con) = 9 → fail, and Bless ends. With 8 damage, the DC would be 10.',
     },
     sheet: {
-      pt: 'Aba Magias: magias de concentração têm a marca "C". Anote a magia ativa em Condições e efeitos (aba Jogar) para não esquecer.',
-      en: 'Spells tab: Concentration spells show the "C" tag. Add the active spell under Conditions & effects (Play tab) so you don\'t forget it.',
+      pt: 'Aba Magias: magias de concentração têm a marca "C". Anote a magia ativa como efeito personalizado em Vitalidade → + Condição (aba Jogar) para não esquecer.',
+      en: 'Spells tab: Concentration spells show the "C" tag. Add the active spell as a custom effect under Vitality → + Condition (Play tab) so you don\'t forget it.',
     },
     versions: {
       pt: 'A regra é praticamente a mesma em 2014; 2024 deixa explícito o limite máximo de CD 30 e que ficar Incapacitado encerra a concentração.',

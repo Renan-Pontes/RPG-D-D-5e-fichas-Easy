@@ -4,30 +4,39 @@
    ===================================================================== */
 
 /* ---------------------------------------------------------------- Ecos */
-.lv-echo {
-  margin-top: 4px; padding: 12px 12px 10px; border-radius: var(--radius-lg, 14px);
-  border: 1px solid var(--stroke-faint);
-  background: radial-gradient(ellipse at 0% 0%, rgba(214, 176, 100, 0.07), transparent 65%), var(--bg-raised);
+/* section.lv-echo: o painel do mestre (src/world/living/living.css) tem um BOTÃO com a mesma
+   classe — sem o elemento no seletor, as regras de um vazavam para o outro (a fileira das
+   reações ficava centrada e estreita, e o painel inteiro acendia no hover como um botão). */
+section.lv-echo {
+  /* painel rebaixado no couro do leitor (o .mesa-panel.is-sunk da mesa) */
+  margin-top: 4px; padding: 12px 12px 10px; border-radius: 8px;
+  border: 1px solid rgba(224, 181, 94, 0.18);
+  background: radial-gradient(ellipse at 0% 0%, rgba(214, 176, 100, 0.07), transparent 65%), rgba(10, 7, 6, 0.45);
   display: flex; flex-direction: column; gap: 8px; min-width: 0;
+  container-type: inline-size;
 }
 .lv-echo-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .lv-echo-q { font-family: var(--display); font-size: 0.9rem; letter-spacing: 0.03em; color: var(--gold); min-width: 0; }
 .lv-echo-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .lv-react {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; position: relative;
-  min-height: 52px; padding: 6px 4px; border-radius: 12px; border: 1px solid var(--stroke-faint);
-  background: var(--bg-card); color: var(--ink-secondary); font: inherit; cursor: pointer;
+  min-height: 52px; min-width: 0; padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(224, 181, 94, 0.22);
+  background: rgba(214, 176, 100, 0.05); color: var(--ink-secondary); font: inherit; cursor: pointer;
   transition: border-color .15s ease, background .15s ease, transform .15s ease;
 }
-.lv-react:hover { border-color: var(--stroke); color: var(--ink-primary); }
+@media (hover: hover) { .lv-react:hover { border-color: var(--gold-deep); background: var(--gold-soft); color: var(--ink-primary); } }
 .lv-react:focus-visible, .lv-star:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
 .lv-react.on {
   border-color: var(--gold); color: var(--gold-bright);
-  background: radial-gradient(circle at 50% 30%, rgba(237, 203, 122, 0.18), transparent 70%), var(--bg-card);
+  background: radial-gradient(circle at 50% 30%, rgba(237, 203, 122, 0.22), transparent 70%), rgba(214, 176, 100, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(237, 203, 122, 0.35);
 }
 .lv-react-ico { font-size: 1.25rem; line-height: 1; filter: saturate(0.85); }
 .lv-react.on .lv-react-ico { filter: none; }
-.lv-react-txt { font-size: 12px; line-height: 1.15; text-align: center; overflow-wrap: anywhere; }
+/* a palavra não parte no meio ("Desconfianç / a"): hifeniza (lang na seção) e, em barra
+   estreita (visor de documento, celular de 320), as reações vão para 2 colunas */
+.lv-react-txt { max-width: 100%; font-size: 12px; line-height: 1.15; text-align: center; overflow-wrap: normal; hyphens: auto; }
+@container (max-width: 310px) { .lv-echo-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .lv-react-n {
   position: absolute; top: 3px; right: 5px; font-size: 12px; color: var(--ink-muted); font-variant-numeric: tabular-nums;
 }
@@ -36,7 +45,7 @@
 
 .lv-star {
   display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 14px; border-radius: 999px;
-  border: 1px solid var(--stroke); background: transparent; color: var(--ink-secondary); font: inherit; font-size: 0.85rem; cursor: pointer;
+  border: 1px solid var(--gold-deep); background: rgba(214, 176, 100, 0.06); color: var(--ink-secondary); font: inherit; font-size: 0.9rem; cursor: pointer;
 }
 .lv-star span[aria-hidden] { font-size: 1.05rem; line-height: 1; }
 .lv-star.on { border-color: var(--gold); color: var(--gold-bright); background: var(--gold-soft); }

@@ -43,6 +43,14 @@ export const PULSE_MS = 2500;
 export const COMBAT_EVENT = 'forja:combat';     // {campaignId, combat}: o combate completo que voltou de uma ação
 const TV_LOCAL_TTL = 30_000;
 
+/** A faixa do turno do PC (TableBar › TurnStrip, só em Jogar a partir de 768 px) está à vista? */
+function turnStripShown() {
+  try {
+    const el = typeof document !== 'undefined' ? document.querySelector('.turn-strip') : null;
+    return !!el && el.getClientRects().length > 0;
+  } catch { return false; }
+}
+
 export const TableContext = createContext(null);
 /** A loja da mesa (null fora da casca do mestre: quem usa cai no comportamento antigo). */
 export const useTable = () => useContext(TableContext);
@@ -256,7 +264,10 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse, fullIns
       applyCombat(r?.combat);
       const s = combatSummary(r?.combat);
       if (kind === 'prev') flash(`↶ ${L(lang, 'Turno desfeito', 'Turn undone')} · ${turnLine(s, lang)}`);
-      else {
+      // Com a faixa do turno do PC à vista (Jogar, ≥ 768 px) o aviso repetia o que ela já diz —
+      // e ela tem o "↶ Voltar turno" — e caía em cima do mapa, no token de quem age. O aviso
+      // fica para o celular (a barra da mesa) e para fora de Jogar.
+      else if (!turnStripShown()) {
         flash(turnLine(s, lang), {
           action: { label: L(lang, '↶ Voltar turno', '↶ Undo turn'), onClick: () => turnRef.current('prev') },
         });

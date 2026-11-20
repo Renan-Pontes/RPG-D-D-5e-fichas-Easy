@@ -196,7 +196,10 @@ const App = () => {
   // Migração toast
   useEffect(() => {
     if (auth.migrated > 0) {
-      setToast(lang === 'pt' ? `${auth.migrated} personagem(s) migrado(s) para sua conta.` : `${auth.migrated} character(s) migrated to your account.`);
+      const n = auth.migrated;
+      setToast(lang === 'pt'
+        ? (n === 1 ? 'Seu personagem agora está na sua conta.' : `Seus ${n} personagens agora estão na sua conta.`)
+        : (n === 1 ? 'Your character is now in your account.' : `Your ${n} characters are now in your account.`));
     }
   }, [auth.migrated, lang]);
 
@@ -1053,7 +1056,11 @@ const App = () => {
           user={auth.user}
           open={userMenuOpen}
           setOpen={setUserMenuOpen}
-          onLogout={async () => { await auth.logout(); setUserMenuOpen(false); setScreen(SCREENS.HOME); }}
+          onLogout={async () => {
+            await auth.logout(); setUserMenuOpen(false); setScreen(SCREENS.HOME);
+            // Sem isto a tela inicial voltava vazia ("Nenhum herói ainda") sem explicar para onde as fichas foram.
+            setToast(lang === 'pt' ? 'Você saiu. Suas fichas continuam guardadas na conta.' : 'Logged out. Your characters stay in your account.');
+          }}
           onPlan={() => { if (screen !== SCREENS.PLAN) planFrom.current = screen; setUserMenuOpen(false); setScreen(SCREENS.PLAN); }}
           lang={lang}
         />

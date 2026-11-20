@@ -22,6 +22,7 @@
 // de cada toque (useStage); o teste mostrado vem do selo de Testes da área Jogar;
 // as últimas 5 rolagens só são buscadas quando o pulso diz que as rolagens de mesa
 // mudaram (tableRollsRev).
+import { mesaGlyph } from '../shell/MesaIcon.jsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
@@ -120,13 +121,17 @@ export default function StagePanel({ campaign, lang = 'pt', onChange, shownCheck
         {closed ? <p className="mesa-hint stage-closed-note" role="note">{L(lang, 'Campanha encerrada: a Tela fica só para ver.', 'Campaign closed: the screen is view-only.')}</p> : (
         /* Sempre os mesmos 3 botões, no mesmo lugar e da mesma altura (o rótulo diz o que fazem agora). */
         <div className="stage-ctl">
-          <button type="button" className="mesa-btn stage-ctl-btn is-undo" disabled={busy || !undo} title={undo || undefined}
+          <button type="button" className="mesa-btn stage-ctl-btn is-undo" disabled={busy || !undo}
+            title={undo || L(lang, 'Nada para desfazer', 'Nothing to undo')}
             onClick={() => act(() => stageUndo(cid), { done: L(lang, 'Desfeito ✓', 'Undone ✓') })}>
-            <span className="stage-clamp is-one">{undo || L(lang, '↶ Nada para desfazer', '↶ Nothing to undo')}</span>
+            <span className="stage-clamp is-one">{undo || L(lang, '↶ Desfazer', '↶ Undo')}</span>
+            {!undo && <span className="sr-only"> ({L(lang, 'nada para desfazer', 'nothing to undo')})</span>}
           </button>
           <button type="button" className="mesa-btn stage-ctl-btn" disabled={busy || clean}
+            title={clean ? L(lang, 'A Tela já está limpa', 'The screen is already clear') : undefined}
             onClick={() => act(() => stageClear(cid), { done: L(lang, 'Tela limpa ✓', 'Screen cleared ✓'), name: L(lang, 'só o fundo', 'background only') })}>
-            <span className="stage-clamp">🧹 {clean ? L(lang, 'Limpar: já está limpa', 'Clear: already clear') : L(lang, 'Limpar a tela', 'Clear screen')}</span>
+            <span className="stage-clamp">{L(lang, 'Limpar a Tela', 'Clear the screen')}</span>
+            {clean && <span className="sr-only"> ({L(lang, 'já está limpa', 'already clear')})</span>}
           </button>
           {now.mode === 'dark' ? (
             <button type="button" className="mesa-btn is-primary stage-ctl-btn" disabled={busy}
@@ -205,7 +210,7 @@ function RollRules({ campaign, stage, lang, onChange, readOnly = false }) {
       <ul className="stage-rule-list" aria-label={L(lang, 'O que vai à Tela', 'What goes on screen')}>
         {rows.map(row => (
           <li key={row.key} className={`stage-rule-row is-${row.key}`}>
-            <span className="stage-rule-title" id={`stage-rule-${row.key}`}><span aria-hidden="true">{row.icon}</span> {row.title}</span>
+            <span className="stage-rule-title" id={`stage-rule-${row.key}`}><span className="stage-rule-ico" aria-hidden="true">{mesaGlyph(row.icon)}</span> {row.title}</span>
             {row.options && (
               <div className="mesa-seg stage-rule-seg" role="radiogroup" aria-labelledby={`stage-rule-${row.key}`}>
                 {row.options.map(o => (

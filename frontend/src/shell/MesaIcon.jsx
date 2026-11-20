@@ -47,6 +47,20 @@ const PATHS = {
   help: <><circle cx="12" cy="12" r="10" /><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5M12 17.5h.01" /></>,
   castle: <><path d="M4 21V9l2-1V4h2v2h2V4h4v2h2V4h2v4l2 1v12z" /><path d="M10 21v-5a2 2 0 0 1 4 0v5" /></>,
   book: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>,
+  // ----- folhas, linhas de ferramenta e filtros (no lugar dos emoji coloridos)
+  monster: <><circle cx="9" cy="12" r="1" /><circle cx="15" cy="12" r="1" /><path d="M8 20v2h8v-2" /><path d="M16 20a2 2 0 0 0 1.6-3.2 8 8 0 1 0-11.2 0A2 2 0 0 0 8 20" /></>,
+  key: <><circle cx="7.5" cy="15.5" r="5.5" /><path d="m21 2-9.6 9.600M15.5 7.500l3 3L22 7l-3-3" /></>,
+  bell: <><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a2 2 0 0 0 3.4 0" /></>,
+  coins: <><circle cx="8" cy="8" r="6" /><path d="M18.1 10.400A6 6 0 1 1 10.3 18" /><path d="M7 6h1v4" /></>,
+  image: <><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.1-3.100a2 2 0 0 0-2.8 0L6 21" /></>,
+  text: <path d="M4 7V4h16v3M9 20h6M12 4v16" />,
+  link: <><path d="M10 13a5 5 0 0 0 7.5.500l3-3a5 5 0 0 0-7.1-7.100l-1.7 1.7" /><path d="M14 11a5 5 0 0 0-7.5-.500l-3 3a5 5 0 0 0 7.1 7.100l1.7-1.7" /></>,
+  star: <path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8-6.2-3.200L5.8 21 7 14.2 2 9.300l6.9-1z" />,
+  moon: <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" />,
+  cup: <><path d="M17 8h1a4 4 0 1 1 0 8h-1" /><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z" /><path d="M6 2v2M10 2v2M14 2v2" /></>,
+  flag: <><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><path d="M4 22v-7" /></>,
+  note: <><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M8 9h8M8 13h5" /></>,
+  rolls: <><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M8 8h.01M16 8h.01M12 12h.01M8 16h.01M16 16h.01" /></>,
 };
 // atalhos: o mesmo desenho com outro nome
 PATHS.map = PATHS.world;
@@ -54,6 +68,32 @@ PATHS.combat = PATHS.play;
 PATHS.checks = PATHS.table;
 PATHS.dice = PATHS.table;
 PATHS.tv = PATHS.screen;
+PATHS.scroll = PATHS.prepare;
+PATHS.gem = PATHS.items;
+
+// O emoji antigo → o desenho de linha. As folhas (MesaSheet), as linhas de Ferramentas, as abas
+// do Mostrar e os filtros da Crônica recebiam o emoji como texto: cada sistema o pinta de um
+// jeito e de uma cor, ao lado do dourado único da casca. Quem ainda manda o emoji ganha o
+// desenho por aqui; o que não está na tabela (um símbolo de uma cor só: ✚ ★ ▶ ■ ?) fica.
+const FROM_EMOJI = {
+  '🎯': 'target', '📺': 'tv', '🎲': 'dice', '🐉': 'monster', '📜': 'scroll', '🎁': 'gift', '🗝': 'key',
+  '🛠': 'tools', '🔔': 'bell', '📋': 'next', '💎': 'gem', '💰': 'coins', '📖': 'book', '🎭': 'scene',
+  '🎬': 'scene', '⚙': 'settings', '✎': 'pencil', '🖼': 'image', '📝': 'text', '🗺': 'map', '🔗': 'link',
+  '☕': 'cup', '🛌': 'moon', '🛡': 'group', '👁': 'eye', '⚔': 'combat', '⬆': 'level', '✦': 'insights',
+  '⋯': 'more', '🔒': 'lock', '♥': 'heart',
+};
+const bare = (s) => String(s).replace(/\uFE0F/g, '').trim();
+/** O nome do desenho para um nome ou um emoji conhecido; senão null. */
+export const mesaIconName = (icon) => {
+  if (typeof icon !== 'string' || !icon) return null;
+  if (Object.prototype.hasOwnProperty.call(PATHS, icon)) return icon;
+  return FROM_EMOJI[bare(icon)] || null;
+};
+/** O ícone pronto: o desenho de linha quando há um para o nome/emoji; senão o próprio texto. */
+export function mesaGlyph(icon, props) {
+  const name = mesaIconName(icon);
+  return name ? <MesaIcon name={name} {...props} /> : icon;
+}
 
 /** Há desenho para este nome? (quem recebe um id de fora cai no emoji antigo quando não há) */
 export const hasMesaIcon = (name) => Object.prototype.hasOwnProperty.call(PATHS, name);

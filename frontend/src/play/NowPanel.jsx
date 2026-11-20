@@ -463,11 +463,13 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
       <div className="tn-col tn-col-main">
         {rehearsalStrip && (
           <div className="now-rehearsal" role="note">
-            <p>{L(lang, `Ensaio · a Sessão ${nextSessionNumber(st)} não começou. O que você mostrar vai à Tela de verdade (bom para testar a TV).`, `Rehearsal · session ${nextSessionNumber(st)} hasn't started. Whatever you show goes to the real screen (good for testing the TV).`)}</p>
-            <div className="now-rehearsal-acts">
-              {goTo && <button type="button" className="mesa-btn" onClick={() => goTo('prepare', 'next')}>← {L(lang, 'Voltar ao Plano', 'Back to the Plan')}</button>}
-              <button type="button" className="mesa-btn is-primary" onClick={openStart}>▶ {L(lang, `Começar a Sessão ${nextSessionNumber(st)}`, `Start session ${nextSessionNumber(st)}`)}</button>
-            </div>
+            {/* sem um 2º "Começar a Sessão N" aqui: o da capa (dourado, logo acima) é o botão */}
+            <p>{L(lang, `Ensaio · a Sessão ${nextSessionNumber(st)} não começou. O que você mostrar vai à Tela de verdade (bom para testar a TV). Para valer, use “Começar a Sessão ${nextSessionNumber(st)}” no topo.`, `Rehearsal · session ${nextSessionNumber(st)} hasn't started. Whatever you show goes to the real screen (good for testing the TV). To play for real, use “Start session ${nextSessionNumber(st)}” at the top.`)}</p>
+            {goTo && (
+              <div className="now-rehearsal-acts">
+                <button type="button" className="mesa-btn" onClick={() => goTo('prepare', 'next')}>← {L(lang, 'Voltar ao Plano', 'Back to the Plan')}</button>
+              </div>
+            )}
           </div>
         )}
         <div className="now-actions" role="group" aria-label={L(lang, 'Ações da mesa', 'Table actions')}>
@@ -490,7 +492,7 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
           </div>
         )}
         {card || (step && (
-          <NextStepCard step={step} lang={lang} onAction={onStepAction} busy={busy === 'start' ? 'startScene' : null}
+          <NextStepCard step={step} lang={lang} onAction={onStepAction} busy={busy === 'start' ? 'startScene' : null} quiet={!live}
             onSkip={(s) => setSkips(writeSkip(campaign.id, s.id, s.sig))} />
         ))}
         {!plan && <p className="muted small">{L(lang, 'Carregando o plano…', 'Loading the plan…')}</p>}

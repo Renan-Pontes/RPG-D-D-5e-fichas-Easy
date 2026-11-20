@@ -10,6 +10,12 @@ import { listWorld } from '../world/world-api.js';
 import { kindIcon, kindLabel } from '../world/world-model.js';
 import { navSearchItems, searchItems, t } from './shell-logic.js';
 
+// Ícones de traço por tipo de resultado (antes: um emoji colorido por linha, um estilo por tipo).
+const KIND_ICON = {
+  npc: 'users', place: 'castle', faction: 'crown', item: 'key', lore: 'scroll', handout: 'mail',
+  member: 'shield', adventure: 'compass', citem: 'coins', monster: 'monster',
+};
+
 const KIND_ORDER = ['nav', 'npc', 'place', 'faction', 'item', 'lore', 'handout', 'member', 'adventure', 'citem', 'monster'];
 
 function monsterName(m, lang) {
@@ -125,7 +131,7 @@ export default function QuickSearch({ campaign, lang, isDM, onClose, onPick, ini
             <li key={r.id} id={`qs-${r.id}`} role="option" aria-selected={i === sel}
               className={`shell-search-item ${i === sel ? 'active' : ''}`}
               onMouseEnter={() => setSel(i)} onClick={() => onPick(r)}>
-              <span className="shell-search-ico" aria-hidden="true">{r.icon}</span>
+              <span className="shell-search-ico" aria-hidden="true">{KIND_ICON[r.kind] ? <Icon name={KIND_ICON[r.kind]} size={18} /> : r.icon}</span>
               <span className="shell-search-text">
                 <strong>{r.label}</strong>
                 {r.sub && <span className="muted text-xs">{r.sub}</span>}

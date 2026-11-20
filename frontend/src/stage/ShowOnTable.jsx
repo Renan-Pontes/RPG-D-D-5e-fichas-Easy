@@ -145,11 +145,11 @@ function DecideSheet({ lang, name, mode, fighting, busy, full = false, onClose, 
   const [keep, setKeep] = useState(false);
   const { buttons, keep: keepKind } = decideActions(mode, { fighting, keep, full });
   const LABEL = {
-    image: `🖼 ${L(lang, 'Mostrar só a imagem', 'Show image only')}`,
-    name: `◐ ${L(lang, 'Mostrar só o nome', 'Show name only')}`,
-    reveal: `👁 ${L(lang, 'Revelar e mostrar', 'Reveal and show')}`,
-    show: `📺 ${L(lang, 'Mostrar por cima do combate', 'Show over the combat')}`,
-    full: `🖼 ${L(lang, 'Só a imagem (tela cheia)', 'Image only (full screen)')}`,
+    image: L(lang, 'Mostrar só a imagem', 'Show image only'),
+    name: L(lang, 'Mostrar só o nome', 'Show name only'),
+    reveal: L(lang, 'Revelar e mostrar', 'Reveal and show'),
+    show: L(lang, 'Mostrar por cima do combate', 'Show over the combat'),
+    full: L(lang, 'Só a imagem (tela cheia)', 'Image only (full screen)'),
     keep: L(lang, 'Guardar para depois do combate', 'Keep for after combat'),
   };
   const press = (b) => {
@@ -158,7 +158,7 @@ function DecideSheet({ lang, name, mode, fighting, busy, full = false, onClose, 
     return onShow(b.focus);
   };
   return (
-    <MesaSheet title={name || L(lang, 'Mostrar na Tela', 'Show on screen')} icon="📺" size="auto" width="sm" lang={lang} dock="play"
+    <MesaSheet title={name ? L(lang, `Mostrar ${name} na Tela`, `Show ${name} on screen`) : L(lang, 'Mostrar na Tela', 'Show on screen')} icon="tv" size="auto" width="sm" lang={lang} dock="play"
       onClose={onClose} className="sot-sheet"
       footer={(
         <div className="sot-foot">
@@ -174,12 +174,12 @@ function DecideSheet({ lang, name, mode, fighting, busy, full = false, onClose, 
               {LABEL[b.id]}
             </button>
           ))}
-          <button type="button" className="mesa-btn is-quiet" disabled={busy} onClick={onClose}>{L(lang, 'Cancelar', 'Cancel')}</button>
+          <button type="button" className="mesa-btn is-quiet sot-cancel" disabled={busy} onClick={onClose}>{L(lang, 'Cancelar', 'Cancel')}</button>
         </div>
       )}>
       {mode === 'image' && (
         <>
-          <p className="mesa-sheet-text">{L(lang, 'Oculto no Mundo: a Tela mostra só a imagem; os jogadores não aprendem o nome.', "Hidden in the World: the screen shows only the image; players don't learn the name.")}</p>
+          <p className="mesa-sheet-text">{L(lang, 'O cartão está oculto: a Tela mostra só a imagem, sem o nome.', 'The card is hidden: the screen shows only the image, without the name.')}</p>
           <label className="mesa-field">
             <span className="mesa-field-label">{L(lang, 'Legenda (opcional)', 'Caption (optional)')}</span>
             <input className="input" value={caption} maxLength={CAPTION_MAX} onChange={e => setCaption(e.target.value)}
@@ -188,12 +188,12 @@ function DecideSheet({ lang, name, mode, fighting, busy, full = false, onClose, 
         </>
       )}
       {mode === 'name' && (
-        <p className="mesa-sheet-text">{L(lang, 'Oculto no Mundo e sem imagem. "Só o nome" deixa os jogadores verem o nome e a frase do cartão.', 'Hidden in the World and without an image. "Name only" lets players see the card\'s name and tagline.')}</p>
+        <p className="mesa-sheet-text">{L(lang, 'O cartão está oculto e sem imagem: os jogadores vão ver só o nome e a frase.', 'The card is hidden and has no image: players will see only the name and the tagline.')}</p>
       )}
       {fighting && (
         <p className="mesa-sheet-text">{keepKind === 'toggle'
-          ? L(lang, 'Há um combate na Tela. Isto vai por cima, grande, com a tarja do turno; marcando "Guardar para depois do combate", espera o combate acabar (revelar continua sendo só o botão que diz revelar).', 'There is a combat on screen. This goes over it, full size, with the turn banner; ticking "Keep for after combat" makes it wait for the combat to end (revealing is still only the button that says reveal).')
-          : L(lang, 'Há um combate na Tela. Isto vai por cima, grande, com a tarja do turno; ⚔ Voltar ao combate tira.', 'There is a combat on screen. This goes over it, full size, with the turn banner; ⚔ Back to combat removes it.')}</p>
+          ? L(lang, 'Há um combate na Tela: isto aparece por cima, com a tarja do turno. Para esperar o combate acabar, marque “Guardar para depois do combate”.', 'There is a combat on screen: this shows over it, with the turn banner. To wait for the combat to end, tick “Keep for after combat”.')
+          : L(lang, 'Há um combate na Tela: isto aparece por cima, com a tarja do turno. “Voltar ao combate” tira.', 'There is a combat on screen: this shows over it, with the turn banner. “Back to combat” removes it.')}</p>
       )}
     </MesaSheet>
   );

@@ -8,7 +8,7 @@ import useMyPlan from '../plans/useMyPlan.js';
 import { openMyPlan } from '../plans/plans-api.js';
 import { newCharacter, finalizeCharacter, loadDraft, saveDraft, clearDraft, saveErrorMessage, joinPatch, creationJoin } from './creation.js';
 import { L, IssueList } from './ui.jsx';
-import { CHAPTERS, chapterIndexOf, journeyChapters } from './journey.js';
+import { chapterIndexOf, journeyChapters, displayChapter } from './journey.js';
 import { scarLine } from './chronicle.js';
 import { classChangeNotice } from './class-helpers.js';
 import { DecisionContext, JourneyMap, TitleCard, HeroPanel, Chronicle, MiniHero, HoldButton, Reveal, Forge, FORGE_MS, prefersReduced } from './journey-ui.jsx';
@@ -118,7 +118,7 @@ export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = nu
   const chapterRef = useRef(chapterIndexOf(stepId, steps));
   useEffect(() => {
     const ci = chapterIndexOf(stepId, steps);
-    if (ci > chapterRef.current && ci > 0 && !prefersReduced()) setTitleChapter(CHAPTERS[ci]);
+    if (ci > chapterRef.current && ci > 0 && !prefersReduced()) setTitleChapter(displayChapter(ci, steps));
     chapterRef.current = ci;
   }, [stepId]); // eslint-disable-line react-hooks/exhaustive-deps
   // Selar e avançar: anda uma etapa depois que as etapas se recalculam com a escolha.
@@ -260,7 +260,7 @@ export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = nu
       <div className={`cr-shell ${sideOpen ? 'side-open' : ''}`}>
       <div className="cr-stage" inert={overlay ? '' : undefined}>
       {chapter && (
-        <header className="cr-chapter-head" ref={headRef} tabIndex={-1}>
+        <header className={`cr-chapter-head${chapter.steps[0]?.i === index ? '' : ' is-sub'}`} ref={headRef} tabIndex={-1}>
           <div className="eyebrow">{chapter.num[lang] || chapter.num.pt} · {step.title[lang]} · <span className="cr-step-count">{L(lang, `Etapa ${index + 1} de ${steps.length}`, `Step ${index + 1} of ${steps.length}`)}</span></div>
           <div className="cr-chapter-title cr-foil">{chapter.title[lang] || chapter.title.pt}</div>
           <p className="cr-narr">{chapter.narr[lang] || chapter.narr.pt}</p>

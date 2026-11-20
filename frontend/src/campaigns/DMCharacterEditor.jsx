@@ -43,6 +43,18 @@ function defaultSlotsFor(className, level, subclass) {
   return [...slots, ...Array(9 - slots.length).fill(0)];
 }
 
+/**
+ * As opções de um campo de identidade (classe, espécie, antecedente): o NOME traduzido na
+ * tela, o id nos dados. Antes eram campos de texto "Classe (id): druid": o mestre que
+ * escrevia "Druida" gravava um id que a ficha não resolve. Um valor que não está na lista
+ * (ficha antiga, conteúdo próprio) continua lá, marcado, para nada se perder ao salvar.
+ */
+function identityOptions(list, value, lang) {
+  const out = list.map(o => ({ id: o.id, name: o.name })).sort((a, b) => a.name.localeCompare(b.name, lang === 'pt' ? 'pt-BR' : 'en'));
+  if (value && !out.some(o => o.id === value)) out.unshift({ id: value, name: `${value} ${t(lang, '(fora da lista)', '(not on the list)')}` });
+  return out;
+}
+
 const ordinal = (n, lang) => (lang === 'pt' ? `${n}º` : `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`);
 /** Mesmo valor (ausente = null), para saber se o formulário mudou de verdade. */
 const sameValue = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -217,7 +229,7 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved, i
             <Section title={t(lang, 'Combate', 'Combat')}>
               <div className="dm-num-grid">
                 <NumInput lang={lang} label={t(lang, 'Bônus extra de CA', 'Extra AC bonus')} value={data.extraAcBonus} onChange={v => patch({ extraAcBonus: v })} />
-                <NumInput lang={lang} label={t(lang, 'Deslocamento fixo (0 = automático)', 'Speed override (0 = automatic)')} value={data.speedOverride} onChange={v => patch({ speedOverride: v })} />
+                <NumInput lang={lang} label={t(lang, 'Deslocamento fixo', 'Speed override')} hint={t(lang, '0 = automático', '0 = automatic')} value={data.speedOverride} onChange={v => patch({ speedOverride: v })} />
               </div>
               <div className="dm-toggle-grid">
                 <ToggleRow label={t(lang, 'Inspiração', 'Inspiration')} value={!!data.inspiration} onChange={v => patch({ inspiration: v })} />
@@ -331,10 +343,19 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved, i
                 <NumInput lang={lang} label="XP" value={data.xp} onChange={v => patch({ xp: v })} />
               </div>
               <div className="dm-text-grid">
-                <TextInput label={t(lang, 'Classe (id)', 'Class (id)')} value={data.className} onChange={v => patch({ className: v })} />
-                <TextInput label={t(lang, 'Subclasse (id)', 'Subclass (id)')} value={data.subclass} onChange={v => patch({ subclass: v })} />
-                <TextInput label={t(lang, 'Espécie (id)', 'Species (id)')} value={data.race} onChange={v => patch({ race: v })} />
-                <TextInput label={t(lang, 'Antecedente (id)', 'Background (id)')} value={data.background} onChange={v => patch({ background: v })} />
+                <SelectInput label={t(lang, 'Classe', 'Class')} value={data.className} empty={t(lang, 'Sem classe', 'No class')}
+                  options={identityOptions(SRD.CLASSES.map(c => ({ id: c.id, name: tName('class', c.id, lang) })), data.className, lang)}
+                  /* a subclasse é da classe: trocando a classe, uma subclasse que não é dela sai */
+                  onChange={v => patch(v === data.className ? {} : { className: v, ...((SRD.SUBCLASSES[v] || []).some(s => s.id === data.subclass) ? {} : { subclass: '' }) })} />
+                <SelectInput label={t(lang, 'Subclasse', 'Subclass')} value={data.subclass} empty={t(lang, 'Sem subclasse', 'No subclass')}
+                  options={identityOptions((SRD.SUBCLASSES[data.className] || []).map(s => ({ id: s.id, name: s.name?.[lang] || s.name?.pt || s.id })), data.subclass, lang)}
+                  onChange={v => patch({ subclass: v })} />
+                <SelectInput label={t(lang, 'Espécie', 'Species')} value={data.race} empty={t(lang, 'Sem espécie', 'No species')}
+                  options={identityOptions(SRD.RACES.map(r => ({ id: r.id, name: tName('race', r.id, lang) })), data.race, lang)}
+                  onChange={v => patch({ race: v })} />
+                <SelectInput label={t(lang, 'Antecedente', 'Background')} value={data.background} empty={t(lang, 'Sem antecedente', 'No background')}
+                  options={identityOptions(SRD.BACKGROUNDS.map(b => ({ id: b.id, name: tName('background', b.id, lang) })), data.background, lang)}
+                  onChange={v => patch({ background: v })} />
               </div>
             </Section>
             <details className="dm-override-section">
@@ -419,12 +440,17 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved, i
             <Section title={t(lang, 'Tesouro / notas', 'Treasure / notes')}>
               <TextArea label={t(lang, 'Tesouro / notas', 'Treasure / notes')} hideLabel rows={4} value={data.treasure} onChange={v => patch({ treasure: v })} />
             </Section>
-            <Section title={t(lang, 'Equipamento (texto livre)', 'Equipment (free text)')}>
+            <Section title={t(lang, 'Equipamento', 'Equipment')}>
               <p className="dm-editor-note">
-                {t(lang, 'Só leitura. Para entregar itens use "Dar item" no card do jogador.', 'Read only. To hand out items use "Give item" on the player card.')}
+                {t(lang, 'Só leitura: é o que está na ficha. Para entregar itens use "Dar item" no cartão do jogador.', 'Read only: it is what the sheet holds. To hand out items use "Give item" on the player card.')}
               </p>
-              <TextArea label={t(lang, 'Equipamento (texto livre)', 'Equipment (free text)')} hideLabel rows={6} readOnly
-                value={Array.isArray(data.equipment) ? data.equipment.map(it => typeof it === 'string' ? it : `${it.name || '?'}${it.qty ? ` ×${it.qty}` : ''}${it.broken ? (lang === 'en' ? ' (broken)' : ' (quebrado)') : ''}${it.notes ? ' — ' + it.notes : ''}`).join('\n') : (data.equipment || '')} />
+              {(() => {
+                const text = Array.isArray(data.equipment) ? data.equipment.map(it => typeof it === 'string' ? it : `${it.name || '?'}${it.qty ? ` ×${it.qty}` : ''}${it.broken ? (lang === 'en' ? ' (broken)' : ' (quebrado)') : ''}${it.notes ? ' — ' + it.notes : ''}`).join('\n') : (data.equipment || '');
+                const lines = String(text || '').split('\n').map(x => x.trim()).filter(Boolean);
+                return lines.length > 0
+                  ? <ul className="dm-readonly-list">{lines.map((line, i) => <li key={i}>{line}</li>)}</ul>
+                  : <p className="dm-readonly-empty">{t(lang, 'Nenhum equipamento anotado.', 'No equipment written down.')}</p>;
+              })()}
             </Section>
           </>
         )}
@@ -495,7 +521,7 @@ function Section({ title, children, className = '' }) {
 }
 
 /** Campo numérico com rótulo visível em cima; `stepper` põe − e + de 44 px dos lados. */
-function NumInput({ label, value, onChange, min = -999, max = 9999, stepper, lang }) {
+function NumInput({ label, value, onChange, min = -999, max = 9999, stepper, lang, hint }) {
   const id = useId();
   const v = value ?? 0;
   const clamp = (n) => Math.max(min, Math.min(max, n));
@@ -510,12 +536,14 @@ function NumInput({ label, value, onChange, min = -999, max = 9999, stepper, lan
         {/* inputmode=numeric só quando o campo não aceita negativo: no iPhone esse
             teclado não tem o "−" (Bônus extra de CA −1, por exemplo) */}
         <input id={id} type="number" className="input" min={min} max={max} inputMode={min >= 0 ? 'numeric' : undefined}
+          aria-describedby={hint ? `${id}-hint` : undefined}
           value={v} onChange={e => onChange(parseInt(e.target.value) || 0)} />
         {stepper && (
           <button type="button" className="dm-step" disabled={v >= max}
             aria-label={t(lang, `Aumentar ${label}`, `Increase ${label}`)} onClick={() => onChange(clamp((parseInt(v) || 0) + 1))}>+</button>
         )}
       </div>
+      {hint && <span className="dm-field-hint" id={`${id}-hint`}>{hint}</span>}
     </div>
   );
 }
@@ -526,6 +554,20 @@ function TextInput({ label, value, onChange }) {
     <div className="dm-field dm-text-field">
       <label className="dm-field-label" htmlFor={id}>{label}</label>
       <input id={id} className="input" value={value || ''} onChange={e => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+/** Lista fechada (classe, espécie, antecedente): mostra o nome, grava o id. */
+function SelectInput({ label, value, options, onChange, empty }) {
+  const id = useId();
+  return (
+    <div className="dm-field dm-text-field">
+      <label className="dm-field-label" htmlFor={id}>{label}</label>
+      <select id={id} className="input dm-select" value={value || ''} onChange={e => onChange(e.target.value)}>
+        <option value="">{empty}</option>
+        {options.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+      </select>
     </div>
   );
 }

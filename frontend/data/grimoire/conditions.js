@@ -1,11 +1,15 @@
-/* Grimório — Condições. Texto original; `srd` = citação literal do SRD 5.2.1 (CC-BY 4.0). */
+/* Grimório — Condições. Texto original; `srd` = citação literal do SRD 5.2.1 (CC-BY 4.0).
+ * A linha curta de cada condição (`short` / `short2014`, usada na ficha) fica em
+ * ./condition-shorts.js e é anexada ao artigo no fim deste arquivo. */
+import { CONDITION_SHORTS } from './condition-shorts.js';
+
 const SHEET = (pt, en) => ({
-  pt: `Aba Jogar → Condições e efeitos → + Condição → ${pt}. Toque no chip ativo para remover.`,
-  en: `Play tab → Conditions & effects → + Condition → ${en}. Tap the active chip to remove it.`,
+  pt: `Aba Jogar → Vitalidade → + Condição → ${pt}. Toque no ✕ da condição ativa para remover.`,
+  en: `Play tab → Vitality → + Condition → ${en}. Tap the ✕ on the active condition to remove it.`,
 });
 const REF = 'SRD 5.2.1 — Rules Glossary';
 
-export default [
+const ARTICLES = [
   {
     id: 'condicoes',
     aliases: ['conditions', 'condition'],
@@ -20,8 +24,8 @@ export default [
       en: 'Kael is Poisoned by one spider (1 minute) and, next turn, by another (1 hour). He isn\'t "double poisoned": he just keeps Disadvantage until the hour runs out or he\'s cured.',
     },
     sheet: {
-      pt: 'Aba Jogar → painel "Condições e efeitos": + Condição abre os 15 chips; efeitos personalizados (ex.: Bênção, 1 min) podem ser adicionados com duração.',
-      en: 'Play tab → "Conditions & effects" panel: + Condition opens the 15 chips; custom effects (e.g. Bless, 1 min) can be added with a duration.',
+      pt: 'Aba Jogar → Vitalidade → + Condição abre as 15 condições, cada uma com o efeito em uma linha; efeitos personalizados (ex.: Bênção, 1 min) entram com duração. A condição ativa aparece na lista de estados com o que ela faz, e a ficha marca onde ela pesa (ataques, atributos, deslocamento) sem mudar nenhum número.',
+      en: 'Play tab → Vitality → + Condition opens the 15 conditions, each with its effect in one line; custom effects (e.g. Bless, 1 min) can be added with a duration. An active condition shows in the status list with what it does, and the sheet marks where it bites (attacks, abilities, Speed) without changing any number.',
     },
     srd: {
       text: 'A condition doesn’t stack with itself; a recipient either has a condition or doesn’t. The Exhaustion condition is an exception to that rule.',
@@ -107,8 +111,8 @@ export default [
       en: 'After two days of forced march, Brunna has Exhaustion 2: she attacks at d20 + 6 − 4 and moves 30 − 10 = 20 ft. She rolls 15 → 17 vs AC 16: a narrow hit. After a Long Rest she drops to Exhaustion 1.',
     },
     sheet: {
-      pt: 'Aba Jogar → Condições e efeitos → + Condição → Exausto. A ficha não conta os níveis: anote o nível como efeito personalizado (ex.: "Exaustão 2") e subtraia das rolagens.',
-      en: 'Play tab → Conditions & effects → + Condition → Exhausted. The sheet doesn\'t track levels: note the level as a custom effect (e.g. "Exhaustion 2") and subtract it from your rolls.',
+      pt: 'Aba Jogar → Vitalidade → barra Exaustão: toque no nível (1 a 6). A ficha mostra o nível e lembra a penalidade; os números das rolagens não mudam sozinhos.',
+      en: 'Play tab → Vitality → Exhaustion bar: tap the level (1 to 6). The sheet shows the level and reminds you of the penalty; roll numbers don\'t change on their own.',
     },
     versions: {
       pt: 'Em 2014 cada nível tinha um efeito próprio: 1 desvantagem em testes de atributo; 2 deslocamento pela metade; 3 desvantagem em ataques e salvaguardas; 4 PV máximo pela metade; 5 deslocamento 0; 6 morte. Em 2024 virou a penalidade simples de −2 por nível nos Testes de d20 e −1,5 m (5 ft) de deslocamento por nível.',
@@ -361,8 +365,8 @@ export default [
       en: 'Mirela drops to 0 HP and is Unconscious. A goblin next to her attacks and hits: it\'s a crit, so she suffers 2 death save failures at once.',
     },
     sheet: {
-      pt: 'Aba Jogar → Condições e efeitos → + Condição → Inconsciente. O descanso longo remove essa condição automaticamente.',
-      en: 'Play tab → Conditions & effects → + Condition → Unconscious. A long rest removes this condition automatically.',
+      pt: 'Aba Jogar → Vitalidade → + Condição → Inconsciente. O descanso longo remove essa condição automaticamente.',
+      en: 'Play tab → Vitality → + Condition → Unconscious. A long rest removes this condition automatically.',
     },
     srd: {
       text: 'Inert. You have the Incapacitated and Prone conditions, and you drop whatever you’re holding. When this condition ends, you remain Prone.',
@@ -372,3 +376,5 @@ export default [
     related: ['zero-pv', 'testes-contra-a-morte', 'nocautear', 'prono', 'incapacitado', 'acerto-critico'],
   },
 ];
+
+export default ARTICLES.map(a => (CONDITION_SHORTS[a.id] ? { ...a, ...CONDITION_SHORTS[a.id] } : a));

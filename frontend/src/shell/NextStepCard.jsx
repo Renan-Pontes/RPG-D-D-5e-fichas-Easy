@@ -19,7 +19,9 @@ import './mesa.css';
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 const SETTLE_MS = 400;
 
-export default function NextStepCard({ step, lang, onAction, onSkip, busy = null, children }) {
+// `quiet`: a ação sai contornada (a vista já tem o seu botão dourado: o "Começar a Sessão" da
+// capa no ensaio da Agora). Um dourado por vista.
+export default function NextStepCard({ step, lang, onAction, onSkip, busy = null, quiet = false, children }) {
   const [help, setHelp] = useState(false);
   const [freshAt, setFreshAt] = useState(0);
   const openGuide = useArea()?.openGuide;
@@ -68,7 +70,7 @@ export default function NextStepCard({ step, lang, onAction, onSkip, busy = null
       )}
       {children || (
         <div className="next-card-actions">
-          <button type="button" className="mesa-btn mesa-btn-lg is-primary" disabled={busy === step.action.id}
+          <button type="button" className={`mesa-btn mesa-btn-lg ${quiet ? '' : 'is-primary'}`.trim()} disabled={busy === step.action.id}
             onClick={guard(() => onAction(step.action.id, step))}>
             {busy === step.action.id ? '…' : step.action.label}
           </button>

@@ -197,3 +197,21 @@ test('o caminho adiante 2014: subclasse, Ataque Extra e Estilo de Luta (sem repe
     }
   }
 });
+
+test('numeração dos capítulos segue os que aparecem: quem não conjura vê I a VI, sem saltar o VI', async () => {
+  const { chapterNumbering, displayChapter } = await import('../src/creator/journey.js');
+  const S = (...ids) => ids.map(id => ({ id, title: { pt: id, en: id } }));
+  const caster = S('welcome', 'class', 'skills', 'background', 'species', 'abilities', 'equipment', 'cantrips', 'spells', 'alignment', 'details', 'review');
+  const martial = caster.filter(s => s.id !== 'cantrips' && s.id !== 'spells');
+  assert.deepEqual(chapterNumbering(caster).map(n => n.numeral), ['✦', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', '⚒']);
+  assert.deepEqual(chapterNumbering(martial).map(n => n.numeral), ['✦', 'I', 'II', 'III', 'IV', 'V', '', 'VI', '⚒']);
+  // O mapa e o cabeçalho usam o mesmo número; o capítulo sem etapas fica de fora.
+  const map = journeyChapters({ steps: martial, index: martial.findIndex(s => s.id === 'alignment') });
+  assert.deepEqual(map.filter(c => !c.skip).map(c => c.numeral), ['✦', 'I', 'II', 'III', 'IV', 'V', 'VI', '⚒']);
+  const oath = map.find(c => c.id === 'oath');
+  assert.equal(oath.now, true);
+  assert.deepEqual(oath.num, { pt: 'Capítulo VI', en: 'Chapter VI' });
+  assert.deepEqual(displayChapter(CHAPTERS.findIndex(c => c.id === 'oath'), caster).num, { pt: 'Capítulo VII', en: 'Chapter VII' });
+  assert.equal(displayChapter(0, martial).num.pt, 'Prólogo');
+  assert.equal(displayChapter(CHAPTERS.length - 1, martial).num.pt, 'Epílogo');
+});

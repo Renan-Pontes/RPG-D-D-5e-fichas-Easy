@@ -112,13 +112,14 @@ test('Ações no canto superior direito do painel (Cheat -> Edit -> Export) e de
   assert.match(css, /\.ficha \.fh-hero-tools/);
 });
 
-test('Perícias padrão parcialmente recolhidas: expõem apenas perícias treinadas divergentes do baseline', () => {
+test('Perícias: as 18 à vista ao abrir a aba; um grupo dobrado continua expondo as perícias treinadas', () => {
   const sheetSrc = read('../components/Sheet.jsx');
 
-  // Todas as 5 categorias de ações começam collapsed = true
-  assert.match(sheetSrc, /const \[collapsed, setCollapsed\] = useState\(\{\s*search:\s*true,\s*hide:\s*true,\s*influence:\s*true,\s*study:\s*true,\s*tools:\s*true,\s*\}\);/);
+  // (rodada de UX das abas) os grupos de ação começam ABERTOS: antes 13 das 18 perícias
+  // ficavam escondidas e o jogador tinha de adivinhar o grupo (Atletismo em "Furtividade")
+  assert.match(sheetSrc, /const \[collapsed, setCollapsed\] = useState\(\(\) => \(\{\s*search: false, hide: false, influence: false, study: false, tools: false,/);
 
-  // trainedSkills filtra proficientes que não tenham os mesmos números do consolidado
-  assert.match(sheetSrc, /const isDisclosedOnConsolidatedPanel = \(sk\.passive === grp\.baselinePassive && sk\.bonusStr === grp\.baselineBonusStr\);/);
-  assert.match(sheetSrc, /return !isDisclosedOnConsolidatedPanel;/);
+  // dobrado, o grupo mostra as perícias treinadas (linhas que rolam) e cita as demais em texto
+  assert.match(sheetSrc, /const trainedSkills = \(grp\.skills \|\| \[\]\)\.filter\(sk => Utils\.hasSkillProf\(char, sk\.id\)/);
+  assert.match(sheetSrc, /\(isFolded \? trainedSkills : grp\.skills\)\.map\(skillRow\)/);
 });

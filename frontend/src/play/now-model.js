@@ -13,6 +13,7 @@
 // - O relógio da sessão ("1h05", calculado no aparelho, 0 byte no servidor).
 import { realScene, sceneParts } from '../prep/next-session.js';
 import { summarize } from '../checks/check-logic.js';
+import { endedKey } from '../combat/encounter-setup.js';
 
 const tt = (lang, pt, en) => (lang === 'en' ? en : pt);
 const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
@@ -46,13 +47,13 @@ export function scenePosition(plan, id) {
 }
 
 /**
- * O combate parado foi encerrado (a última entrada do registro é o fim) e ninguém mexeu nele
- * depois: a Agora não o mostra como "Combate montado, parado" (ele está no Combate, que tem o
- * Recomeçar).
+ * O combate parado foi encerrado e nada foi montado depois do fim: a Agora não o mostra como
+ * "Combate montado, parado" (ele está no Combate, que tem o Recomeçar). A mesma regra do
+ * Combate (`endedKey`): curar ou dar dano depois da luta não desfaz o "encerrado"; pôr um
+ * monstro novo ou começar de novo, sim.
  */
 export function combatEnded(combat) {
-  const log = Array.isArray(combat?.log) ? combat.log : [];
-  return !combat?.active && log.length > 0 && log[log.length - 1]?.type === 'end';
+  return !combat?.active && endedKey(combat?.log) != null;
 }
 
 /** A 1ª cena que ainda não foi feita (J4, "Comece pela primeira cena"). */

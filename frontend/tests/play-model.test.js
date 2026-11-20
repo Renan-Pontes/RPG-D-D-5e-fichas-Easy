@@ -401,6 +401,8 @@ test('combatEnded: o encerrado (fim por último no registro) não volta à Agora
   assert.equal(combatEnded({ active: false, log: [{ type: 'start' }, { type: 'damage' }, { type: 'end' }] }), true);
   // montado depois do fim (monstro novo): é o combate de agora, parado
   assert.equal(combatEnded({ active: false, log: [{ type: 'end' }, { type: 'add_combatant' }] }), false);
+  // curar depois da luta não desfaz o "encerrado" (a mesma regra do Combate)
+  assert.equal(combatEnded({ active: false, log: [{ type: 'start' }, { type: 'end' }, { type: 'hp_set' }] }), true);
   assert.equal(combatEnded({ active: true, log: [{ type: 'end' }] }), false);
   assert.equal(combatEnded({ active: false, log: [] }), false);
   assert.equal(combatEnded(null), false);

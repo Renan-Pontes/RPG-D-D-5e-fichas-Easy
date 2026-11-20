@@ -175,11 +175,12 @@ export function forkPlanNote(my, list, c, lang = 'pt') {
   const fam = familyOf(list, c).filter(isFork).length;
   const used = my?.usage?.characters, max = my?.limits?.characters;
   if (used == null || max == null) {
-    return { text: en ? 'Each version counts as one character on your plan.' : 'Cada versão conta como uma ficha do seu plano.', atLimit: false };
+    return { text: en ? 'Each copy counts as one character on your plan.' : 'Cada cópia conta como uma ficha do seu plano.', atLimit: false };
   }
   const atLimit = used >= max;
-  const famTxt = fam ? (en ? ` · ${fam} ${fam === 1 ? 'is a version' : 'are versions'} of this character` : ` · ${fam} ${fam === 1 ? 'é versão' : 'são versões'} deste personagem`) : '';
-  const base = en ? `Each version counts as one character on your plan: ${used} of ${max} in use${famTxt}.` : `Cada versão conta como uma ficha do seu plano: ${used} de ${max} em uso${famTxt}.`;
-  const tail = atLimit ? (en ? ' The plan is full: a new version needs a free slot (or a seat from the GM at the table).' : ' O plano está cheio: uma versão nova precisa de vaga livre (ou de uma vaga do mestre na mesa).') : '';
+  // na tela é "cópia" (a palavra "versão" saiu do app; no código continua modelo/versão)
+  const famTxt = fam ? (en ? ` · ${fam} ${fam === 1 ? 'is a copy' : 'are copies'} of this character` : ` · ${fam} ${fam === 1 ? 'é cópia' : 'são cópias'} deste personagem`) : '';
+  const base = en ? `Each copy counts as one character on your plan: ${used} of ${max} in use${famTxt}.` : `Cada cópia conta como uma ficha do seu plano: ${used} de ${max} em uso${famTxt}.`;
+  const tail = atLimit ? (en ? ' The plan is full: a new copy needs a free slot (or a seat from the GM at the table).' : ' O plano está cheio: uma cópia nova precisa de vaga livre (ou de uma vaga do mestre na mesa).') : '';
   return { text: base + tail, atLimit };
 }

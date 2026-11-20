@@ -114,6 +114,13 @@
 .snc-fold strong { font-family: var(--display); color: var(--gold-bright); }
 .snc-fold-acts { flex: none; display: flex; align-items: center; gap: 4px; }
 .snc-go.mesa-btn { min-height: 44px; padding: 6px 10px; font-size: 0.8rem; }
+/* celular: o nome numa linha (cortada) e o botão na linha toda embaixo — ao lado do botão o
+   nome da cena quebrava em 4 linhas */
+@media (max-width: 480px) {
+  .snc.is-folded { flex-direction: column; align-items: stretch; gap: 6px; padding: 8px 8px 8px 12px; }
+  .snc.is-folded .snc-fold { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .snc.is-folded .snc-fold-acts .snc-go { flex: 1 1 auto; justify-content: center; }
+}
 
 /* ---------------------------------------------------------- cenas do plano (chips) */
 .now-scenes { display: flex; flex-direction: column; gap: 6px; }
@@ -136,7 +143,8 @@
 .now-tools-list { display: flex; flex-direction: column; }
 .now-tool.mesa-row { min-height: 56px; }
 .now-tool:disabled { opacity: 0.45; cursor: not-allowed; }
-.now-tool-ico { flex: none; width: 32px; text-align: center; font-size: 1.2rem; }
+.now-tool-ico { flex: none; width: 32px; text-align: center; font-size: 1.2rem; color: var(--gold); }
+.now-tool:disabled .now-tool-ico { color: var(--ink-muted); }
 .now-tool-toggle { margin-top: 8px; }
 
 /* ---------------------------------------------------------- ✎ Sessão, cena e clima */
@@ -195,8 +203,7 @@
 .ess-what-mark { flex: none; width: 1.1em; text-align: center; color: var(--gold); }
 .ess-foot .ess-ends { display: flex; flex-direction: column; gap: 8px; }
 .ess-foot .ess-ends > .mesa-btn { width: 100%; min-height: 48px; }
-@media (min-width: 768px) {
-  .ess-foot { flex-wrap: wrap; }
-  .ess-foot .ess-ends { flex-direction: row; margin-left: auto; }
-  .ess-foot .ess-ends > .mesa-btn { width: auto; }
-}
+/* PC: os 3 botões não cabem numa fila na folha (quebravam em escada); empilhados na largura
+   toda, como no celular: Continuar jogando · Encerrar · Encerrar e escrever o resumo (dourado, por último) */
+.ess-foot.mesa-actions { flex-direction: column; align-items: stretch; flex-wrap: nowrap; }
+.ess-foot.mesa-actions > .mesa-btn { width: 100%; min-height: 48px; }

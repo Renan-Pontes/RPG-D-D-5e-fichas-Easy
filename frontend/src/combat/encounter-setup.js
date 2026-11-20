@@ -239,3 +239,22 @@ export function legacyBodies({ groups = [], members = [], combatants = [], map =
   });
   return out;
 }
+
+/**
+ * A chave do combate ENCERRADO que ainda está na lista, ou null. Vale enquanto, no registro,
+ * o último `end` vier depois do último `start` e nada tiver sido montado depois dele
+ * (`add_combatant`, `encounter`). Curar, dar dano, pôr condição ou tirar alguém depois do fim
+ * NÃO desfaz o "Encerrado" (antes só valia enquanto o `end` fosse a última linha, e a página
+ * voltava a "Montado, ainda não começou" na primeira cura). A chave usa o `ts` do `end`
+ * (o registro é cortado em 100 linhas: o índice muda, o `ts` não).
+ */
+const SETUP_AGAIN = new Set(['start', 'add_combatant', 'encounter']);
+export function endedKey(log) {
+  const list = Array.isArray(log) ? log : [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const type = list[i]?.type;
+    if (SETUP_AGAIN.has(type)) return null;
+    if (type === 'end') return `end:${list[i].ts || i}`;
+  }
+  return null;
+}

@@ -6,6 +6,7 @@
 // V8: o combate que veio de uma sala (combat.map.scene, gravado pelo POST /encounter)
 // mostra o tesouro dela no passo Tesouro, com "🎁 Entregar o tesouro da cena" (a mesma
 // folha do "Na mesa" das Aventuras). A sala é lida 1 vez, quando o painel abre.
+import MesaIcon from '../shell/MesaIcon.jsx';
 import { errorMessage } from '../api/errors.js';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
@@ -78,7 +79,7 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
   const footer = (
     <div className="mesa-actions">
       {onGoNow && (
-        <button type="button" className="mesa-btn mesa-btn-lg eoe-go-now" onClick={onGoNow}>🎭 {L(lang, 'Ir para a Agora', 'Go to Now')}</button>
+        <button type="button" className="mesa-btn mesa-btn-lg eoe-go-now" onClick={onGoNow}><MesaIcon name="scene" /> {L(lang, 'Ir para a Agora', 'Go to Now')}</button>
       )}
       <button type="button" className="mesa-btn mesa-btn-lg is-primary eoe-done" onClick={onClose}>✓ {L(lang, 'Pronto', 'Done')}</button>
     </div>
@@ -98,7 +99,7 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
           <li key={id} className={`eoe-step ${done[id] ? 'is-done' : ''}`}>
             {id === 'xp' && (
               <>
-                <div className="eoe-step-title">✦ {L(lang, 'Dar XP', 'Award XP')}</div>
+                <div className="eoe-step-title"><MesaIcon name="star" /> {L(lang, 'Dar XP', 'Award XP')}</div>
                 <div className="eoe-row">
                   <input className="input eoe-xp" type="number" min="1" inputMode="numeric" value={xpAmount}
                     onChange={e => setXpAmount(e.target.value)} aria-label="XP" />
@@ -126,7 +127,7 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
             )}
             {id === 'shortRest' && (
               <>
-                <div className="eoe-step-title">☕ {L(lang, 'Descanso curto', 'Short rest')}</div>
+                <div className="eoe-step-title"><MesaIcon name="cup" /> {L(lang, 'Descanso curto', 'Short rest')}</div>
                 <div className="eoe-row">
                   <button type="button" className="mesa-btn" disabled={!!busy || !!done.shortRest}
                     onClick={() => run('shortRest', async () => {
@@ -143,14 +144,14 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
             )}
             {id === 'treasure' && (
               <>
-                <div className="eoe-step-title">🎁 {L(lang, 'Tesouro', 'Treasure')}</div>
+                <div className="eoe-step-title"><MesaIcon name="gift" /> {L(lang, 'Tesouro', 'Treasure')}</div>
                 {room && hasTreasure(room.node) && (
                   <div className="eoe-scene-treasure">
                     <p className="eoe-scene-text">
                       <strong>{L(lang, `Tesouro da cena ${room.node.name}`, `Treasure of scene ${room.node.name}`)}:</strong> {treasureSummary(room.node.treasure, lang)}
                     </p>
                     <button type="button" className="mesa-btn is-primary" onClick={() => setGivingScene(true)}>
-                      🎁 {L(lang, 'Entregar o tesouro da cena', 'Hand out the scene treasure')}
+                      {L(lang, 'Entregar o tesouro da cena', 'Hand out the scene treasure')}
                     </button>
                   </div>
                 )}
@@ -171,7 +172,7 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
             )}
             {id === 'diary' && (
               <>
-                <div className="eoe-step-title">📖 {L(lang, 'Nota no Diário', 'Diary note')}</div>
+                <div className="eoe-step-title"><MesaIcon name="book" /> {L(lang, 'Nota no Diário', 'Diary note')}</div>
                 <input className="input" value={title} maxLength={200} onChange={e => setTitle(e.target.value)} aria-label={L(lang, 'Título', 'Title')} />
                 <textarea className="input eoe-body" rows={4} value={body} onChange={e => setBody(e.target.value)} aria-label={L(lang, 'Texto', 'Text')} />
                 <div className="eoe-row">

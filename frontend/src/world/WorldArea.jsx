@@ -263,7 +263,8 @@ export default function WorldArea(props) {
       )}
       {/* o que a casca quer mostrar no topo do Mundo (os "Primeiros passos"): abaixo das
           subvistas, como em toda área, e não antes delas */}
-      {props.topSlot || null}
+      {/* só nos Cartões: nos Mapas e no Tempo o mesmo cartão repetido empurrava o mapa e a linha do tempo */}
+      {(sub === 'atlas' && props.topSlot) || null}
 
       {error && <p className="wl-error" role="alert">{error} <button type="button" className="wl-linkbtn" onClick={() => { setError(''); load(); }}>{t(lang, 'Tentar de novo', 'Try again')}</button></p>}
 

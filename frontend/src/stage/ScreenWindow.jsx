@@ -26,6 +26,7 @@
 // (readWinSize); o espelho ao vivo pausa com a aba escondida e volta sozinho quando ela
 // volta (LiveTv); a página ganha folga do tamanho da janela (--screen-win-h, stage.css).
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { REARM_MS, readWinSize, writeWinSize } from './table-bar-model.js';
 import StageThumb from './StageThumb.jsx';
 import useStage from './useStage.js';
@@ -76,7 +77,7 @@ function useArmed(key) {
   return () => Date.now() >= until.current;
 }
 
-export default function ScreenWindow({ campaign, lang = 'pt', corner = 'right', onCorner, onHide, liveAt = 0, nextHere = false, calm = false }) {
+export default function ScreenWindow({ campaign, lang = 'pt', corner = 'right', onCorner, onHide, liveAt = 0, nextHere = false, calm = false, slot = null }) {
   const { table, stage, combat, combatNow, test, line, tvLive, offline, roll } = useWindowData(campaign, lang);
   // 'thumb' | 'live' | 'pill', lembrado no aparelho (E2.5d/e). `calm` (fora de Jogar, ou no
   // tablet): nasce recolhida, e a escolha feita ali fica lembrada à parte (readWinSize).
@@ -96,30 +97,35 @@ export default function ScreenWindow({ campaign, lang = 'pt', corner = 'right', 
   // O 📺 Tela da capa: abre já em "ao vivo".
   useEffect(() => { if (liveAt) setSizeState('live'); }, [liveAt]);
   if (size === 'pill') {
-    // recolhida com o combate andando fora de Jogar: a faixa leva a vez e o Próximo turno
+    // Recolhida, a janela NÃO flutua: é uma linha no fluxo da página, logo abaixo das abas das
+    // áreas (o `slot` da casca). Flutuando no canto ela cobria botões da página ("Próximo
+    // passo" do Plano, os filtros do Mundo, o código de convite). Sem o slot (casca antiga),
+    // continua a pílula do canto.
+    const row = slot ? 'is-row' : `is-${corner}`;
+    const open = L(lang, 'Abrir a janela da Tela', 'Open the screen window');
+    // com o combate andando fora de Jogar: a linha leva a vez e o Próximo turno
     // (o mestre passa a vez sem abrir a janela por cima da página)
-    if (withNext) {
-      return (
-        <div ref={winRef} className={`screen-win is-pill is-strip is-${corner} no-print`} role="group" aria-label={L(lang, 'Janela da Tela', 'Screen window')}>
-          <button type="button" className="screen-win-strip-open" onClick={() => setSize('thumb')}
-            aria-label={`${turnLine(combat, lang)}. ${L(lang, 'Abrir a janela da Tela', 'Open the screen window')}`}>
-            <span className="screen-win-pill-text">{turnLine(combat, lang)}</span>
-          </button>
-          <button type="button" className="mesa-btn is-primary screen-win-strip-next" disabled={busy}
-            onClick={() => { if (armed() && !busy) table?.nextTurn(); }}
-            aria-label={busy ? L(lang, 'Enviando…', 'Sending…') : L(lang, 'Próximo turno', 'Next turn')}>
-            {busy ? '…' : <>{L(lang, 'Próximo turno', 'Next turn')} <span aria-hidden="true">→</span></>}
-          </button>
-        </div>
-      );
-    }
-    return (
-      <button type="button" ref={winRef} className={`screen-win is-pill is-${corner} no-print`} onClick={() => setSize('thumb')}
-        aria-label={`${L(lang, 'Tela', 'Screen')}: ${line}. ${L(lang, 'Abrir a janela', 'Open the window')}`}>
+    const node = withNext ? (
+      <div ref={winRef} className={`screen-win is-pill is-strip ${row} no-print`} role="group" aria-label={L(lang, 'Combate e Tela', 'Combat and screen')}>
+        <button type="button" className="screen-win-strip-open" onClick={() => setSize('thumb')}
+          aria-label={`${turnLine(combat, lang)}. ${open}`} title={open}>
+          <span className="screen-win-pill-text">{turnLine(combat, lang)}</span>
+          <span className="screen-win-pill-tv"><MesaIcon name="tv" /> {L(lang, 'Tela', 'Screen')} <span aria-hidden="true">▴</span></span>
+        </button>
+        <button type="button" className="mesa-btn is-primary screen-win-strip-next" disabled={busy}
+          onClick={() => { if (armed() && !busy) table?.nextTurn(); }}
+          aria-label={busy ? L(lang, 'Enviando…', 'Sending…') : L(lang, 'Próximo turno', 'Next turn')}>
+          {busy ? '…' : <>{L(lang, 'Próximo turno', 'Next turn')} <span aria-hidden="true">→</span></>}
+        </button>
+      </div>
+    ) : (
+      <button type="button" ref={winRef} className={`screen-win is-pill ${row} no-print`} onClick={() => setSize('thumb')}
+        aria-label={`${L(lang, 'Tela', 'Screen')}: ${line}. ${L(lang, 'Abrir a janela', 'Open the window')}`} title={open}>
         <MesaIcon name="tv" /> <span className="screen-win-pill-text">{L(lang, 'Tela', 'Screen')} · {line}</span>
         <span className="screen-win-pill-open" aria-hidden="true">▴</span>
       </button>
     );
+    return slot ? createPortal(node, slot) : node;
   }
   return (
     <section ref={winRef} className={`screen-win is-float is-${corner} is-${size} no-print`} aria-label={L(lang, 'Janela da Tela', 'Screen window')}>

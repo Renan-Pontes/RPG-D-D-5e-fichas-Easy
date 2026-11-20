@@ -133,3 +133,18 @@
 .diary-item.sub-levelgrant .diary-icon { color: var(--gold-bright); border-color: var(--gold); }
 .diary-item.sub-reveal .diary-icon { color: var(--arcane-bright); border-color: var(--arcane); background: #1b1a2a; }
 .diary-item.sub-combat .diary-body { color: var(--ink-primary); font-style: italic; }
+
+/* PC: os filtros quebram a linha (antes o trilho cortava depois de "Descansos" com a página
+   sobrando ao lado) */
+@media (min-width: 768px) {
+  .diary-filters { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none !important; mask-image: none !important; }
+}
+/* PC largo: a linha do tempo mantém os 820 px de leitura e o cabeçalho (Nova nota ·
+   Anteriormente em…) vira um painel lateral preso, no espaço que sobrava em branco à direita. */
+@media (min-width: 1100px) {
+  .diary { display: grid; grid-template-columns: minmax(0, 820px) minmax(260px, 1fr); column-gap: 20px; row-gap: 12px; align-items: start; max-width: none; }
+  .diary > * { grid-column: 1; min-width: 0; }
+  .diary > .diary-head { grid-column: 2; grid-row: 1 / span 3; position: sticky; top: calc(var(--areas-stick, 64px) + 8px); }
+  .diary.is-dm .diary-head .diary-head-actions { grid-template-columns: minmax(0, 1fr); }
+  .diary > .diary-head .diary-head-actions .mesa-btn { width: 100%; justify-content: flex-start; }
+}

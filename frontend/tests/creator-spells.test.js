@@ -330,3 +330,34 @@ test('2014: resumo de uma linha com a regra 2014 (Orbe Cromático sem o salto de
   for (const s of SRD.SPELLS) assert.ok(!/\bSAL\b|\bpés\b|\bHP\b/.test(s.desc?.pt || ''), `${s.id}: ${s.desc?.pt}`);
   assert.equal(polishPtText('SAL DEST ou 1d6 em 20 pés; 0 HP.'), 'salvaguarda de Destreza ou 1d6 em 6 metros; 0 PV.');
 });
+
+// Editor da ficha (Editar > Magias): os truques de talento/espécie não contam no limite da classe.
+test('editor: truques de graça (talento e espécie) não contam no limite e a troca de truque funciona', async () => {
+  const { isGrantedEntry, editorCantripCount, editorToggleCantrip } = await import('../src/creator/spell-helpers.js');
+  const { applyAutosToCharacter } = await import('../src/progression/engine.js');
+  const { readFileSync } = await import('node:fs');
+  const pregens = JSON.parse(readFileSync(new URL('../data/pregens.json', import.meta.url), 'utf8'));
+  // Mago pronto: 3 truques escolhidos (classe) + 3 de graça (Iniciado em Magia e Alto Elfo).
+  const wiz = applyAutosToCharacter(pregens.find(p => p.classId === 'wizard').character);
+  const level0 = wiz.spells.filter(s => Utils.spellCatalog(wiz).find(d => d.id === s.id)?.level === 0);
+  const granted = level0.filter(isGrantedEntry).map(s => s.id).sort();
+  assert.deepEqual(granted, ['fireBolt', 'minorIllusion', 'prestidigitation']);
+  assert.equal(level0.length, 6, 'a ficha tem 6 truques ao todo');
+  assert.equal(Utils.cantripsKnown(wiz), 3);
+  assert.equal(editorCantripCount(wiz), 3, 'contador 3/3, não 6/3');
+  // No limite: marcar um quarto truque é recusado.
+  assert.equal(editorToggleCantrip(wiz, 'acidSplash'), null);
+  // Desmarcar Luz: 2/3 e outra linha pode ser marcada; Luz também pode voltar.
+  const without = { ...wiz, spells: editorToggleCantrip(wiz, 'light') };
+  assert.equal(editorCantripCount(without), 2);
+  assert.ok(!without.spells.some(s => s.id === 'light'));
+  const back = { ...without, spells: editorToggleCantrip(without, 'light') };
+  assert.equal(editorCantripCount(back), 3);
+  const swapped = { ...without, spells: editorToggleCantrip(without, 'acidSplash') };
+  assert.equal(editorCantripCount(swapped), 3);
+  assert.ok(swapped.spells.some(s => s.id === 'acidSplash' && !isGrantedEntry(s)));
+  // As de graça nunca saem pelo editor.
+  const tryRemove = editorToggleCantrip(without, 'fireBolt');
+  assert.ok(tryRemove.filter(s => s.id === 'fireBolt').some(isGrantedEntry), 'a entrada de graça permanece');
+  for (const id of granted) assert.ok(swapped.spells.some(s => s.id === id && isGrantedEntry(s)), id);
+});

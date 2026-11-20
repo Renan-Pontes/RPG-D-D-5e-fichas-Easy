@@ -431,3 +431,12 @@ export function pinCountText(total, visible, lang = 'pt') {
   if (lang === 'en') return `${n} ${n === 1 ? 'pin' : 'pins'} · ${v} visible to players.`;
   return `${n} ${n === 1 ? 'marcador' : 'marcadores'} · ${v} ${v === 1 ? 'visível' : 'visíveis'} aos jogadores.`;
 }
+
+/**
+ * O "Quando" de um cartão na língua do app: o texto do mestre vale como está; só o marcador
+ * que o app grava num evento novo ("Quando?" / "When?") é traduzido na hora de mostrar.
+ */
+export function whenText(label, lang) {
+  const s = String(label || '').trim();
+  return s === 'Quando?' || s === 'When?' ? t(lang, 'Quando?', 'When?') : s;
+}

@@ -55,6 +55,15 @@ const SHAPES = {
   20: <><polygon points="50,3 93,27 93,73 50,97 7,73 7,27" /><polygon points="50,22 76,66 24,66" className="facet" /></>,
   100: <><circle cx="50" cy="50" r="44" /><circle cx="50" cy="50" r="22" className="facet" /></>,
 };
+// Cadeado de traço (aberto/fechado) no lugar do emoji colorido: herda a cor do botão.
+const LockIcon = ({ on }) => (
+  <svg className="mr2-lock-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="4.5" y="10.5" width="15" height="10.5" rx="2" />
+    <path d={on ? 'M8 10.5V7.5a4 4 0 018 0v3' : 'M8 10.5V7a4 4 0 017.6-1.7'} />
+    <path d="M12 14.5v2.5" />
+  </svg>
+);
+
 const DieIcon = ({ die }) => (
   <svg className="mr-die-svg" viewBox="0 0 100 100" aria-hidden="true">{SHAPES[die] || SHAPES[6]}</svg>
 );
@@ -87,7 +96,11 @@ function Badge({ b, lang, mods, value, sub, state = '', tag = null, ...rest }) {
 export default function MultiRoll({ lang }) {
   const char = useSyncExternalStore(subscribeActiveChar, getActiveChar, getActiveChar);
   const mods = useMemo(() => modsFromChar(char, Utils), [char]);
-  const [rows, setRows] = useState(() => load(char) || defaultRows(char, Utils, lang));
+  // Sem ficha aberta não há FOR/DES/BP para somar: começa com uma linha vazia (as linhas de
+  // ataque prontas mostrariam "+0" em tudo) e a paleta fica só com dados e o número fixo.
+  const starter = (c) => (c ? defaultRows(c, Utils, lang) : [newRow()]);
+  const [rows, setRows] = useState(() => load(char) || starter(char));
+  const [help, setHelp] = useState(false);
   const [sel, setSel] = useState(() => new Set());
   const [active, setActive] = useState(null);
   const [signs, setSigns] = useState({});
@@ -127,7 +140,7 @@ export default function MultiRoll({ lang }) {
     return () => { ro.disconnect(); clearTimeout(t1); clearTimeout(t2); };
   }, [rows, focus, [...focusIds].join()]); // eslint-disable-line react-hooks/exhaustive-deps
   const charId = char?.id;
-  useEffect(() => { setRows(load(char) || defaultRows(char, Utils, lang)); setSel(new Set()); setPlay({}); }, [charId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setRows(load(char) || starter(char)); setSel(new Set()); setPlay({}); }, [charId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { save(char, rows); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const activeId = active && rows.some(r => r.id === active) ? active : rows[0]?.id;
 
@@ -298,8 +311,8 @@ export default function MultiRoll({ lang }) {
 
   const palette = [
     ...[...DICE].sort((x, y) => y - x).map(d => ({ key: `d${d}`, kind: 'die', die: d, sign: 1, count: 1 })),
-    ...ABILS.map(k => ({ key: `a${k}`, kind: 'abil', abil: k, sign: 1, count: 1 })),
-    { key: 'pb', kind: 'pb', sign: 1, count: 1 },
+    ...(char ? ABILS.map(k => ({ key: `a${k}`, kind: 'abil', abil: k, sign: 1, count: 1 })) : []),
+    ...(char ? [{ key: 'pb', kind: 'pb', sign: 1, count: 1 }] : []),
     { key: 'flat', kind: 'flat' },
   ];
   const rnd = (die) => 1 + Math.floor(Math.random() * die);
@@ -464,6 +477,10 @@ export default function MultiRoll({ lang }) {
     <div className={`mr2${focus ? ' is-focus' : ''}`} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={finish}>
       <div className="mr2-vignette" aria-hidden="true" />
       <div className="mr2-rows" ref={rowsRef} style={{ '--mr-s': scale }}>
+        {!char && !focus && (
+          <p className="mr2-nochar">{L(lang, 'Abra uma ficha para usar FOR, DES e o bônus de proficiência. Sem ficha, valem os dados e o número fixo.',
+            'Open a sheet to use STR, DEX and the proficiency bonus. Without one, dice and the flat number work.')}</p>
+        )}
         {rows.map((row, ri) => {
           const pl = play[row.id];
           const ev = pl?.phase === 'done' ? evalRow(pl.snap, mods, pl.rolls, pl.extra) : null;
@@ -495,8 +512,11 @@ export default function MultiRoll({ lang }) {
                   title={row.locked
                     ? L(lang, 'Travada: o que entrar agora é só desta rolagem', 'Locked: anything added now is for this roll only')
                     : L(lang, 'Travar: o que entrar depois some depois de rolar', 'Lock: anything added afterwards vanishes after rolling')}
-                  onClick={(e) => { e.stopPropagation(); setRow(row.id, toggleLock); }}>{row.locked ? '🔒' : '🔓'}</button>
-                {(pl ? pl.snap.badges : row.badges).length === 0 && <span className="mr2-empty">{L(lang, 'arraste emblemas aqui', 'drag badges here')}</span>}
+                  aria-label={row.locked
+                    ? L(lang, 'Linha travada: o que entrar agora é só desta rolagem. Toque para destravar.', 'Row locked: anything added now is for this roll only. Tap to unlock.')
+                    : L(lang, 'Travar a linha: o que entrar depois some depois de rolar', 'Lock the row: anything added afterwards vanishes after rolling')}
+                  onClick={(e) => { e.stopPropagation(); setRow(row.id, toggleLock); }}><LockIcon on={!!row.locked} /></button>
+                {(pl ? pl.snap.badges : row.badges).length === 0 && <span className="mr2-empty">{L(lang, 'toque num dado abaixo ou arraste para cá', 'tap a die below or drag it here')}</span>}
                 {renderArray(row, pl)}
               </div>
             </div>
@@ -509,13 +529,23 @@ export default function MultiRoll({ lang }) {
       </div>
 
       <div className="mr2-bar">
+        {help && (
+          <ul className="mr2-help no-zebra" id="mr2-help">
+            <li>{L(lang, 'Toque num emblema da paleta: ele entra na linha ativa. Toque num emblema da linha: tira um.', 'Tap a badge in the palette: it goes to the active row. Tap a badge in a row: removes one.')}</li>
+            <li>{L(lang, 'Deslize o emblema para cima ou para baixo antes de arrastar: soma ou subtrai. Solte sobre outro emblema: os dois somam juntos.', 'Swipe a badge up or down before dragging: add or subtract. Drop it on another badge: the two are added together.')}</li>
+            <li>{L(lang, 'Cadeado: com a linha travada, o que entrar depois vale só para a próxima rolagem.', 'Padlock: with the row locked, anything added afterwards counts only for the next roll.')}</li>
+          </ul>
+        )}
         <div className="mr2-rollbar">
-          <span className="mr2-hint">{L(lang,
-            'Toque: linha ativa · ↑↓ antes de arrastar: soma/subtrai · solte sobre um emblema: acopla · 🔒: o resto é temporário',
-            'Tap: active row · ↑↓ before dragging: add/subtract · drop on a badge: couple · 🔒: the rest is temporary')}</span>
-          <button type="button" className="mr2-roll" onClick={roll} disabled={spinning} aria-label={L(lang, 'Rolar', 'Roll') + (sel.size ? ` (${sel.size})` : '')} title={L(lang, 'Rolar as linhas marcadas', 'Roll the selected rows')}>
-            <svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,3 93,27 93,73 50,97 7,73 7,27" /><polygon points="50,22 76,66 24,66" className="facet" /></svg>
-            {sel.size > 0 && <span className="mr2-roll-n">{sel.size}</span>}
+          <button type="button" className={`mr2-helpbtn${help ? ' is-on' : ''}`} aria-expanded={help} aria-controls="mr2-help" onClick={() => setHelp(v => !v)}
+            aria-label={L(lang, 'Como usar a rolagem múltipla', 'How to use multi-roll')} title={L(lang, 'Como usar', 'How to use')}>?</button>
+          <button type="button" className="mr2-roll" onClick={roll} disabled={spinning}
+            aria-label={sel.size ? L(lang, `Rolar ${sel.size} ${sel.size === 1 ? 'linha marcada' : 'linhas marcadas'}`, `Roll ${sel.size} selected ${sel.size === 1 ? 'row' : 'rows'}`) : L(lang, 'Rolar a linha ativa', 'Roll the active row')}
+            title={L(lang, 'Rola as linhas marcadas; sem nenhuma marcada, a linha ativa', 'Rolls the selected rows; with none selected, the active row')}>
+            <span className="mr2-roll-med" aria-hidden="true">
+              <svg viewBox="0 0 100 100"><polygon points="50,3 93,27 93,73 50,97 7,73 7,27" /><polygon points="50,22 76,66 24,66" className="facet" /></svg>
+            </span>
+            <span className="mr2-roll-lbl">{L(lang, 'Rolar', 'Roll')}{sel.size > 0 ? ` (${sel.size})` : ''}</span>
           </button>
         </div>
         <div className="mr2-palette">

@@ -30,7 +30,10 @@
   /* celular: os botões empilham na largura toda (rótulo longo não quebra em 4 linhas) */
   .cl-actions { flex-direction: column; align-items: stretch; }
   .cl-actions .mesa-btn, .cl-actions .btn { flex: none; width: 100%; min-height: 48px; }
-  .cl-confirm .cl-actions { flex-direction: column-reverse; }   /* a ação principal perto do polegar */
+  /* Na confirmação: "Voltar" em cima e a ação embaixo, perto do polegar (a ordem do
+     documento). O flex-basis de 140px da regra do PC virava ALTURA na coluna (botões de
+     140 px, o perigoso em cima): aqui a mesma especificidade o anula. */
+  .cl-confirm .cl-actions .mesa-btn { flex: none; min-height: 48px; }
   .cl-modal .cl-move, .cl-modal .cl-back, .cl-modal .cl-code-toggle { align-self: stretch; }
 }
 

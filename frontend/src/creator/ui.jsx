@@ -72,7 +72,7 @@ export function ChoiceCard({ selected, disabled, onClick, title, subtitle, badge
 export function IssueList({ issues, lang }) {
   if (!issues?.length) return null;
   return (
-    <ul className="cr-issues">
+    <ul className="cr-issues no-zebra">
       {issues.map((i, k) => <li key={k}>{i[lang] || i.pt}</li>)}
     </ul>
   );

@@ -95,6 +95,15 @@
 
 .auth-submit { width: 100%; min-height: 48px; margin-top: 4px; justify-content: center; }
 
+/* "Esqueceu a senha?": botão de texto sob a senha; abre uma linha dizendo o que fazer */
+.auth-forgot { display: grid; justify-items: end; gap: 2px; margin-top: -2px; }
+.auth-forgot-btn { min-height: 44px; margin: 0 -6px -8px 0; padding: 0 6px; border: 0; border-radius: 4px; background: none; color: var(--gold); font-family: var(--body); font-size: 0.95rem;
+  text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.auth-forgot-btn:hover, .auth-forgot-btn[aria-expanded="true"] { color: var(--gold-bright); }
+.auth-forgot-help { justify-self: stretch; margin: 6px 0 0; padding: 8px 10px; border-radius: 6px; border: 1px dashed rgba(224, 181, 94, 0.35); background: rgba(10, 7, 6, 0.4);
+  font-size: 0.95rem; line-height: 1.35; color: var(--ink-secondary); }
+.auth-error-help { display: block; margin-top: 4px; font-size: 0.92rem; color: var(--ink-secondary); }
+
 .auth-lede { margin: 0 0 16px; text-align: center; font-size: 1rem; line-height: 1.4; color: var(--ink-secondary); }
 .auth-skip .auth-link { min-height: 44px; padding: 0 12px; border: 0; background: none; color: var(--gold); font: inherit; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
 .auth-skip .auth-link:hover { color: var(--gold-bright); }

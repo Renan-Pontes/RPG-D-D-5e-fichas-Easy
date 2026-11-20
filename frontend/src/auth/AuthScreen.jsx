@@ -20,6 +20,8 @@ export default function AuthScreen({ onSkip, lang = 'pt' }) {
   const [error, setError] = useState('');
   const [fieldErr, setFieldErr] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+  const [forgot, setForgot] = useState(false);
+  const [badLogin, setBadLogin] = useState(false);
   const [busy, setBusy] = useState(false);
   const uid = useId();
   const emailRef = useRef(null);
@@ -32,6 +34,8 @@ export default function AuthScreen({ onSkip, lang = 'pt' }) {
   const switchMode = (next) => {
     if (next === mode) return;
     setMode(next);
+    setForgot(false);
+    setBadLogin(false);
     setError('');
     setFieldErr({});
     if (next === 'signup') setPassword('');
@@ -49,6 +53,7 @@ export default function AuthScreen({ onSkip, lang = 'pt' }) {
     e.preventDefault();
     if (busy) return;
     setError('');
+    setBadLogin(false);
     const errs = validate();
     setFieldErr(errs);
     if (errs.email) { emailRef.current?.focus(); return; }
@@ -61,13 +66,18 @@ export default function AuthScreen({ onSkip, lang = 'pt' }) {
     } catch (err) {
       const code = err?.data?.error;
       if (code === 'email_taken') setError(t('Este e-mail já tem conta. Use "Entrar".', 'This email already has an account. Use "Log in".'));
-      else if (code === 'invalid_credentials') setError(t('E-mail ou senha incorretos.', 'Wrong email or password.'));
+      else if (code === 'invalid_credentials') { setError(t('E-mail ou senha incorretos.', 'Wrong email or password.')); setBadLogin(true); setForgot(false); }
       else if (code === 'invalid_input') setError(t(`Dados inválidos. A senha precisa de ${MIN_PASSWORD} caracteres ou mais.`, `Invalid input. The password needs ${MIN_PASSWORD} or more characters.`));
       else setError(errorMessage(err, lang, t('Não foi possível entrar. Tente de novo.', 'Could not sign in. Try again.')));
     } finally {
       setBusy(false);
     }
   };
+
+  // Não há "esqueci a senha" por e-mail: quem administra a Forja emite uma senha temporária
+  // e o próximo acesso obriga a trocar (ForcePasswordChange). O jogador precisa saber disso.
+  const forgotHelp = t('Peça uma senha temporária a quem administra a Forja. No próximo acesso você escolhe uma nova.',
+    'Ask the Forge admin for a temporary password. You will choose a new one at the next login.');
 
   const perks = [
     t('Suas fichas guardadas na nuvem, em qualquer aparelho', 'Your characters kept in the cloud, on any device'),
@@ -85,7 +95,7 @@ export default function AuthScreen({ onSkip, lang = 'pt' }) {
         <div className="auth-body">
           <p className="auth-eyebrow">{t('Forja de Heróis', 'Hero Forge')}</p>
           <h1 className="auth-title"><span className="auth-foil">{signupMode ? t('Criar conta', 'Create account') : t('Entrar', 'Log in')}</span></h1>
-          <ul className="auth-perks">
+          <ul className="auth-perks no-zebra">
             {perks.map(p => <li key={p}><span className="auth-gem" aria-hidden="true" />{p}</li>)}
           </ul>
 
@@ -98,7 +108,7 @@ export default function AuthScreen({ onSkip, lang = 'pt' }) {
             {error && (
               <div className="auth-error" role="alert">
                 <Icon name="warning" size={18} aria-hidden="true" />
-                <span>{error}</span>
+                <span>{error}{badLogin && !signupMode && <span className="auth-error-help">{forgotHelp}</span>}</span>
               </div>
             )}
             {signupMode && (
@@ -133,6 +143,14 @@ export default function AuthScreen({ onSkip, lang = 'pt' }) {
               </div>
               {fieldErr.password && <p className="auth-field-err" id={`${uid}-pass-err`}>{fieldErr.password}</p>}
               {signupMode && !fieldErr.password && <p className="auth-field-hint" id={`${uid}-pass-hint`}>{t(`${MIN_PASSWORD} caracteres ou mais.`, `${MIN_PASSWORD} or more characters.`)}</p>}
+              {!signupMode && (
+                <div className="auth-forgot">
+                  <button type="button" className="auth-forgot-btn" aria-expanded={forgot} aria-controls={`${uid}-forgot`} onClick={() => setForgot(v => !v)}>
+                    {t('Esqueceu a senha?', 'Forgot your password?')}
+                  </button>
+                  {forgot && <p className="auth-forgot-help" id={`${uid}-forgot`} role="status">{forgotHelp}</p>}
+                </div>
+              )}
             </div>
             <button className="btn btn-primary auth-submit" type="submit" disabled={busy} aria-busy={busy || undefined}>
               {busy ? t('Aguarde…', 'Please wait…') : (signupMode ? t('Criar minha conta', 'Create my account') : t('Entrar', 'Log in'))}

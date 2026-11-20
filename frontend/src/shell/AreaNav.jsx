@@ -10,6 +10,22 @@ import { OfflineNote } from '../stage/TableBar.jsx';
 import MesaIcon, { hasMesaIcon } from './MesaIcon.jsx';
 import './mesa.css';
 
+/**
+ * Abas pelo teclado (padrão WAI-ARIA de abas): uma parada de Tab só (a aba ativa) e as setas
+ * ← → Home End trocam de aba, levando o foco junto. Devolve o id para onde ir, ou null.
+ */
+function tabByKey(e, ids, active) {
+  const i = ids.indexOf(active);
+  if (i < 0 || e.altKey || e.ctrlKey || e.metaKey) return null;
+  const to = e.key === 'ArrowRight' ? ids[(i + 1) % ids.length]
+    : e.key === 'ArrowLeft' ? ids[(i - 1 + ids.length) % ids.length]
+      : e.key === 'Home' ? ids[0]
+        : e.key === 'End' ? ids[ids.length - 1] : null;
+  if (to == null || to === active) return null;
+  e.preventDefault();
+  return to;
+}
+
 /** Ícone de linha da área/subvista (MesaIcon); sem desenho para o id, o símbolo antigo. */
 const ico = (id, fallback) => (hasMesaIcon(id) ? <MesaIcon name={id} /> : fallback);
 
@@ -30,7 +46,13 @@ export default function AreaNav({ areas, active, onSelect, onSearch, onMore, mor
   return (
     <>
       <nav className="shell-areas" aria-label={t(lang, 'Áreas da campanha', 'Campaign areas')}>
-       <div className="shell-areas-tabs" role="tablist" aria-label={t(lang, 'Áreas da campanha', 'Campaign areas')}>
+       <div className="shell-areas-tabs" role="tablist" aria-label={t(lang, 'Áreas da campanha', 'Campaign areas')}
+         onKeyDown={(e) => {
+           const to = tabByKey(e, areas.map(a => a.id), active);
+           if (!to) return;
+           onSelect(to);
+           requestAnimationFrame(() => document.getElementById(`area-tab-${to}`)?.focus());
+         }}>
         {areas.map((a, i) => (
           <button
             key={a.id}
@@ -38,6 +60,7 @@ export default function AreaNav({ areas, active, onSelect, onSearch, onMore, mor
             role="tab"
             id={`area-tab-${a.id}`}
             aria-selected={active === a.id}
+            tabIndex={active === a.id || (i === 0 && !areas.some(x => x.id === active)) ? 0 : -1}
             aria-controls="shell-panel"
             className={`shell-area-tab ${active === a.id ? 'active' : ''}`}
             onClick={() => onSelect(a.id)}
@@ -122,8 +145,14 @@ export function SubChips({ subs, active, onSelect, lang, labels = {}, icons = {}
       {/* celular sem a barra da mesa: "⟳ Sem conexão há N s" numa faixa fina sob o segmentado */}
       <OfflineNote lang={lang} className="is-seg" />
       <div className="mesa-seg has-track">
-        <div ref={trackRef} className="mesa-seg-track mesa-scroll" role="tablist" aria-label={ariaLabel || t(lang, 'Subvistas', 'Views')}>
-          {subs.map(s => {
+        <div ref={trackRef} className="mesa-seg-track mesa-scroll" role="tablist" aria-label={ariaLabel || t(lang, 'Subvistas', 'Views')}
+          onKeyDown={(e) => {
+            const to = tabByKey(e, subs, active);
+            if (!to) return;
+            pick(to);
+            requestAnimationFrame(() => trackRef.current?.querySelector(`[data-sub="${to}"]`)?.focus());
+          }}>
+          {subs.map((s, si) => {
             const icon = s in icons ? icons[s] : SUB_ICONS[s];
             const long = labels[s] || subLabel(s, lang);
             const short = labels[s] || subShortLabel(s, lang);
@@ -134,6 +163,7 @@ export function SubChips({ subs, active, onSelect, lang, labels = {}, icons = {}
                 type="button"
                 role="tab"
                 aria-selected={on}
+                tabIndex={on || (si === 0 && !subs.includes(active)) ? 0 : -1}
                 data-sub={s}
                 className={`mesa-seg-btn shell-seg-tab ${on ? 'active' : ''}`}
                 onClick={() => pick(s)}

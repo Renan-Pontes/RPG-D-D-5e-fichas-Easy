@@ -2,6 +2,7 @@
 // corpo de Jogar › Tela › Mostrar e da folha "Mostrar na Tela" (ShowSheet,
 // aberta pelo 📺 Mostrar… das ações de Jogar). Lê o Mundo, a aventura em jogo
 // e o plano UMA vez ao abrir (sem polling); cada linha tem o 📺 único.
+import { mesaGlyph } from '../shell/MesaIcon.jsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import MesaSheet from '../shell/MesaSheet.jsx';
@@ -169,7 +170,7 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange, sceneNow: s
         {TABS.map(([k, icon, pt, en]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k}
             className={`mesa-seg-btn stage-tab ${tab === k ? 'active' : ''}`} onClick={() => setTab(k)}>
-            <span aria-hidden="true">{icon}</span> <span>{L(lang, pt, en)}</span>
+            <span className="stage-tab-ico" aria-hidden="true">{mesaGlyph(icon)}</span> <span>{L(lang, pt, en)}</span>
           </button>
         ))}
       </div>

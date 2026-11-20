@@ -30,6 +30,7 @@
 //   direita fica abaixo dele (P2). Abaixo de 1280 a casca não cabe ao lado (ficaria com
 //   menos que os 720 px do tablet): é a folha de sempre (diálogo central; no celular, de baixo).
 // - aside: um pedaço no cabeçalho, antes do ✕ (o "✓ Salvo" da folha da Cena).
+import { mesaGlyph } from './MesaIcon.jsx';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
@@ -229,7 +230,7 @@ export default function MesaSheet({
             {eyebrow && <p className="mesa-eyebrow">{eyebrow}</p>}
             {title && (
               <h2 id={titleId} className="mesa-sheet-title">
-                {icon && <span className="mesa-sheet-ico" aria-hidden="true">{icon}</span>}
+                {icon && <span className="mesa-sheet-ico" aria-hidden="true">{mesaGlyph(icon)}</span>}
                 <span className="mesa-foil">{title}</span>
               </h2>
             )}

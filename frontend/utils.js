@@ -526,8 +526,59 @@ function martialArtsDie(char) {
   return `1d${steps[lv >= 17 ? 3 : lv >= 11 ? 2 : lv >= 5 ? 1 : 0]}`;
 }
 
+// ===== Itens equipados do inventário =====
+// A armadura e o escudo escolhidos na ficha (char.armor / char.hasShield) valem primeiro.
+// Sem eles vale o item EQUIPADO do inventário (char.equipment[].equipped): numa campanha a
+// ficha do jogador está travada e equipar o item que o mestre entregou é o único caminho
+// dele. Item quebrado não conta; o bônus mágico do item só conta com a sintonia feita.
+const ARMOR_BODY = ['light', 'medium', 'heavy'];
+const ARMOR_PROXY = { light: 'leather', medium: 'hide', heavy: 'ringMail' };
+const itemInUse = (it) => !!it && typeof it === 'object' && !!it.equipped && !it.broken;
+const itemMagicOn = (it) => !it?.attunement || !!it.attuned;
+const equippedArmor = (char) => (char?.equipment || [])
+  .find(it => itemInUse(it) && it.armor && it.type !== 'shield' && ARMOR_BODY.includes(it.armor.type)) || null;
+const equippedShield = (char) => (char?.equipment || [])
+  .find(it => itemInUse(it) && (it.type === 'shield' || it.armor?.type === 'shield')) || null;
+
+/** Armadura em uso: { id, type, ac, stealth, strReq, bonus, name, item } ou null. `item` é o
+ *  item do inventário quando ela vem dele (null = escolhida na ficha). */
+function wornArmor(char) {
+  if (char?.armor) {
+    const a = SRD.ARMOR.find(x => x.id === char.armor);
+    return a ? { ...a, bonus: 0, name: null, item: null } : null;
+  }
+  const it = equippedArmor(char);
+  if (!it) return null;
+  const base = SRD.ARMOR.find(a => a.type !== 'shield' && [it.base, it.sourceId, it.artId].includes(a.id));
+  return {
+    id: base?.id || null, type: it.armor.type, ac: Number(it.armor.ac) || 0,
+    stealth: it.armor.stealth || base?.stealth, strReq: it.armor.strReq || base?.strReq,
+    bonus: itemMagicOn(it) ? Number(it.magic?.acBonus) || 0 : 0, name: it.name || '', item: it,
+  };
+}
+
+/** Escudo em uso: { ac, bonus, name, item } ou null (item = null: marcado na ficha). */
+function wornShield(char) {
+  if (char?.hasShield) return { ac: 2, bonus: 0, name: null, item: null };
+  const it = equippedShield(char);
+  if (!it) return null;
+  return { ac: Number(it.armor?.ac) || 2, bonus: itemMagicOn(it) ? Number(it.magic?.acBonus) || 0 : 0, name: it.name || '', item: it };
+}
+
+/** +N na CA que um item mágico USADO dá (0 se não dá, não está em uso ou falta a sintonia).
+ *  Armadura e escudo mágicos entram pela própria peça (wornArmor / wornShield), não aqui. */
+function wornItemAcBonus(char, it, worn = wornArmor(char), shield = wornShield(char)) {
+  if (!itemInUse(it) || !itemMagicOn(it)) return 0;
+  const m = it.magic;
+  const bonus = Number(m?.acBonus) || 0;
+  if (!bonus || m.category === 'armor' || it === worn?.item || it === shield?.item) return 0;
+  const unarmoredOnly = [it.sourceId, it.artId, it.base].includes('bracersDefense');
+  if (unarmoredOnly && (worn || shield || char?.armor)) return 0;
+  return bonus;
+}
+
 // Artes Marciais só valem sem armadura e sem escudo.
-const martialArtsActive = (char) => !!martialArtsDie(char) && !char.armor && !char.hasShield;
+const martialArtsActive =(char) => !!martialArtsDie(char) && !char.armor && !wornArmor(char) && !wornShield(char);
 
 /** Arma de Monge: 2024 = simples corpo a corpo e marciais corpo a corpo Leves; 2014 = espada curta e simples corpo a corpo sem Duas Mãos/Pesada. */
 function isMonkWeapon(char, def) {
@@ -563,10 +614,46 @@ function attackFor(char, weapon) {
     const a = dieSides(dice); const b = dieSides(ma);
     if (!a || (b && a.count === 1 && b.sides > a.sides)) dice = ma;
   }
+  // Arma que veio de um item equipado (sheetWeapons): soma o bônus mágico do item; a que o
+  // mestre criou fora do catálogo (sem `def`) usa o atributo e conta a proficiência
+  // (`assumed`: a ficha avisa, porque não há categoria para conferir o treino).
+  if (w.fromItem) {
+    const magic = Number(w.magicBonus) || 0;
+    const itemDex = !def && (props.includes('ammo') || props.includes('ammunition') || (props.includes('finesse') && dex > str));
+    const ab = def ? abMod : (itemDex ? dex : str);
+    const bonusI = ab + (proficient ? profBonus(char) : 0) + (fs.attack || 0) + magic;
+    const dmgModI = ab + (fs.damage || 0) + magic;
+    return { bonus: bonusI, damage: withMod(dice, dmgModI), dice, dmgMod: dmgModI, dmgType: w.dmgType || def?.dmgType || '',
+      ability: def ? ability : (itemDex ? 'dex' : 'str'), proficient, monk, fs, magic, assumed: !def };
+  }
   // Arma personalizada (sem id): vale o bônus anotado na ficha.
   const bonus = def ? abMod + (proficient ? profBonus(char) : 0) + (fs.attack || 0) : (Number(w.bonus) || 0);
   const dmgMod = def ? abMod + (fs.damage || 0) : 0;
   return { bonus, damage: withMod(dice, dmgMod), dice, dmgMod, dmgType: w.dmgType || def?.dmgType || '', ability, proficient, monk, fs };
+}
+
+/**
+ * Armas da ficha (char.weapons) mais as armas EQUIPADAS do inventário, no mesmo formato e
+ * marcadas com `fromItem` (só leitura na ficha: mudam pelo item). Item com a mesma arma do
+ * catálogo que já está em char.weapons não entra duas vezes (salvo se for mágico).
+ */
+function sheetWeapons(char) {
+  const own = char?.weapons || [];
+  const out = [...own];
+  for (const it of (char?.equipment || [])) {
+    if (!itemInUse(it) || !it.weapon || !it.weapon.damage) continue;
+    const def = [it.base, it.sourceId, it.artId].map(id => (id ? SRD.weaponFor(id, char.rulesVersion) : null)).find(Boolean) || null;
+    const w = char.rulesVersion === '2024' && it.weapon.v2024 ? { ...it.weapon, ...it.weapon.v2024 } : it.weapon;
+    const magicBonus = itemMagicOn(it) ? Number(it.magic?.bonus) || 0 : 0;
+    if (def && !magicBonus && own.some(o => o.id === def.id)) continue;
+    out.push({
+      ...(def ? { id: def.id } : {}), name: it.name || '', damage: w.damage, dmgType: w.dmgType, props: w.props || [],
+      ...(w.range ? { range: w.range } : {}), ...(w.mastery ? { mastery: w.mastery } : {}),
+      ...(it.artId ? { artId: it.artId } : {}), ...(it.sourceId ? { sourceId: it.sourceId } : {}),
+      fromItem: true, itemId: it.id || null, magicBonus,
+    });
+  }
+  return out;
 }
 
 /**
@@ -602,33 +689,70 @@ function passivePerception(char) {
   return 10 + skillBonus(char, 'perception');
 }
 
-function computeAc(char) {
+/**
+ * CA com as parcelas que a formam: { total, parts: [{ value, label: {pt,en} }], armor, shield }.
+ * `armor` / `shield`: o que está em uso (wornArmor / wornShield), para a ficha dizer de onde
+ * vem o número. A soma das parcelas é o total (a ficha só mostra a conta quando fecha).
+ */
+function acBreakdown(char) {
   const dex = abilityMod(char, 'dex');
+  const worn = wornArmor(char);
+  const shield = wornShield(char);
+  const L = (pt, en) => ({ pt, en });
+  const DEX = L('DES', 'DEX');
   let ac = 10 + dex;
-  if (!char.armor) {
+  let parts = [{ value: 10, label: L('base', 'base') }, { value: dex, label: DEX }];
+  if (!char.armor && !worn) {
     // Multiclasse: só uma Defesa sem Armadura vale — fica a que der a maior CA.
-    const options = [ac];
-    if (MC.hasClass(char, 'barbarian')) options.push(10 + dex + abilityMod(char, 'con'));
-    if (MC.hasClass(char, 'monk') && !char.hasShield) options.push(10 + dex + abilityMod(char, 'wis'));
+    const options = [{ ac, parts }];
+    const und = L('Defesa sem Armadura', 'Unarmored Defense');
+    if (MC.hasClass(char, 'barbarian')) {
+      const con = abilityMod(char, 'con');
+      options.push({ ac: 10 + dex + con, parts: [{ value: 10, label: L('base', 'base') }, { value: dex, label: DEX }, { value: con, label: L('CON', 'CON'), note: und }] });
+    }
+    if (MC.hasClass(char, 'monk') && !shield) {
+      const wis = abilityMod(char, 'wis');
+      options.push({ ac: 10 + dex + wis, parts: [{ value: 10, label: L('base', 'base') }, { value: dex, label: DEX }, { value: wis, label: L('SAB', 'WIS'), note: und }] });
+    }
     const sorc = MC.classEntries(char).find(e => e.id === 'sorcerer' && e.subclass === 'draconic');
     if (sorc) {
-      if (char.rulesVersion !== '2024') options.push(13 + dex);
-      else if (sorc.level >= 3) options.push(10 + dex + abilityMod(char, 'cha'));
+      const drac = L('Resiliência Dracônica', 'Draconic Resilience');
+      if (char.rulesVersion !== '2024') options.push({ ac: 13 + dex, parts: [{ value: 13, label: drac }, { value: dex, label: DEX }] });
+      else if (sorc.level >= 3) {
+        const cha = abilityMod(char, 'cha');
+        options.push({ ac: 10 + dex + cha, parts: [{ value: 10, label: L('base', 'base') }, { value: dex, label: DEX }, { value: cha, label: L('CAR', 'CHA'), note: drac }] });
+      }
     }
-    ac = Math.max(...options);
+    const best = options.reduce((a, b) => (b.ac > a.ac ? b : a));
+    ac = best.ac; parts = best.parts;
   }
-  if (char.armor) {
-    const a = SRD.ARMOR.find(x => x.id === char.armor);
-    if (a) {
-      if (a.type === 'light') ac = a.ac + dex;
-      else if (a.type === 'medium') ac = a.ac + Math.min(dex, 2);
-      else if (a.type === 'heavy') ac = a.ac;
-    }
+  if (worn) {
+    const armorLabel = worn.item ? L(worn.name || 'armadura', worn.name || 'armor') : { id: worn.id };
+    if (worn.type === 'light') { ac = worn.ac + dex; parts = [{ value: worn.ac, label: armorLabel, armor: true }, { value: dex, label: DEX }]; }
+    else if (worn.type === 'medium') { ac = worn.ac + Math.min(dex, 2); parts = [{ value: worn.ac, label: armorLabel, armor: true }, { value: Math.min(dex, 2), label: dex > 2 ? L('DES (máx. 2)', 'DEX (max 2)') : DEX }]; }
+    else if (worn.type === 'heavy') { ac = worn.ac; parts = [{ value: worn.ac, label: armorLabel, armor: true }]; }
+    if (worn.bonus && ARMOR_BODY.includes(worn.type)) { ac += worn.bonus; parts.push({ value: worn.bonus, label: L('armadura mágica', 'magic armor') }); }
   }
-  if (char.hasShield) ac += 2;
-  ac += FS.acBonusTotal(char); // Estilo de Luta: Defesa (+1 usando armadura)
-  ac += +(char.extraAcBonus || 0);
-  return ac;
+  if (shield) {
+    ac += shield.ac; parts.push({ value: shield.ac, label: L('escudo', 'shield') });
+    if (shield.bonus) { ac += shield.bonus; parts.push({ value: shield.bonus, label: L('escudo mágico', 'magic shield') }); }
+  }
+  // Itens mágicos usados que somam na CA (Anel / Capa de Proteção, Pedra Ioun…): equipados e,
+  // se pedem sintonia, com ela feita. Braçadeiras de Defesa só valem sem armadura e sem escudo.
+  for (const it of (char?.equipment || [])) {
+    const bonus = wornItemAcBonus(char, it, worn, shield);
+    if (bonus) { ac += bonus; parts.push({ value: bonus, label: L(it.name || 'item mágico', it.name || 'magic item') }); }
+  }
+  // Estilo de Luta: Defesa (+1 usando armadura). A armadura do item conta como a da ficha.
+  const fsChar = worn?.item ? { ...char, armor: worn.id || ARMOR_PROXY[worn.type] } : char;
+  for (const b of FS.acBonuses(fsChar)) { ac += b.value; parts.push({ value: b.value, label: b.label }); }
+  const extra = +(char.extraAcBonus || 0);
+  if (extra) { ac += extra; parts.push({ value: extra, label: L('ajuste', 'adjustment') }); }
+  return { total: ac, parts: parts.filter(p => p.value !== 0 || p.armor), armor: worn, shield };
+}
+
+function computeAc(char) {
+  return acBreakdown(char).total;
 }
 
 function maxHpDefault(char) {
@@ -665,11 +789,11 @@ function speedBonuses(char) {
   if (char.speedOverride) return [];
   const out = [];
   const monk = MC.classLevel(char, 'monk');
-  if (monk >= 2 && !char.armor && !char.hasShield) {
+  if (monk >= 2 && !char.armor && !wornArmor(char) && !wornShield(char)) {
     out.push({ id: 'unarmoredMovement', value: monk >= 18 ? 30 : monk >= 14 ? 25 : monk >= 10 ? 20 : monk >= 6 ? 15 : 10,
       label: { pt: 'Monge', en: 'Monk' }, name: { pt: 'Movimento sem Armadura', en: 'Unarmored Movement' } });
   }
-  const armor = char.armor && SRD.ARMOR.find(a => a.id === char.armor);
+  const armor = wornArmor(char);
   if (MC.classLevel(char, 'barbarian') >= 5 && armor?.type !== 'heavy') {
     out.push({ id: 'fastMovement', value: 10,
       label: { pt: 'Bárbaro', en: 'Barbarian' }, name: { pt: 'Movimento Rápido', en: 'Fast Movement' } });
@@ -695,7 +819,7 @@ function speed(char) {
   const fromSpecies = Species.speciesGrants(char).speed; // Elfo da Floresta: 35
   const base = (fromSpecies || (race ? race.speed : 30)) + speedBonuses(char).reduce((n, b) => n + b.value, 0);
   // Armadura pesada sem a Força mínima: −10 pés (anão 2014 ignora).
-  const armor = char.armor && SRD.ARMOR.find(a => a.id === char.armor);
+  const armor = wornArmor(char);
   const dwarf2014 = char.rulesVersion !== '2024' && String(char.race || '').startsWith('dwarf');
   if (armor?.strReq && abilityWithRace(char, 'str') < armor.strReq && !dwarf2014) return Math.max(0, base - 10);
   return base;
@@ -1035,7 +1159,7 @@ return {
   makeNew,
   abilityWithRace, abilityMod, profBonus, saveBonus, skillBonus, wisdomSkillBonus, passivePerception,
   attackFor, unarmedStrike, martialArtsDie, isMonkWeapon, damageLabel, speedLabel,
-  computeAc, maxHpDefault, speed, speedBonuses, speedBonusText, serverNumbers, initiative, sizeOf,
+  computeAc, acBreakdown, wornArmor, wornShield, wornItemAcBonus, sheetWeapons, maxHpDefault, speed, speedBonuses, speedBonusText, serverNumbers, initiative, sizeOf,
   speciesGrants: Species.speciesGrants, speciesChoiceIssues: Species.speciesChoiceIssues,
   spellcastingAbility, spellSaveDc, spellAttackBonus, spellSlots, spellListClass, spellListClasses, inSpellList,
   isPreparedCaster, cantripsKnown, preparedSpellsLimit, maxSpellLevel,

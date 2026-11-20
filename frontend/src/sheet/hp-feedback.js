@@ -24,6 +24,21 @@ export const hpStateLabel = (state, lang) => (STATE_LABEL[lang] || STATE_LABEL.e
 // - ao trocar de ficha, nem ao entrar ou sair da Forma Selvagem (o PV troca de dono);
 // - enquanto o jogador digita no campo de PV temporário (.fh-hp-temp).
 // Dano absorvido pelo PV temporário também conta como dano. Volta a null em 1,2 s.
+
+/** Que tipo de batida foi (só para o retorno visual; src/sheet/condition-fx.css):
+ *  'down' chegou a 0 · 'bighit' perdeu 25% do máximo ou mais · 'absorb' os PV temporários
+ *  seguraram tudo · 'hit' · 'revive' voltou de 0 · 'heal'. */
+export function hpFxKind(prev, now, maxHp) {
+  const dHp = now.hp - prev.hp;
+  const dTemp = Math.min(0, now.temp - prev.temp);
+  if (dHp > 0) return prev.hp <= 0 ? 'revive' : 'heal';
+  if (dHp < 0) {
+    if (now.hp <= 0) return 'down';
+    return -(dHp + dTemp) >= Math.max(1, maxHp || 0) * 0.25 ? 'bighit' : 'hit';
+  }
+  return dTemp < 0 ? 'absorb' : '';
+}
+
 export function useHpFeedback(char) {
   const now = {
     id: char.id,
@@ -42,7 +57,8 @@ export function useHpFeedback(char) {
     const dTemp = editingTemp ? 0 : Math.min(0, now.temp - p.temp);
     const delta = dHp > 0 ? dHp : dHp + dTemp;
     if (!delta) return;
-    setFx(f => ({ id: (f?.id || 0) + 1, delta }));
+    const kind = hpFxKind(p, { ...now, temp: editingTemp ? p.temp : now.temp }, char.maxHp) || (delta < 0 ? 'hit' : 'heal');
+    setFx(f => ({ id: (f?.id || 0) + 1, delta, kind }));
   }, [now.id, now.hp, now.temp, now.ws]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!fx) return undefined;

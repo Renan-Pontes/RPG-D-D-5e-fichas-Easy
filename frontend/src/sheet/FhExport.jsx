@@ -13,7 +13,7 @@ import Icon from '../../components/Icons.jsx';
 import { Modal } from '../../components/Shared.jsx';
 import { EXPORT_OPTIONS, exportText, runExport } from './export-options.js';
 
-export default function FhExportModal({ lang, char, handlers, onClose }) {
+export default function FhExportModal({ lang, char, handlers, onClose, onLogin = null }) {
   const pt = lang === 'pt';
   const [busy, setBusy] = useState('');
   const listRef = useRef(null);
@@ -71,6 +71,25 @@ export default function FhExportModal({ lang, char, handlers, onClose }) {
         {EXPORT_OPTIONS.map((opt) => {
           const tx = exportText(opt, lang);
           const on = busy === opt.id;
+          // Compartilhar sem conta: a linha fica apagada (não é botão) e o caminho é o "Entrar"
+          // ao lado. Antes ela parecia disponível e a recusa vinha num aviso por cima das opções.
+          if (opt.id === 'share' && onLogin) {
+            return (
+              <li key={opt.id} className="fh-export-locked">
+                <div className="fh-export-opt is-locked" aria-disabled="true">
+                  <span className="fh-export-ico" aria-hidden="true"><Icon name="lock" size={20} /></span>
+                  <span className="fh-export-txt">
+                    <span className="fh-export-name">{tx.name}</span>
+                    <span className="fh-export-desc">{pt ? 'Link da ficha que vale 24 horas. Só com a conta aberta.' : 'A link to the sheet, valid for 24 hours. Only when logged in.'}</span>
+                  </span>
+                </div>
+                <button type="button" className="btn btn-ghost btn-sm fh-export-login" onClick={() => { onClose(); onLogin(); }}
+                  aria-label={pt ? 'Entrar na conta para compartilhar por link' : 'Log in to share by link'}>
+                  {pt ? 'Entrar' : 'Log in'}
+                </button>
+              </li>
+            );
+          }
           return (
             <li key={opt.id}>
               <button

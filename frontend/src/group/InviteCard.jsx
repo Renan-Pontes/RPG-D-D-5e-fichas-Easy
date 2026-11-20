@@ -68,7 +68,7 @@ export default function InviteCard({ campaign, lang, hasJoinRoute = false, compa
       </div>
       <div className={`grp-invite-actions ${canShare ? 'has-share' : ''}`}>
         <button type="button" className="mesa-btn is-primary grp-invite-link" onClick={() => copy('link', link)}>
-          🔗 {copied === 'link' ? t(lang, 'Link copiado!', 'Link copied!') : t(lang, 'Copiar link de convite', 'Copy invite link')}
+          {copied === 'link' ? t(lang, 'Link copiado!', 'Link copied!') : t(lang, 'Copiar link de convite', 'Copy invite link')}
         </button>
         <button type="button" className="mesa-btn" onClick={() => copy('code', code)}>
           {copied === 'code' ? t(lang, 'Código copiado!', 'Code copied!') : t(lang, 'Copiar código', 'Copy code')}

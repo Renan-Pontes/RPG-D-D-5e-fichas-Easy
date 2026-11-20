@@ -121,9 +121,15 @@ export default function SpeciesChoices({ char, lang, onChange, lockFeat = false 
           );
         } else if (c.key === 'cantrip') {
           // o truque marcado aqui não conta como "já tem" (sai da ficha vista sem ele)
-          const opts = unknownSpells({ ...char, speciesChoices: { ...(char.speciesChoices || {}), cantrip: undefined } }, Utils.spellCatalog(char), v).filter(s => s.level === 0 && s.classes.includes(c.list));
+          // O truque em uso (o escolhido ou o padrão da espécie) é mantido na lista: sem isso o
+          // padrão saía como "já conhecido" e o campo mostrava o primeiro da lista (outro truque).
+          const cur = v || c.default || '';
+          const catalog = Utils.spellCatalog(char);
+          const found = unknownSpells({ ...char, speciesChoices: { ...(char.speciesChoices || {}), cantrip: undefined } }, catalog, cur).filter(s => s.level === 0 && s.classes.includes(c.list));
+          const curDef = cur && !found.some(s => s.id === cur) ? catalog.find(s => s.id === cur) : null;
+          const opts = curDef ? [curDef, ...found] : found;
           body = (
-            <select value={v || c.default || ''} onChange={e => setChoice('cantrip', e.target.value || null)}>
+            <select aria-label={title} value={cur} onChange={e => setChoice('cantrip', e.target.value || null)}>
               {!c.default && <option value="">{L(lang, 'Escolha…', 'Choose…')}</option>}
               {opts.map(s => <option key={s.id} value={s.id}>{spellName(s.id, lang)}</option>)}
             </select>
@@ -219,7 +225,7 @@ export function speciesSummary(char, lang) {
   const shownTools = new Set([...list(g.options.tool?.tools), ...list(sc.tool)]);
   const fixedTools = g.tools.filter(t => !shownTools.has(t));
   if (fixedTools.length) rows.push([L(lang, 'Ferramentas', 'Tools'), fixedTools.map(t => RACE_TOOL_NAMES[t]?.[lang] || t).join(', ')]);
-  if (g.darkvision) rows.push([L(lang, 'Visão no escuro', 'Darkvision'), `${g.darkvision} ${L(lang, 'pés', 'ft')}`]);
+  if (g.darkvision) rows.push([L(lang, 'Visão no escuro', 'Darkvision'), Utils.speedLabel(g.darkvision, lang)]); // 60 pés → 18 m, como o resto da ficha
   const spells = [...g.cantrips, ...Object.entries(g.spellsByLevel).flatMap(([lv, ids]) => ids.map(id => ((char.level || 1) >= +lv ? id : null)))].filter(Boolean);
   if (spells.length) {
     const ab = g.spellAbility;
@@ -233,7 +239,7 @@ export function speciesSummary(char, lang) {
 }
 
 /** Modal da ficha para escolher/alterar as escolhas da espécie. */
-export function SpeciesChoicesModal({ char, lang, onSave, onClose }) {
+export function SpeciesChoicesModal({ char, lang, onSave, onClose, askDm = false }) {
   const [draft, setDraft] = useState(char);
   // Em campanha o servidor tranca `feats` e `raceBonus`: talento e atributos ficam com o mestre.
   const issues = speciesChoiceIssues(draft).filter(i => !(char.inCampaign && (i.key === 'feat' || i.key === 'asi')));
@@ -250,9 +256,15 @@ export function SpeciesChoicesModal({ char, lang, onSave, onClose }) {
     <Modal onClose={onClose} title={`${L(lang, 'Espécie', 'Species')}: ${tName('race', char.race, lang)}`}>
       <SpeciesChoices char={draft} lang={lang} lockFeat={!!char.inCampaign} onChange={patch => setDraft(d => ({ ...d, ...patch }))} />
       {issues.length > 0 && <div className="text-xs" style={{ color: 'var(--blood-bright)', marginTop: 10 }}>{issues.map(i => i[lang] || i.pt).join(' · ')}</div>}
+      {/* askDm: numa campanha a troca vira pedido ao mestre; o botão e a linha dizem isso antes do toque */}
+      {askDm && (
+        <p className="fh-ask-dm" role="note">
+          <span>{L(lang, 'Em campanha, o mestre aprova esta troca. A ficha só muda quando ele aceitar.', 'In a campaign, the DM approves this change. The sheet only changes once they accept.')}</span>
+        </p>
+      )}
       <div className="row" style={{ gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
         <button className="btn btn-ghost" onClick={onClose}>{L(lang, 'Cancelar', 'Cancel')}</button>
-        <button className="btn btn-primary" onClick={save} disabled={issues.length > 0}>{L(lang, 'Salvar', 'Save')}</button>
+        <button className="btn btn-primary" onClick={save} disabled={issues.length > 0}>{askDm ? L(lang, 'Pedir ao mestre', 'Ask the DM') : L(lang, 'Salvar', 'Save')}</button>
       </div>
     </Modal>
   );

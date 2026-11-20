@@ -1,0 +1,518 @@
+/* Abas da ficha além de Jogar (Atributos, Perícias, Características, Magias, Inventário,
+   História, Diário, NPCs): rodada de UX sobre o visual "Ficha Forjada" (ficha.css).
+   Importado DEPOIS de ficha.css (components/Sheet.jsx), então vence regras de mesma força.
+   Nada aqui cria contexto de empilhamento em painel (os modais da ficha não são portais). */
+
+/* ==========================================================================
+   Controle segmentado da ficha (Selos | Cinto de dados)
+   ========================================================================== */
+.ficha .fh-honey-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 14px; cursor: default; }
+.ficha .fh-seg { display: inline-flex; border: 1px solid var(--stroke); border-radius: 6px; background: rgba(8, 5, 4, 0.55); }
+.ficha .fh-seg-b {
+  position: relative; min-height: 36px; padding: 0 14px; border: 0; border-left: 1px solid var(--stroke-faint); background: none; cursor: pointer;
+  font: 600 0.86rem/1 var(--body); letter-spacing: 0.02em; color: var(--ink-secondary); white-space: nowrap;
+}
+.ficha .fh-seg-b:first-child { border-left: 0; border-radius: 5px 0 0 5px; }
+.ficha .fh-seg-b:last-child { border-radius: 0 5px 5px 0; }
+.ficha .fh-seg-b.is-on { color: #1a120a; background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep)); font-weight: 700; }
+.ficha .fh-seg-b:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+@media (hover: hover) { .ficha .fh-seg-b:not(.is-on):hover { color: var(--gold-bright); background: rgba(214, 176, 100, 0.08); } }
+@media (pointer: coarse) { .ficha .fh-seg-b { min-height: 44px; padding: 0 16px; } }
+.ficha .fh-seg-sub { flex: 1 1 200px; min-width: 0; font-size: 0.88rem; line-height: 1.35; color: var(--ink-muted); }
+
+/* ==========================================================================
+   Perícias: as 4 ações + ferramentas, com a linha da ficha (FhSkillRow)
+   ========================================================================== */
+.ficha .fh-skg { border: 1px solid rgba(224, 181, 94, 0.2); border-radius: 6px; background: rgba(10, 7, 6, 0.45); min-width: 0; }
+.ficha .fh-skg.is-open { border-color: rgba(224, 181, 94, 0.32); }
+.ficha .fh-skg-head {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 4px 10px 4px 8px;
+  border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ficha .fh-skg.is-open > .fh-skg-head { border-bottom: 1px solid rgba(224, 181, 94, 0.14); border-radius: 6px 6px 0 0; }
+.ficha .fh-skg-head:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+@media (hover: hover) { .ficha .fh-skg-head:hover .fh-skg-title { color: var(--fh-gold-hi); } }
+.ficha .fh-skg-icon {
+  flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid rgba(224, 181, 94, 0.45); color: var(--gold-bright);
+  background: radial-gradient(circle at 50% 30%, rgba(237, 203, 122, 0.2), rgba(8, 5, 4, 0.5) 72%);
+}
+.ficha .fh-skg-title { font: 700 0.84rem/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-bright); min-width: 0; }
+.ficha .fh-skg-count { margin-left: auto; font-size: 0.82rem; line-height: 1.2; color: var(--ink-muted); text-align: right; }
+.ficha .fh-skg-chev { flex: none; display: grid; place-items: center; width: 20px; color: var(--ink-muted); font-size: inherit; }
+.ficha .fh-skg-list { display: grid; grid-template-columns: minmax(0, 1fr); padding: 2px 4px 4px; }
+.ficha .fh-skg-list:empty { display: none; }
+.ficha .fh-skg-list.statblock-action-indented-profs { margin: 0; border: 0; background: none; }
+@media (min-width: 720px) {
+  .ficha .fh-skg-list:not(.is-single) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(var(--fh-rows, 3), auto);
+    grid-auto-flow: column;
+    column-gap: 20px;
+  }
+}
+/* a última linha de cada coluna não precisa do filete (a moldura do grupo já fecha) */
+.ficha .fh-skg-list > .fh-skill:last-child::after { display: none; }
+.ficha .fh-skg-more { margin: 0; padding: 6px 14px 10px 46px; font-size: 0.88rem; line-height: 1.45; color: var(--ink-muted); }
+.ficha .fh-tools-panel > .fh-skg-more { padding: 10px 2px 0; }
+/* celular: o botão de dados fica no canto (data-fab-pass) e a coluna do bônus sai da faixa dele */
+@media screen and (max-width: 719px) {
+  .ficha .fh-skill-categories-grid[data-fab-pass] .fh-skg-list { padding-right: clamp(0px, (21px - 1rem) * 999, 40px); }
+}
+
+/* linha: o nome quebra em duas linhas em vez de cortar com reticências */
+.ficha .fh-skill-name { flex-wrap: wrap; column-gap: 6px; row-gap: 0; }
+.ficha .fh-skill-name-txt { min-width: 0; overflow-wrap: anywhere; }
+/* valor passivo: texto apagado, sem caixa (não é botão); o bônus do teste é a caixa dourada */
+.ficha .fh-skill-pass { min-width: 1.5em; justify-content: flex-end; padding: 0; border: 0; background: none; }
+.ficha .fh-skill-pass .fh-score-num { font-size: 0.92rem; font-weight: 600; color: var(--ink-muted); }
+.ficha .fh-skill-mod { min-width: 2.7em; justify-content: center; }
+.ficha .fh-skill-adv { font-size: 0.66rem; line-height: 1; color: var(--moss-bright); }
+/* losango só de leitura: ferramentas (não é botão) e treino travado em campanha */
+.ficha .fh-prof.is-static { cursor: default; }
+.ficha .fh-prof.is-locked { cursor: help; }
+.ficha .fh-prof.is-locked::before { opacity: 0.8; }
+@media (hover: hover) { .ficha .fh-prof.is-locked:hover::before { transform: rotate(45deg); border-color: var(--gold-deep); } }
+@media (hover: none) { .ficha .fh-prof.is-locked:active::before { transform: rotate(45deg); } }
+.ficha .fh-prof-legend-tip.is-locked { font-style: normal; }
+.ficha .fh-prof-legend > .fh-prof-legend-tip.is-locked { display: inline-flex; align-items: center; gap: 6px; }
+.ficha .fh-prof-legend-tip.is-locked svg { flex: none; color: var(--gold); }
+/* chave dos dois números da linha */
+.ficha .fh-skills-key { margin-top: 12px; }
+.ficha .fh-skills-key + .fh-prof-legend { margin-top: 4px; }
+.ficha .fh-skills-key b { font-family: var(--display); }
+.ficha .fh-key-pass { font-weight: 600; color: var(--ink-muted); }
+.ficha .fh-key-mod { padding: 1px 6px; border: 1px solid rgba(224, 181, 94, 0.38); border-radius: 3px; background: rgba(36, 24, 14, 0.75); color: var(--gold-bright); }
+.ficha .fh-key-adv { font-size: 0.7rem; color: var(--moss-bright); }
+
+/* ==========================================================================
+   Atributos: ajuda do cinto
+   ========================================================================== */
+.ficha div.fh-honey-help { margin-inline: auto; }
+.ficha .fh-honey-help p { margin: 0; }
+.ficha .fh-honey-help b { color: var(--ink-secondary); font-weight: 600; }
+.ficha .fh-honey-more { margin-top: 6px; }
+.ficha .fh-honey-more > summary {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; cursor: pointer; list-style: none;
+  color: var(--gold); text-decoration: underline; text-decoration-color: rgba(214, 176, 100, 0.4); text-underline-offset: 3px; border-radius: 4px;
+}
+.ficha .fh-honey-more > summary::-webkit-details-marker { display: none; }
+.ficha .fh-honey-more > summary:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+.ficha .fh-honey-more ul { margin: 2px 0 0; padding: 0 0 0 18px; text-align: left; }
+.ficha .fh-honey-more li { margin: 4px 0; }
+
+/* cinto no celular: o selo dourado do valor cobria os dois modificadores ("-(8)-1").
+   Cada metade empurra o número para fora do selo (como na colmeia da aba Jogar), o selo
+   encolhe um pouco e a fórmula do dado ("1D20+3") cabe dentro da silhueta. */
+@media (max-width: 520px) {
+  .ficha .fh-belt:not(.is-hive-only) .fh-honey-halves:not(.is-single) .fh-honey-half:first-child { padding-right: 19%; }
+  .ficha .fh-belt:not(.is-hive-only) .fh-honey-halves:not(.is-single) .fh-honey-half:last-child { padding-left: 19%; }
+  .ficha .fh-belt:not(.is-hive-only) .fh-honey-val { font-size: 1.12rem; letter-spacing: 0; }
+  .ficha .fh-belt:not(.is-hive-only) .fh-belt-badge { width: 27px; height: 27px; top: 43%; }
+  .ficha .fh-belt:not(.is-hive-only) .fh-belt-slot-dice { font-size: 0.8rem; letter-spacing: 0; }
+}
+
+/* ==========================================================================
+   Magias: linha no celular, seletor de círculo, modais de preparar / copiar
+   ========================================================================== */
+@media (max-width: 600px) {
+  /* as gemas de espaço ganham coluna própria (antes caíam sobre a linha de dados da magia) */
+  .ficha .spell-row-header.fh-spell-toggle { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+  .ficha .fh-spell-toggle > .fh-slot-gems { grid-column: 3; grid-row: 1 / span 2; align-self: start; margin: 7px 0 0 2px; padding: 0; }
+  .ficha .fh-spell-toggle > .fh-spell-chev { grid-column: 4; }
+}
+/* etiqueta de origem ("Iniciado em Magia"): inteira numa linha, nunca partida em duas caixas */
+.ficha .fh-spell-src { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ficha .fh-spell .spell-row-name { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; min-width: 0; }
+.ficha .fh-ss-k { font: 700 0.62rem/1 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-muted); }
+.ficha .fh-ss-track { grid-template-columns: repeat(var(--fh-ss-n, 9), minmax(0, 64px)); justify-content: start; gap: 4px; }
+.ficha .fh-ss-seg { height: 36px; font-family: var(--mono); }
+@media (pointer: coarse) { .ficha .fh-ss-seg { height: 44px; } }
+.ficha .fh-slot-slider.is-single { flex: 0 1 auto; }
+.ficha .fh-slot-slider.is-single:empty { display: none; }
+.ficha .fh-toast.is-spell .fh-toast-text { color: var(--arcane-bright); }
+.ficha .prep-limit-note { margin: 0; font-size: 0.88rem; line-height: 1.35; color: var(--gold-bright); }
+.ficha .prep-info:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+@media (max-width: 480px) {
+  /* modal em tela cheia: a faixa de Cancelar | Salvar fica no pé da tela, não no meio */
+  .ficha .modal:has(> .prep-sticky) { display: flex; flex-direction: column; }
+  .ficha .modal:has(> .prep-sticky) > * { flex-shrink: 0; }
+  .ficha .modal:has(> .prep-sticky) > .modal-actions.sticky { margin-top: auto; }
+  .ficha .modal:has(> .prep-sticky) > .modal-actions.sticky .btn { flex: 1 1 0; min-height: 44px; }
+}
+
+/* ==========================================================================
+   Inventário
+   ========================================================================== */
+.ficha .fh-inv-rule {
+  display: flex; align-items: flex-start; gap: 8px; margin: 0 0 12px; padding: 10px 12px;
+  border: 1px solid rgba(224, 181, 94, 0.22); border-radius: 6px; background: rgba(10, 7, 6, 0.45);
+  font-size: 0.95rem; line-height: 1.4; color: var(--ink-secondary);
+}
+.ficha .fh-inv-rule svg { flex: none; margin-top: 3px; color: var(--gold); }
+.ficha .fh-armor :is(select, input):disabled { opacity: 0.7; cursor: not-allowed; }
+.ficha .fh-armor input:disabled + label { cursor: default; color: var(--ink-muted); }
+.ficha .fh-armor-result {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin: 12px 0 0; padding-top: 12px;
+  border-top: 1px solid rgba(224, 181, 94, 0.16);
+}
+.ficha .fh-armor-ac { font-family: var(--display); color: var(--gold-bright); white-space: nowrap; }
+.ficha .fh-armor-ac-k { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em; }
+.ficha .fh-armor-ac b { font-size: 1.7rem; font-weight: 700; line-height: 1; color: var(--ink-primary); font-variant-numeric: lining-nums; }
+.ficha .fh-armor-with { font-size: 0.95rem; color: var(--ink-muted); }
+
+/* arma: leitura por padrão; o lápis abre os campos com rótulo */
+.ficha .card.fh-wpn { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.ficha .card.fh-wpn > * { grid-column: 1 / -1; min-width: 0; }
+@media (min-width: 601px) {
+  .ficha .card.fh-wpn > .fh-wpn-top { grid-column: 1; grid-row: 1; }
+  .ficha .card.fh-wpn > .fh-wpn-rolls { grid-column: 2; grid-row: 1; }
+}
+.ficha .fh-wpn-id { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.ficha .fh-wpn-title { font: 600 1rem/1.25 var(--display); letter-spacing: 0.03em; color: var(--ink-primary); overflow-wrap: anywhere; }
+.ficha .fh-wpn-sub { font-size: 0.92rem; line-height: 1.25; color: var(--ink-muted); font-variant-numeric: lining-nums; }
+.ficha :is(.fh-wpn-title, .inv-name).is-unnamed { font-family: var(--body); font-style: italic; font-weight: 400; letter-spacing: 0; color: var(--ink-muted); }
+.ficha .fh-wpn-edit[aria-expanded="true"] { color: var(--gold-bright); border-color: rgba(224, 181, 94, 0.5); }
+.ficha .fh-wpn-form {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 10px; padding: 10px;
+  border: 1px dashed rgba(224, 181, 94, 0.28); border-radius: 6px; background: rgba(7, 5, 5, 0.4);
+}
+.ficha .fh-wpn-form .fh-wpn-dmg { flex: none; width: 100%; }
+.ficha .fh-wpn-del { grid-column: 1 / -1; justify-self: start; min-height: 40px; }
+.ficha .fh-wpn-add { margin: 2px 0 0; }
+.ficha .fh-weapons .fh-wpn + .fh-wpn-add,
+.ficha .fh-weapons .fh-empty-state + .fh-wpn-add { margin-top: 10px; }
+.ficha .fh-mini { display: grid; gap: 5px; margin: 0; min-width: 0; }
+.ficha .fh-mini > span { font: 700 0.62rem/1 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-muted); }
+.ficha .fh-mini.is-wide { grid-column: 1 / -1; }
+.ficha .fh-mini input { min-width: 0; width: 100%; }
+.ficha .inv-rename input { background-color: #070505; border-color: rgba(224, 181, 94, 0.28); border-radius: 6px; }
+.ficha .inv-rename input:focus { border-color: var(--fh-gold-hi); box-shadow: 0 0 0 3px rgba(224, 181, 94, 0.18); }
+
+/* miniatura sem ilustração: desenho em traço dourado (não emoji), moldura inteira */
+.ficha .fh-glyph-thumb.is-empty { border-style: solid; border-color: rgba(224, 181, 94, 0.5); }
+.ficha .fh-glyph-thumb .art-thumb-emoji { display: grid; place-items: center; color: var(--gold); filter: none; opacity: 1; font-size: inherit; }
+.ficha .item-detail.is-text-only { display: block; }
+.ficha .inv-fact { display: flex; align-items: flex-start; gap: 6px; }
+.ficha .inv-fact svg { flex: none; margin-top: 3px; color: var(--gold); }
+
+/* quantidade: − N + (os dois sentidos), no lugar do antigo "Consumir" */
+.ficha .inv-stepper { display: inline-flex; align-items: stretch; border: 1px solid var(--stroke); border-radius: 6px; background: rgba(8, 5, 4, 0.55); }
+.ficha .inv-stepper-k { display: grid; place-items: center; padding: 0 10px; font: 700 0.62rem/1 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-muted); }
+.ficha .inv-step {
+  width: 44px; min-height: 40px; padding: 0; border: 0; border-left: 1px solid var(--stroke-faint); background: none; cursor: pointer;
+  font: 700 1.25rem/1 var(--mono); color: var(--gold-bright);
+}
+.ficha .inv-step:last-child { border-radius: 0 5px 5px 0; }
+.ficha .inv-step:disabled { color: var(--ink-faint); cursor: not-allowed; }
+.ficha .inv-step:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+@media (hover: hover) { .ficha .inv-step:not(:disabled):hover { background: rgba(214, 176, 100, 0.12); } }
+.ficha .inv-step-n { display: grid; place-items: center; min-width: 44px; padding: 0 6px; border-left: 1px solid var(--stroke-faint); font: 700 1.05rem/1 var(--mono); color: var(--ink-primary); font-variant-numeric: tabular-nums; }
+@media (pointer: coarse) { .ficha .inv-step { min-height: 44px; } .ficha .inv-acts .btn { min-height: 44px; } }
+.ficha .inv-row-v2.is-spent .inv-name { color: var(--ink-muted); }
+.ficha .inv-row-v2.is-spent .inv-qty { color: var(--blood-bright); }
+
+/* estado vazio único das abas (Inventário, Armas, Diário, NPCs): frase que diz para que
+   serve + (quando há) o botão principal logo abaixo */
+.ficha .fh-empty-state { margin: 0 0 10px; padding: 16px 14px; border: 1px dashed rgba(224, 181, 94, 0.22); border-radius: 6px; text-align: center; font-size: 0.98rem; line-height: 1.45; color: var(--ink-muted); }
+.ficha .fh-empty-state p { margin: 0; }
+.ficha .fh-empty-state.is-cta { display: grid; justify-items: center; gap: 12px; padding: 22px 14px; }
+.ficha .fh-empty-state.is-cta .btn { min-height: 44px; margin: 0; width: auto; }
+
+/* moedas: o nome do metal embaixo do campo (PO = ouro) */
+.ficha .fh-coin { gap: 6px; }
+.ficha .fh-coin input { width: 100%; }
+.ficha .fh-coin-name { font-size: 0.78rem; line-height: 1; color: var(--ink-muted); }
+
+/* ==========================================================================
+   História e Diário
+   ========================================================================== */
+.ficha .fh-story textarea,
+.ficha .fh-note textarea { resize: none; overflow: hidden; }
+.ficha .fh-story textarea { min-height: 0; }
+.ficha .fh-story textarea.is-long { min-height: 0; }
+.ficha .fh-story :is(textarea, input)::placeholder,
+.ficha .fh-note textarea::placeholder { color: var(--ink-muted); opacity: 0.7; font-style: italic; }
+.ficha .fh-story .fh-field > label { display: block; }
+@media (min-width: 720px) {
+  .ficha .fh-story-fields.is-quad { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.ficha .fh-notes .fh-title-act .fh-note-add { margin: 0; width: auto; }
+.ficha .fh-note textarea { min-height: 0; }
+
+/* ==========================================================================
+   Desktop: as abas usam a largura do topo (antes, uma coluna de 760px em todas)
+   ========================================================================== */
+@media (min-width: 1100px) {
+  .ficha .fh-tab-body:is(.is-tab-stats, .is-tab-skills, .is-tab-inv, .is-tab-story) { max-width: none; }
+  .ficha .fh-tab-body:is(.is-tab-features, .is-tab-spells, .is-tab-notes, .is-tab-npcs) { max-width: 860px; }
+  .ficha .fh-scope-abilities:not(.is-belt),
+  .ficha .fh-inv-grid,
+  .ficha .fh-story-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 0 18px; align-items: start; }
+  .ficha :is(.fh-inv-col, .fh-story-col) { min-width: 0; }
+  .ficha .fh-inv-grid > .fh-inv-rule { grid-column: 1 / -1; }
+  .ficha .fh-scope-abilities.is-belt { max-width: 860px; margin-inline: auto; }
+  .ficha .fh-scope-skills { display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); gap: 0 18px; align-items: start; }
+  .ficha .fh-scope-skills > .fh-panel { min-width: 0; }
+}
+/* rolador lateral aberto: a ficha perde ~420px; Perícias volta a uma coluna */
+@media (min-width: 1100px) and (max-width: 1739px) {
+  body.dice-sheet-open .ficha .fh-scope-skills { grid-template-columns: minmax(0, 1fr); }
+}
+@media print {
+  .ficha :is(.fh-scope-abilities, .fh-scope-skills, .fh-inv-grid, .fh-story-grid) { display: block; }
+}
+
+/* ==========================================================================
+   Topo: o grupo retrato + inspiração + descansos NÃO pode criar contexto de empilhamento
+   (ele abre o Modal do retrato; com z-index o fundo do modal ficava preso abaixo da barra
+   de abas fixa e do botão de dados: "Alterar foto" e "Remover" não recebiam o toque).
+   ========================================================================== */
+.ficha .fh-hero-top-left-cluster { z-index: auto; }
+.ficha .fh-story-short { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* ==========================================================================
+   Características: linha do traço na linha do tempo
+   ========================================================================== */
+/* uma etiqueta só em toda a linha do tempo: texto pequeno em caixa alta, sem moldura
+   (antes havia três tratamentos: chip verde, caixa com botão e texto solto) */
+.ficha .fh-timeline .fh-cf-name + .fh-origin { padding: 0; border: 0; background: none; font-variant-caps: normal; }
+.ficha .fh-tl-change { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; margin-left: 2px; color: var(--ink-secondary); }
+.ficha .fh-tl-change svg { flex: none; color: var(--gold); }
+.ficha .fh-tl-fold { min-height: 40px; }
+.ficha .fh-tl-fold svg { flex: none; opacity: 0.7; }
+.ficha .fh-tl-fold-k { min-width: 0; }
+.ficha .fh-tl-fold:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+@media (max-width: 600px) {
+  /* [losango][nome, quebra livre][lápis][seta]; a etiqueta desce para baixo do nome.
+     O losango fica na primeira linha do nome (antes ficava órfão acima do título). */
+  .ficha .fh-timeline .fh-cf-item > details > summary {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; column-gap: 10px; row-gap: 2px;
+    padding: 8px 26px 8px 2px;
+  }
+  .ficha .fh-timeline .fh-cf-item > details > summary::before { grid-column: 1; grid-row: 1; margin-top: 8px; }
+  .ficha .fh-timeline .fh-cf-item > details > summary::after { top: 16px; }
+  .ficha .fh-timeline .fh-cf-name { grid-column: 2; grid-row: 1; min-width: 0; padding-top: 1px; }
+  .ficha .fh-timeline .fh-cf-name + .fh-origin { display: contents; }
+  .ficha .fh-timeline .fh-cf-name + .fh-origin > .fh-tl-tag { grid-column: 2; grid-row: 2; justify-self: start; text-align: left; }
+  .ficha .fh-timeline .fh-cf-name + .fh-origin > .fh-tl-change {
+    grid-column: 3; grid-row: 1 / span 2; align-self: center; justify-content: center;
+    width: 44px; min-height: 44px; margin: -4px 0; padding: 0;
+  }
+  .ficha .fh-timeline .fh-tl-change-t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .ficha .fh-timeline .fh-cf-name + .fh-origin > .prog-choose { grid-column: 2 / -1; grid-row: 3; justify-self: start; margin: 6px 0 2px; }
+}
+
+/* "Combina com sua espécie" (modal Editar idiomas): no celular vira uma segunda linha
+   sob o nome do idioma (antes, uma pílula espremida em três linhas) */
+@media (max-width: 520px) {
+  .ficha .modal .lang-option { flex-wrap: wrap; row-gap: 2px; }
+  .ficha .modal .lang-option .cr-badge {
+    flex: 1 0 100%; margin: 0; padding: 0 0 0 28px; border: 0; border-radius: 0; background: none;
+    font-size: 0.8rem; line-height: 1.3; text-align: left; white-space: normal; color: var(--moss-bright);
+  }
+  .ficha .modal .lang-option .cr-badge::before { content: "✓ "; }
+}
+
+/* ==========================================================================
+   NPCs
+   ========================================================================== */
+.ficha .fh-npcs-panel .fh-title-act .btn.fh-npc-add,
+.ficha .fh-empty-state .btn.fh-npc-add { width: auto; margin: 0; color: #1a120a; border-color: transparent; }
+.ficha .fh-npc-form { display: grid; gap: 12px; }
+.ficha .fh-npc-form-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ficha .fh-npc-form label { display: block; margin-bottom: 4px; }
+.ficha .fh-npc-form .modal-actions .btn { min-height: 44px; min-width: 110px; }
+@media (max-width: 480px) {
+  .ficha .fh-npc-form-2 { grid-template-columns: minmax(0, 1fr); }
+  .ficha .fh-npc-form .modal-actions .btn { flex: 1 1 0; }
+}
+@media (pointer: coarse) { .ficha .fh-npc-btn { min-height: 44px; min-width: 44px; } }
+
+/* ==========================================================================
+   Rodada 2 das abas (o que promete, acontece)
+   ========================================================================== */
+
+/* --- Aviso do pé × modal: com um modal aberto o aviso some (ele ficava por cima do
+   "Salvar" preso no pé do modal e o toque caía no ✕ do aviso). Fechado o modal, se ainda
+   estiver no tempo dele, volta. --- */
+.ficha:has(.modal-backdrop) .fh-toast,
+body.mesa-sheet-open .ficha .fh-toast { display: none; }
+
+/* --- "Em campanha, o mestre aprova": linha acima do botão principal dos modais de troca --- */
+.fh-ask-dm {
+  display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 10px; padding: 8px 10px;
+  border: 1px solid rgba(227, 164, 69, 0.4); border-radius: 6px; background: rgba(90, 61, 18, 0.28);
+  font-size: 0.92rem; line-height: 1.4; color: var(--ink-secondary);
+}
+.fh-ask-dm svg { flex: none; margin-top: 3px; color: var(--amber, #e3a445); }
+
+/* --- Ponto de escolha pendente na aba Características --- */
+.ficha .tab .fh-tab-dot {
+  display: inline-block; width: 8px; height: 8px; margin-left: 6px; border-radius: 50%; vertical-align: 1px;
+  background: var(--amber, #e3a445); box-shadow: 0 0 0 2px rgba(227, 164, 69, 0.25);
+}
+
+/* --- Pedidos de troca aguardando o mestre --- */
+.ficha .fh-tl-respec-h { display: flex; align-items: center; gap: 6px; font-size: 0.95rem; color: var(--ink-primary); }
+.ficha .fh-tl-respec-h svg { flex: none; color: var(--amber, #e3a445); }
+.ficha .fh-tl-respec-t { font-size: 0.95rem; }
+.ficha .fh-tl-respec-c { font-size: 0.86rem; color: var(--ink-secondary); }
+.ficha .fh-tl-respec-foot { display: block; margin-top: 8px; font-size: 0.84rem; line-height: 1.4; color: var(--ink-muted); }
+
+/* --- Escolha de subclasse: opção + traços formatados + ações presas no pé --- */
+.ficha .fh-sub-lead { margin: 0 0 12px; font-size: 0.98rem; color: var(--ink-secondary); }
+.ficha .fh-sub-list { display: grid; gap: 10px; margin-bottom: 4px; }
+.ficha .fh-sub-opt { min-width: 0; }
+.ficha .fh-sub-opt > .option { display: grid; gap: 4px; width: 100%; text-align: left; }
+.ficha .fh-sub-opt > .option .option-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.ficha .fh-sub-cur {
+  font: 700 0.6rem/1 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-muted);
+  padding: 3px 6px; border: 1px solid var(--stroke); border-radius: 3px;
+}
+.ficha .fh-sub-desc { font-size: 0.9rem; line-height: 1.45; color: var(--ink-secondary); }
+.ficha .fh-sub-opt.is-selected > .option { border-radius: 6px 6px 0 0; }
+.ficha .fh-sub-body {
+  display: grid; gap: 12px; padding: 12px 12px 14px; border: 1px solid var(--gold-deep); border-top: 0; border-radius: 0 0 6px 6px;
+  background: rgba(10, 7, 6, 0.45);
+}
+.ficha .fh-sub-feat { min-width: 0; }
+.ficha .fh-sub-feat + .fh-sub-feat { padding-top: 12px; border-top: 1px solid rgba(224, 181, 94, 0.14); }
+.ficha .fh-sub-feat-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-bottom: 4px; }
+.ficha .fh-sub-feat-lv {
+  flex: none; font: 700 0.62rem/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold-bright);
+  padding: 3px 6px; border: 1px solid rgba(224, 181, 94, 0.4); border-radius: 3px; background: rgba(36, 24, 14, 0.75);
+}
+.ficha .fh-sub-feat-n { font: 600 0.98rem/1.25 var(--display); letter-spacing: 0.03em; color: var(--ink-primary); }
+.ficha .fh-sub-feat-t { font-size: 0.95rem; color: var(--ink-secondary); }
+.ficha .fh-sub-feat-t > :first-child { margin-top: 0; }
+.ficha .fh-sub-feat-t > :last-child { margin-bottom: 0; }
+.ficha .fh-sub-later > summary {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; cursor: pointer; border-radius: 4px;
+  font: 700 0.7rem/1 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
+}
+.ficha .fh-sub-later > summary:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.ficha .fh-sub-later[open] > summary { margin-bottom: 6px; }
+.ficha .fh-sub-later > .fh-sub-feat { opacity: 0.86; }
+.ficha .fh-sub-later > .fh-sub-feat:first-of-type { padding-top: 0; border-top: 0; }
+.ficha .fh-sub-land { display: grid; gap: 8px; }
+.ficha .fh-sub-land-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.ficha .fh-sub-land-list .option { min-height: 44px; padding: 8px 10px; text-align: center; }
+.ficha .fh-sub-actions { align-items: center; flex-wrap: wrap; background: var(--fh-leather-lo); border-top-color: rgba(224, 181, 94, 0.22); }
+.ficha .fh-sub-actions .btn { min-height: 44px; min-width: 110px; }
+.ficha .fh-sub-missing { flex: 1 1 160px; min-width: 0; font-size: 0.9rem; line-height: 1.3; color: var(--amber, #e3a445); }
+@media (max-width: 480px) {
+  .ficha .modal:has(> .fh-sub-actions) { display: flex; flex-direction: column; }
+  .ficha .modal:has(> .fh-sub-actions) > * { flex-shrink: 0; }
+  .ficha .modal:has(> .fh-sub-actions) > .fh-sub-actions { margin-top: auto; }
+  .ficha .fh-sub-actions .btn { flex: 1 1 0; min-width: 0; }
+  .ficha .fh-sub-missing { flex-basis: 100%; }
+}
+
+/* --- Tabelas de regra no celular: 4 colunas ou mais viram um cartão por linha (antes, uma
+   palavra por linha e a última coluna cortada). O nome da coluna vem do data-label. --- */
+@media (max-width: 560px) {
+  .ficha .rt-table:is([data-cols="4"], [data-cols="5"], [data-cols="6"], [data-cols="7"]) { display: block; width: 100%; }
+  .ficha .rt-table:is([data-cols="4"], [data-cols="5"], [data-cols="6"], [data-cols="7"]) :is(tbody, caption) { display: block; }
+  .ficha .rt-table:is([data-cols="4"], [data-cols="5"], [data-cols="6"], [data-cols="7"]) thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .ficha .rt-table:is([data-cols="4"], [data-cols="5"], [data-cols="6"], [data-cols="7"]) tr { display: block; padding: 8px 0; }
+  .ficha .rt-table:is([data-cols="4"], [data-cols="5"], [data-cols="6"], [data-cols="7"]) tbody tr + tr { border-top: 1px solid rgba(224, 181, 94, 0.18); }
+  .ficha .rt-table:is([data-cols="4"], [data-cols="5"], [data-cols="6"], [data-cols="7"]) td { display: block; padding: 2px 0; border: 0 !important; white-space: normal; }
+  .ficha .rt-table:is([data-cols="4"], [data-cols="5"], [data-cols="6"], [data-cols="7"]) td:first-child { font-family: var(--display); font-size: 0.98rem; letter-spacing: 0.02em; color: var(--gold-bright); padding-bottom: 4px; }
+  .ficha .rt-table:is([data-cols="4"], [data-cols="5"], [data-cols="6"], [data-cols="7"]) td:not(:first-child)[data-label]::before {
+    content: attr(data-label) ": "; font: 700 0.62rem/1.6 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted);
+  }
+}
+
+/* --- Perícias: ▼ da armadura, grupo dobrado sem faixa vazia, sem treino em botões --- */
+.ficha .fh-skill-adv.is-dis { color: var(--blood-bright); }
+.ficha .fh-key-dis { font-size: 0.7rem; color: var(--blood-bright); }
+.ficha .fh-skg-more.is-rolls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px 10px; }
+.ficha .fh-skg-more-k { flex: 0 0 100%; font: 700 0.6rem/1 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-muted); }
+.ficha .fh-skg-chip {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; cursor: pointer;
+  border: 1px solid rgba(224, 181, 94, 0.28); border-radius: 5px; background: rgba(8, 5, 4, 0.5);
+  font: 400 0.92rem/1.2 var(--body); color: var(--ink-secondary); -webkit-tap-highlight-color: transparent;
+}
+.ficha .fh-skg-chip b { font: 700 0.9rem/1 var(--display); color: var(--gold-bright); font-variant-numeric: lining-nums; }
+.ficha .fh-skg-chip:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+@media (hover: hover) { .ficha .fh-skg-chip:hover { border-color: var(--gold); color: var(--ink-primary); } }
+@media (pointer: coarse) { .ficha .fh-skg-chip { min-height: 44px; padding: 0 12px; } }
+
+/* --- Cinto no celular: legendas TESTE / RES. inteiras (as arestas de baixo do hexágono as
+   cortavam), o valor do dado legível (antes vermelho sobre vermelho) e a medalha com área
+   de toque de 44px --- */
+.ficha .fh-belt:not(.is-hive-only) .fh-belt-slot.is-bound .fh-belt-slot-dice {
+  color: var(--ink-primary) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.9), 0 0 12px var(--slot-bound-glow, rgba(237, 203, 122, 0.6)) !important;
+}
+.ficha .fh-belt:not(.is-hive-only) .fh-belt-badge::after { content: ""; position: absolute; inset: -9px; border-radius: 50%; }
+@media (max-width: 520px) {
+  .ficha .fh-belt:not(.is-hive-only) .fh-belt-hex-wrap:not(.is-action) .fh-honey-cap { font-size: 0.56rem; letter-spacing: 0.02em; }
+  .ficha .fh-belt:not(.is-hive-only) .fh-honey-halves:not(.is-single) .fh-honey-half:first-child .fh-honey-cap { transform: translateX(9px); }
+  .ficha .fh-belt:not(.is-hive-only) .fh-honey-halves:not(.is-single) .fh-honey-half:last-child .fh-honey-cap { transform: translateX(-9px); }
+}
+
+/* --- Magias: Dano / Cura ao lado do Conjurar, uso livre, abas e gemas tocáveis --- */
+.ficha .fh-spell-acts .fh-spell-dice { min-height: 44px; min-width: 112px; align-self: flex-end; }
+.ficha .fh-atk-btn.is-heal { color: #d7f6ea; border-color: rgba(116, 214, 180, 0.6); background: linear-gradient(180deg, rgba(18, 63, 52, 0.85), rgba(10, 30, 25, 0.9)); }
+@media (hover: hover) { .ficha .fh-atk-btn.is-heal:hover { color: #eafff7; border-color: var(--fh-verdigris, #74d6b4); box-shadow: 0 0 16px rgba(116, 214, 180, 0.35); } }
+.ficha .fh-spell-useslot { min-height: 42px; }
+.ficha .fh-spell-freenote { flex: 1 0 100%; font-size: 0.88rem; line-height: 1.3; color: var(--ink-muted); }
+.ficha .fh-free-pip {
+  display: inline-flex; align-items: center; gap: 6px; align-self: center; white-space: nowrap;
+  font: 700 0.6rem/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--arcane-bright);
+}
+.ficha .fh-slots-lock { display: flex; align-items: center; gap: 6px; margin: 4px 0 6px; font-size: 0.86rem; line-height: 1.35; color: var(--ink-muted); }
+.ficha .fh-slots-lock svg { flex: none; color: var(--gold); }
+@media (pointer: coarse) {
+  .ficha .fh-spell-acts .btn { min-height: 44px; }
+  .ficha .fh-spell-tab { min-height: 44px; }
+  /* (as gemas de espaço e os dados no meio do texto já têm a área de toque estendida por
+     ::after — ficha.css e dice-styles.css —, sem engordar o desenho nem a linha do texto) */
+}
+@media (max-width: 600px) {
+  /* as abas de magia não quebram em duas linhas: rolam de lado */
+  .ficha .fh-spell-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .ficha .fh-spell-tabs::-webkit-scrollbar { display: none; }
+  .ficha .fh-spell-tab { flex: none; }
+  .ficha .fh-spell-acts .fh-spell-dice { flex: 1 1 auto; }
+}
+
+/* --- Inventário: a conta da CA, arma que vem de item, sintonia, beber, moedas --- */
+.ficha .fh-armor-sum { flex: 1 0 100%; font-size: 0.84rem; line-height: 1.4; color: var(--ink-muted); overflow-wrap: anywhere; }
+.ficha .fh-armor-how { margin: 8px 0 0; font-size: 0.92rem; line-height: 1.4; color: var(--ink-muted); }
+.ficha .fh-wpn-from {
+  display: inline-flex; align-items: center; gap: 4px; justify-self: start; margin-top: 2px;
+  font: 700 0.58rem/1 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--moss-bright);
+}
+.ficha .fh-attune-count { font-family: var(--mono); font-size: 0.8rem; color: var(--ink-muted); }
+.ficha .fh-attune-count.is-full { color: var(--amber, #e3a445); }
+.ficha .inv-worn-note { margin: 0; padding: 6px 10px; border-left: 2px solid var(--moss-bright); background: rgba(52, 64, 31, 0.28); font-size: 0.9rem; line-height: 1.35; color: var(--ink-secondary); }
+.ficha .inv-worn-note.is-off { border-left-color: var(--amber, #e3a445); background: rgba(90, 61, 18, 0.28); }
+.ficha .inv-acts .btn svg { flex: none; vertical-align: -2px; }
+.ficha .inv-drink { gap: 6px; }
+.ficha .inv-drink-dice { font-size: 0.82rem; opacity: 0.85; }
+.ficha .fh-coin-hint { display: none; margin: 10px 0 0; font-size: 0.86rem; color: var(--ink-muted); }
+@media (hover: hover) and (pointer: fine) { .ficha .fh-coin-hint { display: block; } }
+
+/* --- NPCs: lixeira (como Diário e Inventário) e ações do modal no pé da tela no celular --- */
+.ficha .fh-npc-btn.is-del { display: inline-grid; place-items: center; width: 44px; min-height: 40px; }
+@media (pointer: coarse) { .ficha .fh-npc-btn.is-del { min-height: 44px; } }
+@media (max-width: 480px) {
+  .ficha .modal:has(> .fh-npc-form) { display: flex; flex-direction: column; }
+  .ficha .modal:has(> .fh-npc-form) > * { flex-shrink: 0; }
+  .ficha .modal:has(> .fh-npc-form) > .fh-npc-form { flex: 1 1 auto; grid-template-rows: repeat(4, auto) 1fr; }
+  .ficha .fh-npc-form > .modal-actions { align-self: end; position: sticky; bottom: 0; margin: 0 calc(var(--s-5) * -1) calc(var(--s-5) * -1); padding: 10px var(--s-5) calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--fh-leather-lo); border-top: 1px solid rgba(224, 181, 94, 0.22); }
+}
+
+/* --- Exportar: Compartilhar sem conta (linha apagada + "Entrar") --- */
+.ficha .fh-export-locked { display: flex; align-items: stretch; gap: 8px; }
+.ficha .fh-export-locked > .fh-export-opt { flex: 1 1 auto; min-width: 0; }
+.ficha .fh-export-opt.is-locked { opacity: 0.62; cursor: default; }
+.ficha .fh-export-login { flex: none; align-self: center; min-height: 44px; min-width: 76px; }
+.ficha .fh-skg-count { white-space: nowrap; }
+.ficha .fh-sub-actions > .fh-ask-dm { flex: 1 0 100%; margin: 0 0 2px; padding: 6px 10px; font-size: 0.86rem; }
+.ficha .fh-sub-actions .btn { white-space: nowrap; }
+@media (max-width: 480px) { .ficha .fh-sub-actions { gap: 6px 8px; } .ficha .fh-sub-actions .btn { flex: 1 1 0; min-width: 0; padding-inline: 8px; font-size: 0.76rem; letter-spacing: 0.08em; } .ficha .fh-sub-actions .btn-primary { flex: 1.5 1 0; } .ficha .fh-sub-actions > .fh-ask-dm { padding: 5px 8px; font-size: 0.82rem; line-height: 1.3; } .ficha .fh-sub-missing { font-size: 0.84rem; } }

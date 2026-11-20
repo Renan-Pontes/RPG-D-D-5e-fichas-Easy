@@ -123,12 +123,15 @@
 .lv-btn-quiet:hover { color: var(--ink-primary); }
 .lv-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-.lv-echo {
+/* button.lv-echo: o leitor do jogador (src/player/living/living.css) tem uma <section> com a
+   mesma classe; sem o elemento no seletor estas regras vazavam para ela */
+button.lv-echo {
   display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; cursor: pointer;
   background: none; border: 0; border-radius: 8px; padding: 6px 6px; color: var(--ink-secondary);
   font-family: var(--body); font-style: italic; font-size: 0.92rem; line-height: 1.4;
 }
-.lv-echo:hover, .lv-echo:focus-visible { background: rgba(214, 176, 100, 0.08); color: var(--ink-primary); outline: none; }
+button.lv-echo:hover, button.lv-echo:focus-visible { background: rgba(214, 176, 100, 0.08); color: var(--ink-primary); }
+button.lv-echo:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
 .lv-echo-ico { font-style: normal; flex: 0 0 auto; width: 1.4em; text-align: center; }
 .lv-echo-text { min-width: 0; overflow-wrap: anywhere; }
 
@@ -198,7 +201,7 @@
 /* alvos de 44 nas dobras e nos botões do cronista */
 .lv-fold { min-height: 44px; }
 .lv-btn { min-height: 44px; padding: 8px 14px; }
-.lv-echo { min-height: 44px; align-items: center; }
+button.lv-echo { min-height: 44px; align-items: center; }
 
 /* espiar a estrela tocada: nome, tipo · quem vê, e "Abrir →" */
 .lv-peek {

@@ -57,6 +57,7 @@ const TXT = {
   best: { pt: 'Melhor resultado', en: 'Best match' },
   openThis: { pt: 'Abrir esta página', en: 'Open this page' },
   pickHint: { pt: 'Ou escolha outra na lista ao lado.', en: 'Or pick another one from the list.' },
+  enterHint: { pt: 'Enter abre esta página; a seta para baixo desce pela lista', en: 'Enter opens this page; the down arrow moves through the list' },
   tryThese: { pt: 'Tente:', en: 'Try:' },
   seeChapters: { pt: 'Ver capítulos', en: 'See chapters' },
   notHere: {
@@ -735,7 +736,13 @@ export default function GrimoireScreen({ lang, initialId = null, initialQuery = 
 
       <div className="grim-sentinel" ref={sentinelRef} aria-hidden />
       <form className={`grim-bar ${stuck ? 'is-stuck' : ''}`} role="search"
-        onSubmit={(e) => { e.preventDefault(); if (!isDeskNow()) searchRef.current?.blur(); }}>
+        onSubmit={(e) => {
+          e.preventDefault();
+          // Celular: Enter só fecha o teclado (a lista já está na tela). Com teclado físico,
+          // Enter abre o melhor resultado: barra, palavra, Enter.
+          if (!isDeskNow()) { searchRef.current?.blur(); return; }
+          if (best) openArticle(best.id);
+        }}>
         {view !== 'cover' && (
           <button type="button" className="btn btn-ghost grim-btn grim-bar-back"
             onClick={view === 'list' ? toCover : browsing ? backToList : toCover}
@@ -756,6 +763,12 @@ export default function GrimoireScreen({ lang, initialId = null, initialQuery = 
             enterKeyHint="search"
             value={s.q}
             onChange={(e) => onType(e.target.value)}
+            onKeyDown={(e) => {
+              // Seta para baixo: desce para a lista de resultados (setas andam por ela).
+              if (e.key !== 'ArrowDown') return;
+              const first = rootRef.current?.querySelector('.grim-list .grim-item');
+              if (first) { e.preventDefault(); first.focus(); }
+            }}
             placeholder={tx('searchPh')}
             aria-label={tx('search')}
             autoComplete="off"
@@ -803,7 +816,15 @@ export default function GrimoireScreen({ lang, initialId = null, initialQuery = 
             </div>
             {showHead && <ListHead lang={lang} tx={tx} cat={curCat} count={results.length} />}
             <div className="grim-count">{TXT.results[lang](results.length)}</div>
-            <ul className="grim-list">
+            <ul className="grim-list" onKeyDown={(e) => {
+              if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+              const items = [...e.currentTarget.querySelectorAll('.grim-item')];
+              const i = items.indexOf(document.activeElement);
+              if (i < 0) return;
+              e.preventDefault();
+              if (e.key === 'ArrowUp' && i === 0) { searchRef.current?.focus(); return; }
+              items[Math.max(0, Math.min(items.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))]?.focus();
+            }}>
               {rows}
               {hasQuery && results.length > 0 && <li className="grim-nothere">{tx('notHere')}</li>}
               {!results.length && (
@@ -844,7 +865,10 @@ export default function GrimoireScreen({ lang, initialId = null, initialQuery = 
                     </a>
                   </h2>
                   <p className="grim-best-snip"><Marked text={snippetFor(best, s.q, lang)} query={s.q} /></p>
-                  <button type="button" className="btn btn-primary grim-lhead-go" onClick={() => openArticle(best.id)}>{tx('openThis')}</button>
+                  <div className="grim-best-go">
+                    <button type="button" className="btn btn-primary grim-lhead-go" onClick={() => openArticle(best.id)}>{tx('openThis')}</button>
+                    <kbd className="grim-kbd grim-kbd-enter" title={tx('enterHint')}>Enter ↵</kbd>
+                  </div>
                   <p className="grim-best-hint">{tx('pickHint')}</p>
                   <p className="grim-nothere">{tx('notHere')}</p>
                 </section>

@@ -1,6 +1,9 @@
 /* Shared UI components */
 import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect, useId } from 'react';
 import Icon from './Icons.jsx';
+import { trapTab, restoreFocus } from './focusTrap.js';
+import { useSheetToast } from '../src/sheet/sheet-toast.jsx';
+import { confirmDialog } from './ConfirmDialog.jsx';
 import './header.css';
 
 // === Filigree divider ===
@@ -22,14 +25,26 @@ const Filigree = ({ children }) => (
 const storedLang = () => { try { return localStorage.getItem('dnd5e-forge:lang') || 'pt'; } catch { return 'pt'; } };
 const Modal = ({ children, onClose, title }) => {
   const titleId = useId();
+  const dialogRef = useRef(null);
+  // Quem abriu o diálogo é lido na PRIMEIRA renderização: no efeito já era tarde, porque um
+  // campo com autoFocus (dentro do diálogo) pega o foco antes e, ao fechar, o foco caía no <body>.
+  const openerRef = useRef(undefined);
+  if (openerRef.current === undefined) openerRef.current = typeof document !== 'undefined' ? document.activeElement : null;
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); else trapTab(e, dialogRef.current); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+  // aria-modal de verdade: o foco entra no diálogo ao abrir (se um campo com autoFocus
+  // já o pegou, fica nele) e volta para quem abriu ao fechar.
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (el && !el.contains(document.activeElement)) el.focus({ preventScroll: true });
+    return () => restoreFocus(openerRef.current);
+  }, []);
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined} onClick={e => e.stopPropagation()}>
+      <div ref={dialogRef} tabIndex={-1} className="modal" role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined} onClick={e => e.stopPropagation()}>
         <button type="button" className="modal-close" onClick={onClose} aria-label={storedLang() === 'en' ? 'Close' : 'Fechar'}><Icon name="x" size={20}/></button>
         {title && <h2 id={titleId} style={{ marginBottom: 16 }}>{title}</h2>}
         {children}
@@ -242,6 +257,7 @@ const AvatarUpload = ({
   lang = 'pt',
   position = { x: 50, y: 22 },
   onPositionChange,
+  bundled = false,
 }) => {
   const fileRef = useRef(null);
   const [viewing, setViewing] = useState(false);
@@ -249,19 +265,47 @@ const AvatarUpload = ({
   const [square, setSquare] = useState(false);
   useEffect(() => {
     // Envio novo (marcado full) guarda a imagem inteira: um quadrado ali é o formato do próprio arquivo.
-    if (!value || !viewing || position?.full) { setSquare(false); return undefined; }
+    // Arte do próprio app (ficha pronta: `bundled`, ou um caminho /art/…) não é foto enviada e
+    // nunca foi cortada: sem aviso. Trocar a foto marca `full`, então o aviso também não volta.
+    if (!value || !viewing || position?.full || bundled || !/^data:/i.test(String(value))) { setSquare(false); return undefined; }
     let live = true;
     const im = new Image();
     im.onload = () => { if (live) setSquare(im.naturalWidth > 0 && im.naturalWidth === im.naturalHeight); };
     im.src = value;
     return () => { live = false; };
-  }, [value, viewing, position?.full]);
+  }, [value, viewing, position?.full, bundled]);
   const pt = lang === 'pt';
   const posX = typeof position?.x === 'number' ? position.x : 50;
   const posY = typeof position?.y === 'number' ? position.y : 22;
   const zoom = avatarZoom(position);
   const fpos = { x: posX, y: posY, ...(zoom < 1 ? { z: zoom } : {}), ...(position?.full ? { full: true } : {}) };
   const setPos = (p) => { if (!onPositionChange) return; const { z, ...rest } = p; onPositionChange(z != null && z < 1 ? { ...rest, z } : rest); };
+
+  // Remover o retrato: na ficha sai na hora e o aviso do pé desfaz (devolve a foto e o
+  // enquadramento); fora dela (criação), pede confirmação. Antes, um toque apagava a foto.
+  const sheetToast = useSheetToast();
+  const remove = async () => {
+    const prev = { avatar: value, avatarPosition: position };
+    if (sheetToast?.patchChar) {
+      onChange('');
+      setViewing(false);
+      sheetToast.show({
+        ms: 7000,
+        text: pt ? 'Retrato removido.' : 'Portrait removed.',
+        onAction: () => sheetToast.patchChar(prev),
+      });
+      return;
+    }
+    const ok = await confirmDialog({
+      lang, danger: true,
+      title: pt ? 'Remover o retrato?' : 'Remove the portrait?',
+      message: pt ? 'A foto sai da ficha. Você pode enviar outra depois.' : 'The photo leaves the sheet. You can upload another one later.',
+      confirmLabel: pt ? 'Remover' : 'Remove',
+    });
+    if (!ok) return;
+    onChange('');
+    setViewing(false);
+  };
 
   const pick = () => fileRef.current && fileRef.current.click();
   const handle = async (e) => {
@@ -334,7 +378,7 @@ const AvatarUpload = ({
               <button type="button" className="btn btn-ghost" onClick={pick}>
                 <Icon name="upload" size={14}/> {pt ? 'Alterar foto' : 'Change photo'}
               </button>
-              <button type="button" className="btn btn-ghost btn-danger" onClick={() => { onChange(''); setViewing(false); }}>
+              <button type="button" className="btn btn-ghost btn-danger" onClick={remove}>
                 {pt ? 'Remover' : 'Remove'}
               </button>
             </div>

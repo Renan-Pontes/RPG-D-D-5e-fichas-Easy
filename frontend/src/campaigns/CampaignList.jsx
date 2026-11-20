@@ -370,7 +370,7 @@ function JoinCampaignModal({ lang, onClose, onJoined, initialCode = '', characte
     } catch (e) {
       const lim = planLimitFrom(e);
       if (lim) { showPlanLimit(e, { dmName: table?.dmName, campaignName: table?.name }); setError(limitShortText(lim, lang)); }
-      else if (e?.data?.error === 'invite_invalid') setError(t(lang, 'Código inválido: confira as letras com o seu mestre.', 'Invalid code: check the letters with your GM.'));
+      else if (e?.data?.error === 'invite_invalid' || e?.data?.error === 'campaign_not_found') setError(t(lang, 'Código inválido: confira as letras com o seu mestre.', 'Invalid code: check the letters with your GM.'));
       else setError(errorMessage(e, lang));
     } finally { setBusy(false); }
   };

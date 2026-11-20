@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   recapSubtitle, isDeadScreenLink, tvMode, splitNumbered, conditionsShown, bestScale, cardLayout, sceneLayout, WIDE_TEXT_MAX,
-  histPlacement, histLinesFit, quietCorner, HIST_MAX, HIST_MAP_MAX, shortName, combatLayout,
+  histPlacement, histLinesFit, quietCorner, HIST_MAX, HIST_MAP_MAX, shortName, combatLayout, tokensPlaced,
 } from '../src/screen/tv-logic.js';
 import { stageNow } from '../src/stage/stage-now.js';
 
@@ -300,12 +300,43 @@ test('shortName: o primeiro nome, com o número do monstro', () => {
 });
 
 // Combate sem imagem de mapa (teatro da mente): a vez e a ordem ganham o palco.
-test('combatLayout: com imagem o mapa em 70%; sem imagem a grade menor, ou nada se o mestre a desligou', () => {
+// Sem imagem, a grade só aparece quando o mestre posicionou algum token: com todos na fila de
+// entrada do servidor (monstros a partir de 100,100; personagens a partir de 100,200) ela era
+// uma caixa 80% vazia com bolinhas de 35 px — a vez e a ordem ficam com o palco.
+const AUTO = [
+  { type: 'monster', position: { x: 125, y: 125 } }, { type: 'monster', position: { x: 175, y: 125 } },
+  { type: 'monster', position: { x: 225, y: 125 } }, { type: 'pc', position: { x: 125, y: 225 } },
+];
+test('combatLayout: com imagem o mapa em 70%; sem imagem a grade só com tokens posicionados pelo mestre', () => {
   assert.equal(combatLayout({ map: { backgroundUrl: '/api/x?v=1' } }), 'map');
-  assert.equal(combatLayout({ map: { background_image: 'data:image/png;base64,AA' } }), 'map');
-  assert.equal(combatLayout({ map: { grid_size_px: 50 } }), 'grid');
-  assert.equal(combatLayout({ map: { grid_visible: true } }), 'grid');
+  assert.equal(combatLayout({ map: { background_image: 'data:image/png;base64,AA' }, combatants: AUTO }), 'map');
   assert.equal(combatLayout({ map: { grid_visible: false } }), 'theatre');
-  assert.equal(combatLayout({}), 'grid');
-  assert.equal(combatLayout(null), 'grid');
+  // ninguém saiu da fila de entrada (ou não há tokens): teatro da mente
+  assert.equal(combatLayout({ map: { grid_size_px: 50 }, combatants: AUTO }), 'theatre');
+  assert.equal(combatLayout({ map: { grid_visible: true } }), 'theatre');
+  assert.equal(combatLayout({}), 'theatre');
+  assert.equal(combatLayout(null), 'theatre');
+  // o mestre arrastou um token: a grade volta (as posições valem)
+  const moved = [...AUTO.slice(0, 3), { type: 'pc', position: { x: 625, y: 425 } }];
+  assert.equal(combatLayout({ map: { grid_size_px: 50 }, combatants: moved }), 'grid');
+  assert.equal(combatLayout({ map: { grid_visible: false }, combatants: moved }), 'theatre');
+});
+
+test('tokensPlaced: a fila de entrada do servidor não conta; fora dela, sim', () => {
+  assert.equal(tokensPlaced({ combatants: AUTO }), false);
+  assert.equal(tokensPlaced({ combatants: [] }), false);
+  assert.equal(tokensPlaced(null), false);
+  // combatente avulso no ponto padrão (50,50) ou sem posição
+  assert.equal(tokensPlaced({ combatants: [...AUTO, { type: 'monster', position: { x: 50, y: 50 } }, { type: 'monster' }] }), false);
+  // token grande (2×2) na fila: o centro fica no meio das 4 casas
+  assert.equal(tokensPlaced({ combatants: [{ type: 'monster', token_scale: 2, position: { x: 150, y: 150 } }, { type: 'pc', position: { x: 125, y: 225 } }] }), false);
+  // horda: a fila dobra para a linha de baixo e continua valendo
+  const horde = Array.from({ length: 30 }, (_, i) => ({ type: 'monster', position: { x: ((2 + i) % 24) * 50 + 25, y: (2 + Math.floor((2 + i) / 24)) * 50 + 25 } }));
+  assert.equal(tokensPlaced({ combatants: horde }), false);
+  // um personagem do outro lado do mapa, um monstro numa linha de baixo, um token fora do mapa
+  assert.equal(tokensPlaced({ combatants: [...AUTO.slice(0, 3), { type: 'pc', position: { x: 925, y: 225 } }] }), true);
+  assert.equal(tokensPlaced({ combatants: [{ type: 'monster', position: { x: 125, y: 525 } }, AUTO[3]] }), true);
+  assert.equal(tokensPlaced({ combatants: [{ type: 'monster', position: { x: -40, y: 125 } }] }), true);
+  // grade de outro tamanho: a fila começa na casa que contém (100,100)
+  assert.equal(tokensPlaced({ map: { grid_size_px: 70 }, combatants: [{ type: 'monster', position: { x: 105, y: 105 } }, { type: 'pc', position: { x: 105, y: 175 } }] }), false);
 });

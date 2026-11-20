@@ -18,6 +18,9 @@ import { usePolling } from '../api/polling.js';
 import { errorMessage } from '../api/errors.js';
 import useArea from '../shell/useArea.js';
 import { SubChips } from '../shell/AreaNav.jsx';
+import MesaTitle from '../shell/MesaTitle.jsx';
+import { KindIcon, LineIcon } from './PlayerIcons.jsx';
+import '../shell/mesa.css';
 import useMedia from '../play/useMedia.js';
 import { nearestHit, usePanZoom } from '../shell/usePanZoom.js';
 import { labelAt, layoutPinLabels, pinPriority, zoomControlsRect } from '../world/map-labels.js';
@@ -164,24 +167,22 @@ export default function PlayerWorld({ campaign, lang = 'pt', sub: subProp, entry
 
   return (
     <div className="pl-world">
-      <header className="pl-world-head">
-        <div>
-          <div className="pl-eyebrow">{campaign.name}</div>
-          <h2 className="pl-world-title">{L(lang, 'O Mundo', 'The World')}</h2>
-          {campaign.tagline && <p className="pl-world-tagline">{campaign.tagline}</p>}
-        </div>
+      {/* O nome da campanha, "O Mundo" e a frase já estão na capa e na aba ativa, logo acima:
+          repetidos aqui, empurravam o primeiro cartão para y=619 de 900 no PC. Fica só a
+          fileira das subvistas, com a contagem de novidades na ponta (no celular a contagem
+          sai: o filtro "Novos" e os selos das abas já avisam). */}
+      <div className="pl-world-top">
+        {showSubChips && (
+          <SubChips subs={SUBS} active={sub} onSelect={changeSub} lang={lang} badges={subBadges}
+            ariaLabel={L(lang, 'Mundo', 'World')} />
+        )}
         {newIds.size > 0 && (
           <div className="pl-world-newcount" role="status">
             <span className="pl-world-newdot" aria-hidden="true" />
             {newIds.size === 1 ? L(lang, '1 novidade desde a sua última visita', '1 new discovery since your last visit') : L(lang, `${newIds.size} novidades desde a sua última visita`, `${newIds.size} new discoveries since your last visit`)}
           </div>
         )}
-      </header>
-
-      {showSubChips && (
-        <SubChips subs={SUBS} active={sub} onSelect={changeSub} lang={lang} badges={subBadges}
-          ariaLabel={L(lang, 'Mundo', 'World')} />
-      )}
+      </div>
 
       {error && !entries && <p className="pl-error" role="alert">{error}</p>}
       {!entries && !error && <p className="muted">{L(lang, 'Abrindo o mapa do mundo…', 'Unrolling the world map…')}</p>}
@@ -225,15 +226,24 @@ export default function PlayerWorld({ campaign, lang = 'pt', sub: subProp, entry
   );
 }
 
+/** Estado vazio do Mundo: painel de couro, medalhão com ícone de linha e (opcional) título em folha de ouro. */
+function EmptyPanel({ icon, title, children, small = false }) {
+  return (
+    <div className={`mesa-panel pl-empty${small ? ' small' : ''}`}>
+      <span className="pl-defart-ico pl-empty-medal" aria-hidden="true"><LineIcon name={icon} size={small ? 22 : 26} /></span>
+      {title && <h3 className="pl-empty-title"><span className="mesa-foil">{title}</span></h3>}
+      <p>{children}</p>
+    </div>
+  );
+}
+
 function WorldSilence({ lang }) {
   return (
-    <div className="pl-empty">
-      <div className="pl-empty-art" aria-hidden="true">🗺️</div>
-      <h3>{L(lang, 'O mundo ainda está envolto em névoa', 'The world is still shrouded in mist')}</h3>
-      <p>{L(lang,
+    <EmptyPanel icon="world" title={L(lang, 'O mundo ainda está envolto em névoa', 'The world is still shrouded in mist')}>
+      {L(lang,
         'Quando o mestre revelar lugares, pessoas e segredos, eles aparecem aqui — com um selo de "Novo!" para você não perder nada.',
-        'When the DM reveals places, people and secrets, they show up here — with a "New!" seal so you never miss a thing.')}</p>
-    </div>
+        'When the DM reveals places, people and secrets, they show up here — with a "New!" seal so you never miss a thing.')}
+    </EmptyPanel>
   );
 }
 
@@ -265,7 +275,7 @@ function AtlasView({ entries, kind, setKind, counts, newIds, lang, onOpen, livin
           )}
           {kinds.map(kk => (
             <button key={kk} type="button" className={`pl-filter ${k === kk ? 'active' : ''}`} aria-pressed={k === kk} onClick={() => setKind(kk)}>
-              <span aria-hidden="true">{KIND_META[kk].icon}</span> {kindLabel(kk, lang, true)} <span className="pl-filter-n">{counts[kk]}</span>
+              <KindIcon kind={kk} /> {kindLabel(kk, lang, true)} <span className="pl-filter-n">{counts[kk]}</span>
             </button>
           ))}
           {favs.length > 0 && (
@@ -322,10 +332,9 @@ function MapView({ maps, mapId, setMapId, byId, fetchFull, newIds, lang, onOpen,
 
   if (!maps.length) {
     return (
-      <div className="pl-empty small">
-        <div className="pl-empty-art" aria-hidden="true">🧭</div>
-        <p>{L(lang, 'Nenhum mapa revelado ainda. Quando o mestre mostrar um, ele aparece aqui com os lugares marcados.', 'No map revealed yet. When the DM shows one, it appears here with its places marked.')}</p>
-      </div>
+      <EmptyPanel small icon="adventures">
+        {L(lang, 'Nenhum mapa revelado ainda. Quando o mestre mostrar um, ele aparece aqui com os lugares marcados.', 'No map revealed yet. When the DM shows one, it appears here with its places marked.')}
+      </EmptyPanel>
     );
   }
   const pins = full?.data?.map?.pins || [];
@@ -342,7 +351,7 @@ function MapView({ maps, mapId, setMapId, byId, fetchFull, newIds, lang, onOpen,
           {maps.map(m => (
             <button key={m.id} type="button" className={`pl-filter ${rootId === m.id && !trail.length ? 'active' : ''}`}
               onClick={() => { setMapId(m.id); setTrail([]); }}>
-              🗺 {m.name}{newIds.has(m.id) && <span className="pl-dot-new" aria-label={L(lang, 'novo', 'new')} />}
+              <LineIcon name="map" /> {m.name}{newIds.has(m.id) && <span className="pl-dot-new" aria-label={L(lang, 'novo', 'new')} />}
             </button>
           ))}
         </div>
@@ -360,11 +369,11 @@ function MapView({ maps, mapId, setMapId, byId, fetchFull, newIds, lang, onOpen,
       )}
       <div className="pl-map-frame">
         <div className="pl-map-title">
-          <span>{current?.name}</span>
+          <span className="pl-map-name"><span className="mesa-gem" aria-hidden="true" /><span className="mesa-foil">{current?.name}</span></span>
           <span className="pl-map-title-acts">
             <button type="button" className="pl-map-help" aria-expanded={help} aria-controls="pl-map-hint" onClick={() => setHelp(v => !v)}
               aria-label={L(lang, 'Como usar o mapa', 'How to use the map')}>?</button>
-            <button type="button" className="btn btn-ghost btn-sm pl-map-read" onClick={() => current && onOpen(current.id)}>{L(lang, 'Ler sobre', 'Read about it')}</button>
+            <button type="button" className="mesa-btn pl-map-read" onClick={() => current && onOpen(current.id)}>{L(lang, 'Ler sobre', 'Read about it')}</button>
           </span>
         </div>
         {/* um por mapa: trocar de mapa volta para "ver tudo" */}
@@ -458,7 +467,7 @@ function MapCanvas({ name, img, pins, byId, newIds, lang, living, onPin }) {
               // teclado (Enter/Espaço); o toque e o mouse chegam pelo onTap da caixa
               onClick={(e) => { if (e.detail === 0) onPin(p); }}
               disabled={!target} aria-label={label || L(lang, 'Marcador', 'Pin')}>
-              <span className="pl-pin-dot" aria-hidden="true"><span className="pl-pin-ico">{target ? KIND_META[target.kind]?.icon : '✦'}</span></span>
+              <span className="pl-pin-dot" aria-hidden="true"><span className="pl-pin-ico">{target ? (target.isMap ? <LineIcon name="map" size={16} /> : <KindIcon kind={target.kind} size={16} />) : '✦'}</span></span>
               {label && <span className="pl-pin-label" aria-hidden="true">{label}</span>}
             </button>
           );
@@ -478,17 +487,16 @@ function MapCanvas({ name, img, pins, byId, newIds, lang, living, onPin }) {
 function TimelineView({ items, newIds, lang, onOpen }) {
   if (!items.length) {
     return (
-      <div className="pl-empty small">
-        <div className="pl-empty-art" aria-hidden="true">⌛</div>
-        <p>{L(lang, 'A história deste mundo ainda não foi contada. Os eventos que o mestre revelar aparecem aqui, em ordem.', 'This world\'s history is untold so far. Events the DM reveals appear here, in order.')}</p>
-      </div>
+      <EmptyPanel small icon="timeline">
+        {L(lang, 'A história deste mundo ainda não foi contada. Os eventos que o mestre revelar aparecem aqui, em ordem.', 'This world\'s history is untold so far. Events the DM reveals appear here, in order.')}
+      </EmptyPanel>
     );
   }
   return (
     <ol className="pl-timeline">
       {items.map(e => (
         <li key={e.id} className={`pl-tl-item ${newIds.has(e.id) ? 'is-new' : ''}`}>
-          <span className="pl-tl-dot" aria-hidden="true">{KIND_META[e.kind]?.icon}</span>
+          <span className="pl-tl-dot" aria-hidden="true"><KindIcon kind={e.kind} size={13} /></span>
           <button type="button" className="pl-tl-card" onClick={() => onOpen(e.id)}>
             <span className="pl-tl-when">{e.whenLabel}</span>
             <span className="pl-tl-name">{e.name}{newIds.has(e.id) && <span className="pl-new-chip">{L(lang, 'Novo!', 'New!')}</span>}</span>
@@ -513,10 +521,9 @@ function DocumentsView({ handouts, fetchFull, newIds, lang, onOpen, knownIds }) 
 
   if (!handouts.length) {
     return (
-      <div className="pl-empty small">
-        <div className="pl-empty-art" aria-hidden="true">✉️</div>
-        <p>{L(lang, 'Nenhum documento ainda. Cartas, cartazes e bilhetes que o mestre entregar ficam guardados aqui.', 'No handouts yet. Letters, posters and notes the DM hands out are kept here.')}</p>
-      </div>
+      <EmptyPanel small icon="requests">
+        {L(lang, 'Nenhum documento ainda. Cartas, cartazes e bilhetes que o mestre entregar ficam guardados aqui.', 'No handouts yet. Letters, posters and notes the DM hands out are kept here.')}
+      </EmptyPanel>
     );
   }
   return (
@@ -543,7 +550,7 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
   const [missing, setMissing] = useState(false);
   const [history, setHistory] = useState([]);
   const panelRef = useRef(null);
-  const [scrolled, setScrolled] = useState(false);
+  const [scrolled, setScrolled] = useState(0);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   // quem abriu o cartão (lido no 1º desenho, antes de o foco entrar): recebe o foco de volta
@@ -585,7 +592,7 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // outro cartão (menção, relação, voltar): a leitura recomeça do topo
-  useEffect(() => { const d = panelRef.current; if (d) d.scrollTop = 0; setScrolled(false); }, [id]);
+  useEffect(() => { const d = panelRef.current; if (d) d.scrollTop = 0; setScrolled(0); }, [id]);
 
   const go = (nextId) => {
     if (!byId.has(nextId) || nextId === id) return;
@@ -627,19 +634,27 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
     <div className="pl-viewer-backdrop" onClick={onClose}>
       <div className={`pl-viewer ${partial ? 'is-rumor' : ''} pl-viewer-${e?.kind || 'lore'}`} role="dialog" aria-modal="true"
         aria-label={e?.name || L(lang, 'Cartão', 'Card')} tabIndex={-1} ref={panelRef}
-        onScroll={(ev) => { const on = ev.currentTarget.scrollTop > 24; if (on !== scrolled) setScrolled(on); }}
+        // 1 = rolou (a barra fica opaca); 2 = o título grande já saiu da vista (o nome vai para a barra)
+        onScroll={(ev) => { const top = ev.currentTarget.scrollTop; const on = top > 130 ? 2 : top > 24 ? 1 : 0; if (on !== scrolled) setScrolled(on); }}
         onClick={ev => ev.stopPropagation()} style={{ '--wl-kind': KIND_META[e?.kind]?.color }}>
-        <div className={`pl-viewer-bar${scrolled ? ' is-scrolled' : ''}`}>
+        {/* a barra da folha da mesa: ← Voltar (quando veio de outro cartão), o nome do cartão
+            ao rolar (o título grande saiu da vista) e o ✕ redondo de 44 px */}
+        <div className={`pl-viewer-bar${scrolled ? ' is-scrolled' : ''}${scrolled > 1 ? ' is-deep' : ''}`}>
           {history.length > 0
-            ? <button type="button" className="btn btn-ghost btn-sm" onClick={back}>← {L(lang, 'Voltar', 'Back')}</button>
+            ? <button type="button" className="mesa-btn pl-viewer-back" onClick={back}><span aria-hidden="true">←</span> {L(lang, 'Voltar', 'Back')}</button>
             : <span />}
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label={L(lang, 'Fechar', 'Close')}>✕ {L(lang, 'Fechar', 'Close')}</button>
+          <span className="pl-viewer-bar-title" aria-hidden="true"><span className="mesa-foil">{e?.name}</span></span>
+          <button type="button" className="mesa-icon-btn pl-viewer-x" onClick={onClose} aria-label={L(lang, 'Fechar', 'Close')} title={L(lang, 'Fechar (Esc)', 'Close (Esc)')}>
+            <span aria-hidden="true">✕</span>
+          </button>
         </div>
 
         {missing && !e && <p className="pl-viewer-missing">{L(lang, 'Este cartão não está mais disponível.', 'This card is no longer available.')}</p>}
 
         {e && e.kind === 'handout' && full ? (
-          <div className="pl-viewer-handout">
+          <div className="pl-viewer-doc">
+            {/* .pl-viewer-doc (não -handout: a caixa de fora já recebe pl-viewer-<tipo>, e o
+                documento ganhava a margem duas vezes — a barra ficava encolhida num canto) */}
             <Handout entry={full} lang={lang} onMention={go} />
             {living && light && (
               <ReactionBar entry={light} charName={charName} lang={lang} onReact={onReact} onFavorite={onFavorite} error={echoError} />
@@ -651,7 +666,7 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
               <EntryImage entry={e} className="pl-viewer-img" alt="" />
               <div className="pl-viewer-hero-fade" aria-hidden="true" />
               <div className="pl-viewer-hero-text">
-                <span className="pl-viewer-kind"><span aria-hidden="true">{KIND_META[e.kind]?.icon}</span> {kindLabel(e.kind, lang)}{sub ? ` · ${sub}` : ''}</span>
+                <span className="pl-viewer-kind"><KindIcon kind={e.kind} /> {kindLabel(e.kind, lang)}{sub ? ` · ${sub}` : ''}</span>
                 <h2 className="pl-viewer-name">{e.name}{isNew && <span className="pl-new-chip">{L(lang, 'Novo!', 'New!')}</span>}</h2>
               </div>
             </div>
@@ -680,7 +695,7 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
 
                   {(full?.secrets || []).length > 0 && (
                     <section className="pl-secrets">
-                      <h3>🗝 {L(lang, 'Segredos descobertos', 'Secrets uncovered')}</h3>
+                      <MesaTitle as="h3">{L(lang, 'Segredos descobertos', 'Secrets uncovered')}</MesaTitle>
                       {full.secrets.map(s => (
                         <div key={s.id} className="pl-secret">
                           <span className="pl-secret-when">{secretSessionLabel(s, lang)}</span>
@@ -693,8 +708,8 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
               )}
 
               {e.isMap && (
-                <button type="button" className="btn btn-primary btn-sm pl-viewer-mapbtn" onClick={() => onOpenMap(e.id)}>
-                  🗺 {L(lang, 'Ver mapa', 'Open map')}
+                <button type="button" className="mesa-btn is-primary pl-viewer-mapbtn" onClick={() => onOpenMap(e.id)}>
+                  <LineIcon name="map" /> {L(lang, 'Ver mapa', 'Open map')}
                 </button>
               )}
 
@@ -707,7 +722,7 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
                         {row.items.map(x => (
                           <span key={x.entry.id} className="pl-rel-item">
                             <button type="button" className="pl-rel-chip" onClick={() => go(x.entry.id)}>
-                              <span aria-hidden="true">{KIND_META[x.entry.kind]?.icon}</span> {x.entry.name}
+                              <KindIcon kind={x.entry.kind} /> {x.entry.name}
                             </button>
                             {x.note && <span className="pl-rel-note">{x.note}</span>}
                           </span>
@@ -721,7 +736,7 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
               {(e.tags || []).length > 0 && (
                 <div className="pl-viewer-tags">{e.tags.map(tag => <span key={tag} className="pl-tag">#{tag}</span>)}</div>
               )}
-              {e.whenLabel && <div className="pl-viewer-when">⌛ {e.whenLabel}</div>}
+              {e.whenLabel && <div className="pl-viewer-when"><LineIcon name="timeline" /> {e.whenLabel}</div>}
 
               {living && light && (
                 <ReactionBar entry={light} charName={charName} lang={lang} onReact={onReact} onFavorite={onFavorite} error={echoError} />

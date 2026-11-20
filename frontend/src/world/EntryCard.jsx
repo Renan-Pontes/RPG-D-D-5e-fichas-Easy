@@ -18,12 +18,14 @@
 // nome (até 2 linhas), tipo · subtítulo — frase (ou "sem frase ainda") e 👁 / 📺 de
 // 48 px à direita; embaixo, na largura toda, o selo de visibilidade ESCRITO, 🗝 n/m
 // revelados, 🗺 Mapa, quando, sussurro e tags (nessa ordem: o corte pega o fim).
+import MesaIcon from '../shell/MesaIcon.jsx';
 import { useState } from 'react';
 import { worldImageUrl } from './world-api.js';
 import ShowOnTable from '../stage/ShowOnTable.jsx';
 import { cardShowMode, privateShort } from '../stage/stage-now.js';
-import { KIND_META, VIS_META, defaultArt, kindLabel, secretsText, subtitleOf, t, visLabel, visShort } from './world-model.js';
+import { KIND_META, VIS_META, defaultArt, kindLabel, secretsText, subtitleOf, t, visLabel, visShort, whenText } from './world-model.js';
 import { entryWhispers } from './living/living-logic.js';
+import { KindIcon } from '../player/PlayerIcons.jsx';
 import './world-styles.css';
 import './living/living.css';
 
@@ -109,9 +111,9 @@ export function EntryRow({ entry, lang = 'pt', selected = false, onOpen, onRevea
         <span className="wl-lrow-act">
           {onReveal && (
             <button type="button" className="wl-lrow-btn" onClick={stop(() => onReveal(entry))}
-              aria-label={`${vis === 'hidden' ? t(lang, 'Revelar', 'Reveal') : t(lang, 'Quem vê', 'Who sees')}: ${entry.name}`}>
-              <span aria-hidden="true" className="wl-lrow-btn-ico">👁</span>
-              <span aria-hidden="true" className="wl-lrow-btn-txt">{vis === 'hidden' ? t(lang, 'Revelar', 'Reveal') : t(lang, 'Quem vê', 'Who sees')}</span>
+              aria-label={`${t(lang, 'Quem vê', 'Who sees it')}: ${entry.name}`}>
+              <span aria-hidden="true" className="wl-lrow-btn-ico"><MesaIcon name="eye" /></span>
+              <span aria-hidden="true" className="wl-lrow-btn-txt">{t(lang, 'Quem vê', 'Who sees it')}</span>
             </button>
           )}
           {showCampaign && (priv ? (
@@ -138,7 +140,7 @@ export function EntryRow({ entry, lang = 'pt', selected = false, onOpen, onRevea
         {priv && <span className="wl-lrow-why" id={whyId}>📺 {privateShort(entry, showCampaign.members, lang)}</span>}
         {secrets && <span className="wl-lrow-secrets">{secrets}</span>}
         {entry.isMap && <span className="wl-lrow-map">🗺 {t(lang, 'Mapa', 'Map')}</span>}
-        {entry.whenLabel && <span className="wl-when">⌛ {entry.whenLabel}</span>}
+        {entry.whenLabel && <span className="wl-when">⌛ {whenText(entry.whenLabel, lang)}</span>}
         <WhisperShort entry={entry} lang={lang} />
         {(entry.tags || []).slice(0, 2).map(tag => <span key={tag} className="wl-lrow-tag">#{tag}</span>)}
       </span>
@@ -223,14 +225,15 @@ export default function EntryCard({
     <div className="wl-card-actions">
       {onReveal && (
         <button type="button" className="wl-act" onClick={stop(onReveal)}
-          title={vis === 'hidden' ? t(lang, 'Revelar aos jogadores', 'Reveal to players') : t(lang, 'Mudar quem vê este cartão', 'Change who sees this card')}>
-          <span aria-hidden="true">👁</span> {vis === 'hidden' ? t(lang, 'Revelar', 'Reveal') : t(lang, 'Quem vê…', 'Who sees…')}
+          aria-haspopup="dialog"
+          title={t(lang, 'Escolher quem vê este cartão: oculto, só o nome ou revelado', 'Choose who sees this card: hidden, name only or revealed')}>
+          <MesaIcon name="eye" /> {t(lang, 'Quem vê', 'Who sees it')}
         </button>
       )}
       {showCampaign && (
         <ShowOnTable campaign={showCampaign} target={{ kind: 'card', entry }} lang={lang} className="wl-act" reason="short"
           onRevealed={onRevealed} ariaLabel={`${t(lang, 'Mostrar na Tela', 'Show on screen')}: ${entry.name}`}>
-          <span aria-hidden="true">📺</span> {t(lang, 'Mostrar', 'Show')}
+          <MesaIcon name="tv" /> {t(lang, 'Mostrar', 'Show')}
         </ShowOnTable>
       )}
     </div>
@@ -243,7 +246,7 @@ export default function EntryCard({
         <div className="wl-thumb"><EntryImage entry={entry} className="wl-thumb-img" /></div>
         <div className="wl-compact-body">
           <div className="wl-compact-top">
-            <span className="wl-kind-dot" aria-hidden="true">{meta.icon}</span>
+            <span className="wl-kind-dot" aria-hidden="true">{dm ? meta.icon : <KindIcon kind={entry.kind} />}</span>
             <span className="wl-compact-name">{entry.name}</span>
             {isNew && <span className="wl-new wl-new-inline">{t(lang, 'Novo!', 'New!')}</span>}
           </div>
@@ -263,7 +266,7 @@ export default function EntryCard({
         <EntryImage entry={entry} className="wl-card-img" />
         <div className="wl-card-art-fade" aria-hidden="true" />
         <div className="wl-card-top">
-          <span className="wl-kind-badge"><span aria-hidden="true">{meta.icon}</span> {kindLabel(entry.kind, lang)}</span>
+          <span className="wl-kind-badge"><span aria-hidden="true">{dm ? meta.icon : <KindIcon kind={entry.kind} />}</span> {kindLabel(entry.kind, lang)}</span>
           {dm && <VisibilitySeal visibility={vis} lang={lang} />}
         </div>
         {entry.isMap && <span className="wl-map-badge" title={t(lang, 'Tem mapa', 'Has a map')}>🗺 {t(lang, 'Mapa', 'Map')}</span>}
@@ -283,7 +286,7 @@ export default function EntryCard({
             </span>
           )}
           {(entry.tags || []).slice(0, 3).map(tag => <span key={tag} className="wl-tag">#{tag}</span>)}
-          {entry.whenLabel && <span className="wl-when">⌛ {entry.whenLabel}</span>}
+          {entry.whenLabel && <span className="wl-when">⌛ {whenText(entry.whenLabel, lang)}</span>}
         </div>
         {dm && <Whisper entry={entry} lang={lang} />}
         {actions}

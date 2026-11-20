@@ -38,7 +38,7 @@ import Icon from './Icons.jsx';
 import { t } from '../data/i18n.js';
 import DieShape from '../src/dice/DieShape.jsx';
 import DiceStage, { effectiveAnimMode } from '../src/dice/DiceStage.jsx';
-import { parseFormula, rollFormula, breakdown, formatMod } from '../src/dice/dice-math.js';
+import { parseFormula, rollFormula, formatMod } from '../src/dice/dice-math.js';
 import {
   deviceOffline, getDiceTable, presetFromServer, purposeLabel, PURPOSES, readTarget, rollBody, sendFailure,
   SLOW_MS, subscribeDiceTable, writeTarget,
@@ -84,6 +84,24 @@ const RollMath = ({ entry }) => (
     })}
     {entry.mod ? <span className="dice-math-mod">{entry.mod > 0 ? '+ ' : '− '}{Math.abs(entry.mod)} </span> : null}
     <span className="dice-math-eq">= <strong>{entry.total}</strong></span>
+  </>
+);
+// "[14, 1̶1̶] +3": o mesmo texto curto de breakdown() (src/dice/dice-math.js), com o dado
+// descartado riscado em vez de "~11~" — igual ao cartão e à tela da rolagem.
+const RollBrief = ({ entry }) => (
+  <>
+    {(entry.groups || []).map((g, gi) => (
+      <span key={gi}>
+        {gi > 0 ? ' ' : ''}{g.sign < 0 ? '−' : ''}{'['}
+        {(g.rolls || []).map((r, i) => {
+          const v = typeof r === 'object' && r ? r.value : r;
+          const dropped = typeof r === 'object' && r && r.kept === false;
+          return <span key={i}>{i > 0 ? ', ' : ''}{dropped ? <s>{v}</s> : v}</span>;
+        })}
+        {']'}
+      </span>
+    ))}
+    {entry.mod ? ` ${formatMod(entry.mod)}` : ''}
   </>
 );
 const advWord = (adv, lang) => (adv === 'adv' ? L(lang, 'Vantagem', 'Advantage') : adv === 'dis' ? L(lang, 'Desvantagem', 'Disadvantage') : '');
@@ -152,7 +170,10 @@ const renderTopHudBanner = (overlay, lang) => {
     return (
       <div className="dice-top-hud-banner dice-check-target-banner is-check" aria-hidden="true">
         <span className="dice-top-hud-icon dice-check-target-icon">{init ? '⚡' : '🎯'}</span>
-        <span className="dice-top-hud-title dice-check-target-title">{init ? (pt ? 'Iniciativa' : 'Initiative') : (pt ? 'Teste de Atributo' : 'Ability Check')}</span>
+        <span className="dice-top-hud-title dice-check-target-title">{init ? (pt ? 'Iniciativa' : 'Initiative')
+          : overlay.checkKind === 'skill' ? (pt ? 'Teste de Perícia' : 'Skill Check')
+            : overlay.checkKind === 'tool' ? (pt ? 'Teste de Ferramenta' : 'Tool Check')
+              : (pt ? 'Teste de Atributo' : 'Ability Check')}</span>
       </div>
     );
   }
@@ -265,7 +286,7 @@ const DiceRoller = ({ lang }) => {
     if (entry.animated) sheetGate.hold(entry.id, send); else send();
   }, [patchEntry]);
 
-  const rollParsed = useCallback((parsed, { label, adv = 'normal', isSave = false, isCheck = false, isAttack = false } = {}) => {
+  const rollParsed = useCallback((parsed, { label, adv = 'normal', isSave = false, isCheck = false, isAttack = false, checkKind = null } = {}) => {
     const r = rollFormula(parsed, { adv });
     const isSaveRoll = isSave || /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b|morte|death/i.test(label || '');
     const isCheckRoll = isCheck || (!isSaveRoll && /teste de (atributo|per[ií]cia)|ability check|skill check|\bcheck\b|perícia|atributo/i.test(label || ''));
@@ -278,6 +299,8 @@ const DiceRoller = ({ lang }) => {
       isSave: isSaveRoll,
       isCheck: isCheckRoll,
       isAttack: isAttackRoll,
+      // 'skill' | 'tool': a faixa do resultado diz "Teste de Perícia" / "Teste de Ferramenta"
+      ...(isCheckRoll && checkKind ? { checkKind } : {}),
     });
   }, [present]);
 
@@ -285,14 +308,14 @@ const DiceRoller = ({ lang }) => {
   // ficha (perícia, salvaguarda, ataque, dano, iniciativa) e vai à Tela (V15).
   const performRoll = useCallback((arg = {}) => {
     const opts = typeof arg === 'string' ? { formula: arg } : (arg || {});
-    const { die = 20, count: cnt = 1, mod: m = 0, label = '', advMode: am, adv: optAdv, sheet: fromSheet, isSave, isCheck, isAttack, formula: rawFormula } = opts;
+    const { die = 20, count: cnt = 1, mod: m = 0, label = '', advMode: am, adv: optAdv, sheet: fromSheet, isSave, isCheck, isAttack, checkKind, formula: rawFormula } = opts;
     const parsed = rawFormula ? parseFormula(rawFormula) : parseFormula(`${cnt}d${die}${formatMod(m)}`);
     if (!parsed) return null;
     const isSaveRoll = isSave ?? /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b|morte|death/i.test(label || '');
     const isCheckRoll = isCheck ?? (!isSaveRoll && (/teste de (atributo|per[ií]cia)|ability check|skill check|\bcheck\b|perícia|atributo/i.test(label || '') || (cnt === 1 && die === 20 && !rawFormula && !/ataque|attack|dano|damage/i.test(label))));
     const isAttackRoll = isAttack ?? (!isSaveRoll && !isCheckRoll && /ataque|attack|to hit|com ataques/i.test(label || ''));
     const effectiveAdv = optAdv || am || (advMode !== 'normal' ? advMode : 'normal');
-    const entry = rollParsed(parsed, { label: label || parsed.text, adv: effectiveAdv, isSave: isSaveRoll, isCheck: isCheckRoll, isAttack: isAttackRoll });
+    const entry = rollParsed(parsed, { label: label || parsed.text, adv: effectiveAdv, isSave: isSaveRoll, isCheck: isCheckRoll, isAttack: isAttackRoll, checkKind });
     if (fromSheet && entry) toTable(entry);
     return entry;
   }, [rollParsed, advMode, toTable]);
@@ -412,6 +435,30 @@ const DiceRoller = ({ lang }) => {
   // e o selo de Carisma fica na faixa do botão, então ali ele volta a desviar.
   const fabRef = useRef(null);
   const [fabLift, setFabLift] = useState(0);
+  // Teclado: ao abrir, o foco entra no painel (campo da fórmula com mouse/teclado; o próprio
+  // painel no toque, para o teclado virtual não subir); ao fechar, volta para o botão de dados.
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (open) {
+      wasOpenRef.current = true;
+      const el = sheetRef.current;
+      if (!el || el.contains(document.activeElement)) return;
+      let fine = false;
+      try { fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { fine = false; }
+      const field = fine ? el.querySelector('.dice-formula-input') : null;
+      try { (field || el).focus({ preventScroll: true }); } catch { /* sem foco */ }
+    } else if (wasOpenRef.current) {
+      wasOpenRef.current = false;
+      // o botão de dados volta a existir neste mesmo commit: o foco vai para ele já e de novo
+      // no quadro seguinte (fechando com Esc o foco ainda caía no <body>)
+      const back = () => {
+        const a = document.activeElement;
+        if (!a || a === document.body || !a.isConnected) { try { fabRef.current?.focus({ preventScroll: true }); } catch { /* sem foco */ } }
+      };
+      back();
+      requestAnimationFrame(back);
+    }
+  }, [open]);
   const liftRef = useRef(0);
   useEffect(() => {
     if (open) return undefined;
@@ -490,6 +537,21 @@ const DiceRoller = ({ lang }) => {
     const b = setTimeout(() => closeOverlay(true), big ? OVERLAY_MS.closeBig : OVERLAY_MS.close);
     return () => { clearTimeout(a); clearTimeout(b); };
   }, [overlay?.settled, overlay?.id, closeOverlay]); // eslint-disable-line react-hooks/exhaustive-deps
+  // fase (1), teclado: Esc, Enter ou Espaço pulam a rolagem como o toque pula. A tecla é
+  // engolida (senão o Espaço rolaria de novo no botão que ainda tem o foco); a repetição da
+  // tecla que disparou a rolagem e os primeiros 400 ms não contam.
+  useEffect(() => {
+    if (!overlay || overlay.passable) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'Escape' && e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.repeat || Date.now() - (overlayRef.current?.openedAt || 0) < 400) return;
+      closeOverlay(true);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [overlay?.id, overlay?.passable, closeOverlay]); // eslint-disable-line react-hooks/exhaustive-deps
   // fase (2): o primeiro toque em qualquer lugar fecha o overlay e NÃO é engolido
   useEffect(() => {
     if (!overlay?.passable) return undefined;
@@ -592,6 +654,7 @@ const DiceRoller = ({ lang }) => {
           className={`dice-sheet no-print ${table || sheetMode ? 'has-table' : ''}${mode === 'multi' ? ' is-full' : ''}`}
           role="dialog"
           aria-modal="false"
+          tabIndex={-1}
           aria-label={t('rollDice', lang)}
           style={drag ? { transform: `translateY(${drag}px)`, transition: 'none' } : undefined}
         >
@@ -614,10 +677,11 @@ const DiceRoller = ({ lang }) => {
             <strong className="dice-sheet-title">{t('rollDice', lang)}</strong>
             <button type="button" className={`dice-sheet-anim${animOn ? ' is-on' : ''}`} onClick={toggleAnim}
               role="switch" aria-checked={animOn} disabled={animBySystem}
+              aria-label={`${L(lang, 'Animação', 'Animation')}: ${animOn ? L(lang, 'ligada', 'on') : L(lang, 'desligada', 'off')}`}
               title={animBySystem
                 ? L(lang, 'Desligada porque o aparelho pede menos movimento', 'Off because this device asks for reduced motion')
                 : L(lang, 'Mostrar o dado rolando em tela cheia. Desligada, o resultado aparece num cartão no canto.', 'Show the die rolling full-screen. When off, the result shows in a card in the corner.')}>
-              <Icon name="film" size={14} aria-hidden="true" /> {L(lang, 'Animação', 'Animation')}: {animOn ? L(lang, 'ligada', 'on') : L(lang, 'desligada', 'off')}
+              <Icon name="film" size={14} aria-hidden="true" /> <span className="dice-sheet-anim-k">{L(lang, 'Animação', 'Animation')}: </span>{animOn ? L(lang, 'ligada', 'on') : L(lang, 'desligada', 'off')}
             </button>
             <button type="button" className="dice-sheet-close" onClick={() => setOpen(false)} aria-label={L(lang, 'Fechar', 'Close')}>
               <Icon name="x" size={20}/>
@@ -666,7 +730,7 @@ const DiceRoller = ({ lang }) => {
                 title={last.formula ? L(lang, 'Rolar de novo', 'Roll again') : undefined}>
                 <span className="dice-last-text">
                   <span className={`dice-last-label${isFormulaLabel(last) ? ' is-formula' : ''}`}>{last.who ? `${last.who} · ` : ''}{last.label}</span>
-                  <span className="dice-last-detail">{breakdown(last)}</span>
+                  <span className="dice-last-detail"><RollBrief entry={last} /></span>
                 </span>
                 <span className="dice-last-total">{last.total}</span>
               </button>
@@ -766,7 +830,7 @@ const DiceRoller = ({ lang }) => {
                             {e.adv === 'adv' && <span className="badge badge-adv">VTG</span>}
                             {e.adv === 'dis' && <span className="badge badge-dis">DSV</span>}
                           </span>
-                          <span className="dice-entry-detail">{breakdown(e)}</span>
+                          <span className="dice-entry-detail"><RollBrief entry={e} /></span>
                           <span className="dice-total">{e.total}</span>
                           <span className="dice-entry-ts">{e.ts}</span>
                         </button>
@@ -786,10 +850,12 @@ const DiceRoller = ({ lang }) => {
         </section>
       )}
 
-      {pop && !overlay && (
+      {/* Com o painel de dados aberto o cartão não aparece: o próprio painel mostra o resultado
+          no topo (o cartão cobria os controles de quantidade e os dados). */}
+      {pop && !overlay && !open && (
         <div className={`roll-pop dice-pop no-print ${pop.isCrit ? 'crit' : ''} ${pop.isFumble ? 'fumble' : ''}`}
           role={pop.fromOverlay ? undefined : 'status'} onClick={() => setPop(null)}
-          title={L(lang, 'Toque para fechar', 'Tap to dismiss')}>
+          title={L(lang, 'Clique ou toque para fechar', 'Click or tap to dismiss')}>
           <span className="dice-pop-main">
             <span className="dice-pop-label">{pop.who ? `${pop.who} · ` : ''}{pop.label}</span>
             <span className="dice-pop-detail">

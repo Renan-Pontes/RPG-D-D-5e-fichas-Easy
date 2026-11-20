@@ -380,6 +380,8 @@
 .grim-best-snip { margin: 0; max-width: 62ch; font-size: 1.04rem; line-height: 1.5; color: var(--ink-secondary); }
 .grim-best-hint { margin: 0; color: var(--ink-muted); font-size: 0.92rem; }
 .grim-best .grim-nothere { margin-top: 8px; }
+.grim-best-go { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.grim-best-go .grim-kbd-enter { margin: 0; white-space: nowrap; }
 .grim-guide-empty { padding: 16px; }
 .grim-guide-empty .grim-empty { border: 0; padding: 4px; }
 
@@ -436,6 +438,8 @@
   /* Página: linha de leitura curta; o dado fica no canto, numa margem livre à direita
      (sem o desvio automático, que o fazia pular pela tela) */
   .grim-main { padding: 0 72px 96px 0; }
+  /* Capa: a grade de capítulos vai até a borda do banner (a margem do dado é só da leitura) */
+  .grim.v-cover .grim-main { padding-right: 0; }
   body:has(.grim) .dice-fab.no-print { margin-bottom: 0 !important; }
   .grim-article, .grim-article-foot, .grim-guide { max-width: 760px; }
   .grim-article { padding: 30px 36px 26px; }

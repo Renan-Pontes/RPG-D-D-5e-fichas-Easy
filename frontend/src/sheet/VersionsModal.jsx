@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
-import { linkErrorText } from './campaign-link.js';
+import { detachConfirm, linkErrorText, linkToast } from './campaign-link.js';
 import * as V from './versions.js';
 import * as F from './forks.js';
 import { loadMyPlan } from '../plans/plans-api.js';
@@ -47,6 +47,15 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
     return () => { on = false; };
   }, [char.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const alive = useRef(true);
+  const bodyRef = useRef(null);
+  // Esc, ✕ ou toque fora com uma confirmação aberta: volta um passo (para a lista), em vez de
+  // fechar a folha inteira; o foco fica na folha.
+  const closeOrBack = () => {
+    if (!confirm) { onClose?.(); return; }
+    if (busy) return;
+    setConfirm(null); setTyped(''); setError('');
+    try { bodyRef.current?.closest('.mesa-sheet')?.focus({ preventScroll: true }); } catch { /* ok */ }
+  };
   const saveRef = useRef(onSave);   // o app recria onSave a cada render: a carga não pode depender dele
   saveRef.current = onSave;
   const save = useCallback((c) => saveRef.current(c), []);
@@ -157,23 +166,50 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
     });
   };
 
-  const doLeave = (r) => setConfirm({
-    title: L(lang, `Sair de “${r.name}”?`, `Leave “${r.name}”?`),
-    text: L(lang,
-      'O personagem sai da mesa (você continua na campanha, sem personagem). A cópia desta mesa fica guardada como está: dá para voltar depois e continuar de onde parou, ou excluí-la de vez.',
-      'The character leaves the table (you stay in the campaign, without a character). This table’s copy is kept as it is: you can join again later and pick up where you left off, or delete it for good.'),
-    ok: L(lang, 'Sair', 'Leave'),
-    run: () => act(`leave:${r.key}`, async () => {
-      if (V.storeOf(live).current === r.key) await detach(r.key);
-      await save(V.leave(live, r.key));
-      return L(lang, `Você saiu de “${r.name}”. A cópia ficou guardada.`, `You left “${r.name}”. The copy was kept.`);
-    }),
-  });
+  // Desatrelar de UMA mesa (o mesmo verbo, a mesma pergunta e o mesmo aviso da folha Campanha;
+  // "Sair" fica só para sair da campanha). A vaga é solta no servidor mesmo quando a mesa não
+  // é a da cópia aberta (a ficha senta em N mesas: antes, ali, o botão não fazia nada). Se a
+  // ficha continua em outra mesa, ela segue como está (reconcile passa a "em uso" para a mesa
+  // que ficou, sem trocar os dados); só quando sai da última é que a ficha original volta.
+  const doLeave = (r) => {
+    const rest = (ctx?.links || []).filter(l => String(l.id) !== String(r.key));
+    const base = detachConfirm({ charName: live.name, from: r.name, sponsored: !!linkOf(r.key)?.sponsored, others: rest.map(l => l.name), lang });
+    setConfirm({
+      title: base.title,
+      text: `${base.text} ${L(lang,
+        'A cópia desta mesa fica guardada: dá para voltar depois ou excluí-la de vez.',
+        'This table’s copy is kept: you can join again later or delete it for good.')}`,
+      ok: base.ok,
+      danger: true,
+      run: () => act(`leave:${r.key}`, async () => {
+        await detach(r.key);
+        const kept = rest.length ? V.reconcile(live, rest, null).char : live;
+        await save(V.leave(kept, r.key));
+        return linkToast('detach', { charName: live.name, table: r.name, stillIn: rest.length, lang });
+      }),
+    });
+  };
 
-  const doJoin = (r) => act(`join:${r.key}`, async () => {
-    await switchTo(r.key, V.rejoin(live, r.key));
-    return L(lang, `De volta a “${r.name}”, com a ficha como você deixou.`, `Back in “${r.name}”, with the sheet as you left it.`);
-  });
+  // Voltar para a mesa com a cópia guardada também troca a cópia aberta: se isso tira o
+  // personagem da mesa atual, pergunta antes (como o "Abrir a cópia") — antes saía calado.
+  const doJoin = (r) => {
+    const cur = V.storeOf(live).current;
+    const go = () => act(`join:${r.key}`, async () => {
+      await switchTo(r.key, V.rejoin(live, r.key));
+      return L(lang, `De volta a “${r.name}”, com a ficha como você deixou.`, `Back in “${r.name}”, with the sheet as you left it.`);
+    });
+    if (cur === V.TEMPLATE || !linkOf(cur)) { go(); return; }
+    const from = store.campaigns?.[cur]?.name || linkOf(cur)?.name || L(lang, 'a mesa atual', 'the current table');
+    const who = live.name || L(lang, 'O personagem', 'The character');
+    setConfirm({
+      title: L(lang, `Voltar para “${r.name}” com a cópia guardada?`, `Go back to “${r.name}” with the stored copy?`),
+      text: L(lang,
+        `A cópia guardada de “${r.name}” passa a ser a ficha aberta, e ${who} sai de “${from}” (você continua lá, sem personagem; a cópia dessa mesa fica guardada). Para jogar nas duas mesas com a mesma ficha, use “Atrelar a outra mesa”.`,
+        `The stored “${r.name}” copy becomes the open sheet, and ${who} leaves “${from}” (you stay there, without a character; that table’s copy is kept). To play at both tables with the same sheet, use “Link to another table”.`),
+      ok: L(lang, `Voltar e sair de “${from}”`, `Go back and leave “${from}”`),
+      run: go,
+    });
+  };
 
   // F5: versão do armazém antigo vira ficha própria (o modelo para de guardá-la)
   const canSplit = new Set(F.splittable(live).map(x => x.key));
@@ -254,7 +290,7 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
 
   const stateTag = (r) => {
     if (r.kind === 'template') return null;
-    if (r.state === 'left') return <span className="vr-tag is-left">{L(lang, 'Você saiu', 'You left')}</span>;
+    if (r.state === 'left') return <span className="vr-tag is-left">{L(lang, 'Desatrelada', 'Unlinked')}</span>;
     if (r.state === 'archived') return <span className="vr-tag is-archived">{L(lang, 'Campanha encerrada', 'Campaign closed')}</span>;
     return null;
   };
@@ -335,9 +371,13 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
           </label>
         )}
         {error && <p className="cl-error" role="alert">{error}</p>}
+        {/* o foco entra no campo (quando há o que digitar), no "Voltar" (ação perigosa: Enter
+            não confirma sem querer) ou na ação */}
         <div className="cl-actions">
-          <button type="button" className="mesa-btn" onClick={() => { setConfirm(null); setTyped(''); setError(''); }} disabled={!!busy}>{L(lang, 'Voltar', 'Back')}</button>
-          <button type="button" className={`mesa-btn ${confirm.danger ? 'is-danger' : 'is-primary'}`} onClick={confirm.run} disabled={!!busy || locked}>
+          <button type="button" className="mesa-btn" onClick={() => { setConfirm(null); setTyped(''); setError(''); }} disabled={!!busy}
+            autoFocus={!confirm.typed && !!confirm.danger}>{L(lang, 'Voltar', 'Back')}</button>
+          <button type="button" className={`mesa-btn ${confirm.danger ? 'is-danger' : 'is-primary'}`} onClick={confirm.run} disabled={!!busy || locked}
+            autoFocus={!confirm.typed && !confirm.danger}>
             {busy ? '…' : confirm.ok}
           </button>
         </div>
@@ -395,6 +435,9 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
     const camps = list.filter(r => r.kind === 'campaign');
     const splits = camps.filter(r => canSplit.has(r.key));
     const openTag = <span className="vr-tag is-current">{L(lang, 'Aberta agora', 'Open now')}</span>;
+    // "Aberta agora" só diz algo quando há outra cópia para abrir (uma mesa em que a ficha
+    // não está sentada); com a mesma ficha em todas as mesas, o selo não distingue nada
+    const mixed = seated.some(r => !linkOf(r.key));
     body = (
       <>
         <section className="cl-sec" aria-label={L(lang, 'Onde esta ficha joga', 'Where this sheet plays')}>
@@ -403,25 +446,39 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
             <p className="cl-empty">{L(lang, 'Esta ficha não está em nenhuma mesa.', 'This sheet is not at any table.')}</p>
           ) : (
             <ul className="vr-list">
-              {seated.map(r => (
-                <li key={r.key} className={`vr-row is-seated${r.current ? ' is-current' : ''}`}>
-                  <div className="vr-main">
-                    <strong className="vr-name">{r.name}</strong>
-                    <span className="vr-meta">
-                      {levelLine(r.level, r.hp, r.maxHp)}
-                      {r.current && seated.length > 1 && openTag}
-                    </span>
-                  </div>
-                  <div className="vr-actions">
-                    {!r.current && (
-                      <button type="button" className="mesa-btn is-primary" disabled={!!busy} onClick={() => doSwitch(r)}>
-                        {busy === `open:${r.key}` ? '…' : L(lang, 'Abrir', 'Open')}
-                      </button>
-                    )}
-                    <button type="button" className="mesa-btn" disabled={!!busy} onClick={() => doLeave(r)}>{L(lang, 'Sair', 'Leave')}</button>
-                  </div>
-                </li>
-              ))}
+              {seated.map(r => {
+                // Sentada de verdade nesta mesa (o servidor diz): é a MESMA ficha em todas as
+                // mesas — nível e PV são os de agora, e não há o que "abrir" (antes o botão
+                // dourado "Abrir" tirava o personagem da outra mesa). Só a cópia que ficou
+                // guardada sem a ficha estar na mesa é que se abre.
+                const here = !!linkOf(r.key);
+                const keptCopy = !r.current && !!store.campaigns?.[r.key]?.data;
+                return (
+                  <li key={r.key} className={`vr-row is-seated${r.current ? ' is-current' : ''}`}>
+                    <div className="vr-main">
+                      <strong className="vr-name">{r.name}</strong>
+                      <span className="vr-meta">
+                        {here ? levelLine(live.level, live.currentHp, live.maxHp) : levelLine(r.level, r.hp, r.maxHp)}
+                        {r.current && mixed && openTag}
+                      </span>
+                    </div>
+                    <div className="vr-actions">
+                      {!r.current && !here && (
+                        <button type="button" className="mesa-btn" disabled={!!busy} onClick={() => doSwitch(r)}>
+                          {busy === `open:${r.key}` ? '…' : L(lang, 'Abrir a cópia', 'Open the copy')}
+                        </button>
+                      )}
+                      {here && keptCopy && onPreview && (
+                        <button type="button" className="mesa-btn" disabled={!!busy} onClick={() => { onPreview(r.key); onClose?.(); }}>
+                          {L(lang, 'Ver cópia guardada', 'View stored copy')}
+                        </button>
+                      )}
+                      <button type="button" className="mesa-btn" disabled={!!busy} onClick={() => doLeave(r)}
+                        aria-label={L(lang, `Desatrelar de ${r.name}`, `Unlink from ${r.name}`)}>{L(lang, 'Desatrelar', 'Unlink')}</button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
           {error && <p className="cl-error" role="alert">{error}</p>}
@@ -531,8 +588,8 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
 
   return (
     <MesaSheet title={L(lang, 'Mesas e cópias da ficha', 'Tables and copies of the sheet')} eyebrow={live.name || undefined}
-      onClose={onClose} lang={lang} width="md" className="cl-sheet">
-      <div className="cl-modal vr-modal">{body}</div>
+      onClose={closeOrBack} lang={lang} width="md" className="cl-sheet">
+      <div className="cl-modal vr-modal" ref={bodyRef}>{body}</div>
     </MesaSheet>
   );
 }

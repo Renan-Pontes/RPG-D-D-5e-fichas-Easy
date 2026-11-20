@@ -165,8 +165,8 @@ export default function EndSessionSheet({ campaign, lang = 'pt', pulse = null, o
               </li>
             ))}
           </ul>
-          <p className="sss-sub">{L(lang, 'Conta no Equilíbrio na mesa (Grupo › Raio-X). O ✓ travado já foi marcado nesta sessão.',
-            'Counts toward Table balance (Group › X-ray). A locked ✓ was already marked this session.')}</p>
+          <p className="sss-sub">{L(lang, 'Marque quem teve um momento hoje. Isso alimenta o Equilíbrio no Raio-X (Grupo).',
+            'Tick who had a moment today. It feeds the Balance in the X-ray (Group).')}</p>
         </fieldset>
       )}
     </MesaSheet>

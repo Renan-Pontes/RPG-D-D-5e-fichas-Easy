@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hitDicePools, hitDieHeal, spendHitDie, usedByAfterRest, hpFormula, filledSlices, exhaustionLevel, setExhaustion, toggleTo, hpSliderRange, deltaLabel } from '../src/sheet/hp-logic.js';
+import { hitDicePools, hitDieHeal, spendHitDie, usedByAfterRest, hpFormula, filledSlices, exhaustionLevel, setExhaustion, toggleExhausted, lowerExhaustion, toggleTo, hpSliderRange, deltaLabel } from '../src/sheet/hp-logic.js';
 
 const by = { 8: 7, 10: 1 };
 
@@ -46,6 +46,22 @@ test('exaustão: nível e condição em sincronia', () => {
   assert.equal(setExhaustion({}, 9).exhaustionLevel, 6);
   assert.equal(toggleTo(2, 1), 1);
   assert.equal(toggleTo(2, 3), 4);
+});
+
+test('exaustão: a condição "Exausto" e a barra andam juntas nos dois sentidos', () => {
+  // barra zerada e a condição ligada por fora dela: vale nível 1 (antes ficava ligada com a barra vazia)
+  assert.equal(exhaustionLevel({ exhaustionLevel: 0, conditions: ['exhausted'] }), 1);
+  assert.deepEqual(toggleExhausted({ exhaustionLevel: 0, conditions: ['prone'] }), { exhaustionLevel: 1, conditions: ['prone', 'exhausted'] });
+  // barra em 3 e a condição desligada pela lista: a barra zera junto (antes ficava em 3 sem a condição)
+  assert.deepEqual(toggleExhausted({ exhaustionLevel: 3, conditions: ['prone', 'exhausted'] }), { exhaustionLevel: 0, conditions: ['prone'] });
+  // ficha dessincronizada (nível 3 sem a condição): o toque desliga, não soma
+  assert.deepEqual(toggleExhausted({ exhaustionLevel: 3, conditions: [] }), { exhaustionLevel: 0, conditions: [] });
+  // ficha antiga: só a condição, sem número
+  assert.deepEqual(toggleExhausted({ conditions: ['exhausted'] }), { exhaustionLevel: 0, conditions: [] });
+  assert.deepEqual(toggleExhausted({}), { exhaustionLevel: 1, conditions: ['exhausted'] });
+  // barra → condição: qualquer nível acima de 0 mantém a condição; 0 tira
+  assert.ok(setExhaustion({ conditions: [] }, 4).conditions.includes('exhausted'));
+  assert.ok(!setExhaustion({ conditions: ['exhausted'], exhaustionLevel: 4 }, 0).conditions.includes('exhausted'));
 });
 
 test('faixa do controle e texto da lente', () => {
@@ -99,4 +115,12 @@ test('teste contra a morte', () => {
 
 test('rótulo dos Dados de Vida livres', () => {
   assert.equal(hitDiceLeftLabel([{ die: 8, left: 3, total: 4 }, { die: 6, left: 5, total: 8 }]), '5/8 d6 · 3/4 d8');
+});
+
+test('lowerExhaustion: o ✕ da linha desce um nível por vez e tira a condição no nível 0', () => {
+  assert.deepEqual(lowerExhaustion({ exhaustionLevel: 3, conditions: ['poisoned', 'exhausted'] }), { exhaustionLevel: 2, conditions: ['poisoned', 'exhausted'] });
+  assert.deepEqual(lowerExhaustion({ exhaustionLevel: 1, conditions: ['exhausted', 'prone'] }), { exhaustionLevel: 0, conditions: ['prone'] });
+  // ligada só pela lista de condições (nível guardado 0) vale 1: desce para 0
+  assert.deepEqual(lowerExhaustion({ exhaustionLevel: 0, conditions: ['exhausted'] }), { exhaustionLevel: 0, conditions: [] });
+  assert.deepEqual(lowerExhaustion({ conditions: [] }), { exhaustionLevel: 0, conditions: [] });
 });

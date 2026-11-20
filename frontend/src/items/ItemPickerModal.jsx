@@ -20,10 +20,10 @@ const textOf = (v, lang) => (typeof v === 'string' ? v : v?.[lang] || v?.en || v
 const nameOf = (it, lang) => (typeof it.name === 'string' ? it.name : it.name?.[lang] || it.name?.en || '?');
 
 const statLine = (it, lang) => [
-  it.weapon && `⚔ ${it.weapon.damage} ${dmgTypeLabel(it.weapon.dmgType, lang)}`,
+  it.weapon && `${it.weapon.damage} ${dmgTypeLabel(it.weapon.dmgType, lang)}`,
   it.weapon?.props?.length && it.weapon.props.map(p => weaponPropLabel(p, lang)).join(', '),
-  it.armor && `🛡 ${t(lang, 'CA', 'AC')} ${it.armor.ac}`,
-  it.magic && `✨ ${rarityLabel(it.magic.rarity, lang)}${it.magic.attunement ? t(lang, ' · sintonia', ' · attunement') : ''}`,
+  it.armor && `${t(lang, 'CA', 'AC')} ${it.armor.ac}`,
+  it.magic && `${rarityLabel(it.magic.rarity, lang)}${it.magic.attunement ? t(lang, ' · sintonia', ' · attunement') : ''}`,
   it.weight != null && it.weight !== '' && weightLabel(it.weight, lang),
 ].filter(Boolean).join(' · ');
 
@@ -179,7 +179,7 @@ function ItemPickerClassic(props) {
                 <div className="item-detail-text">
                   <strong>{nameOf(selected, lang)}</strong>
                   {selected.magic?.effect && (selected.magic.effect[lang] || selected.magic.effect.en) && (
-                    <div className="small" style={{ color: 'var(--gold)' }}>✨ {selected.magic.effect[lang] || selected.magic.effect.en}</div>
+                    <div className="small" style={{ color: 'var(--gold)' }}>{selected.magic.effect[lang] || selected.magic.effect.en}</div>
                   )}
                   {selected.description && (
                     <div className="small muted item-desc ip-desc">{textOf(selected.description, lang)}</div>
@@ -228,7 +228,7 @@ function ItemPickerSheet(props) {
             <strong>{nameOf(selected, lang)}</strong>
             <span className="ip-foot-meta">{[typeLabel(selected.type, lang), statLine(selected, lang)].filter(Boolean).join(' · ')}</span>
             {selected.magic?.effect && (selected.magic.effect[lang] || selected.magic.effect.en) && (
-              <p className="ip-foot-effect">✨ {selected.magic.effect[lang] || selected.magic.effect.en}</p>
+              <p className="ip-foot-effect">{selected.magic.effect[lang] || selected.magic.effect.en}</p>
             )}
             {selected.description && <p className="ip-foot-desc">{textOf(selected.description, lang)}</p>}
           </div>

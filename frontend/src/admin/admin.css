@@ -33,16 +33,20 @@
 
 .adm-two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); }
 @media (max-width: 760px) { .adm-two { grid-template-columns: 1fr; } }
-.adm-card { min-width: 0; }
+.adm-card { min-width: 0; max-width: 100%; }
+.adm-two > *, .adm-stats > * { min-width: 0; }
 .adm-count { margin-bottom: 6px; font-size: 0.85rem; color: var(--ink-muted); }
 .adm-row {
-  display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: baseline; width: 100%; min-height: 44px; text-align: left;
+  display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: baseline; width: 100%; min-width: 0; min-height: 44px; text-align: left;
   background: none; border: none; border-top: 1px solid rgba(224, 181, 94, 0.14); padding: 10px 4px; cursor: pointer; font: inherit; color: inherit;
 }
 .adm-row:focus-visible, .adm-link:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
 @media (hover: hover) { .adm-row:hover { background: rgba(214, 176, 100, 0.06); } }
 .adm-row-main { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
-.adm-row-side { font-size: 0.85rem; white-space: nowrap; }
+/* o dono da ficha ("Nome comprido (e-mail comprido)") quebra a linha: com nowrap ele saía do
+   painel e a página rolava de lado até 708 px num celular de 390; só a data não quebra */
+.adm-row-side { min-width: 0; max-width: 100%; font-size: 0.85rem; white-space: normal; overflow-wrap: anywhere; }
+.adm-row-side.mono { white-space: nowrap; }
 .adm-bar { display: grid; grid-template-columns: 110px 1fr 36px; gap: 8px; align-items: center; font-size: 0.9rem; padding: 3px 0; }
 .adm-bar-track { height: 8px; border-radius: 4px; background: rgba(10, 7, 6, 0.65); overflow: hidden; box-shadow: inset 0 0 0 1px rgba(224, 181, 94, 0.18); }
 .adm-bar-track > span { display: block; height: 100%; background: linear-gradient(90deg, var(--gold-deep), var(--gold-bright)); }

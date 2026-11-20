@@ -13,7 +13,7 @@ export default function ReactionBar({ entry, charName, lang = 'pt', onReact, onF
   const countOf = (kind) => chips.find(c => c.kind === kind)?.n || 0;
   const who = charName || L(lang, 'Seu personagem', 'Your character');
   return (
-    <section className="lv-echo" aria-label={L(lang, 'Reação do seu personagem', "Your character's reaction")}>
+    <section className="lv-echo" lang={lang === 'pt' ? 'pt-BR' : 'en'} aria-label={L(lang, 'Reação do seu personagem', "Your character's reaction")}>
       <div className="lv-echo-head">
         <span className="lv-echo-q">{L(lang, `O que ${who} sente?`, `How does ${who} feel?`)}</span>
         <button type="button" className={`lv-star ${fav ? 'on' : ''}`} aria-pressed={fav} onClick={() => onFavorite?.(entry)}

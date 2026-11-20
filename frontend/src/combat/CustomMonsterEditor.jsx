@@ -3,7 +3,7 @@ import { CR_TABLE, CR_TABLE_NOTE, estimateCr, parseMultiattack, crToNumber, xpFo
 import { multiattackAction } from '../campaigns/import-5emm.js';
 import { newCustomId } from './custom-monsters.js';
 import './monster-tools.css';
-import { damageTypeLabel, monsterTypeLabel, sizeLabel } from './monster-i18n.js';
+import { damageTypeLabel, feetToMeters, monsterTypeLabel, sizeLabel } from './monster-i18n.js';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const DAMAGE_TYPES = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder'];
@@ -210,7 +210,8 @@ export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCanc
               <Field label={t(lang, 'PV', 'HP')}>
                 <input type="number" inputMode="numeric" min={1} value={d.hp} onChange={e => set({ hp: e.target.value })} />
               </Field>
-              <Field label={t(lang, 'Deslocamento', 'Speed')}>
+              <Field label={t(lang, 'Deslocamento (pés)', 'Speed (ft.)')}
+                sub={lang === 'pt' ? `= ${feetToMeters(parseInt(d.speed, 10) || 0)} m` : null}>
                 <input type="number" inputMode="numeric" min={0} step={5} value={d.speed} onChange={e => set({ speed: e.target.value })} />
               </Field>
               <Field label={t(lang, 'ND do monstro', 'Monster CR')}>
@@ -338,7 +339,7 @@ export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCanc
               <dt>{t(lang, 'ND pelo dano', 'CR by damage')}</dt><dd>{o.damageCr}</dd>
               <dt>{o.useDc ? t(lang, 'Maior CD', 'Highest DC') : t(lang, 'Maior bônus de ataque', 'Highest attack bonus')}</dt>
               <dd>{o.useDc ? o.maxDc : signed(o.maxAttack)}</dd>
-              <dt>{t(lang, 'Ajuste', 'Adjustment')}</dt><dd>{signed(Math.trunc(o.stepDelta / 2))} {t(lang, 'passo(s)', 'step(s)')}</dd>
+              <dt>{t(lang, 'Ajuste', 'Adjustment')}</dt><dd>{signed(Math.trunc(o.stepDelta / 2))} {Math.abs(Math.trunc(o.stepDelta / 2)) === 1 ? t(lang, 'passo', 'step') : t(lang, 'passos', 'steps')}</dd>
               {o.multiattack && <><dt>{t(lang, 'Multiataque', 'Multiattack')}</dt><dd>{o.multiattack.map(x => `${x.count}× ${x.name}`).join(', ')}</dd></>}
             </dl>
           </div>

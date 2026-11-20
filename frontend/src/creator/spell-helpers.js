@@ -485,3 +485,28 @@ export function offListEntries(char) {
   const expanded = expandedSpellIds(char);
   return own(char).filter(s => { const d = spellDef(char, s.id); return d && !onClassList(char, d, expanded); });
 }
+
+// ---------------------------------------------------------------------------
+// Editor da ficha (Editar > Magias): limite de truques
+// ---------------------------------------------------------------------------
+/** A entrada veio de graça (classe automática, talento ou espécie) e não foi escolhida na lista da classe? */
+export const isGrantedEntry = (s) => !!(s && typeof s === 'object' && (s.auto || s.feat || s.species));
+
+/**
+ * Quantos truques o jogador ESCOLHEU na classe (os de talento/espécie não contam para
+ * o limite da classe; antes contavam e o editor mostrava "6/3", travando a troca).
+ */
+export function editorCantripCount(char) {
+  return (char?.spells || []).filter(s => !isGrantedEntry(s) && spellDef(char, idOf(s))?.level === 0).length;
+}
+
+/**
+ * Marca/desmarca um truque no editor. Devolve a nova lista de magias, ou null quando
+ * o limite da classe já foi atingido. Entradas de graça nunca são removidas aqui.
+ */
+export function editorToggleCantrip(char, id, limit = Utils.cantripsKnown(char)) {
+  const spells = char?.spells || [];
+  if (spells.some(s => idOf(s) === id && !isGrantedEntry(s))) return spells.filter(s => idOf(s) !== id || isGrantedEntry(s));
+  if (editorCantripCount(char) >= limit) return null;
+  return [...spells, { id, prepared: true }];
+}

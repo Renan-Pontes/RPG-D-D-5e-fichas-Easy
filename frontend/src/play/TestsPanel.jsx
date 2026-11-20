@@ -116,7 +116,7 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount, t
         </div>
       ) : (
         <button type="button" className="mesa-btn mesa-btn-lg is-primary tests-ask-btn" aria-haspopup="dialog" onClick={() => setAsking(true)}>
-          🎯 {L(lang, 'Pedir teste à mesa', 'Ask the table for a check')}
+          {L(lang, 'Pedir teste à mesa', 'Ask the table for a check')}
         </button>
       )}
 

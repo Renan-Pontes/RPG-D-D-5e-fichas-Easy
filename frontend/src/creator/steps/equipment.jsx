@@ -44,7 +44,7 @@ function ArmorTrainingFix({ char, lang, pack, opts, label, onPick }) {
 function PackContents({ pack, char, lang }) {
   const lines = packLines(pack, char, lang);
   return (
-    <ul className="cr-eq-lines">
+    <ul className="cr-eq-lines no-zebra">
       {lines.map((l, i) => (
         <li key={i} className={l.warn ? 'cr-eq-warn' : ''}>
           <strong>{l.text}</strong>

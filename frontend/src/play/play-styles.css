@@ -461,3 +461,10 @@
   .spp-use { flex: 1 1 100%; }
   .spp-ask .mesa-btn { flex: 1 1 auto; }
 }
+
+/* Testes no PC largo: pedir é o que o mestre mais faz aqui — o painel de pedir ganha a coluna
+   larga (perícias 5 por linha, resistências 6 numa linha: cabe em 900 px de altura) e a lista
+   de respostas fica na estreita. */
+@media (min-width: 1100px) {
+  .tests-panel.is-wide { grid-template-columns: minmax(0, 1.25fr) minmax(320px, 1fr); }
+}

@@ -26,6 +26,7 @@ import './mesa.css';
 
 export default function CampaignHeader({
   campaign, lang, isDM, onBack, onStartSession, onEndSession, onSearch, onSettings, onOpenScreen, busy,
+  quietStart = false,   // o Começar sai contornado: a vista já tem o seu botão dourado (o Plano)
 }) {
   const st = campaign.state || {};
   const live = !!st.live;
@@ -74,7 +75,7 @@ export default function CampaignHeader({
                 <span aria-hidden="true">■</span> <span className="shell-act-txt">{t(lang, 'Encerrar', 'End')}</span>
               </button>
             ) : (
-              <button type="button" className="mesa-btn is-primary shell-act shell-start" onClick={onStartSession} disabled={busy} aria-haspopup="dialog">
+              <button type="button" className={`mesa-btn ${quietStart ? '' : 'is-primary'} shell-act shell-start`.replace(/\s+/g, ' ')} onClick={onStartSession} disabled={busy} aria-haspopup="dialog">
                 <span aria-hidden="true">▶</span> <span className="shell-act-txt">{t(lang, `Começar a Sessão ${nextSessionNumber(st)}`, `Start session ${nextSessionNumber(st)}`)}</span>
               </button>
             )}

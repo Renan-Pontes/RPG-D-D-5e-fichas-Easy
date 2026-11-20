@@ -81,11 +81,24 @@ export function filledSlices(current, max, slices = SLICES) {
 }
 
 // ── Exaustão ──
-/** Nível 0–6. Ficha antiga só tinha a condição 'exhausted' (vale 1). */
+/** Nível 0–6. Ficha antiga só tinha a condição 'exhausted' (vale 1); a condição marcada
+ *  com o nível guardado em 0 (ligada por fora da barra: mestre, ficha antiga) também vale 1. */
 export function exhaustionLevel(char) {
   const lv = int(char?.exhaustionLevel, -1);
-  if (lv >= 0) return Math.min(EXHAUSTION_MAX, lv);
+  if (lv > 0) return Math.min(EXHAUSTION_MAX, lv);
   return (char?.conditions || []).includes('exhausted') ? 1 : 0;
+}
+
+/** Ligar/desligar a condição "Exausto" pela lista de condições: mesma regra da barra
+ *  (desligar zera o nível; ligar vale o nível atual, no mínimo 1). Patch da ficha. */
+export function toggleExhausted(char) {
+  const on = (char?.conditions || []).includes('exhausted') || exhaustionLevel(char) > 0;
+  return setExhaustion(char, on ? 0 : Math.max(1, exhaustionLevel(char)));
+}
+
+/** O ✕ da linha "Exaustão N" desce UM nível (não apaga todos de uma vez). Patch da ficha. */
+export function lowerExhaustion(char) {
+  return setExhaustion(char, Math.max(0, exhaustionLevel(char) - 1));
 }
 
 /** Patch para mudar o nível, mantendo a condição 'exhausted' em sincronia. */

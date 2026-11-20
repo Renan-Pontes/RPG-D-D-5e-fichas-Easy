@@ -78,3 +78,20 @@ body:has(.ed-nav) { overflow-x: clip; }
 
 /* Desktop: o rodapé tem a largura do painel da seção */
 @media (min-width: 760px) { .ed-foot .wizard-footer-inner, .ed-foot .wizard-hint { max-width: 696px; } }
+
+/* "Atual: Mago" sob o título das seções de lista (classe, espécie, antecedente):
+   o jogador confirma o que a ficha tem sem rolar a lista inteira. */
+.ed-current { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 2px 0 0; font-family: var(--body); font-size: 1rem; color: var(--ink-secondary); }
+.ed-current-k { font-family: var(--display); font-weight: 700; font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-muted); }
+.ed-current strong { color: var(--ink-primary); font-weight: 600; }
+
+/* Magias que a ficha já tem de graça (talento, espécie): só leitura, acima da lista */
+.ed-free-spells { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 4px; padding: 10px 12px; border-radius: 6px;
+  border: 1px dashed rgba(224, 181, 94, 0.32); background: rgba(10, 7, 6, 0.35); color: var(--ink-secondary); line-height: 1.4; }
+.ed-free-spells svg { flex: none; margin-top: 3px; color: var(--gold); }
+.ed-free-spells strong { color: var(--ink-primary); font-weight: 600; }
+
+/* A opção escolhida abre com as características; a vizinha da linha fica com a altura
+   dela mesma (antes esticava e o conteúdo ficava solto no meio do cartão). */
+.ed-stage .options-list.cols-2 { align-items: start; }
+.ed-limit-note { margin: -2px 0 8px; color: var(--ink-muted); }

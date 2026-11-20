@@ -1,3 +1,4 @@
+import MesaIcon from '../shell/MesaIcon.jsx';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
@@ -30,7 +31,7 @@ import { charLine, hpTone, levelupFor, memberStats, statPills, t, xpKnown, xpPro
  * por import dinâmico e os ajustes do mestre 1 vez por campanha).
  * focusMember: id da vaga para trazer à vista (busca rápida).
  */
-export default function PlayersPanel({ campaign, lang, isDM, characters = [], approvals = [], ask, notify, onChange, onLeft, afterMine = null, focusMember = null }) {
+export default function PlayersPanel({ campaign, lang, isDM, characters = [], approvals = [], ask, notify, onChange, onLeft, afterMine = null, focusMember = null, onOpenSheet = null }) {
   const [editing, setEditing] = useState(null);
   const [giving, setGiving] = useState(null);
   const [assigning, setAssigning] = useState(null);
@@ -173,6 +174,7 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
                   pending={m.character ? levelupFor(approvals, m.character.id, 'pending') : null}
                   unlocked={m.character ? levelupFor(approvals, m.character.id, 'approved') : null}
                   onAssignStart={() => setAssigning(m.id)}
+                  onSheet={isMe && !isDM && onOpenSheet && m.character ? () => onOpenSheet(m.character.id) : null}
                   onToggleNpc={() => toggleNpc(m)}
                   onEdit={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data })}
                   onLog={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data, section: 'log' })}
@@ -202,6 +204,7 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
                     pending={m.character ? levelupFor(approvals, m.character.id, 'pending') : null}
                     unlocked={m.character ? levelupFor(approvals, m.character.id, 'approved') : null}
                     onAssignStart={() => setAssigning(m.id)}
+                  onSheet={isMe && !isDM && onOpenSheet && m.character ? () => onOpenSheet(m.character.id) : null}
                     onToggleNpc={() => toggleNpc(m)}
                     onEdit={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data })}
                     onLog={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data, section: 'log' })}
@@ -268,7 +271,7 @@ function usePartyRoles(campaign, isDM, lang) {
   }, [rx, key, lang]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, onAssignStart, onToggleNpc, onEdit, onLog, onGive, onEndForm, onRemove, onLeave, roles, onRoles }) {
+function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, onAssignStart, onSheet = null, onToggleNpc, onEdit, onLog, onGive, onEndForm, onRemove, onLeave, roles, onRoles }) {
   const c = m.character;
   const s = memberStats(m);
   const name = c?.name || m.user?.displayName;
@@ -280,7 +283,7 @@ function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, onAssignSt
   const wild = !!(isDM && c?.data && s?.isDruid && s.wildShape);
   const menu = [
     isDM && c?.data && log.length > 0 && {
-      id: 'log', label: `📜 ${t(lang, 'Registro', 'Edit log')} (${log.length})`, onSelect: onLog,
+      id: 'log', label: `${t(lang, 'Registro', 'Edit log')} (${log.length})`, onSelect: onLog,
       hint: t(lang, `Última edição: ${formatEditLogDate(log[0].at, lang)}`, `Last edit: ${formatEditLogDate(log[0].at, lang)}`),
     },
     isDM && {
@@ -293,6 +296,8 @@ function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, onAssignSt
     },
     wild && { id: 'wild', label: `🐾 ${t(lang, 'Encerrar forma', 'End form')}`, onSelect: onEndForm,
       hint: t(lang, 'Tira o personagem da forma selvagem (com confirmação).', 'Takes the character out of wild shape (asks first).') },
+    // o próprio jogador: a porta para a ficha (o cartão mostra retrato, PV e CA e não abria nada)
+    onSheet && { id: 'sheet', label: t(lang, 'Abrir ficha', 'Open sheet'), onSelect: onSheet },
     isMe && { id: 'swap', label: t(lang, 'Trocar personagem', 'Change character'), onSelect: onAssignStart },
     isDM && { id: 'remove', label: t(lang, 'Remover da mesa', 'Remove from table'), onSelect: onRemove, danger: true,
       hint: t(lang, 'A ficha continua com o jogador.', 'The sheet stays with the player.') },
@@ -361,11 +366,18 @@ function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, onAssignSt
         <button type="button" className="mesa-btn mesa-btn-lg is-primary grp-card-choose" onClick={onAssignStart}>{t(lang, 'Escolher meu personagem', 'Choose my character')}</button>
       )}
 
+      {onSheet && (
+        <footer className="grp-card-actions">
+          <button type="button" className="mesa-btn" onClick={onSheet}
+            aria-label={t(lang, `Abrir ficha de ${name}`, `Open sheet: ${name}`)}>{t(lang, 'Abrir ficha', 'Open sheet')}</button>
+        </footer>
+      )}
+
       {isDM && c?.data && (
         <footer className="grp-card-actions">
-          <button type="button" className="mesa-btn" onClick={onEdit}>🛠 {t(lang, 'Editar ficha', 'Edit sheet')}</button>
+          <button type="button" className="mesa-btn" onClick={onEdit}><MesaIcon name="tools" /> {t(lang, 'Editar ficha', 'Edit sheet')}</button>
           {/* campanha encerrada é só leitura: sem Dar item (o servidor responde 423) */}
-          {onGive && <button type="button" className="mesa-btn" onClick={onGive}>🎁 {t(lang, 'Dar item', 'Give item')}</button>}
+          {onGive && <button type="button" className="mesa-btn" onClick={onGive}><MesaIcon name="gift" /> {t(lang, 'Dar item', 'Give item')}</button>}
         </footer>
       )}
     </article>

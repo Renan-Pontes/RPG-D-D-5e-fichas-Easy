@@ -60,7 +60,9 @@ test('Top-right Hero Tools, Universal Rest Row, Consolidated Spell Stats, SlotMa
 
   // UnifiedSpellsHUD consolidates ability into Save DC and Spell Attack Bonus without standalone card-ab
   assert.ok(!sheetTabsSrc.includes('card-ab'), 'Should not render standalone ability badge card-ab');
-  assert.match(sheetTabsSrc, /\(\{g\.abilSh\}\) \{t\('spellSaveDc', lang\)\}/);
+  // o atributo continua dentro do rótulo da CD e do ataque, agora como etiqueta depois do texto ("CD de magia INT")
+  assert.match(sheetTabsSrc, /CD de magia[^\n]*<span className="fh-spell-stat-ab">\{g\.abilSh\}<\/span>/);
+  assert.match(sheetTabsSrc, /Ataque mágico[^\n]*<span className="fh-spell-stat-ab">\{g\.abilSh\}<\/span>/);
   assert.match(sheetTabsSrc, /<SlotMatrix char=\{char\} lang=\{lang\} slots=\{slots\} update=\{update\} \/>/);
 
   // SpellRow discloses castingTime on folded panel and omits redundant components chipline

@@ -30,6 +30,27 @@ export function chapterIndexOf(stepId, steps = []) {
   return 0;
 }
 
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+
+/**
+ * Numeração à vista: um capítulo sem etapas aplicáveis não conta (quem não conjura vê
+ * I a VI, sem saltar do V para o VII). Devolve, por capítulo de CHAPTERS,
+ * { numeral, num } — o algarismo do mapa e o rótulo "Capítulo N" do cabeçalho.
+ */
+export function chapterNumbering(steps = []) {
+  let n = 0;
+  return CHAPTERS.map((c, ci) => {
+    if (c.id === 'prologue') return { numeral: '✦', num: c.num };
+    if (c.id === 'forge') return { numeral: '⚒', num: c.num };
+    if (!steps.some(s => chapterIndexOf(s.id, steps) === ci)) return { numeral: '', num: c.num };
+    const r = ROMAN[n++] || String(n);
+    return { numeral: r, num: b(`Capítulo ${r}`, `Chapter ${r}`) };
+  });
+}
+
+/** Capítulo de CHAPTERS com a numeração à vista (cartão de título e cabeçalho). */
+export const displayChapter = (ci, steps = []) => (CHAPTERS[ci] ? { ...CHAPTERS[ci], ...chapterNumbering(steps)[ci] } : null);
+
 /**
  * Estado de cada capítulo para o mapa, a partir do estado da barra de etapas:
  * steps (as que se aplicam), index (etapa atual), visited (ids), stepIssues
@@ -38,6 +59,7 @@ export function chapterIndexOf(stepId, steps = []) {
  */
 export function journeyChapters({ steps, index, visited = [], stepIssues = [], reachable = () => true }) {
   const now = chapterIndexOf(steps[index]?.id, steps);
+  const numbering = chapterNumbering(steps);
   return CHAPTERS.map((c, ci) => {
     const members = steps.map((s, i) => ({ s, i })).filter(({ s }) => chapterIndexOf(s.id, steps) === ci);
     const seen = members.filter(({ s, i }) => visited.includes(s.id) && i !== index);
@@ -46,6 +68,7 @@ export function journeyChapters({ steps, index, visited = [], stepIssues = [], r
     const target = seen.find(({ i }) => reachable(i) && (stepIssues[i] || []).length > 0) || members.find(({ i }) => reachable(i));
     return {
       ...c,
+      ...numbering[ci],
       index: ci,
       steps: members.map(({ s, i }) => ({ id: s.id, title: s.title, i })),
       skip: members.length === 0,

@@ -15,6 +15,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
+import { trapTab, restoreFocus } from './focusTrap.js';
 
 function langNow() {
   try { return localStorage.getItem('dnd5e-forge:lang') || 'pt'; } catch { return 'pt'; }
@@ -23,21 +24,26 @@ function langNow() {
 export function ConfirmDialogView({ title, message, confirmLabel, cancelLabel, danger = false, lang, onAnswer }) {
   const L = lang || langNow();
   const okRef = useRef(null);
+  const cancelRef = useRef(null);
+  const boxRef = useRef(null);
   useEffect(() => {
     const prev = document.activeElement;
-    okRef.current?.focus();
+    // Ação destrutiva: o foco começa em Cancelar, para um Enter por reflexo não apagar nada.
+    (danger ? cancelRef.current : okRef.current)?.focus();
     const onKey = (e) => {
       if (e.key === 'Escape') { e.stopPropagation(); onAnswer(false); }
+      else trapTab(e, boxRef.current);
     };
     window.addEventListener('keydown', onKey, true);
     return () => {
       window.removeEventListener('keydown', onKey, true);
-      try { prev?.focus?.(); } catch { /* ok */ }
+      restoreFocus(prev);
     };
-  }, [onAnswer]);
+  }, [onAnswer, danger]);
   return (
     <div className="modal-backdrop confirm-backdrop" onClick={() => onAnswer(false)}>
       <div
+        ref={boxRef}
         className={`modal confirm-dialog ${danger ? 'is-danger' : ''}`}
         role="alertdialog"
         aria-modal="true"
@@ -48,7 +54,7 @@ export function ConfirmDialogView({ title, message, confirmLabel, cancelLabel, d
         {title && <h2 id="confirm-dialog-title" className="confirm-dialog-title">{title}</h2>}
         {message && <p id="confirm-dialog-msg" className="confirm-dialog-msg">{message}</p>}
         <div className="confirm-dialog-actions">
-          <button type="button" className="btn btn-ghost" onClick={() => onAnswer(false)}>
+          <button type="button" ref={cancelRef} className="btn btn-ghost" onClick={() => onAnswer(false)}>
             {cancelLabel || (L === 'en' ? 'Cancel' : 'Cancelar')}
           </button>
           <button type="button" ref={okRef} className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`} onClick={() => onAnswer(true)}>

@@ -101,6 +101,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
   const [barPrefs, setBarPrefsState] = useState(() => readBarPrefs(campaignId));
   const [corner, setCorner] = useState(readCorner);
   const [winLiveAt, setWinLiveAt] = useState(0);      // 📺 Tela da capa: a janela abre já "ao vivo"
+  const [winSlot, setWinSlot] = useState(null);       // onde a janela recolhida entra no fluxo (abaixo das abas das áreas)
   const [mini, setMiniState] = useState(readMini);    // miniplayer do celular (E2.5c): {open, corner}, lembrado no aparelho
   const [page, setPage] = useState(null);             // a página aberta pede a janela à esquerda ('adventure')
   const mobile = useMedia('(max-width: 767px)');
@@ -433,7 +434,10 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
   if (isDM && nav.area === 'world' && campaign.status !== 'closed' && onboardingVisible(obStatus)) {
     areaProps.topSlot = (
       <Onboarding
-        lang={lang} status={obStatus} live={vis.live}
+        lang={lang} status={obStatus}
+        /* uma linha só ("Primeiros passos 3/5 · Ver passos") durante a sessão E depois do 1º passo
+           feito: o cartão inteiro ocupava a 1ª tela do Mundo no PC (a busca começava em y=905) */
+        live={vis.live || (obStatus?.count || 0) >= 1}
         onAction={onOnboardingAction}
         onDismiss={() => markOnboarding('dismissed')}
         worldEmpty={(world?.count || 0) === 0}
@@ -453,12 +457,16 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
           onStartSession={startSession} onEndSession={() => setEnding(true)}
           onSearch={() => setSearch(true)} onSettings={() => { setSettings('identity'); if (isDM) loadWorld(); }}
           onOpenScreen={openScreen}
+          /* no Plano o dourado é o do "O que fazer agora" (ou o do "Pronto para jogar"): o Começar da capa fica contornado */
+          quietStart={isDM && nav.area === 'prepare' && nav.sub === 'next'}
         />
         {/* o contador vermelho do Grupo leva direto a Grupo › Pedidos */}
         <AreaNav areas={areas} active={nav.area} onSelect={(a) => goTo(a, areaTapSub(isDM, a, badges))} lang={lang} badges={badges} marks={marks} showKeys={isDM}
           onSearch={isDM ? undefined : () => setSearch(true)}
           onMore={isDM ? () => { setMore(true); loadWorld(); } : undefined} moreOpen={more} />
 
+        {/* a janela da Tela recolhida mora aqui, no fluxo (ScreenWindow manda por portal): não cobre a página */}
+        {isDM && <div className="shell-winslot no-print" ref={setWinSlot} />}
         <div className="shell-panel" id="shell-panel" role="tabpanel" aria-labelledby={`area-tab-${nav.area}`}>
           {content}
         </div>
@@ -476,6 +484,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
         {win === 'float' && (
           <ScreenWindow key={campaign.id} campaign={campaign} lang={lang} liveAt={winLiveAt} nextHere={nav.area !== 'play'}
             calm /* flutuando (fora de Agora/Combate no PC, ou no tablet) ela nasce recolhida: não cobre a página */
+            slot={winSlot}
             corner={windowCorner({ corner, area: nav.area, sub: nav.sub, page })}
             onCorner={(c) => { setCorner(c); try { localStorage.setItem(CORNER_KEY, c); } catch { /* ok */ } }}
             onHide={() => { setWinLiveAt(0); setBarPrefs({ ...barPrefs, winSession: String(vis.session ?? '') }); }} />

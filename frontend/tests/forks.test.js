@@ -130,7 +130,7 @@ test('aviso do plano', () => {
   const my = { usage: { characters: 3 }, limits: { characters: 3 } };
   const n = forkPlanNote(my, list, { id: 7 });
   assert.equal(n.atLimit, true);
-  assert.match(n.text, /3 de 3 em uso · 2 são versões/);
+  assert.match(n.text, /3 de 3 em uso · 2 são cópias/);   // na tela é "cópia" (PT-25: "versão" saiu do app)
   assert.match(n.text, /plano está cheio/);
   assert.equal(forkPlanNote(null, list, { id: 7 }).atLimit, false);
   assert.match(forkPlanNote({ usage: { characters: 1 }, limits: { characters: 5 } }, [], { id: 1 }, 'en').text, /1 of 5 in use\.$/);

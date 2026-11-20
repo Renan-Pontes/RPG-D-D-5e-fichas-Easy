@@ -459,20 +459,20 @@
 .dm-editor-nav {
   display: flex;
   flex-wrap: nowrap;
-  gap: 2px;
-  padding: 2px var(--mesa-sheet-pad, 16px) 0;
+  gap: 4px;
+  padding: 6px var(--mesa-sheet-pad, 16px);
 }
 .dm-editor-tab {
   /* no tamanho do texto: não encolhe (antes vazava por cima da vizinha) nem estica */
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  min-height: 46px;
+  min-height: 44px;
   margin: 0;
   padding: 0 14px;
-  border: 0;
-  border-bottom: 3px solid transparent;
-  border-radius: 6px 6px 0 0;
+  /* o mesmo botão do segmentado das subvistas (.mesa-seg-btn): pastilha, não texto sublinhado */
+  border: 1px solid transparent;
+  border-radius: 7px;
   background: none;
   color: var(--ink-secondary);
   font-family: var(--body);
@@ -483,9 +483,11 @@
   transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 .dm-editor-tab.active {
-  color: var(--gold-bright);
-  border-bottom-color: var(--camp-accent, var(--gold));
-  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--camp-accent, var(--gold)) 16%, transparent));
+  color: var(--ink-primary);
+  font-weight: 600;
+  border-color: color-mix(in srgb, var(--camp-accent, var(--gold)) 70%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--camp-accent, var(--gold)) 30%, #241a13), color-mix(in srgb, var(--camp-accent, var(--gold)) 14%, #160f0b));
+  box-shadow: inset 0 -2px 0 var(--camp-accent, var(--gold));
 }
 .dm-editor-tab:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -3px; }
 /* desktop: as 7 abas (com o Registro) cabem numa linha só, de altura fixa */
@@ -533,6 +535,33 @@
 }
 .dm-editor textarea.input { min-height: 88px; resize: vertical; line-height: 1.45; }
 .dm-editor textarea.input[readonly] { color: var(--ink-secondary); background: rgba(10, 7, 6, 0.3); }
+/* listas fechadas (classe, espécie, antecedente): o mesmo campo, com a seta dourada */
+.dm-editor select.input.dm-select {
+  width: 100%; min-height: 44px; padding: 10px 36px 10px 12px;
+  font-family: var(--body); font-size: 16px; color: var(--ink-primary);
+  border: 1px solid var(--stroke); border-radius: 6px; cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--gold) 50%) right 17px center / 6px 6px no-repeat,
+    linear-gradient(-45deg, transparent 50%, var(--gold) 50%) right 11px center / 6px 6px no-repeat,
+    rgba(10, 7, 6, 0.55);
+  text-overflow: ellipsis;
+}
+.dm-editor select.input.dm-select:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 1px; }
+.dm-editor select.dm-select option { background: var(--bg-card); color: var(--ink-primary); }
+/* a dica fica sob o campo sem entrar na conta da altura: os campos da linha seguem alinhados pela base */
+.dm-field:has(> .dm-field-hint) { position: relative; }
+.dm-field-hint { position: absolute; top: 100%; left: 0; margin-top: 3px; color: var(--ink-muted); font-size: 0.85rem; line-height: 1.2; white-space: nowrap; }
+.dm-num-grid:has(.dm-field-hint) { margin-bottom: 18px; }
+/* só leitura de verdade: texto num quadro quieto, sem cara de campo */
+.dm-readonly-list {
+  margin: 0; padding: 10px 12px 10px 28px; border: 1px dashed var(--stroke-faint); border-radius: 6px;
+  color: var(--ink-secondary); font-size: 1rem; line-height: 1.5; overflow-wrap: anywhere;
+}
+.dm-readonly-empty {
+  margin: 0; padding: 12px; border: 1px dashed var(--stroke-faint); border-radius: 6px;
+  color: var(--ink-muted); font-style: italic;
+}
 .dm-num-grid {
   display: grid;
   /* 1 coluna em 320, 2 a partir de 360, mais no desktop */

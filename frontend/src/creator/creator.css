@@ -387,3 +387,62 @@ button.cr-ab-chip.held { border-color: var(--gold-bright); color: var(--gold-bri
 .join-toggle-ico { display: grid; place-items: center; }
 
 @media (max-width: 480px) { .cr-ab-suggest { letter-spacing: 0.06em; font-size: 0.8rem; padding-inline: 10px; } }
+
+/* ---------- Valores rolados: o mesmo gesto do conjunto padrão (tocar, depois "Pôr N") ---------- */
+button.cr-ab-roll { display: grid; justify-items: center; align-content: center; gap: 1px; width: 100%; min-height: 64px; padding: 6px 4px; font: inherit; color: var(--ink-primary); cursor: pointer;
+  border: 1px solid var(--gold-deep); background: linear-gradient(180deg, var(--bg-elevated), var(--bg-raised)); transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s; }
+button.cr-ab-roll:hover { border-color: var(--gold); }
+button.cr-ab-roll:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+button.cr-ab-roll .cr-ab-roll-total { font-weight: 600; line-height: 1.1; }
+button.cr-ab-roll .cr-ab-roll-where { color: var(--ink-muted); line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.cr-ab-roll.used { border-color: var(--stroke); background: rgba(10, 7, 6, 0.4); }
+button.cr-ab-roll.used .cr-ab-roll-total { color: var(--ink-muted); text-decoration: line-through; text-decoration-color: rgba(171, 154, 126, 0.6); }
+button.cr-ab-roll.used .cr-ab-roll-where { color: var(--ink-secondary); }
+button.cr-ab-roll.held { border-color: var(--gold-bright); transform: translateY(-2px); box-shadow: 0 0 0 3px var(--gold-soft), 0 0 16px rgba(237, 203, 122, 0.45); }
+button.cr-ab-roll.held .cr-ab-roll-where { color: var(--gold-bright); }
+.cr-ab-rolls + .cr-ab-held { margin-top: 6px; }
+@media (prefers-reduced-motion: reduce) { button.cr-ab-roll { transition: none; } button.cr-ab-roll.held { transform: none; } }
+
+/* ---------- Celular: o título grande e a citação do capítulo só na primeira etapa dele ---------- */
+/* Nas etapas seguintes a linha "Capítulo I · Perícias · Etapa 4 de 13" basta, e a primeira
+   escolha da etapa sobe ~90 px para dentro da primeira tela. */
+@media (max-width: 700px) {
+  .cr-chapter-head.is-sub { margin-bottom: var(--s-2); }
+  .cr-chapter-head.is-sub .cr-chapter-title, .cr-chapter-head.is-sub .cr-narr { display: none; }
+}
+
+/* ---------- Alvos de toque reais no mapa (o ::after de 44 px era cortado pela rolagem lateral) ---------- */
+/* ≤ 420 px: a regra antiga da barra de etapas (justify-content: space-between em .cr-progress)
+   encolhia a coluna do mapa e os nós ficavam espremidos à esquerda, com 34 px de largura.
+   Com a coluna inteira, os nós se espalham pela largura (≈ 44 px cada). */
+.cr-progress.cr-journey { justify-content: stretch; }
+@media (max-width: 700px), (pointer: coarse) {
+  .cr-miles { padding-top: 0; }
+  .cr-mile { min-height: 44px; align-content: center; }
+  .cr-mile::after { display: none; }
+  .cr-miles-path, .cr-miles-fill { top: 21px; }
+  .cr-substeps .cr-progress-step { min-height: 44px; }
+  .cr-substeps .cr-progress-step::after { display: none; }
+}
+@media (min-width: 701px) and (pointer: coarse) {
+  /* tablet: o nó tem o nome embaixo; a linha continua no centro do disco */
+  .cr-mile { align-content: start; padding-top: 5px; }
+}
+/* Compra de pontos: − e + com 44 px no toque */
+@media (pointer: coarse) { .cr-stage .stat-btn { width: 44px; height: 44px; } }
+
+/* ---------- A Forja (fecho da criação): bigorna e martelo no material da ficha ---------- */
+/* Ferro escuro com filete dourado e brasa sob o golpe, no lugar da silhueta cinza chapada.
+   O medalhão do herói fica à frente; o martelo descansa ao lado dele. Mesma animação. */
+.cr-anvil-portrait { z-index: 2; }
+.cr-anvil-svg { z-index: 1; overflow: visible; fill: url(#cr-forge-iron); stroke: url(#cr-forge-gilt); stroke-width: 1.6; stroke-linejoin: round; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.65)); }
+.cr-anvil-svg .face { fill: #4a372a; }
+.cr-anvil-svg .rune { fill: none; stroke-width: 1.2; opacity: 0.8; }
+.cr-hammer { z-index: 3; right: -30px; overflow: visible; fill: url(#cr-forge-iron); stroke: url(#cr-forge-gilt); stroke-width: 1.6; stroke-linejoin: round; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.6)); }
+.cr-hammer .h { fill: url(#cr-forge-wood); stroke-width: 1; }
+.cr-hammer .band { fill: none; stroke-width: 1.2; opacity: 0.85; }
+.cr-forge-ember { position: absolute; left: 50%; top: 104px; z-index: 0; width: 220px; height: 76px; margin-left: -110px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 50%, rgba(227, 164, 69, 0.55), rgba(227, 164, 69, 0.18) 45%, transparent 70%); filter: blur(4px); }
+.cr-anvil.lit .cr-forge-ember { background: radial-gradient(ellipse at 50% 50%, rgba(255, 200, 110, 0.8), rgba(227, 164, 69, 0.3) 45%, transparent 72%); }
+.cr-forge-flash { z-index: 4; }
+@media (forced-colors: active) { .cr-anvil-svg, .cr-hammer { fill: Canvas; stroke: CanvasText; } }

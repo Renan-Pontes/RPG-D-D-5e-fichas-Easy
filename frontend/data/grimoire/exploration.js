@@ -98,8 +98,8 @@ export default [
       en: 'The bridge gives way and Zé do Machado drops 40 feet: 4d6 = 3 + 5 + 2 + 4 = 14 damage and he\'s Prone at the bottom. Into a river, with Athletics d20 + 5 = 17 ≥ 15, he\'d take only 7.',
     },
     sheet: {
-      pt: 'Aba Jogar: digite o dano e toque em Dano; marque Prono em Condições e efeitos.',
-      en: 'Play tab: type the damage and tap Damage; mark Prone under Conditions & effects.',
+      pt: 'Aba Jogar: digite o dano e toque em Dano; marque Prono em Vitalidade → + Condição.',
+      en: 'Play tab: type the damage and tap Damage; mark Prone under Vitality → + Condition.',
     },
     versions: {
       pt: 'O dano (1d6 a cada 3 m, máximo 20d6) e o Prono são iguais em 2014. A reação para cair na água e reduzir o dano pela metade é novidade de 2024.',
@@ -170,8 +170,8 @@ export default [
       en: 'Fleeing the horde, the party marches 10 hours. At hour 9 (DC 11), Lia rolls d20 + 1 = 14 → pass. At hour 10 (DC 12), she rolls d20 + 1 = 8 → Exhaustion 1: −2 on d20 Tests and −5 ft Speed.',
     },
     sheet: {
-      pt: 'Aba Jogar → Condições e efeitos → Exausto; anote o nível num efeito personalizado.',
-      en: 'Play tab → Conditions & effects → Exhausted; note the level in a custom effect.',
+      pt: 'Aba Jogar → Vitalidade → barra Exaustão: toque no nível (1 a 6).',
+      en: 'Play tab → Vitality → Exhaustion bar: tap the level (1 to 6).',
     },
     keywords: 'marcha forçada forcada viajar mais de 8 horas cansaço cansado exaustão viagem estendida forced march extended travel exhaustion 8 hours',
     related: ['viagem', 'exaustao', 'salvaguarda', 'descanso-longo'],

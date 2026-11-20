@@ -61,12 +61,14 @@ function Md({ text, lang, onRoll }) {
 function Table({ head, rows, caption, lang, onRoll, className = '' }) {
   return (
     <div className={`rt-table-wrap ${className}`}>
-      <table className="rt-table">
+      {/* data-cols / data-label: no celular, tabela de 4+ colunas vira um cartão por linha
+          (src/sheet/ficha-tabs.css), com o nome da coluna antes de cada valor */}
+      <table className="rt-table" data-cols={head ? head.length : (rows[0]?.length || 0)}>
         {caption && <caption>{caption}</caption>}
         {head && <thead><tr>{head.map((c, i) => <th key={i} scope="col">{c}</th>)}</tr></thead>}
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i}>{r.map((c, j) => <td key={j}><Inline text={c} lang={lang} onRoll={onRoll} lead={j > 0} /></td>)}</tr>
+            <tr key={i}>{r.map((c, j) => <td key={j} data-label={head?.[j] || undefined}><Inline text={c} lang={lang} onRoll={onRoll} lead={j > 0} /></td>)}</tr>
           ))}
         </tbody>
       </table>

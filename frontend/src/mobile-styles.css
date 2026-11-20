@@ -356,6 +356,10 @@
 /* Assistente de criação: o botão de dados flutuante some (não há o que rolar e,
    no celular, ele subia para fugir dos cartões e cobria textos e o rodapé). */
 body:has(.cr-progress) .dice-fab { display: none !important; }
+/* Entrar/criar conta e troca de senha: não há o que rolar, e no celular o dado cobria
+   "Criar minha conta" e "Continuar sem conta". Em Meu plano (celular) cobria os botões. */
+body:has(.auth-card) .dice-fab { display: none !important; }
+@media (max-width: 700px) { body:has(.pl-page) .dice-fab { display: none !important; } }
 
 /* Motivo do "Próximo" travado no criador */
 .wizard-footer { flex-direction: column; }

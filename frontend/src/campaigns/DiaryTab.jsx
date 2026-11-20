@@ -1,3 +1,4 @@
+import MesaIcon, { mesaGlyph } from '../shell/MesaIcon.jsx';
 import { errorMessage, isOldServer } from '../api/errors.js';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
@@ -218,7 +219,7 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
           sub={<span>{current != null
             ? `${t(lang, 'Sessão atual', 'Current session')}: ${current}${currentTitle ? ` — ${currentTitle}` : ''}`
             : t(lang, 'Sem sessão numerada — agrupado por dia', 'No numbered session — grouped by day')}</span>}>
-          📜 {t(lang, 'Crônica', 'Chronicle')}
+          {t(lang, 'Crônica', 'Chronicle')}
         </MesaTitle>
         {isDM && showStartSession && <StartSession campaign={campaign} lang={lang} current={current} onDone={load} onError={setError} />}
         {closed && (
@@ -228,14 +229,14 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
           <div className="diary-head-actions">
             {!closed && (
               <button type="button" className="mesa-btn diary-new-note" onClick={() => setNoteOpen(true)}>
-                ✎ {t(lang, 'Nova nota', 'New note')}
+                <MesaIcon name="pencil" /> {t(lang, 'Nova nota', 'New note')}
               </button>
             )}
             {/* encerrada: o resumo continua (ler e copiar); a Tela e o salvar dizem o motivo na folha */}
             {isDM && (
               <button type="button" className="mesa-btn diary-recap-open" onClick={() => openRecap(null)} disabled={!loaded || !entries.length}
                 aria-label={t(lang, 'Anteriormente em…: o resumo da sessão', 'Previously on…: the session recap')}>
-                ✨ {t(lang, 'Anteriormente em…', 'Previously on…')}
+                <MesaIcon name="spark" /> {t(lang, 'Anteriormente em…', 'Previously on…')}
               </button>
             )}
           </div>
@@ -254,7 +255,7 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
         {FILTERS.map(tp => (
           <button key={tp.id} type="button" className={`mesa-chip ${filter === tp.id ? 'active' : ''}`} aria-pressed={filter === tp.id}
             onClick={() => setFilter(tp.id)}>
-            {tp.icon && <span className="chip-icon" aria-hidden="true">{tp.icon}</span>}{t(lang, tp.pt, tp.en)}
+            {tp.icon && <span className="chip-icon" aria-hidden="true">{mesaGlyph(tp.id === 'roll' ? 'rolls' : tp.id === 'xp' ? 'star' : tp.id === 'note' ? 'note' : tp.icon)}</span>}{t(lang, tp.pt, tp.en)}
           </button>
         ))}
       </div>

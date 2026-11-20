@@ -23,6 +23,7 @@ import { errorMessage } from '../api/errors.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import CoverPicker from '../campaigns/CoverPicker.jsx';
 import MesaSheet from './MesaSheet.jsx';
+import Icon from '../../components/Icons.jsx';
 import ToneAccentFields from './ToneAccentFields.jsx';
 import { defaultCoverArt, isHexColor, screenLink, SETTINGS_SECTIONS, settingsSectionLabel, settingsSummary, t } from './shell-logic.js';
 import { confirmNameMatches, immersionOn } from '../world/living/living-logic.js';
@@ -55,6 +56,11 @@ function useWide() {
 
 /** Página dos Dados preparados: fica dentro de Ferramentas avançadas. */
 const DICE_PAGE = { id: 'dice', icon: '🎲', parent: 'advanced', pt: 'Dados preparados', en: 'Prepared dice' };
+
+// Ícones de traço (o mesmo jogo da ficha e do Meu plano) no lugar dos emoji coloridos.
+// O emoji de SETTINGS_SECTIONS (shell-logic.js) continua valendo para a folha "Mais".
+const SECTION_ICON = { identity: 'palette', table: 'link', rules: 'ruler', world: 'sparkle', advanced: 'toolbox', danger: 'warning', dice: 'dice' };
+const SectionIcon = ({ id, size = 18 }) => <Icon name={SECTION_ICON[id] || 'cog'} size={size} className="shell-set-svg" />;
 
 /**
  * initialSection: abre já numa seção (as linhas da folha "Mais" do celular).
@@ -91,7 +97,7 @@ export default function SettingsMenu({ campaign, lang, onClose, onChange, worldC
     <MesaSheet
       lang={lang} size="auto" width="lg"
       className={`shell-settings ${wide ? 'is-wide' : `is-${view}`}`}
-      icon={!wide && view === 'page' ? cur?.icon : '⚙'}
+      icon={!wide && view === 'page' && cur ? <SectionIcon id={cur.id} /> : <Icon name="cog" size={18} className="shell-set-svg" />}
       eyebrow={!wide && view === 'page' ? back : campaign.name}
       title={!wide && view === 'page' ? curLabel : t(lang, 'Ajustes da campanha', 'Campaign settings')}
       onClose={onClose}
@@ -105,7 +111,7 @@ export default function SettingsMenu({ campaign, lang, onClose, onChange, worldC
             {SETTINGS_SECTIONS.map(s => (
               <button key={s.id} type="button" className={`shell-set-nav-row ${s.id === 'danger' ? 'is-danger' : ''}`}
                 aria-current={wide && s.id === navCurrent ? 'page' : undefined} onClick={() => open(s.id)}>
-                <span className="shell-set-nav-ico" aria-hidden="true">{s.icon}</span>
+                <span className="shell-set-nav-ico" aria-hidden="true"><SectionIcon id={s.id} size={20} /></span>
                 <span className="shell-set-nav-main">
                   <span className="shell-set-nav-title">{settingsSectionLabel(s.id, lang)}</span>
                   <span className="shell-set-nav-sub">{settingsSummary(s.id, campaign, lang, sumOpts)}</span>
@@ -118,7 +124,7 @@ export default function SettingsMenu({ campaign, lang, onClose, onChange, worldC
         {showPage && (
           <div className="shell-set-page" role="region" aria-label={curLabel}>
             {wide && isDice && back}
-            {wide && <h3 className="shell-set-page-title"><span aria-hidden="true">{cur?.icon}</span> {curLabel}</h3>}
+            {wide && <h3 className="shell-set-page-title"><span aria-hidden="true">{cur && <SectionIcon id={cur.id} />}</span> {curLabel}</h3>}
             {section === 'identity' && <IdentitySection form={identity} campaign={campaign} lang={lang} onChange={onChange} onMarkOnboarding={onMarkOnboarding} />}
             {section === 'table' && <TableSection campaign={campaign} lang={lang} onChange={onChange} onMarkOnboarding={onMarkOnboarding} />}
             {section === 'rules' && <RulesSection campaign={campaign} lang={lang} onChange={onChange} />}
@@ -547,7 +553,7 @@ function ClearWorldDialog({ campaign, lang, worldCount, onCancel, onDone }) {
   };
   return (
     <MesaSheet lang={lang} size="auto" width="sm" role="alertdialog" className="shell-name-confirm"
-      title={t(lang, 'Esvaziar o Mundo?', 'Empty the World?')} icon="🗑"
+      title={t(lang, 'Esvaziar o Mundo?', 'Empty the World?')} icon={<Icon name="trash" size={18} className="shell-set-svg" />}
       onClose={() => { if (!busy) onCancel(); }} initialFocus={`#${CSS.escape(nameId)}`}
       footer={<NameConfirmFoot formId={formId} lang={lang} busy={busy} ok={ok} onCancel={onCancel}
         label={t(lang, 'Esvaziar o Mundo', 'Empty the World')} busyLabel={t(lang, 'Apagando…', 'Deleting…')} />}>
@@ -597,7 +603,7 @@ function DeleteCampaignDialog({ campaign, lang, onCancel, onDone }) {
   };
   return (
     <MesaSheet lang={lang} size="auto" width="md" role="alertdialog" className="shell-name-confirm" describedBy={descId}
-      title={t(lang, 'Encerrar esta campanha?', 'Close this campaign?')} icon="⌛"
+      title={t(lang, 'Encerrar esta campanha?', 'Close this campaign?')} icon={<Icon name="lock" size={18} className="shell-set-svg" />}
       onClose={() => { if (!busy) onCancel(); }} initialFocus={`#${CSS.escape(nameId)}`}
       footer={<NameConfirmFoot formId={formId} lang={lang} busy={busy} ok={ok} onCancel={onCancel}
         label={t(lang, 'Encerrar campanha', 'Close campaign')} busyLabel={t(lang, 'Encerrando…', 'Closing…')} />}>

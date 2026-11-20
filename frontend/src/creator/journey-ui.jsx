@@ -42,8 +42,6 @@ export function useConsidering(key) {
 // ---------------------------------------------------------------------------
 // Mapa da jornada (substitui a barra de etapas; mantém .cr-progress)
 // ---------------------------------------------------------------------------
-const ROMAN = ['✦', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', '⚒'];
-
 export function JourneyMap({ chapters, steps, index, stepIssues, visited, reachable, goTo, lang, navRef }) {
   const cur = chapters.find(c => c.now);
   const shown = chapters.filter(c => !c.skip);
@@ -61,7 +59,7 @@ export function JourneyMap({ chapters, steps, index, stepIssues, visited, reacha
           <button key={c.id} type="button" className={`cr-mile ${c.now ? 'now' : c.done ? 'done' : c.pending ? 'pending' : ''}`}
             disabled={c.target == null || c.now} onClick={() => c.target != null && goTo(steps[c.target].id)}
             aria-label={label} title={label}>
-            <span className="cr-mile-dot">{c.pending && !c.now ? '!' : ROMAN[c.index] || '•'}</span>
+            <span className="cr-mile-dot">{c.pending && !c.now ? '!' : c.numeral || '•'}</span>
             <span className="cr-mile-name">{txt(c.title, lang)}</span>
           </button>
           );
@@ -290,8 +288,8 @@ export function DecisionPanel({ char, lang, decisionKey, sealedId, info, battle 
         )}
         {(gains.length > 0 || loses.length > 0) && (
           <div className="cr-dec-cols">
-            {gains.length > 0 && <div className="cr-gain"><b>{L(lang, 'O que você ganha', 'What you gain')}</b><ul>{gains.map((g, i) => <li key={i}>{txt(g, lang)}</li>)}</ul></div>}
-            {loses.length > 0 && <div className="cr-lose"><b>{info.losesTitle ? txt(info.losesTitle, lang) : L(lang, 'O que fica para trás', 'What you leave behind')}</b><ul>{loses.map((g, i) => <li key={i}>{txt(g, lang)}</li>)}</ul></div>}
+            {gains.length > 0 && <div className="cr-gain"><b>{L(lang, 'O que você ganha', 'What you gain')}</b><ul className="no-zebra">{gains.map((g, i) => <li key={i}>{txt(g, lang)}</li>)}</ul></div>}
+            {loses.length > 0 && <div className="cr-lose"><b>{info.losesTitle ? txt(info.losesTitle, lang) : L(lang, 'O que fica para trás', 'What you leave behind')}</b><ul className="no-zebra">{loses.map((g, i) => <li key={i}>{txt(g, lang)}</li>)}</ul></div>}
           </div>
         )}
         {odds && (
@@ -311,7 +309,7 @@ export function DecisionPanel({ char, lang, decisionKey, sealedId, info, battle 
         {steps.length > 0 && (
           <div className="cr-path">
             <b className="cr-p-h">{L(lang, 'O caminho adiante', 'The road ahead')}</b>
-            <ol>{steps.map(s => <li key={s.level} className={s.big ? 'big' : ''}><span className="lv">{s.level}</span><span>{s.items.map(x => txt(x, lang)).join(' · ')}</span></li>)}</ol>
+            <ol className="no-zebra">{steps.map(s => <li key={s.level} className={s.big ? 'big' : ''}><span className="lv">{s.level}</span><span>{s.items.map(x => txt(x, lang)).join(' · ')}</span></li>)}</ol>
           </div>
         )}
         {info.tale && txt(info.tale, lang) && <p className="cr-quote"><span>{L(lang, 'Na crônica: ', 'In the chronicle: ')}</span>{txt(info.tale, lang)}</p>}
@@ -476,8 +474,25 @@ export function Forge({ char, lang }) {
         <div className={`cr-anvil ${step === 3 ? 'lit' : ''}`}>
           <div className="cr-anvil-portrait"><img src={portraitOf(char) || HERO_ART} alt="" onError={hide} /></div>
           <div key={step} className="cr-forge-flash" />
-          <svg className="cr-anvil-svg" viewBox="0 0 220 90" aria-hidden="true"><path d="M10 20 H170 C190 20 205 28 214 36 C190 34 175 38 165 46 L150 46 L150 62 L176 84 L44 84 L70 62 L70 46 L40 46 C25 46 12 36 10 20 Z" /><rect x="10" y="16" width="160" height="6" rx="2" /></svg>
-          <svg key={`h${step}`} className="cr-hammer" viewBox="0 0 110 120" aria-hidden="true"><rect className="h" x="70" y="10" width="10" height="100" rx="4" /><rect x="40" y="0" width="64" height="30" rx="4" /></svg>
+          <span className="cr-forge-ember" aria-hidden="true" />
+          {/* Bigorna e martelo no material da ficha: ferro escuro (couro) com filete dourado */}
+          <svg className="cr-anvil-svg" viewBox="0 0 220 90" aria-hidden="true">
+            <defs>
+              <linearGradient id="cr-forge-gilt" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stopColor="#f7dc93" /><stop offset="0.28" stopColor="#8c6427" /><stop offset="0.5" stopColor="#ecc777" /><stop offset="0.74" stopColor="#7b5721" /><stop offset="1" stopColor="#f2d38a" />
+              </linearGradient>
+              <linearGradient id="cr-forge-iron" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="#3a2a20" /><stop offset="0.45" stopColor="#1f1612" /><stop offset="1" stopColor="#120c09" />
+              </linearGradient>
+              <linearGradient id="cr-forge-wood" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stopColor="#7a5632" /><stop offset="1" stopColor="#3f2a16" />
+              </linearGradient>
+            </defs>
+            <path d="M10 20 H170 C190 20 205 28 214 36 C190 34 175 38 165 46 L150 46 L150 62 L176 84 L44 84 L70 62 L70 46 L40 46 C25 46 12 36 10 20 Z" />
+            <rect className="face" x="10" y="15" width="160" height="7" rx="2" />
+            <path className="rune" d="M110 62 l6 8 l-6 8 l-6 -8 Z" />
+          </svg>
+          <svg key={`h${step}`} className="cr-hammer" viewBox="-2 -2 114 124" aria-hidden="true"><rect className="h" x="70" y="10" width="10" height="100" rx="4" /><rect x="40" y="0" width="64" height="30" rx="5" /><path className="band" d="M52 1 v28 M92 1 v28" /></svg>
         </div>
         {step === 3 && <><div className="cr-forge-name cr-foil">{name || L(lang, 'Herói sem nome', 'Nameless hero')}</div><div className="cr-forge-sub">{sub}{sub ? ' · ' : ''}{L(lang, 'Nível', 'Level')} {char.level || 1}</div></>}
       </div>

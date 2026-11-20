@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useArea } from './useArea.js';
 import useMedia from '../play/useMedia.js';
 import { dismissWhatsNew, whatsNewLines, whatsNewVisible } from './guide-model.js';
+import Icon from '../../components/Icons.jsx';
 import './guide.css';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -38,7 +39,7 @@ export default function WhatsNew({ lang = 'pt' }) {
       <div className="mesa-actions whats-new-actions">
         <button type="button" className="mesa-btn is-primary" onClick={close}>{t(lang, 'Entendi', 'Got it')}</button>
         {area?.openGuide && (
-          <button type="button" className="mesa-btn" onClick={() => area.openGuide(0)}>📘 {t(lang, 'Guia do mestre', 'GM guide')}</button>
+          <button type="button" className="mesa-btn" onClick={() => area.openGuide(0)}><Icon name="book" size={16} aria-hidden="true" /> {t(lang, 'Guia do mestre', 'GM guide')}</button>
         )}
       </div>
     </section>

@@ -76,8 +76,10 @@ test('Aba Perícias e Características: paridade de ações, remoção de redund
   // SheetSkills calcula grupos com computeActionGroupData
   assert.match(sheetSrc, /computeActionGroupData\(grp,\s*char\.abilities/);
 
-  // Botões de rolagem direta na linha do cabeçalho da ação
-  assert.match(sheetSrc, /statblock-action-header-roll-btn/);
+  // (rodada de UX das abas) o cabeçalho da ação NÃO rola mais o número "consolidado" do grupo:
+  // Atletismo saía com o bônus de Furtividade. Cada perícia rola o próprio bônus num toque.
+  assert.ok(!sheetSrc.includes('statblock-action-header-roll-btn'));
+  assert.match(sheetSrc, /const rollSkill = \(sk\) => roll\(\{/);
 
   // Exposição parcial de perícias apenas treinadas/proficientes
   assert.match(sheetSrc, /trainedSkills\s*=\s*\(grp\.skills \|\| \[\]\)\.filter/);
@@ -86,10 +88,9 @@ test('Aba Perícias e Características: paridade de ações, remoção de redund
   assert.ok(!sheetSrc.includes('fh-skills-collapse-all'));
   assert.ok(!sheetSrc.includes('Passive Perception'));
 
-  // 5º Grupo de Ação: Usar Ferramenta (Use Tool) com ícone 🛠️
-  assert.match(sheetSrc, /🛠️/);
-  assert.match(sheetSrc, /Usar Ferramenta/);
-  assert.match(sheetSrc, /Use Tool/);
+  // Ferramentas: painel próprio na aba Perícias, com ícone em traço (sem emoji 🛠️)
+  assert.match(sheetSrc, /tools: 'toolbox'/);
+  assert.match(sheetSrc, /pt \? 'Ferramentas' : 'Tools'/);
   assert.match(sheetSrc, /toolItems\.map/);
 
   // Idiomas e Proficiências de Ferramentas (SheetTools) no escopo correto da aba Características

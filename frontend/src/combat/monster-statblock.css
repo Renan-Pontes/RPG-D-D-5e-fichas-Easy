@@ -592,3 +592,20 @@
   .statblock-roll-btn:active,
   .statblock-skill-chip:hover { transform: none; }
 }
+
+/* Linha de um grupo de perícias/ações: o título e as fichas de exceção ("9/-1 Atletismo",
+   "16/+6 Furtividade"). Na coluna estreita do Combate (400 px) as fichas quebravam em 2 linhas
+   por cima do título. Agora a linha quebra: o título fica inteiro e as fichas descem. */
+.statblock-action-summary { flex-wrap: wrap; row-gap: 4px; }
+.statblock-action-header-left { flex: 0 0 auto; }
+/* as fichas ficam na linha do título enquanto couberem; quando não cabem (3 fichas em 400 px),
+   descem inteiras para a linha de baixo, alinhadas à direita */
+.statblock-action-summary-actions { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+/* coluna estreita (o Combate do PC, a folha do celular) e a linha tem fichas de exceção: o
+   título e a seta ficam na 1ª linha; as fichas descem juntas, alinhadas à esquerda */
+@container statblock (max-width: 520px) {
+  .statblock-action-summary:has(.statblock-action-exception-btn) .statblock-action-chevron { order: 2; margin-left: auto; }
+  .statblock-action-summary:has(.statblock-action-exception-btn) .statblock-action-summary-actions {
+    order: 3; flex: 1 1 100%; justify-content: flex-start; margin: 0 0 4px;
+  }
+}

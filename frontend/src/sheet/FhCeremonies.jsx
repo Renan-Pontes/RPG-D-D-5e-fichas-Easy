@@ -44,7 +44,8 @@ export function FhLevelCeremony({ cer, char, lang, onClose }) {
     const timer = setTimeout(() => closeRef.current(), CLOSE_MS);
     return () => { window.removeEventListener('keydown', onKey); clearTimeout(timer); };
   }, [cer.key]);
-  const name = char.name || (pt ? 'Seu herói' : 'Your hero');
+  // hífen do nome sem quebra ("Pedra‑Alta" partia em "PEDRA-" / "ALTA SUBIU DE NÍVEL")
+  const name = (char.name || (pt ? 'Seu herói' : 'Your hero')).replace(/-/g, '‑');
   return (
     <div className="fh-levelup no-print" onClick={onClose} role="status" aria-live="polite">
       <div className="fh-lu-box">
@@ -55,11 +56,12 @@ export function FhLevelCeremony({ cer, char, lang, onClose }) {
           <span className="fh-lu-sparks">{SPARKS.map(i => <i key={i} style={{ '--i': i }} />)}</span>
         </span>
         <div className="fh-lu-title">
-          {pt ? `${name} subiu de nível` : `${name} leveled up`}
+          <span className="fh-lu-name">{name}</span>{' '}
+          <span className="fh-lu-verb">{pt ? 'subiu de nível' : 'leveled up'}</span>
           <span className="fh-sr">{pt ? `: nível ${cer.level}` : `: level ${cer.level}`}</span>
         </div>
         <div className="fh-lu-sub">{Utils.classLabel(char, lang, tName)}</div>
-        <div className="fh-lu-close">{pt ? 'Toque para fechar' : 'Tap to close'}</div>
+        <div className="fh-lu-close">{pt ? 'Clique ou toque para fechar' : 'Click or tap to close'}</div>
       </div>
     </div>
   );

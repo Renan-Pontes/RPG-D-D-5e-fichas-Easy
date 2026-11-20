@@ -32,7 +32,7 @@ import { canPrevTurn, lastUndo, logRows, prevTurnName, undoText } from '../play/
 import { tvToCombatNotice } from '../stage/stage-api.js';
 import StartCombatSheet, { sceneOfNode, sceneOfPlan } from '../play/StartCombatSheet.jsx';
 import {
-  encounterBody, fightLine, initiativeRows, lateInitiatives, lateLabel, openInitiativeCheck, setupSteps, pickInitiatives, startLabel,
+  encounterBody, endedKey, fightLine, initiativeRows, lateInitiatives, lateLabel, openInitiativeCheck, setupSteps, pickInitiatives, startLabel,
 } from '../combat/encounter-setup.js';
 import {
   failText, fallenLabel, fallenState, heldOpId, markLabel, newerCombat, newOpId, quietSlot, shouldScrollTo, toggleMark, turnMarks, TOUCH_QUIET_MS,
@@ -150,6 +150,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   const [busy, setBusy] = useState('');
   const wide = useWide();
   const roomy = useMedia('(min-width: 1280px)');   // a Tela encaixada ganha a 3ª coluna
+  const phone = useMedia('(max-width: 639px)');     // a lista ganha a 1ª tela com o combate andando (ver `lean`)
 
   const seeRef = useRef(() => {});
   const opRef = useRef({}); // {monster, use, late}: o opId de cada pedido até dar certo (heldOpId)
@@ -238,8 +239,9 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   // página voltava a "Montado, ainda não começou" com os 3 passos, igual a uma luta que nunca
   // aconteceu. Agora diz "Encerrado · N rodadas" e oferece o que se faz depois de uma luta.
   // `endSeen`: o mestre escolheu montar outro com estes (ou tirou os monstros): volta aos 3 passos.
-  const logList = combat?.log || [];
-  const endKey = logList.length && logList[logList.length - 1]?.type === 'end' ? `${logList.length}:${combat?.round ?? ''}` : null;
+  // `endedKey`: o último `end` do registro vale mesmo com curas e danos depois dele (antes só
+  // valia enquanto fosse a ÚLTIMA linha, e a primeira cura devolvia os 3 passos).
+  const endKey = endedKey(combat?.log);
   const ended = !active && combatants.length > 0 && endKey != null && endSeen !== endKey;
   const sceneNowId = table?.pulse ? table.pulse.sceneId : campaign.state?.sceneId;
   useEffect(() => {
@@ -574,8 +576,12 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   const sel = combatants.find(c => c.id === selected);
   const sheetC = sheet ? combatants.find(c => c.id === sheet.id) : null;
   const padC = pad?.id ? combatants.find(c => c.id === pad.id) : null;
+  // Celular com o combate andando: a 1ª tela mostrava 2 combatentes (583 px de cabeçalho antes da
+  // lista). O sino fica só com o número, na linha do título; "Encerrar combate" e a dificuldade
+  // (informação de preparo) vão para ⋯ Mais; o estado ("Em andamento · rodada 1") sobe ao título.
+  const lean = phone && active;
   const bell = combatants.length > 0 && (
-    <NudgeBell campaign={campaign} combat={combat} lang={lang} compact={showTurn}
+    <NudgeBell campaign={campaign} combat={combat} lang={lang} compact={showTurn || lean}
       onChange={() => { load(); onChange?.(); }} />
   );
   const panelProps = (c) => ({
@@ -586,6 +592,19 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
     isCurrentTurn: !!currentTurn && currentTurn.id === c.id,
   });
   const showList = wide || view === 'list';
+  // ✚ Monstro · ✚ Personagem logo depois do último da lista (ficavam depois da linha do mapa,
+  // 300 px abaixo no PC); sem a lista à vista (celular no Mapa), embaixo de tudo como antes.
+  const adds = active && (
+    <div className="ct-controls ct-adds">
+      <button type="button" className="mesa-btn ct-add" onClick={() => setShowPicker(true)}>
+        ✚ {t(lang, 'Monstro', 'Monster')}
+      </button>
+      <button type="button" className="mesa-btn ct-add" onClick={() => setShowAddPC(true)}>
+        ✚ {t(lang, 'Personagem', 'Character')}
+      </button>
+    </div>
+  );
+  const addsInList = !!adds && (wide || view === 'list') && combatants.length > 0;
   // combate vazio: o mapa fica à vista (fundo, quadrado e grade antes de montar o encontro)
   const showMap = wide || view === 'map' || combatants.length === 0;
   // A janela da Tela encaixada (PC, na casca do mestre; a casca decide se ela aparece).
@@ -676,17 +695,17 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
         </div>
       )}
 
-      <MesaTitle className="ct-title"
+      <MesaTitle className={`ct-title ${lean ? 'is-lean' : ''}`.trim()}
         act={<>
           {!showTurn && bell}
-          {active && (
+          {active && !lean && (
             <button type="button" className="mesa-btn ct-end" onClick={endCombat}>⏸ {t(lang, 'Encerrar combate', 'End combat')}</button>
           )}
         </>}
         sub={(
           <span className={`ct-state ${active ? 'is-on' : ''} ${!active && initCheck ? 'is-waiting' : ''} ${ended ? 'is-ended' : ''}`}>
             {active
-              ? <>{t(lang, 'Em andamento', 'In progress')} · {t(lang, 'rodada', 'round')} {combat.round}</>
+              ? (lean ? <>{t(lang, 'Rodada', 'Round')} {combat.round}</> : <>{t(lang, 'Em andamento', 'In progress')} · {t(lang, 'rodada', 'round')} {combat.round}</>)
               : ended ? <>{t(lang, 'Encerrado', 'Ended')} · {countL(lang, combat.round || 1, ['rodada', 'rodadas'], ['round', 'rounds'])}</>
                 : initCheck && combatants.length > 0 ? <>{t(lang, 'Esperando iniciativa', 'Waiting for initiative')} · {t(lang, `${picked.answered} de ${picked.total}`, `${picked.answered} of ${picked.total}`)}</>
                   : combatants.length > 0 ? t(lang, 'Montado, ainda não começou', 'Set up, not started yet') : t(lang, 'Vazio', 'Empty')}
@@ -695,7 +714,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
         {t(lang, 'Combate', 'Combat')}
       </MesaTitle>
 
-      <EncounterDifficulty campaign={campaign} combatants={combatants} lang={lang} />
+      {!lean && <EncounterDifficulty campaign={campaign} combatants={combatants} lang={lang} />}
 
       {ended && (
         <section className="mesa-panel ct-setup ct-ended" aria-labelledby="ct-ended-h">
@@ -808,7 +827,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
 
       {!wide && combatants.length > 0 && (
         <div className="mesa-seg ct-view" role="tablist" aria-label={t(lang, 'Ver como', 'View as')}>
-          {[['list', '☰', t(lang, 'Lista', 'List')], ['map', '🗺', t(lang, 'Mapa', 'Map')]].map(([id, ico, label]) => (
+          {[['list', <MesaIcon key="i" name="menu" />, t(lang, 'Lista', 'List')], ['map', <MesaIcon key="i" name="map" />, t(lang, 'Mapa', 'Map')]].map(([id, ico, label]) => (
             <button key={id} type="button" role="tab" aria-selected={view === id}
               className={`mesa-seg-btn ${view === id ? 'active' : ''}`} onClick={() => switchView(id)}>
               <span aria-hidden="true">{ico}</span> {label}
@@ -849,6 +868,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
                 </li>
               );
             })}
+            {addsInList && <li className="ct-item ct-adds-item">{adds}</li>}
           </ol>
         )}
 
@@ -869,16 +889,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
         )}
       </div>
 
-      {active && (
-        <div className="ct-controls ct-adds">
-          <button type="button" className="mesa-btn ct-add" onClick={() => setShowPicker(true)}>
-            ✚ {t(lang, 'Monstro', 'Monster')}
-          </button>
-          <button type="button" className="mesa-btn ct-add" onClick={() => setShowAddPC(true)}>
-            ✚ {t(lang, 'Personagem', 'Character')}
-          </button>
-        </div>
-      )}
+      {!addsInList && adds}
 
       {marks && (
         <div className="ct-multi-bar" role="region" aria-label={t(lang, 'Vários alvos', 'Several targets')}>
@@ -909,6 +920,8 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
       )}
       {showMore && (
         <MoreSheet campaign={campaign} combat={combat} lang={lang} active={active} hasMap={hasMap}
+          onEnd={lean ? () => { setShowMore(false); endCombat(); } : null}
+          difficulty={lean ? <EncounterDifficulty campaign={campaign} combatants={combatants} lang={lang} /> : null}
           canBack={canBack} busy={!!table?.busy} onBack={prevTurn} onUndo={(opId) => { setShowMore(false); undoOp(opId); }}
           onClose={() => setShowMore(false)} onStart={startCombat} onReset={resetCombat} onChange={onChange}
           onTools={() => { setShowMore(false); if (!wide) switchView('map'); setToolsSignal(n => n + 1); }} />
@@ -1034,7 +1047,7 @@ function CombatantRow({
  * ⋯ Combate: ▶ Iniciar · ↶ Voltar turno · Registro recente (com o ↶ de cada linha que o servidor
  * sabe desfazer) · Ferramentas do mapa · Fim guiado · Recomeçar (por último).
  */
-function MoreSheet({ campaign, combat, lang, active, hasMap, canBack = false, busy = false, onBack, onUndo, onClose, onStart, onReset, onTools, onChange }) {
+function MoreSheet({ campaign, combat, lang, active, hasMap, canBack = false, busy = false, onBack, onUndo, onClose, onStart, onReset, onTools, onChange, onEnd = null, difficulty = null }) {
   const [resetting, setResetting] = useState(false);
   const [wizardLocal, setWizardLocal] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -1054,6 +1067,11 @@ function MoreSheet({ campaign, combat, lang, active, hasMap, canBack = false, bu
         {!active && n > 0 && (
           <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={onStart}>▶ {t(lang, 'Iniciar combate', 'Start combat')}</button>
         )}
+        {/* celular: o Encerrar combate e a dificuldade moram aqui enquanto o combate anda (a lista ganha a tela) */}
+        {active && onEnd && (
+          <button type="button" className="mesa-btn mesa-btn-lg ct-more-end" onClick={onEnd}>⏸ {t(lang, 'Encerrar combate', 'End combat')}</button>
+        )}
+        {difficulty}
         {active && canBack && (
           <button type="button" className="mesa-btn mesa-btn-lg" disabled={busy} onClick={onBack}>
             ↶ {t(lang, `Voltar turno (a vez volta para ${prevTurnName(combat)})`, `Undo turn (back to ${prevTurnName(combat)})`)}
@@ -1075,7 +1093,7 @@ function MoreSheet({ campaign, combat, lang, active, hasMap, canBack = false, bu
             </ul>
           ) : <p className="mesa-hint">{t(lang, 'Nada ainda.', 'Nothing yet.')}</p>}
         </details>
-        <button type="button" className="mesa-btn mesa-btn-lg" onClick={onTools}>🛠 {t(lang, 'Ferramentas do mapa', 'Map tools')}</button>
+        <button type="button" className="mesa-btn mesa-btn-lg" onClick={onTools}><MesaIcon name="tools" /> {t(lang, 'Ferramentas do mapa', 'Map tools')}</button>
         <label className="cs-check ct-wizard">
           <input type="checkbox" checked={wizardOn} disabled={saving} onChange={e => setWizard(e.target.checked)} />
           <span>

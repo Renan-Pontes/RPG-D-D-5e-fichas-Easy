@@ -51,14 +51,23 @@ function MethodPicker({ char, set, lang }) {
   );
 }
 
-function RollPanel({ char, set, lang }) {
+function RollPanel({ char, set, lang, held, setHeld }) {
   const rolls = char.creation?.abilityRolls || [];
   const assign = abilityAssign(char);
   const usedBy = (i) => ABILITIES.find(k => assign[k] === i);
+  // O mesmo gesto do conjunto padrão: tocar num valor o deixa "na mão"; tocar num já usado
+  // tira ele do atributo. A lista de cada atributo continua valendo para quem prefere.
+  const pick = (i) => {
+    if (held === i) { setHeld(null); return; }
+    const k = usedBy(i);
+    if (k) set(assignPatch(char, k, null));
+    setHeld(i);
+  };
   // A rolagem continua a mesma (rollPatch grava os 6×4d6); os dados 3D só revelam o que foi gravado.
   const [reveal, setReveal] = useState(null);
   const roll = () => {
     const p = rollPatch(char);
+    setHeld?.(null);
     set(p);
     if (diceAnimate()) setReveal({ id: Date.now(), rolls: p.creation.abilityRolls });
   };
@@ -71,21 +80,36 @@ function RollPanel({ char, set, lang }) {
       </Callout>
       {rolls.length === 6 ? (
         <>
-          <div className="cr-ab-rolls">
+          <p className="text-sm muted" style={{ margin: '8px 0 0' }}>
+            {L(lang, 'Toque num valor e depois no atributo (ou use a lista de cada atributo).', "Tap a score, then the ability (or use each ability's list).")}
+          </p>
+          <div className="cr-ab-rolls" role="group" aria-label={L(lang, 'Valores rolados para distribuir', 'Rolled scores to assign')}>
             {rolls.map((r, i) => {
               const low = r.dice.indexOf(Math.min(...r.dice));
+              const k = usedBy(i);
+              const where = k ? ABILITY_NAMES[k][lang] : '';
+              const dice = r.dice.join(', ');
               return (
-                <div key={i} className={`cr-ab-roll ${usedBy(i) ? 'used' : ''}`}>
-                  <div className="cr-ab-roll-total mono">{r.total}</div>
-                  <div className="cr-ab-roll-dice mono text-xs">
+                <button key={i} type="button" className={`cr-ab-roll ${k ? 'used' : ''} ${held === i ? 'held' : ''}`} aria-pressed={held === i}
+                  onClick={() => pick(i)}
+                  aria-label={k
+                    ? L(lang, `${r.total} (dados ${dice}), em ${where}. Toque para tirar e pôr em outro atributo.`, `${r.total} (dice ${dice}), on ${where}. Tap to take it back and put it elsewhere.`)
+                    : L(lang, `${r.total} (dados ${dice}), livre. Toque e depois escolha o atributo.`, `${r.total} (dice ${dice}), free. Tap, then choose the ability.`)}>
+                  <span className="cr-ab-roll-total mono">{r.total}</span>
+                  <span className="cr-ab-roll-dice mono text-xs" aria-hidden="true">
                     {r.dice.map((d, j) => <span key={j} className={j === low ? 'dropped' : ''}>{d}</span>)}
-                  </div>
-                  {usedBy(i) && <div className="text-xs muted">{ABILITY_NAMES[usedBy(i)][lang]}</div>}
-                </div>
+                  </span>
+                  <span className="cr-ab-roll-where text-xs">{held === i ? L(lang, 'na mão', 'held') : k ? where : L(lang, 'livre', 'free')}</span>
+                </button>
               );
             })}
           </div>
-          <button type="button" className="btn btn-sm btn-ghost" style={{ marginTop: 8 }}
+          <p className="cr-ab-held text-sm" role="status" aria-live="polite">
+            {held != null && rolls[held]
+              ? L(lang, `${rolls[held].total} na mão: toque no atributo que vai recebê-lo.`, `${rolls[held].total} held: tap the ability that gets it.`)
+              : ''}
+          </p>
+          <button type="button" className="btn btn-sm btn-ghost" style={{ marginTop: 0 }}
             onClick={roll}>
             {L(lang, 'Rolar de novo (só se o mestre deixar)', 'Roll again (only if your DM allows)')}
           </button>
@@ -268,7 +292,7 @@ function Comp({ char, set, lang }) {
           'Pick a class to see which ability it uses most and get a ready-made suggestion.')}</Callout>
       )}
 
-      {m === 'roll' && <RollPanel char={char} set={set} lang={lang} />}
+      {m === 'roll' && <RollPanel char={char} set={set} lang={lang} held={held} setHeld={setHeld} />}
       {m === 'standard' && (
         <div className="text-sm muted" style={{ marginBottom: 8 }}>
           {L(lang, `Toque num valor e depois no atributo (ou use a lista de cada atributo). Cada valor (${STANDARD_ARRAY.join(', ')}) entra uma vez; escolher um já usado troca os dois de lugar.`,
@@ -290,7 +314,7 @@ function Comp({ char, set, lang }) {
         </>
       )}
 
-      {ABILITIES.map(k => <AbilityRow key={k} char={char} set={set} lang={lang} k={k} primary={primary.includes(k)} held={m === 'standard' ? held : null} setHeld={setHeld} />)}
+      {ABILITIES.map(k => <AbilityRow key={k} char={char} set={set} lang={lang} k={k} primary={primary.includes(k)} held={m === 'standard' || m === 'roll' ? held : null} setHeld={setHeld} />)}
 
       <Callout>
         {L(lang, 'Como ler o modificador: 8–9 = −1 · 10–11 = +0 · 12–13 = +1 · 14–15 = +2 · 16–17 = +3. Quanto maior, mais fácil acertar nos testes daquele atributo.',

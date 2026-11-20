@@ -49,7 +49,7 @@ function PregenModal({ p, lang, onClose, onPick, busy }) {
         {tips.length > 0 && (
           <>
             <h4>{L(lang, 'Como jogar na primeira sessão', 'How to play in your first session')}</h4>
-            <ul className="pg-tips">{tips.map((t, i) => <li key={i}>{t.replace(/^[-•]\s*/, '')}</li>)}</ul>
+            <ul className="pg-tips no-zebra">{tips.map((t, i) => <li key={i}>{t.replace(/^[-•]\s*/, '')}</li>)}</ul>
           </>
         )}
         {c.backstory && (

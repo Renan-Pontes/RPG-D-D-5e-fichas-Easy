@@ -62,8 +62,8 @@ export default [
       en: 'Lia (20 max HP) is at 6 HP and takes 11 damage. 5 is left over, which is less than her 20 max → she drops Unconscious at 0 HP. Next turn the cleric heals her for 7 → she wakes up at 7 HP (Prone, since she fell).',
     },
     sheet: {
-      pt: 'Aba Jogar: quando os PV atuais ficam em 0, aparece o bloco "Testes contra a Morte" dentro do rastreador de PV. Marque também Inconsciente no painel Condições e efeitos.',
-      en: 'Play tab: when current HP is 0, the "Death Saves" block appears inside the HP tracker. Also mark Unconscious in the Conditions & effects panel.',
+      pt: 'Aba Jogar: quando os PV atuais ficam em 0, aparece o bloco "Testes contra a Morte" dentro do rastreador de PV. Marque também Inconsciente em Vitalidade → + Condição.',
+      en: 'Play tab: when current HP is 0, the "Death Saves" block appears inside the HP tracker. Also mark Unconscious under Vitality → + Condition.',
     },
     srd: {
       text: 'If you reach 0 Hit Points and don’t die instantly, you have the Unconscious condition (see “Rules Glossary”) until you regain any Hit Points, and you now face making Death Saving Throws (see below).',

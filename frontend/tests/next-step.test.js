@@ -48,7 +48,7 @@ test('uma linha por regra: os dados mínimos disparam a regra certa', () => {
 
 test('textos e botões de cada regra (pt e en)', () => {
   const at = (i, lang = 'pt') => nextStep({ lang, ...ROWS[i][1] });
-  assert.equal(at(0).action.label, '🔗 Copiar link de convite');
+  assert.equal(at(0).action.label, 'Copiar link de convite');
   assert.equal(at(0).secondary.id, 'share');
   assert.equal(at(1).text, 'Escolha como preparar a Sessão 5.');
   assert.equal(at(1).doors, true);
@@ -242,7 +242,7 @@ test('Agora: textos e botões das regras J', () => {
   assert.equal(at(0, 'en').text, 'Ready for session 4?');
   const j2 = at(1);
   assert.equal(j2.text, 'Sessão 3 encerrada · 2h10');
-  assert.equal(j2.action.label, '📜 Escrever o resumo');
+  assert.equal(j2.action.label, 'Escrever o resumo');
   assert.equal(j2.secondary.label, '📋 Preparar a Sessão 4');
   assert.equal(nextStep({ ...NOW_ROWS[1][1], length: null }).text, 'Sessão 3 encerrada');
   assert.equal(at(2).action.id, 'showRecap');

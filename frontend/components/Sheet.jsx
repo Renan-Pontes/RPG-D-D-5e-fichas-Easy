@@ -1,7 +1,7 @@
 /* Character sheet view — play/stats/spells/inventory/story/journal tabs */
 import { errorMessage } from '../src/api/errors.js';
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useContext, lazy, Suspense } from 'react';
-import { RespecContext } from '../src/progression/respec.js';
+import { RespecContext, respecPatch } from '../src/progression/respec.js';
 import { createPortal } from 'react-dom';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
@@ -25,7 +25,8 @@ import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
 import Icon from './Icons.jsx';
 import ScrollTabs from './ScrollTabs.jsx';
 import { Filigree, Modal, NumStepper, Pips, AvatarUpload, FramedImg } from './Shared.jsx';
-import { SheetSpells, SheetInventory, SheetStory, SheetNotes, RestButtons } from './SheetTabs.jsx';
+import { SheetSpells, SheetInventory, SheetStory, SheetNotes, RestButtons, SchoolBadge } from './SheetTabs.jsx';
+import { playCantrips } from '../src/sheet/play-spells.js';
 import { api, ApiError } from '../src/api/client.js';
 import CombatActionPanel, { useCombatPanel } from '../src/campaigns/CombatActionPanel.jsx';
 import { combatPanelSpot } from '../src/player/player-model.js';
@@ -38,6 +39,7 @@ import { trainingLines, featName, featPicksText, backgroundFeature } from '../sr
 import { placeFeatures, featureKey, poolParents } from '../src/sheet/feature-placement.js';
 import FhFeatures, { FhFeatureItem } from '../src/sheet/FhFeatures.jsx';
 import { DiceText } from '../src/dice/dice-text.jsx';
+import { RichText } from '../src/sheet/rich-text.jsx';
 import * as Versions from '../src/sheet/versions.js';
 import * as Forks from '../src/sheet/forks.js';
 import HpTracker, { HpPad } from '../src/sheet/HpTracker.jsx';
@@ -49,20 +51,22 @@ import { hpFormula, hitDicePools, hitDiceLeftLabel } from '../src/sheet/hp-logic
 import { attachPlaySnap } from '../src/sheet/play-snap.js';
 import { consumeAdvForRoll } from '../src/dice/dice-gestures.js';
 import { buildTimeline, byLevel, byTier, tierOf, classesAt, charLevelOf } from '../src/sheet/feature-timeline.js';
-import { computeProgression } from '../src/progression/engine.js';
+import { computeProgression, applyAutosToCharacter } from '../src/progression/engine.js';
 import { subclassLevelOf } from '../src/progression/subclass-lock.js';
 import '../src/sheet/versions.css';
 import BeltMultiRoll, { pairBeltSlots, rollBeltPairs } from '../src/dice/BeltMultiRoll.jsx';
-import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
-import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
+import { itemArt, classArt, speciesArt } from '../src/art.js';
+import ArtThumb from '../src/components/ArtThumb.jsx';
 import FhTitle from '../src/sheet/FhTitle.jsx';
 import FhAttackRow from '../src/sheet/FhAttack.jsx';
 import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
 import { FhHex, FhSkillRow, FhProfLegend, FhTapToRoll, FhTap } from '../src/sheet/FhChecks.jsx';
 import { SpeciesTraits, SpellcastingSummary } from './SheetTabs.jsx';
-import { hpState, hpStateLabel, useHpFeedback } from '../src/sheet/hp-feedback.js';
+import { hpState, useHpFeedback } from '../src/sheet/hp-feedback.js';
 import { slotCircleLabel, gemLabel, lockedSlotTitle, slotSpent, slotTap, slotTapTitle } from '../src/sheet/gem-text.js';
-import { condClasses, FhConditionFx, FhConditionArt } from '../src/sheet/FhConditions.jsx';
+import { condClasses, FhConditionFx, FhConditionArt, FhVitalFx, FhHeartMark, FhInspBurst, FhStatusStrip, FhStatusGlyph, useGainMoment } from '../src/sheet/FhConditions.jsx';
+import { FhStatusPanel, FhStanceHint, FhSpeedBite, attackMark, halfMark, initMark } from '../src/sheet/FhStatus.jsx';
+import { activeBites, hpFlags, statusList, statusLabel } from '../src/sheet/condition-rules.js';
 import { useLevelCeremony, FhLevelCeremony, useGemRelight } from '../src/sheet/FhCeremonies.jsx';
 import { PLAY_H, assignColumns } from '../src/sheet/play-layout.js';
 import FhExportModal from '../src/sheet/FhExport.jsx';
@@ -70,6 +74,7 @@ import SheetRollTarget from '../src/sheet/SheetRollTarget.jsx';
 import { clearSheetRolls, maybeRecheck, setSheetPolicy, setSheetRecheck, setSheetRolls } from '../src/dice/sheet-roll.js';
 import '../src/sheet/ficha.css';
 import '../src/sheet/hp-tracker.css';
+import '../src/sheet/ficha-tabs.css';
 import '../src/combat/monster-statblock.css';
 
 // Modal "Campanha" (atrelar, desatrelar, trocar): só carrega quando abre.
@@ -105,6 +110,7 @@ const LevelUpButton = ({ char, lang, onLevelUp }) => {
   return (
     <button
       className={`hero-level fh-seal no-print ${canLevel ? 'can' : ''}`}
+      aria-label={`${t('level', lang)} ${char.level}${canLevel ? (lang === 'pt' ? ': subir de nível' : ': level up') : ''}`}
       onClick={stop(() => onLevelUp && onLevelUp())}
       disabled={!canLevel || !onLevelUp}
       title={canLevel ? (lang === 'pt' ? 'Subir de nível (escolher a classe, inclusive uma nova)' : 'Level up (pick the class, including a new one)') : (lang === 'pt' ? 'XP insuficiente' : 'Not enough XP')}
@@ -145,7 +151,7 @@ const CampaignSealButton = ({ count, campFoldOpen, onToggle, lang }) => {
   );
 };
 
-const InspirationSealButton = ({ inspired, onToggle, lang }) => {
+const InspirationSealButton = ({ inspired, onToggle, lang, burstKey = null }) => {
   const pt = lang === 'pt';
   return (
     <button
@@ -165,6 +171,8 @@ const InspirationSealButton = ({ inspired, onToggle, lang }) => {
           <Icon name={inspired ? 'star-fill' : 'star'} size={20} />
         </span>
       </span>
+      {/* clarão dourado só no momento em que a Inspiração chega (src/sheet/FhConditions.jsx) */}
+      <FhInspBurst inspired={inspired} resetKey={burstKey} />
       {inspired && <span className="hero-level-up hero-insp-pip" aria-hidden="true">✦</span>}
       <span className="fh-seal-cap" aria-hidden="true">{pt ? 'Inspiração' : 'Inspiration'}</span>
     </button>
@@ -213,6 +221,7 @@ const SheetHero = ({
   const pt = lang === 'pt';
   const toast = useSheetToast();
   const letter = (char.name || '?').charAt(0).toUpperCase();
+  const inspNow = useGainMoment(!!char.inspiration, char.id, 1000); // brilho que passa no nome ao ganhar Inspiração
   const portrait = char.avatar || speciesArt(char.race) || classArt(char.className);
 
   const currentSubclassName = useMemo(() => {
@@ -241,7 +250,7 @@ const SheetHero = ({
         <div className="fh-hero-art" aria-hidden="true">
           <span className="fh-hero-mono">{letter}</span>
           {portrait && <FramedImg key={portrait} src={portrait} onError={hideBrokenImg} pos={char.avatar ? char.avatarPosition : null} />}
-          <FhConditionArt conditions={char.conditions} down={char.currentHp === 0} />
+          <FhConditionArt char={char} lang={lang} />
         </div>
         <div className="fh-hero-body">
           {/* Header Row: Medalhas Top-Left + Nome do Personagem imediatamente adjacente */}
@@ -271,16 +280,17 @@ const SheetHero = ({
                     lang={lang}
                     size={48}
                     letter={letter}
+                    bundled={!!char.pregenId}
                   />
                   <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={10}/></span>
                 </div>
-                <InspirationSealButton inspired={!!char.inspiration} onToggle={onInspiration} lang={lang} />
+                <InspirationSealButton inspired={!!char.inspiration} onToggle={onInspiration} lang={lang} burstKey={char.id} />
                 <span className="fh-hero-rest-seals" data-version-hide="">
                   <RestButtons char={char} lang={lang} update={update} seals />
                 </span>
               </div>
               <div className={char.name ? 'hero-name' : 'hero-name is-unnamed'}>
-                {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
+                {char.name ? <span className={`fh-foil${inspNow ? ' is-shimmer' : ''}`}>{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
               </div>
             </div>
           </div>
@@ -372,17 +382,22 @@ const HeroCampaignBar = ({ copies, lang, open, setOpen, char, campaignsList = []
           <span className="hero-level-up fh-hero-campseal-orbit">{list.length > 1 ? list.length : (open ? '▴' : '▾')}</span>
         </span>
         <span className="fh-hero-campbar-name">{label}</span>
+        {/* a ficha senta em mais de uma mesa: a barra fechada diz quantas além da primeira */}
+        {campaignsList.length > 1 && (
+          <span className="fh-hero-campbar-n" aria-label={pt ? `e mais ${campaignsList.length - 1}` : `and ${campaignsList.length - 1} more`}>+{campaignsList.length - 1}</span>
+        )}
         {list.length > 1 && <span className="fh-hero-campbar-caret" aria-hidden="true">{open ? '▴' : '▾'}</span>}
       </button>
       {open && (
         <ul className="fh-hero-copies" role="list">
           {list.map(c => (c.active ? (
             (campaignsList.length ? campaignsList : [null]).map((camp, i) => (
-              <li key={`${c.id}-${camp?.id ?? 'none'}`} className={`fh-hero-copy is-active${camp?.coverUrl ? ' has-cover' : ''}`}
+              <li key={`${c.id}-${camp?.id ?? 'none'}`} className={`fh-hero-copy is-active${camp?.coverUrl ? ' has-cover' : ''}${camp ? '' : ' is-none'}`}
                 style={camp?.coverUrl ? { backgroundImage: `linear-gradient(90deg, rgba(14,10,8,.92), rgba(14,10,8,.72)), url(${camp.coverUrl})` } : undefined}>
-                <span className="fh-hero-copy-ico" aria-hidden="true">{camp ? '🏰' : '📜'}</span>
+                {/* fora de campanha a barra de cima já diz o título: aqui só a frase e o botão */}
+                {camp && <span className="fh-hero-copy-ico" aria-hidden="true">🏰</span>}
                 <span className="fh-hero-copy-main">
-                  <span className="fh-hero-copy-name">{camp ? camp.name : (pt ? 'Fora de campanha' : 'Not in a campaign')}</span>
+                  {camp && <span className="fh-hero-copy-name">{camp.name}</span>}
                   <span className="fh-hero-copy-tags">
                     {camp && <span className="fh-hero-copy-tag">{mode(camp)}</span>}
                     {camp && <span className={`fh-hero-copy-tag is-${camp.isNpc ? 'npc' : 'pc'}`}>{camp.isNpc ? 'NPC' : (pt ? 'PJ' : 'PC')}</span>}
@@ -391,6 +406,9 @@ const HeroCampaignBar = ({ copies, lang, open, setOpen, char, campaignsList = []
                     {i === 0 && c.level ? <span className="fh-hero-copy-lv">{pt ? 'Nv.' : 'Lv'} {c.level}</span> : null}
                     {!camp && !onManage && typeof char.id !== 'number' && onLogin && (
                       <span className="fh-hero-copy-why">{pt ? 'Com uma conta dá para atrelar a ficha a uma campanha.' : 'With an account you can link this sheet to a campaign.'}</span>
+                    )}
+                    {!camp && onManage && (
+                      <span className="fh-hero-copy-why">{pt ? 'Esta ficha não está em nenhuma campanha.' : 'This sheet is not in any campaign.'}</span>
                     )}
                   </span>
                 </span>
@@ -488,6 +506,27 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
     }
   };
 
+  // Toque numa aba pela barra. No celular/tablet, com o topo da ficha ainda na tela, a aba
+  // nova aparecia só nos últimos ~200px: a página desce até a barra de abas encostar no topo
+  // e o conteúdo ocupar a tela. Quem já passou do topo não é movido; a aba Jogar fica como
+  // está (o topo, com PV e nível, faz parte dela).
+  const selectTab = (id) => {
+    setTab(id);
+    if (id === 'play' || typeof window === 'undefined') return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      let narrow = false;
+      let reduce = false;
+      try { narrow = window.matchMedia('(max-width: 1023px)').matches; reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* sem matchMedia */ }
+      if (!narrow) return;
+      const body = rootRef.current?.querySelector('.fh-tab-body');
+      const bar = rootRef.current?.querySelector('[role="tablist"]');
+      if (!body) return;
+      const top = body.getBoundingClientRect().top;
+      if (top <= window.innerHeight * 0.45) return;
+      window.scrollTo({ top: Math.max(0, top + window.scrollY - (bar?.offsetHeight || 0) - 12), behavior: reduce ? 'auto' : 'smooth' });
+    }));
+  };
+
   const [hpDelta, setHpDelta] = useState(0);
   // Aviso com "Desfazer" no pé da ficha (src/sheet/sheet-toast.jsx): PV, recursos, lápis trancado.
   const { toast: sheetToast, api: sheetToastApi } = useSheetToastState();
@@ -500,7 +539,10 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   // onde a faixa "Descanso curto em andamento" aparece (logo abaixo do topo da ficha): quem
   // a desenha são os selos de descanso (components/SheetTabs.jsx: RestButtons), por portal
   const [restSlot, setRestSlot] = useState(null);
-  const restCtx = useMemo(() => ({ mode: restMode, setMode: setRestMode, slot: restSlot }), [restMode, restSlot]);
+  // finishRef: "Concluir descanso" dos selos (RestButtons), para o painel Vitalidade poder
+  // concluir dali mesmo (src/sheet/HpTracker.jsx) com a mesma função.
+  const restFinishRef = useRef(null);
+  const restCtx = useMemo(() => ({ mode: restMode, setMode: setRestMode, slot: restSlot, finishRef: restFinishRef }), [restMode, restSlot]);
   useEffect(() => { setRestMode(null); }, [char.id]);
   const [tempHpInput, setTempHpInput] = useState(false);
   const [cheatOpen, setCheatOpen] = useState(false);
@@ -668,6 +710,10 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   const placed = useMemo(() => {
     try { return placeFeatures(char); } catch { return placeFeatures({}); }
   }, [fkey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Escolhas pendentes da aba Características ("Escolher agora"): ponto na aba e etiqueta no nível.
+  const pendingChoices = useMemo(() => {
+    try { return countPendingChoices(char); } catch { return 0; }
+  }, [fkey, char.background, char.creation, char.speciesChoices, char.inCampaign]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // === HP actions ===
   // Se em Wild Shape: dano vai pra fera. Quando ela chega a 0, o excedente
@@ -733,12 +779,45 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
     const before = hpSnapshot();
     applyHpRaw(delta);
     const n = Math.abs(delta);
+    const undo = () => onUpdate({ ...charRef.current, ...before });
+    const ptL = lang === 'pt';
+    // O aviso diz o que ACONTECEU, não o número digitado: 99 de cura com PV cheio é "+0",
+    // 99 de dano num herói de 13 PV é "−13 · caiu a 0", e o que os PV temporários seguraram
+    // aparece à parte. Na Forma Selvagem de 2014 (a fera absorve; o excedente volta para o
+    // herói) a conta é outra: ali fica o número aplicado, como antes.
+    const beast = !!char.wildShape?.active && char.rulesVersion !== '2024';
+    if (beast) {
+      sheetToastApi.show({
+        tone: delta < 0 ? 'hurt' : 'heal',
+        text: delta < 0 ? (ptL ? `Dano: −${n} PV` : `Damage: −${n} HP`) : (ptL ? `Cura: +${n} PV` : `Healing: +${n} HP`),
+        onAction: undo,
+      });
+      return;
+    }
+    const cur = char.currentHp || 0;
+    const temp = char.tempHp || 0;
+    if (delta > 0) {
+      const healed = Math.max(0, Math.min((char.maxHp || 0) - cur, delta));
+      sheetToastApi.show(healed > 0
+        ? { tone: 'heal', text: ptL ? `Cura: +${healed} PV` : `Healing: +${healed} HP`, onAction: undo }
+        : { tone: 'info', ms: 3500, text: ptL ? 'Cura: +0 PV (os PV já estão no máximo)' : 'Healing: +0 HP (already at maximum)' });
+      return;
+    }
+    const absorbed = Math.min(temp, n);
+    const lost = Math.min(cur, n - absorbed);
+    if (!absorbed && !lost) {
+      // já estava a 0 PV: dano não tira PV (as falhas nos testes contra a morte são marcadas à parte)
+      sheetToastApi.show({ tone: 'info', ms: 3500, text: ptL ? 'Dano: −0 PV (já estava com 0 PV)' : 'Damage: −0 HP (already at 0 HP)' });
+      return;
+    }
+    const parts = [];
+    if (lost) parts.push(ptL ? `−${lost} PV` : `−${lost} HP`);
+    if (absorbed) parts.push(ptL ? `−${absorbed} PV temporários` : `−${absorbed} temporary HP`);
+    const fell = lost > 0 && cur - lost === 0;
     sheetToastApi.show({
-      tone: delta < 0 ? 'hurt' : 'heal',
-      text: delta < 0
-        ? (lang === 'pt' ? `Dano: −${n} PV` : `Damage: −${n} HP`)
-        : (lang === 'pt' ? `Cura: +${n} PV` : `Healing: +${n} HP`),
-      onAction: () => onUpdate({ ...charRef.current, ...before }),
+      tone: 'hurt',
+      text: `${ptL ? 'Dano' : 'Damage'}: ${parts.join(ptL ? ' e ' : ' and ')}${fell ? (ptL ? ' · caiu a 0 PV' : ' · down to 0 HP') : ''}`,
+      onAction: undo,
     });
   };
   const setTempHp = (n) => {
@@ -758,7 +837,24 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
     // lida do campo que o dedo tocou (no Safari o botão tocado não ganha foco) e gasta na
     // hora, para não sobrar marcada para a rolagem seguinte
     const adv = config.advMode == null && typeof document !== 'undefined' ? consumeAdvForRoll(document.activeElement) : null;
-    if (window.__diceRoll) window.__diceRoll({ ...config, ...(adv ? { adv, advMode: adv } : {}), sheet: true });
+    // devolve a rolagem ({ total, ... }) para quem precisa do número (poção: soma a cura nos PV)
+    return window.__diceRoll ? window.__diceRoll({ ...config, ...(adv ? { adv, advMode: adv } : {}), sheet: true }) : null;
+  };
+  // "Próximo d20" das abas Atributos, Perícias e Inventário: o mesmo seletor Desv. · Normal ·
+  // Vant. da aba Jogar (src/sheet/FhAdv3.jsx), no título dos painéis que rolam. Vale para UMA
+  // rolagem de d20 e volta para Normal; some ao trocar de aba (nada fica armado sem ser visto).
+  // Rolagem que já tem vantagem ou desvantagem própria (Sentidos Aguçados, Furtividade com
+  // armadura pesada): iguais continuam; opostas se anulam, como manda a regra.
+  const [tabStance, setTabStance] = useState('normal');
+  useEffect(() => { setTabStance('normal'); }, [tab]);
+  const rollTab = (config) => {
+    const d20 = (config.die ?? 20) === 20 && (config.count ?? 1) === 1 && !config.formula;
+    if (!d20 || tabStance === 'normal') return roll(config);
+    const own = config.advMode || config.adv || 'normal';
+    const mix = own === 'normal' || own === tabStance ? tabStance : 'normal';
+    const { adv: _a, advMode: _m, ...rest } = config;
+    setTabStance('normal');
+    return roll(mix === 'normal' ? { ...rest, advMode: 'normal' } : { ...rest, adv: mix, advMode: mix });
   };
 
   // Raiz .ficha: escopo do visual da ficha (src/sheet/ficha.css). Sem transform,
@@ -769,7 +865,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
     <RestModeContext.Provider value={restCtx}>
     <SheetToastContext.Provider value={sheetToastCtx}>
     <div ref={rootRef} className={['ficha', ...condClasses(char), preview ? 'is-version-readonly' : '', restMode ? `is-resting is-resting-${restMode}` : ''].filter(Boolean).join(' ')}>
-      <FhConditionFx conditions={char.conditions} />
+      <FhConditionFx char={char} />
       {levelCer && <FhLevelCeremony key={levelCer.key} cer={levelCer} char={char} lang={lang} onClose={closeLevelCer} />}
       <SheetHero
         char={char}
@@ -901,26 +997,48 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
 
       {cheatOpen && <CheatModeModal char={char} lang={lang} update={update} onClose={() => setCheatOpen(false)} />}
       {exportOpen && (
-        <FhExportModal char={char} lang={lang} handlers={{ onPrint, onExportPdf, onShare, onExport }} onClose={closeExport} />
+        <FhExportModal char={char} lang={lang} handlers={{ onPrint, onExportPdf, onShare, onExport }} onClose={closeExport} onLogin={onLogin || null} />
       )}
 
       <ScrollTabs className="no-print" activeKey={tab} lang={lang} role="tablist" aria-label={lang === 'pt' ? 'Seções da ficha' : 'Sheet sections'}>
-        {SHEET_TABS.map(tb => (
+        {/* Abas de verdade para o teclado: só a aba ligada entra no Tab; ← → Home End trocam
+            de aba (e o foco vai junto); a aba aponta para o painel (aria-controls). */}
+        {SHEET_TABS.map((tb, ti) => (
           <button
             key={tb.id}
+            type="button"
             role="tab"
+            id={`fh-tab-${tb.id}`}
             aria-selected={tab === tb.id}
-            className={`tab ${tab === tb.id ? 'active' : ''}`}
-            onClick={() => setTab(tb.id)}
+            aria-controls="fh-tabpanel"
+            tabIndex={tab === tb.id ? 0 : -1}
+            className={`tab ${tab === tb.id ? 'active' : ''}${tb.id === 'features' && pendingChoices > 0 ? ' has-pending' : ''}`}
+            onClick={() => selectTab(tb.id)}
+            onKeyDown={(e) => {
+              const n = SHEET_TABS.length;
+              const to = e.key === 'ArrowRight' ? (ti + 1) % n : e.key === 'ArrowLeft' ? (ti - 1 + n) % n : e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : -1;
+              if (to < 0) return;
+              e.preventDefault();
+              const next = SHEET_TABS[to].id;
+              setTab(next);
+              requestAnimationFrame(() => rootRef.current?.querySelector(`#fh-tab-${next}`)?.focus());
+            }}
           >
             {lang === 'pt' ? tb.labelPt : tb.labelEn}
+            {tb.id === 'features' && pendingChoices > 0 && (
+              <span className="fh-tab-dot" role="img" aria-label={lang === 'pt' ? `${pendingChoices} escolha${pendingChoices > 1 ? 's' : ''} pendente${pendingChoices > 1 ? 's' : ''}` : `${pendingChoices} pending choice${pendingChoices > 1 ? 's' : ''}`} />
+            )}
           </button>
         ))}
       </ScrollTabs>
+      {/* Estados ativos sempre à vista no celular/tablet (src/sheet/FhConditions.jsx): tocar
+          leva à lista de estados da aba Jogar, que diz o que cada um faz */}
+      <FhStatusStrip char={char} lang={lang} onGo={() => { if (tab !== 'play') setTab('play'); }} />
 
       {/* Conteúdo da aba com suporte a gestos de deslizamento (swipe) no mobile */}
       <div
-        className={`fh-tab-body${tab === 'play' ? ' is-play' : ''}`}
+        className={`fh-tab-body is-tab-${tab}${tab === 'play' ? ' is-play' : ''}`}
+        id="fh-tabpanel" role="tabpanel" aria-labelledby={`fh-tab-${tab}`}
         onTouchStart={onTabBodyTouchStart}
         onTouchEnd={onTabBodyTouchEnd}
       >
@@ -930,6 +1048,15 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
               char={char} lang={lang} update={update} applyHp={applyHp} setTempHp={setTempHp}
               ac={ac} speed={speed} profB={profB} initBonus={initBonus}
               passPerc={passPerc} slots={slots} roll={roll} placed={placed} after={children || null}
+              onOpenSpells={() => {
+                setTab('spells');
+                // a aba nova começa do topo dela (a barra de abas é fixa no celular: desconta a altura)
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                  const body = rootRef.current?.querySelector('.fh-tab-body');
+                  const bar = rootRef.current?.querySelector('[role="tablist"]');
+                  if (body) window.scrollTo({ top: Math.max(0, body.getBoundingClientRect().top + window.scrollY - (bar?.offsetHeight || 0) - 12) });
+                }));
+              }}
             />
           </>
         )}
@@ -937,14 +1064,14 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         {tab === 'stats' && (
           <SheetAbilities
             char={char} lang={lang} update={update}
-            profB={profB} roll={roll}
+            profB={profB} roll={rollTab} stance={tabStance} onStance={setTabStance}
           />
         )}
 
         {(tab === 'skills' || tab === 'tools') && (
           <SheetSkills
             char={char} lang={lang} update={update}
-            passPerc={passPerc} roll={roll} placed={placed}
+            passPerc={passPerc} roll={rollTab} placed={placed} stance={tabStance} onStance={setTabStance}
           />
         )}
 
@@ -955,11 +1082,11 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         )}
 
         {tab === 'spells' && (
-          <SheetSpells char={char} lang={lang} update={update} slots={slots} roll={roll} placed={placed} />
+          <SheetSpells char={char} lang={lang} update={update} slots={slots} roll={rollTab} placed={placed} stance={tabStance} onStance={setTabStance} />
         )}
 
         {tab === 'inv' && (
-          <SheetInventory char={char} lang={lang} update={update} roll={roll} cls={cls} bg={bg} placed={placed} />
+          <SheetInventory char={char} lang={lang} update={update} roll={rollTab} cls={cls} bg={bg} placed={placed} stance={tabStance} onStance={setTabStance} />
         )}
 
         {tab === 'story' && <SheetStory char={char} lang={lang} update={update} cls={cls} race={race} />}
@@ -1007,7 +1134,9 @@ const SUBCLASS_LABEL = {
 
 
 // Escolhas de subclasse (e de espécie pendentes) dobradas no pé do painel do personagem:
-// o resumo diz o que já foi escolhido; abre sozinho quando falta escolher algo.
+// o resumo diz o que já foi escolhido. Com escolha pendente fica FECHADA, com o ponto laranja
+// e "Escolha pendente" ao lado da classe: um toque abre. (Aberta sozinha, somava ~150px ao
+// topo e a mesma pendência aparecia três vezes: aqui e em duas linhas da Progressão.)
 const HeroChoicesFold = ({ char, lang, update, onLevelUp }) => {
   const pt = lang === 'pt';
   const entries = (() => { try { return Utils.classEntries(char); } catch { return []; } })();
@@ -1052,7 +1181,12 @@ const HeroChoicesFold = ({ char, lang, update, onLevelUp }) => {
             );
           })}
         </span>
-        {pending && <span className="fh-hero-fold-dot" aria-label={pt ? 'pendente' : 'pending'} />}
+        {pending && (
+          <span className="fh-hero-fold-pending">
+            <span className="fh-hero-fold-dot" aria-hidden="true" />
+            {pt ? 'Escolha pendente' : 'Choice pending'}
+          </span>
+        )}
     </>
   );
   // Sem subclasse nem escolha de espécie para mostrar não há o que abrir: vira uma linha de
@@ -1065,7 +1199,7 @@ const HeroChoicesFold = ({ char, lang, update, onLevelUp }) => {
     );
   }
   return (
-    <details className={`fh-hero-fold fh-hero-classfold no-print${pending ? ' is-pending' : ''}`} open={pending} aria-label={label}>
+    <details className={`fh-hero-fold fh-hero-classfold no-print${pending ? ' is-pending' : ''}`} aria-label={label}>
       <summary>{head}</summary>
       <div className="fh-hero-fold-body">
         <SubclassBanner char={char} lang={lang} update={update} />
@@ -1188,12 +1322,23 @@ const SpeciesBanner = ({ char, lang, update }) => {
 
 // landOnly: círculo já selado, só falta o terreno (a primeira escolha dele) — a lista
 // de subclasses some e o modal só oferece os terrenos.
-const SubclassModal = ({ char, lang, subs, label, update, onClose, landOnly = false }) => {
+const SubclassModal = ({ char, lang, subs, label, update, onClose, landOnly = false, askDm = false }) => {
+  const pt = lang === 'pt';
   const [pendingId, setPendingId] = useState(char.subclass || '');
   const [pendingLand, setPendingLand] = useState(char.landType || '');
   const selected = subs.find(s => s.id === pendingId);
   const needsLand = selected && selected.id === 'land' && selected.landTypes;
   const canSave = pendingId && (!needsLand || pendingLand);
+  // por que o botão principal está apagado (antes ficava cinza sem dizer o que faltava)
+  const missing = !pendingId ? (pt ? 'Escolha uma opção da lista.' : 'Pick an option from the list.')
+    : needsLand && !pendingLand ? (pt ? 'Falta escolher o terreno.' : 'Choose the terrain first.') : '';
+  // nada mudou em relação ao que a ficha já tem: não há o que salvar (nem pedir ao mestre)
+  const unchanged = !!canSave && (landOnly
+    ? pendingLand === (char.landType || '')
+    : pendingId === (char.subclass || '') && (!needsLand || pendingLand === (char.landType || '')));
+  const lv = char.level || 1;
+  // texto de regra em português: a sigla do Nível de Desafio é ND (o catálogo traz "CR")
+  const loc = (s) => (pt ? String(s || '').replace(/\bCR\b/g, 'ND') : String(s || ''));
 
   const save = () => {
     update(landOnly ? { landType: pendingLand } : {
@@ -1203,61 +1348,91 @@ const SubclassModal = ({ char, lang, subs, label, update, onClose, landOnly = fa
     onClose();
   };
 
+  const landPicker = needsLand ? (
+    <div className="fh-sub-land">
+      <div className="eyebrow" id="fh-sub-land-k">{pt ? 'Terreno sagrado' : 'Sacred terrain'}</div>
+      <div className="fh-sub-land-list" role="group" aria-labelledby="fh-sub-land-k">
+        {selected.landTypes.map(lt => (
+          <button key={lt.id} type="button" className={`option ${pendingLand === lt.id ? 'selected' : ''}`}
+            aria-pressed={pendingLand === lt.id} onClick={() => setPendingLand(lt.id)}>
+            {lt.name[lang]}
+          </button>
+        ))}
+      </div>
+    </div>
+  ) : null;
+
+  // Traços da subclasse escolhida: cada um com o texto formatado (listas e tabelas do
+  // catálogo, antes achatadas num parágrafo só), sem repetir o que a descrição já disse; os
+  // de nível acima do personagem ficam dobrados em "Níveis seguintes".
+  const featsOf = (sc) => {
+    const seen = new Set([String(sc.desc?.[lang] || '').trim()]);
+    return (sc.features || []).filter(f => {
+      const d = String(f.desc?.[lang] || '').trim();
+      const k = `${f.name?.[lang]}|${d}`;
+      if (seen.has(k) || (d && seen.has(d))) return false;
+      seen.add(k); if (d) seen.add(d);
+      return true;
+    });
+  };
+  const feat = (f, i) => (
+    <div key={i} className="fh-sub-feat">
+      <div className="fh-sub-feat-h">
+        <span className="fh-sub-feat-lv">{pt ? 'Nv' : 'Lv'} {f.level}</span>
+        <span className="fh-sub-feat-n">{loc(f.name[lang])}</span>
+      </div>
+      <RichText className="fh-sub-feat-t" text={loc(f.desc[lang])} lang={lang} />
+    </div>
+  );
+
   return (
     <Modal onClose={onClose} title={label[lang]}>
       {landOnly && selected && (
-        <div className="text-sm" style={{ marginBottom: 12, color: 'var(--ink-secondary)' }}>
-          {selected.name[lang]}: {lang === 'pt' ? 'escolha o seu terreno sagrado.' : 'choose your sacred terrain.'}
-        </div>
+        <p className="fh-sub-lead">
+          {selected.name[lang]}: {pt ? 'escolha o seu terreno sagrado.' : 'choose your sacred terrain.'}
+        </p>
       )}
-      {!landOnly && <div className="options-list" style={{ marginBottom: 16 }}>
+      {!landOnly && <div className="fh-sub-list">
         {subs.map(sc => {
           const isSel = pendingId === sc.id;
+          const feats = isSel ? featsOf(sc) : [];
+          const nowF = feats.filter(f => (f.level || 1) <= lv);
+          const later = feats.filter(f => (f.level || 1) > lv);
           return (
-            <button key={sc.id} className={`option ${isSel ? 'selected' : ''}`}
-              onClick={() => { setPendingId(sc.id); setPendingLand(''); }}>
-              <div className="option-title">{sc.name[lang]}</div>
-              <div className="option-meta text-xs" style={{ marginTop: 4 }}>{sc.desc[lang]}</div>
-              {isSel && sc.features && (
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--stroke-faint)' }}>
-                  {sc.features.map((f, i) => (
-                    <div key={i} className="text-sm" style={{ marginBottom: 4 }}>
-                      <strong style={{ color: 'var(--gold-deep)' }}>Lv{f.level} {f.name[lang]}:</strong>{' '}
-                      <span style={{ color: 'var(--ink-secondary)' }}>{f.desc[lang]}</span>
-                    </div>
-                  ))}
+            <div key={sc.id} className={`fh-sub-opt${isSel ? ' is-selected' : ''}`}>
+              <button type="button" className={`option ${isSel ? 'selected' : ''}`} aria-pressed={isSel}
+                onClick={() => { if (!isSel) { setPendingId(sc.id); setPendingLand(''); } }}>
+                <span className="option-title">{sc.name[lang]}{sc.id === char.subclass ? <span className="fh-sub-cur">{pt ? 'atual' : 'current'}</span> : null}</span>
+                <span className="option-meta fh-sub-desc">{loc(sc.desc[lang])}</span>
+              </button>
+              {isSel && (needsLand || feats.length > 0) && (
+                <div className="fh-sub-body">
+                  {landPicker}
+                  {nowF.map(feat)}
+                  {later.length > 0 && (
+                    <details className="fh-sub-later" open={nowF.length === 0}>
+                      <summary>{pt ? `Níveis seguintes (${later.length})` : `Later levels (${later.length})`}</summary>
+                      {later.map(feat)}
+                    </details>
+                  )}
                 </div>
               )}
-            </button>
+            </div>
           );
         })}
       </div>}
+      {landOnly && landPicker}
 
-      {needsLand && (
-        <>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>
-            {lang === 'pt' ? 'Terreno Sagrado' : 'Sacred Terrain'}
-          </div>
-          <div className="options-list cols-4" style={{ marginBottom: 16 }}>
-            {selected.landTypes.map(lt => (
-              <button key={lt.id} className={`option ${pendingLand === lt.id ? 'selected' : ''}`}
-                style={{ padding: '8px 12px', textAlign: 'center' }}
-                onClick={() => setPendingLand(lt.id)}>
-                {lt.name[lang]}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
-
-      <div className="row" style={{ gap: 8, justifyContent: 'flex-end' }}>
-        <button className="btn btn-ghost" onClick={onClose}>
-          {lang === 'pt' ? 'Cancelar' : 'Cancel'}
+      {/* ações presas no pé (a lista é longa); o aviso do mestre e o motivo do botão apagado
+          ficam DENTRO da faixa, à vista sem rolar */}
+      <div className="modal-actions sticky fh-sub-actions">
+        {askDm && <AskDmNote lang={lang} />}
+        {(missing || unchanged) && <span className="fh-sub-missing" role="status">{missing || (pt ? 'Esta já é a escolha atual.' : 'This is already your current choice.')}</span>}
+        <button type="button" className="btn btn-ghost" onClick={onClose}>
+          {pt ? 'Cancelar' : 'Cancel'}
         </button>
-        <button className="btn" onClick={save} disabled={!canSave}
-          style={{ background: canSave ? 'var(--gold)' : 'var(--surface-2)', color: canSave ? 'var(--bg-deep)' : 'var(--ink-muted)' }}>
-          {lang === 'pt' ? 'Salvar' : 'Save'}
+        <button type="button" className="btn btn-primary" onClick={save} disabled={!canSave || unchanged}>
+          {saveLabel(askDm, lang)}
         </button>
       </div>
     </Modal>
@@ -1298,7 +1473,7 @@ const CheatModeModal = ({ char, lang, update, onClose }) => {
     <Modal onClose={onClose}>
       <h3 style={{ marginBottom: 8 }}>🎲 {pt ? 'Modo trapaça' : 'Cheat mode'}</h3>
       <div className="text-sm" style={{ marginBottom: 8 }}>{pt ? 'Sem ele, nível, PV e atributos só mudam pela subida de nível guiada. Com ele ligado:' : 'Without it, level, HP and abilities only change through guided level-up. When on:'}</div>
-      <ul className="text-sm" style={{ margin: '0 0 12px 18px', color: 'var(--ink-secondary)' }}>
+      <ul className="text-sm no-zebra fh-cheat-list">
         {items.map((it, i) => <li key={i} style={{ marginBottom: 4 }}>{it}</li>)}
       </ul>
       {locked && (
@@ -1493,7 +1668,7 @@ const WildShapeBanner = ({ char, lang, onChange }) => {
   const pct = ws.beastMaxHp ? Math.max(0, Math.min(100, ((ws.beastCurrentHp || 0) / ws.beastMaxHp) * 100)) : 0;
   return (
     <div className="wild-shape-banner">
-      <div className="wsb-icon">🐺</div>
+      <div className="wsb-icon fh-wsb-seal" aria-hidden="true"><FhStatusGlyph k="wild" size={26} /></div>
       <div className="wsb-info">
         <div className="wsb-title">
           {lang === 'pt' ? 'Em Forma Selvagem:' : 'In Wild Shape:'}{' '}
@@ -1501,10 +1676,16 @@ const WildShapeBanner = ({ char, lang, onChange }) => {
         </div>
         <div className="wsb-hp">
           <div className="wsb-hp-bar"><div className="wsb-hp-fill" style={{ width: `${pct}%` }} /></div>
-          <span className="wsb-hp-text">{char.rulesVersion === '2024' ? `${char.currentHp} / ${char.maxHp} HP · ${char.tempHp || 0} HP temp` : `${ws.beastCurrentHp} / ${ws.beastMaxHp} HP`} · CA {ws.beastAc}</span>
+          <span className="wsb-hp-text">{(() => {
+            const pt = lang === 'pt';
+            const hpU = pt ? 'PV' : 'HP';
+            return char.rulesVersion === '2024'
+              ? `${char.currentHp} / ${char.maxHp} ${hpU} · ${char.tempHp || 0} ${pt ? 'PV temp.' : 'temp HP'}`
+              : `${ws.beastCurrentHp} / ${ws.beastMaxHp} ${hpU}`;
+          })()} · {lang === 'pt' ? 'CA' : 'AC'} {ws.beastAc}</span>
         </div>
         <div className="wsb-pre">
-          {char.rulesVersion === '2024' ? (lang === 'pt' ? 'Mantém seus próprios pontos de vida.' : 'Retains your own hit points.') : `${lang === 'pt' ? 'Forma humanoide guardada:' : 'Stored humanoid:'} ${ws.preTransformHp} HP`}
+          {char.rulesVersion === '2024' ? (lang === 'pt' ? 'Mantém seus próprios pontos de vida.' : 'Retains your own hit points.') : `${lang === 'pt' ? 'Forma humanoide guardada:' : 'Stored humanoid:'} ${ws.preTransformHp} ${lang === 'pt' ? 'PV' : 'HP'}`}
         </div>
         {err && <div className="fh-ws-err" role="alert">{err}</div>}
       </div>
@@ -1785,93 +1966,8 @@ const WildShapePanel = ({ char, druid, lang, update, features = [], multi = fals
   );
 };
 
-const STD_CONDITIONS = [
-  'blinded','charmed','deafened','exhausted','frightened','grappled',
-  'incapacitated','invisible','paralyzed','petrified','poisoned','prone',
-  'restrained','stunned','unconscious',
-];
-
-const ConditionsPanel = ({ char, lang, update , embedded = false }) => {
-  const [newEffect, setNewEffect] = useState('');
-  const [open, setOpen] = useState(false);
-  const active = char.conditions || [];
-  const temps = char.tempEffects || [];
-  const pt = lang === 'pt';
-  const toggle = (id) => {
-    const next = active.includes(id) ? active.filter(c => c !== id) : [...active, id];
-    update({ conditions: next });
-  };
-  const addTemp = () => {
-    if (!newEffect.trim()) return;
-    update({ tempEffects: [...temps, { id: Date.now().toString(), name: newEffect.trim(), duration: '' }] });
-    setNewEffect('');
-  };
-  const removeTemp = (id) => update({ tempEffects: temps.filter(e => e.id !== id) });
-  const updateTemp = (id, patch) => update({ tempEffects: temps.map(e => e.id === id ? { ...e, ...patch } : e) });
-
-  // Só o que está ativo fica à vista; a lista completa abre sob demanda.
-  return (
-    <section className={embedded ? 'fh-cond-embed' : 'fh-panel'}>
-      {/* Embutido no painel Vitalidade: sem título, só o botão (e a dica) no canto */}
-      {embedded ? (
-        <div className="fh-cond-bar">
-          <GrimoireHint id="condicoes" lang={lang} />
-          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(o => !o)}>
-            {open ? (pt ? 'Fechar' : 'Close') : (pt ? '+ Condição' : '+ Condition')}
-          </button>
-        </div>
-      ) : (
-      <FhTitle
-        hint={<GrimoireHint id="condicoes" lang={lang} />}
-        act={(
-          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(o => !o)}>
-            {open ? (pt ? 'Fechar' : 'Close') : (pt ? '+ Condição' : '+ Condition')}
-          </button>
-        )}
-      >{pt ? 'Condições e efeitos' : 'Conditions & effects'}</FhTitle>
-      )}
-      {!embedded && !active.length && !temps.length && !open && (
-        <div className="text-sm muted">{pt ? 'Nenhuma condição ativa.' : 'No active conditions.'}</div>
-      )}
-      {/* Pílulas com ícone (src/sheet/ficha.css). A condição ligada também muda a
-          aparência da ficha: retrato e bordas da tela (src/sheet/FhConditions.jsx). */}
-      <div className="cond-chips">
-        {(open ? STD_CONDITIONS : active).map(id => {
-          const on = active.includes(id);
-          const chip = (
-            <button key={id} type="button" className={`cond-chip ${on ? 'on' : ''}`} onClick={() => toggle(id)}
-              aria-pressed={on}
-              title={on ? (pt ? 'Toque para remover' : 'Tap to remove') : ''}>
-              <ArtIcon src={conditionIcon(id)} emoji={CONDITION_EMOJI[id]} size={30} />
-              {tName('condition', id, lang)}
-              {on && !open ? <span className="fh-cond-x"> ✕</span> : ''}
-            </button>
-          );
-          return on && !open
-            ? <span key={id} className="row fh-cond-on" style={{ alignItems: 'center' }}>{chip}<GrimoireHint id={id} lang={lang} label={tName('condition', id, lang)} /></span>
-            : chip;
-        })}
-      </div>
-      {temps.map(e => (
-        <div key={e.id} className="row gap-2 fh-cond-temp" style={{ marginTop: 6, alignItems: 'center' }}>
-          <span className="fh-cond-temp-mark" aria-hidden="true" />
-          <input value={e.name} onChange={ev => updateTemp(e.id, { name: ev.target.value })} style={{ flex: 2 }} />
-          <input value={e.duration} onChange={ev => updateTemp(e.id, { duration: ev.target.value })}
-            placeholder={pt ? 'Duração' : 'Duration'} style={{ flex: 1 }} />
-          <button type="button" className="btn btn-icon btn-danger" onClick={() => removeTemp(e.id)} aria-label={pt ? 'Remover' : 'Remove'}>✕</button>
-        </div>
-      ))}
-      {open && (
-        <div className="row gap-2 fh-cond-add" style={{ marginTop: 8 }}>
-          <input value={newEffect} onChange={e => setNewEffect(e.target.value)}
-            placeholder={pt ? 'Efeito personalizado (ex.: Bênção, 1 min)' : 'Custom effect (e.g. Bless, 1 min)'}
-            onKeyDown={e => e.key === 'Enter' && addTemp()} style={{ flex: 1 }} />
-          <button type="button" className="btn btn-icon" onClick={addTemp} aria-label={pt ? 'Adicionar' : 'Add'}>+</button>
-        </div>
-      )}
-    </section>
-  );
-};
+// Condições e efeitos: a lista de estados (o que cada um faz) e o seletor "+ Condição" moram em
+// src/sheet/FhStatus.jsx (FhStatusPanel), dentro do painel Vitalidade, abaixo das barras.
 
 // ===== NPC tab =====
 const RELATIONSHIP_OPTS = [
@@ -1884,13 +1980,16 @@ const RELATIONSHIP_OPTS = [
 // Cor da relação: no CSS (src/sheet/ficha.css: [data-rel]) — aliado verdete, neutro
 // ouro, inimigo vinho, incerto cinza; no cartão (filete e etiqueta) e nas pílulas do modal.
 const SheetNpcs = ({ char, lang, update }) => {
+  const pt = lang === 'pt';
   const npcs = char.npcs || [];
+  const toast = useSheetToast();
   const [editing, setEditing] = useState(null); // id or 'new'
   const [form, setForm] = useState({});
 
   const openNew = () => { setForm({ name: '', race: '', role: '', relationship: 'neutral', notes: '' }); setEditing('new'); };
   const openEdit = (npc) => { setForm({ ...npc }); setEditing(npc.id); };
-  const save = () => {
+  const save = (ev) => {
+    ev?.preventDefault?.();
     if (!form.name?.trim()) return;
     if (editing === 'new') {
       update({ npcs: [...npcs, { ...form, id: Date.now().toString() }] });
@@ -1899,15 +1998,33 @@ const SheetNpcs = ({ char, lang, update }) => {
     }
     setEditing(null);
   };
-  const remove = (id) => update({ npcs: npcs.filter(n => n.id !== id) });
+  // Remover: sai na hora e o aviso no pé da ficha desfaz (devolve no mesmo lugar da lista).
+  const remove = (npc) => {
+    const idx = npcs.findIndex(n => n.id === npc.id);
+    update({ npcs: npcs.filter(n => n.id !== npc.id) });
+    toast?.show({
+      text: pt ? `${npc.name} removido dos NPCs.` : `${npc.name} removed from NPCs.`,
+      onAction: () => toast.patchChar?.((c) => {
+        const list = [...(c.npcs || [])];
+        list.splice(Math.min(Math.max(0, idx), list.length), 0, npc);
+        return { npcs: list };
+      }),
+    });
+  };
+  const addBtn = (
+    <button type="button" className="btn btn-sm btn-primary fh-npc-add" onClick={openNew}>
+      <Icon name="plus" size={14} /> {pt ? 'Adicionar NPC' : 'Add NPC'}
+    </button>
+  );
 
   return (
-    <section className="fh-panel">
-      <FhTitle>{lang === 'pt' ? 'Personagens Conhecidos' : 'Known Characters'}</FhTitle>
+    <section className="fh-panel fh-npcs-panel">
+      <FhTitle act={npcs.length > 0 ? addBtn : null}>{pt ? 'NPCs conhecidos' : 'Known NPCs'}</FhTitle>
 
       {npcs.length === 0 && (
-        <div className="fh-empty">
-          {lang === 'pt' ? 'Nenhum NPC registrado ainda.' : 'No NPCs recorded yet.'}
+        <div className="fh-empty-state is-cta">
+          <p>{pt ? 'Nenhum NPC ainda. Guarde aqui quem o herói conheceu: aliados, rivais, contatos.' : 'No NPCs yet. Keep track of who the hero has met: allies, rivals, contacts.'}</p>
+          {addBtn}
         </div>
       )}
 
@@ -1930,12 +2047,13 @@ const SheetNpcs = ({ char, lang, update }) => {
                   </div>
                 </div>
                 <div className="fh-npc-acts">
-                  <button type="button" className="fh-npc-btn" onClick={() => openEdit(npc)}>
-                    {lang === 'pt' ? 'Editar' : 'Edit'}
+                  <button type="button" className="fh-npc-btn" onClick={() => openEdit(npc)}
+                    aria-label={`${pt ? 'Editar' : 'Edit'} ${npc.name}`}>
+                    {pt ? 'Editar' : 'Edit'}
                   </button>
-                  <button type="button" className="fh-npc-btn is-del" onClick={() => remove(npc.id)}
-                    aria-label={`${lang === 'pt' ? 'Remover' : 'Remove'} ${npc.name}`}>
-                    ✕
+                  <button type="button" className="fh-npc-btn is-del" onClick={() => remove(npc)}
+                    aria-label={`${pt ? 'Remover' : 'Remove'} ${npc.name}`} title={pt ? 'Remover NPC' : 'Remove NPC'}>
+                    <Icon name="trash" size={15} aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -1947,33 +2065,27 @@ const SheetNpcs = ({ char, lang, update }) => {
         </div>
       )}
 
-      <button className="btn btn-sm btn-ghost fh-npc-add" onClick={openNew}>
-        + {lang === 'pt' ? 'Adicionar NPC' : 'Add NPC'}
-      </button>
-
       {editing !== null && (
-        <Modal onClose={() => setEditing(null)}>
-          <h3 style={{ marginBottom: 16, color: 'var(--gold)' }}>
-            {editing === 'new' ? (lang === 'pt' ? 'Novo NPC' : 'New NPC') : (lang === 'pt' ? 'Editar NPC' : 'Edit NPC')}
-          </h3>
-          <div style={{ display: 'grid', gap: 10 }}>
+        <Modal onClose={() => setEditing(null)} title={editing === 'new' ? (pt ? 'Novo NPC' : 'New NPC') : (pt ? 'Editar NPC' : 'Edit NPC')}>
+          {/* <form>: Enter no nome salva; Cancelar antes, Salvar (principal) à direita, como os outros modais */}
+          <form className="fh-npc-form" onSubmit={save}>
             <div>
-              <label>{lang === 'pt' ? 'Nome' : 'Name'} *</label>
-              <input value={form.name || ''} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+              <label htmlFor="npc-name">{pt ? 'Nome' : 'Name'} *</label>
+              <input id="npc-name" autoFocus required value={form.name || ''} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div className="fh-npc-form-2">
               <div>
-                <label>{lang === 'pt' ? 'Raça / Tipo' : 'Race / Type'}</label>
-                <input aria-label={lang === 'pt' ? 'Raça / Tipo' : 'Race / Type'} value={form.race || ''} onChange={e => setForm(f => ({ ...f, race: e.target.value }))} />
+                <label htmlFor="npc-race">{pt ? 'Espécie / tipo' : 'Species / type'}</label>
+                <input id="npc-race" value={form.race || ''} placeholder={pt ? 'Ex.: Anã' : 'E.g. Dwarf'} onChange={e => setForm(f => ({ ...f, race: e.target.value }))} />
               </div>
               <div>
-                <label>{lang === 'pt' ? 'Papel / Profissão' : 'Role / Profession'}</label>
-                <input aria-label={lang === 'pt' ? 'Papel / Profissão' : 'Role / Profession'} value={form.role || ''} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} />
+                <label htmlFor="npc-role">{pt ? 'Papel / Profissão' : 'Role / Profession'}</label>
+                <input id="npc-role" value={form.role || ''} placeholder={pt ? 'Ex.: Ferreira' : 'E.g. Blacksmith'} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} />
               </div>
             </div>
             <div>
-              <label>{lang === 'pt' ? 'Relação' : 'Relationship'}</label>
-              <div className="fh-rel-pills" role="group" aria-label={lang === 'pt' ? 'Relação' : 'Relationship'}>
+              <label id="npc-rel-label">{pt ? 'Relação' : 'Relationship'}</label>
+              <div className="fh-rel-pills" role="group" aria-labelledby="npc-rel-label">
                 {RELATIONSHIP_OPTS.map(r => (
                   <button key={r.id} type="button" data-rel={r.id}
                     className={`fh-rel-pill${form.relationship === r.id ? ' on' : ''}`}
@@ -1985,19 +2097,19 @@ const SheetNpcs = ({ char, lang, update }) => {
               </div>
             </div>
             <div>
-              <label>{lang === 'pt' ? 'Notas' : 'Notes'}</label>
-              <textarea aria-label={lang === 'pt' ? 'Notas' : 'Notes'} value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                style={{ minHeight: 80 }} />
+              <label htmlFor="npc-notes">{pt ? 'Notas' : 'Notes'}</label>
+              <textarea id="npc-notes" value={form.notes || ''} placeholder={pt ? 'Onde se conheceram, o que ele quer, o que deve.' : 'Where you met, what they want, what they owe.'}
+                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={{ minHeight: 80 }} />
             </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <button className="btn btn-primary" style={{ flex: 1 }} onClick={save} disabled={!form.name?.trim()}>
-              {lang === 'pt' ? 'Salvar' : 'Save'}
-            </button>
-            <button className="btn btn-ghost" onClick={() => setEditing(null)}>
-              {lang === 'pt' ? 'Cancelar' : 'Cancel'}
-            </button>
-          </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setEditing(null)}>
+                {pt ? 'Cancelar' : 'Cancel'}
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={!form.name?.trim()}>
+                {pt ? 'Salvar' : 'Save'}
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
     </section>
@@ -2019,7 +2131,31 @@ const useMediaQuery = (query) => {
 };
 
 // ===== Play tab =====
-const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, initBonus, passPerc, slots, roll, placed, after = null }) => {
+// Nota de Maestria da arma (painel Ataques). No celular (`fold`) é uma linha só, "Maestria:
+// Raspar ⌄", que abre ao toque: com o texto de cada maestria aberto, os Ataques do Guerreiro
+// ocupavam 1,5 tela e as resistências ficavam quase 3 telas abaixo. No desktop fica aberta.
+const MasteryNote = ({ mastery, lang, fold }) => {
+  const [open, setOpen] = useState(false);
+  const k = lang === 'pt' ? 'Maestria' : 'Mastery';
+  if (!fold) {
+    return (
+      <div className="fh-atk-note is-mastery" title={mastery.desc[lang]}>
+        {k}: <strong>{mastery.name[lang]}</strong> — {mastery.desc[lang]}
+      </div>
+    );
+  }
+  return (
+    <div className={`fh-atk-note is-mastery is-fold${open ? ' is-open' : ''}`}>
+      <button type="button" className="fh-atk-note-toggle" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+        <span>{k}: <strong>{mastery.name[lang]}</strong></span>
+        <span className="fh-atk-note-chev" aria-hidden="true">⌄</span>
+      </button>
+      {open && <div className="fh-atk-note-body">{mastery.desc[lang]}</div>}
+    </div>
+  );
+};
+
+const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, initBonus, passPerc, slots, roll, placed, after = null, onOpenSpells = null }) => {
   // "Próximo d20" (src/sheet/FhAdv3.jsx): vantagem/desvantagem à vista para os medalhões e os
   // botões de Ataque; vale para UMA rolagem e volta para Normal. Normal não manda nada, para
   // a escolha feita no rolador de dados continuar valendo como antes.
@@ -2029,7 +2165,13 @@ const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, i
     if (stance !== 'normal') setStance('normal');
   };
   const [hpPad, setHpPad] = useState(false);   // teclado de dano/cura aberto pelo coração de PV
+  // fechar o teclado (✕ ou Esc) devolve o foco ao coração que o abriu (teclado/leitor de tela)
+  const closeHpPad = () => {
+    setHpPad(false);
+    requestAnimationFrame(() => playRef.current?.querySelector('.fh-hp-heart .fh-medal')?.focus({ preventScroll: true }));
+  };
   const wide = useMediaQuery('(min-width: 1024px)');
+  const phone = useMediaQuery('(max-width: 599px)');
   // Armadura/escudo sem treino: desvantagem em FOR/DES e sem conjurar magias (2014 e 2024).
   const untrainedArmor = [
     ...(char.armor && !isArmorProficient(char, char.armor) ? [tName('armor', char.armor, lang)] : []),
@@ -2052,11 +2194,31 @@ const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, i
   const hpFx = useHpFeedback(char);
   const fxKind = hpFx ? (hpFx.delta < 0 ? 'hit' : 'heal') : '';
   const fxBeat = hpFx ? (hpFx.id % 2 ? 'a' : 'b') : ''; // alterna o nome da animação para ela recomeçar
+  // tipo da batida (src/sheet/hp-feedback.js): golpe grande, cair a 0, PV temporários segurando tudo, voltar de 0
+  const fxTone = hpFx?.kind || fxKind;
   const pt = lang === 'pt';
+  // Onde os estados ativos pesam (src/sheet/condition-rules.js). Só marcas e lembretes: nenhum
+  // número muda e nada é escolhido sozinho no "Próximo d20" (a sugestão é um botão que o jogador toca).
+  const isDown = (char.currentHp || 0) <= 0;
+  const bites = useMemo(() => activeBites(char, lang),
+    [char.conditions, char.exhaustionLevel, isDown, char.maxHp, char.inspiration, char.rulesVersion, char.deathSaves?.fail, lang]); // eslint-disable-line react-hooks/exhaustive-deps
+  // o selo "usar" de cada linha de ataque arma o mesmo "Próximo d20" do topo do painel (só ao toque)
+  const atkMark = attackMark(bites, lang, stance, setStance);
+  const iniMark = initMark(bites, lang);
+  const hpF = hpFlags(char);
+  const hpTagKey = hpF.dead ? 'dead' : hpF.stable ? 'stable' : hpF.dying ? 'dying' : hpF.near ? 'near' : hpF.bloodied ? 'bloodied' : '';
+  const statusNames = statusList(char).filter(x => x.key !== 'inspired').map(x => statusLabel(x, lang));
 
   // Regra da ficha: proficiência, Artes Marciais do Monge e Estilos de Luta (Utils.attackFor).
-  const atks = (char.weapons || []).map(w => Utils.attackFor(char, w));
-  const druidEntry = Utils.classLevel(char, 'druid') >= 2 ? Utils.classEntries(char).find(e => e.id === 'druid') : null;
+  // Armas da ficha + as armas EQUIPADAS do inventário (utils.js: sheetWeapons).
+  const playWeapons = Utils.sheetWeapons(char);
+  const atks = playWeapons.map(w => Utils.attackFor(char, w));
+  // Truques de ataque/resistência prontos (mesmos números da aba Magias) e se a ficha conjura
+  const cantrips = useMemo(() => { try { return playCantrips(char, lang); } catch { return []; } },
+    [char.spells, placed, char.abilities, char.race, char.speciesChoices, char.items, lang]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hasSlotPanel = !!(slots && slots.length > 0);
+  const canCast = !!onOpenSpells && !hasSlotPanel && cantrips.length > 0;
+  const druidEntry =Utils.classLevel(char, 'druid') >= 2 ? Utils.classEntries(char).find(e => e.id === 'druid') : null;
   const druid = druidEntry ? Utils.classView(char, druidEntry) : null;
 
   // Painéis da aba: { h: altura estimada, el, col?: coluna pedida no desktop, order? }.
@@ -2074,35 +2236,9 @@ const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, i
   const wildFeats = druid ? feats.resources.filter(f => f.anchor === 'wildShape') : [];
   const resFeats = feats.resources.filter(f => !wildFeats.includes(f));
   const featsH = (n) => (n ? PLAY_H.traitHead + PLAY_H.trait * n : 0);
-  const panels = [
-    { col: 'a', h: PLAY_H.hp + featsH(feats.defense.length) + featsH(feats.movement.length), el: (
-        <section key="hp" className={`hp-tracker fh-panel fh-hp${fxKind === 'heal' ? ` fh-healed-${fxBeat}` : ''}`} data-state={state}>
-          <FhTitle sub={<FhAdv3 value={stance} onChange={setStance} lang={lang} />}>{pt ? 'Vitalidade' : 'Vitality'}</FhTitle>
-          <div className="fh-hp-row">
-            {/* Fileira de cima: Percepção, Investigação e Intuição (o número é o valor passivo;
-                tocar rola o teste da perícia, d20 + bônus) e o Bônus de Proficiência. No DOM na
-                mesma ordem do desenho: é a ordem do teclado e do leitor de tela. */}
-            {[
-              { id: 'perception', shape: 'eye', name: lang === 'pt' ? 'Percepção' : 'Perception', passive: passPerc, hint: <GrimoireHint id="valor-passivo" lang={lang} /> },
-              { id: 'investigation', shape: 'lens', name: lang === 'pt' ? 'Investigação' : 'Investigation', passive: 10 + Utils.skillBonus(char, 'investigation') },
-              { id: 'insight', shape: 'flame', name: lang === 'pt' ? 'Intuição' : 'Insight', passive: 10 + Utils.skillBonus(char, 'insight') },
-            ].map(s => {
-              const bonus = Utils.skillBonus(char, s.id);
-              return (
-                <FhMedal key={s.id} shape={s.shape} value={s.passive} label={s.name} hint={s.hint}
-                  ariaLabel={lang === 'pt'
-                    ? `${s.name}: passiva ${s.passive}. Rolar teste ${Utils.fmtMod(bonus)}`
-                    : `${s.name}: passive ${s.passive}. Roll check ${Utils.fmtMod(bonus)}`}
-                  sub={<>
-                    <span className="fh-medal-passive">{lang === 'pt' ? 'passiva' : 'passive'}</span>
-                    <span className="fh-medal-rollmod">{lang === 'pt' ? 'rolar' : 'roll'} {Utils.fmtMod(bonus)}</span>
-                  </>}
-                  onClick={() => rollD20({ die: 20, mod: bonus, label: lang === 'pt' ? `Teste de ${s.name}` : `${s.name} check`, isCheck: true })} />
-              );
-            })}
-            <FhMedal shape="star" value={Utils.fmtMod(profB)} label={lang === 'pt' ? 'Proficiência' : 'Proficiency'}
-              sub={lang === 'pt' ? 'bônus' : 'bonus'} />
-            {/* Fileira de baixo: CA, PV, Deslocamento e Iniciativa */}
+  // CA · PV · Deslocamento · Iniciativa (a fileira de cima do painel Vitalidade)
+  const vitalsRow = (
+    <>
             <div className="fh-hp-ac">
             <FhMedal shape="shield" value={ac} label={t('ac', lang)}
                 sub={acStyleBonuses.length > 0
@@ -2127,9 +2263,11 @@ const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, i
                 ariaLabel={pt
                   ? `Pontos de Vida: ${char.currentHp} de ${char.maxHp}${char.tempHp > 0 ? `, mais ${char.tempHp} temporários` : ''}. ${hpPad ? 'Fechar' : 'Abrir'} o ajuste de dano e cura`
                   : `Hit points: ${char.currentHp} of ${char.maxHp}${char.tempHp > 0 ? `, plus ${char.tempHp} temporary` : ''}. ${hpPad ? 'Close' : 'Open'} the damage and healing pad`}
-                value={<span className={`fh-hp-num${fxKind === 'hit' ? ` fh-shake-${fxBeat}` : ''}`}><span className="hp-current">{char.currentHp}</span></span>}
+                value={<span className={`fh-hp-num${fxKind === 'hit' ? ` fh-shake-${fxBeat}${fxTone === 'bighit' || fxTone === 'down' ? ' is-big' : ''}` : ''}`}><span className="hp-current">{char.currentHp}</span></span>}
                 label={t('hp', lang)}
                 sub={<>
+                  {/* estado em palavras (Sangrando, À beira da morte, Caído, Estável, Morto): a cor não fala sozinha */}
+                  {hpTagKey && <span className="fh-hp-tag" data-tone={hpTagKey}>{statusLabel({ key: hpTagKey, kind: 'hp' }, lang)}</span>}
                   <span className="fh-hp-max">{pt ? 'de' : 'of'} {char.maxHp}</span>
                   {char.tempHp > 0 && <span className="fh-hp-tempchip">+{char.tempHp} temp</span>}
                   {/* Dados de Vida ainda não gastos, por tipo: "5/8 d6 · 3/4 d8" */}
@@ -2137,9 +2275,11 @@ const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, i
                   <span className="fh-medal-rollmod">{pt ? '± ajustar' : '± adjust'}</span>
                 </>}
                 onClick={() => setHpPad(v => !v)} />
+              {/* selo do estado que manda no canto do coração; rachadura a 0 PV (src/sheet/FhConditions.jsx) */}
+              <FhHeartMark char={char} />
               {hpFx && (
-                <span key={hpFx.id} className={`fh-float ${fxKind}`} aria-hidden="true">
-                  {hpFx.delta < 0 ? '−' : '+'}{Math.abs(hpFx.delta)}
+                <span key={hpFx.id} className={`fh-float ${fxKind} is-${fxTone}`} aria-hidden="true">
+                  {fxTone === 'absorb' && <FhStatusGlyph k="temp" size={20} />}{hpFx.delta < 0 ? '−' : '+'}{Math.abs(hpFx.delta)}
                 </span>
               )}
             </div>
@@ -2147,19 +2287,61 @@ const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, i
               label={t('speed', lang)}
               sub={speedBonuses.length > 0
                 ? <span title={speedBonuses.map(x => x.name[lang] || x.name.pt).join(', ')}>{Utils.speedBonusText(speedBonuses, lang)}</span>
-                : (lang === 'pt' ? 'metros' : 'feet')} />
+                : (lang === 'pt' ? 'metros' : 'feet')}>
+              {/* o número não muda: a etiqueta só lembra o que o estado faz ("→ 0 · Agarrado") */}
+              <FhSpeedBite bites={bites} lang={lang} />
+            </FhMedal>
             <FhMedal shape="d20" value={Utils.fmtMod(initBonus)} label={t('initiative', lang)}
-              sub={<span className="fh-medal-rollmod">{lang === 'pt' ? 'rolar' : 'roll'} {Utils.fmtMod(initBonus)}</span>}
-              ariaLabel={lang === 'pt' ? `Iniciativa: rolar ${Utils.fmtMod(initBonus)}` : `Initiative: roll ${Utils.fmtMod(initBonus)}`}
+              sub={<>
+                <span className="fh-medal-rollmod">{lang === 'pt' ? 'rolar' : 'roll'} {Utils.fmtMod(initBonus)}</span>
+                {iniMark && <span className={`fh-medal-bite is-${iniMark.kind}`}><b>{iniMark.text}</b>{iniMark.src && <span>{iniMark.src}</span>}</span>}
+              </>}
+              ariaLabel={(lang === 'pt' ? `Iniciativa: rolar ${Utils.fmtMod(initBonus)}` : `Initiative: roll ${Utils.fmtMod(initBonus)}`) + (iniMark ? `. ${iniMark.aria}` : '')}
               onClick={() => rollD20({ die: 20, mod: initBonus, label: t('initRoll', lang), isCheck: true })} />
+    </>
+  );
+  const panels = [
+    { col: 'a', h: PLAY_H.hp + featsH(feats.defense.length) + featsH(feats.movement.length), el: (
+        <section key="hp" className={`hp-tracker fh-panel fh-hp${fxKind === 'heal' ? ` fh-healed-${fxBeat}` : ''}`} data-state={state}
+          aria-label={`${pt ? 'Vitalidade' : 'Vitality'}${statusNames.length ? `: ${statusNames.join(', ')}` : ''}`}>
+          {/* moldura e marca d'água do estado que manda + clarão de aplicar/limpar: camada irmã,
+              aria-hidden e sem toque (src/sheet/FhConditions.jsx) */}
+          <FhVitalFx char={char} />
+          <FhTitle act={<FhAdv3 value={stance} onChange={setStance} lang={lang} />}>{pt ? 'Vitalidade' : 'Vitality'}</FhTitle>
+          <FhStanceHint bites={bites} kind="checks" stance={stance} onStance={setStance} lang={lang} rulesVersion={char.rulesVersion} />
+          <div className="fh-hp-row">
+            {/* Fileira de cima: CA, PV, Deslocamento e Iniciativa — o que se olha a cada turno
+                (no celular é o que cabe na primeira tela). No DOM na mesma ordem do desenho:
+                é a ordem do teclado e do leitor de tela. */}
+            {vitalsRow}
+            {/* Fileira de baixo: Percepção, Investigação e Intuição (o número é o valor passivo;
+                tocar rola o teste da perícia, d20 + bônus) e o Bônus de Proficiência. */}
+            {[
+              { id: 'perception', shape: 'eye', name: lang === 'pt' ? 'Percepção' : 'Perception', passive: passPerc, hint: <GrimoireHint id="valor-passivo" lang={lang} /> },
+              { id: 'investigation', shape: 'lens', name: lang === 'pt' ? 'Investigação' : 'Investigation', passive: 10 + Utils.skillBonus(char, 'investigation') },
+              { id: 'insight', shape: 'flame', name: lang === 'pt' ? 'Intuição' : 'Insight', passive: 10 + Utils.skillBonus(char, 'insight') },
+            ].map(s => {
+              const bonus = Utils.skillBonus(char, s.id);
+              return (
+                <FhMedal key={s.id} shape={s.shape} value={s.passive} label={s.name} hint={s.hint}
+                  ariaLabel={lang === 'pt'
+                    ? `${s.name}: passiva ${s.passive}. Rolar teste ${Utils.fmtMod(bonus)}`
+                    : `${s.name}: passive ${s.passive}. Roll check ${Utils.fmtMod(bonus)}`}
+                  sub={<>
+                    <span className="fh-medal-passive">{lang === 'pt' ? 'passiva' : 'passive'}</span>
+                    <span className="fh-medal-rollmod">{lang === 'pt' ? 'rolar' : 'roll'} {Utils.fmtMod(bonus)}</span>
+                  </>}
+                  onClick={() => rollD20({ die: 20, mod: bonus, label: lang === 'pt' ? `Teste de ${s.name}` : `${s.name} check`, isCheck: true })} />
+              );
+            })}
+            <FhMedal shape="star" value={Utils.fmtMod(profB)} label={lang === 'pt' ? 'Proficiência' : 'Proficiency'}
+              sub={lang === 'pt' ? 'bônus' : 'bonus'} />
           </div>
           {hpPad && (
             <HpPad lang={lang} max={Math.max(1, char.maxHp || 1)}
               onDamage={(n) => applyHp(-n)} onHeal={(n) => applyHp(n)} onTemp={setTempHp}
-              onClose={() => setHpPad(false)} />
+              onClose={closeHpPad} />
           )}
-          {/* Condições e efeitos dentro do painel de saúde, logo acima da barra de PV */}
-          <ConditionsPanel char={char} lang={lang} update={update} embedded />
           {/* Barras e controles condensados (src/sheet/HpTracker.jsx): PV temporários, PV em 10
               fatias, Exaustão, Testes contra a Morte, arrastar para dano/cura e Dados de Vida */}
           <HpTracker char={char} lang={lang} update={update} applyHp={applyHp} roll={roll}
@@ -2169,7 +2351,10 @@ const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, i
               death: <GrimoireHint id="testes-contra-a-morte" lang={lang} />,
               exhaustion: <GrimoireHint id="exaustao" lang={lang} />,
               hitDice: <GrimoireHint id="dados-de-vida" lang={lang} />,
-            }} />
+            }}
+            /* Condições e efeitos (src/sheet/FhStatus.jsx): abaixo das barras, para ligar ou
+               desligar um estado não empurrar os controles de arrastar */
+            statusSlot={<FhStatusPanel char={char} lang={lang} update={update} />} />
 
           <FhFeatures items={feats.defense} multi={placed.multi} lang={lang} place="defense" />
           <FhFeatures items={feats.movement} multi={placed.multi} lang={lang} place="movement" />
@@ -2177,17 +2362,20 @@ const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, i
     ) },
     { col: 'a', h: PLAY_H.abilities, el: (
         /* Atributos num relance: cada hexágono rola o teste (metade esquerda) e a
-           resistência (metade direita); a legenda sob os números diz qual é qual */
-        <section key="abilities" className="fh-panel">
-          <FhTitle sub={<span><FhTap lang={lang} />{pt ? ' na metade: teste à esquerda, resistência à direita' : ' a half: check on the left, save on the right'}</span>}>{t('tabStats', lang)}</FhTitle>
-          <AbilityHive char={char} lang={lang} roll={roll} />
+           resistência (metade direita); a legenda sob os números diz qual é qual. O seletor
+           "Próximo d20" é o mesmo da Vitalidade e dos Ataques (uma postura só para a aba). */
+        <section key="abilities" className="fh-panel fh-abil-panel">
+          <FhTitle act={<FhAdv3 value={stance} onChange={setStance} lang={lang} />}
+            sub={<span><FhTap lang={lang} />{pt ? ' na metade: teste à esquerda, resistência à direita' : ' a half: check on the left, save on the right'}</span>}>{t('tabStats', lang)}</FhTitle>
+          <FhStanceHint bites={bites} kind="checks" stance={stance} onStance={setStance} lang={lang} rulesVersion={char.rulesVersion} />
+          <AbilityHive char={char} lang={lang} roll={rollD20} stance={stance} onStance={setStance} bites={bites} />
         </section>
     ) },
     slots && slots.length > 0 && {
       h: PLAY_H.slots + PLAY_H.slotRow * slotLevels,
       el: (
         /* Mesmo painel da aba Magias: CD, ataque de magia e espaços por círculo */
-        <SpellcastingSummary key="slots" char={char} lang={lang} update={update} slots={slots} />
+        <SpellcastingSummary key="slots" char={char} lang={lang} update={update} slots={slots} onOpenSpells={onOpenSpells} />
       ),
     },
     { h: (resourceCount || resFeats.length) ? PLAY_H.resources + PLAY_H.resourceRow * resourceCount + PLAY_H.trait * resFeats.length : 0, el: (
@@ -2202,16 +2390,17 @@ const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, i
         /* Ataques: uma linha por arma e o Golpe Desarmado (src/sheet/FhAttack.jsx). Os botões
             "Ataque +X" e "Dano NdX+Y" fazem as mesmas rolagens (rótulos e valores) de antes. */
         <section key="attacks" className="fh-panel fh-atk-panel">
-          <FhTitle sub={<FhAdv3 value={stance} onChange={setStance} lang={lang} />}>{lang === 'pt' ? 'Ataques' : 'Attacks'}</FhTitle>
+          <FhTitle act={<FhAdv3 value={stance} onChange={setStance} lang={lang} />}>{lang === 'pt' ? 'Ataques' : 'Attacks'}</FhTitle>
+          <FhStanceHint bites={bites} kind="attacks" stance={stance} onStance={setStance} lang={lang} rulesVersion={char.rulesVersion} noActions />
           <div className="fh-atks">
-            {(char.weapons || []).map((w, i) => {
+            {playWeapons.map((w, i) => {
               const a = atks[i];
               const fs = a.fs;
               const atk = a.bonus;
               const dmgMod = a.dmgMod;
               const bonusText = FS.partsLabel([...fs.attackParts.map(p => ({ ...p, label: { pt: `${p.label.pt} (ataque)`, en: `${p.label.en} (attack)` } })), ...fs.damageParts], lang);
               return (
-                <FhAttackRow key={i} lang={lang}
+                <FhAttackRow key={i} lang={lang} mark={atkMark}
                   art={<ArtThumb src={itemArt(w)} emoji="⚔️" size={40} lang={lang} />}
                   name={w.name}
                   sub={a.dmgType ? Utils.damageLabel(a.dmgType, lang) : null}
@@ -2225,11 +2414,7 @@ const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, i
                   {a.monk && <div className="fh-atk-note is-gold">{lang === 'pt' ? 'Artes Marciais (arma de monge)' : 'Martial Arts (Monk weapon)'}</div>}
                   {!a.proficient && <div className="fh-atk-note is-warn">{lang === 'pt' ? 'Sem proficiência: não soma o bônus de proficiência' : 'Not proficient: no proficiency bonus'}</div>}
                   {bonusText && <div className="fh-atk-note is-gold">{bonusText}</div>}
-                  {fs.mastery && (
-                    <div className="fh-atk-note is-mastery" title={fs.mastery.desc[lang]}>
-                      {lang === 'pt' ? 'Maestria' : 'Mastery'}: <strong>{fs.mastery.name[lang]}</strong> — {fs.mastery.desc[lang]}
-                    </div>
-                  )}
+                  {fs.mastery && <MasteryNote mastery={fs.mastery} lang={lang} fold={phone} />}
                   {fs.notes.map((n, k) => <div key={k} className="fh-atk-note">{n[lang]}</div>)}
                 </FhAttackRow>
               );
@@ -2243,7 +2428,7 @@ const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, i
               // com dado, a fórmula vai no botão de dano; sem dado (dano fixo), fica na linha
               const sub = m ? Utils.damageLabel(u.dmgType, lang) : `${u.damage} ${Utils.damageLabel(u.dmgType, lang)}`;
               return (
-                <FhAttackRow lang={lang}
+                <FhAttackRow lang={lang} mark={atkMark}
                   art={<ArtThumb src={null} emoji="👊" size={40} lang={lang} title={name} />}
                   name={name}
                   sub={sub}
@@ -2262,6 +2447,44 @@ const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, i
               );
             })()}
           </div>
+          {/* Truques de ataque (src/sheet/play-spells.js): quem conjura ataca daqui, sem trocar
+              de aba. Ataque mágico rola o d20 (com o "Próximo d20" do painel); truque de
+              resistência mostra a CD que o alvo precisa bater. Magias de círculo gastam espaço:
+              ficam na aba Magias, a um toque. */}
+          {(cantrips.length > 0 || canCast) && (
+            <div className="fh-atk-spells">
+              {cantrips.length > 0 && (
+                <>
+                  <div className="fh-atk-group" role="heading" aria-level={4}>{pt ? 'Truques de ataque' : 'Attack cantrips'}</div>
+                  <div className="fh-atks">
+                    {cantrips.map(c => {
+                      const saveName = c.saveAb ? beltAbbr(c.saveAb, lang) : '';
+                      return (
+                        <FhAttackRow key={c.id} lang={lang} mark={c.atk != null ? atkMark : null}
+                          art={<SchoolBadge school={c.school} lang={lang} size={40} />}
+                          name={c.name}
+                          sub={[pt ? 'Truque' : 'Cantrip', c.src].filter(Boolean).join(' · ')}
+                          atkText={c.atk != null ? Utils.fmtMod(c.atk) : null}
+                          onAttack={c.atk != null ? () => rollD20({ die: 20, mod: c.atk, label: c.name + ' · ' + t('attackRoll', lang), isAttack: true }) : null}
+                          chip={c.atk == null ? (
+                            <span className="fh-atk-chip" title={pt ? 'O alvo faz um teste de resistência contra a sua CD de magia' : 'The target makes a saving throw against your spell save DC'}>
+                              <span className="fh-atk-btn-k">{pt ? 'Alvo resiste' : 'Target saves'}</span>
+                              <span className="fh-atk-btn-v">{pt ? 'CD' : 'DC'} {c.dc}{saveName ? ` ${saveName}` : ''}</span>
+                            </span>
+                          ) : null} />
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+              {/* com o painel Conjuração na aba, o atalho para a aba Magias fica no pé dele */}
+              {onOpenSpells && !hasSlotPanel && (
+                <button type="button" className="fh-atk-more" onClick={onOpenSpells}>
+                  {pt ? 'Todas as magias e espaços' : 'All spells and slots'} <span aria-hidden="true">›</span>
+                </button>
+              )}
+            </div>
+          )}
           <FhFeatures items={feats.attacks} multi={placed.multi} lang={lang} place="attacks" />
         </section>
     ) },
@@ -2322,7 +2545,7 @@ const SheetPlay = ({ char, lang, update, applyHp, setTempHp, ac, speed, profB, i
     <>
       {/* Clarão na borda da tela ao levar dano / ser curado: camada decorativa fixa, fora
           dos painéis (nada de transform/filter em contêiner com botão que abre Modal). */}
-      {hpFx && <div key={hpFx.id} className={`fh-fx fh-fx-${fxKind}`} aria-hidden="true" />}
+      {hpFx && <div key={hpFx.id} className={`fh-fx fh-fx-${fxKind} is-${fxTone}`} aria-hidden="true" />}
       <FhMedalDefs />
 
       {/* Duas colunas a partir de 1024px (ficha.css: .fh-play). Abaixo disso, ou com o
@@ -2428,6 +2651,7 @@ const beltAbbr = (k, lang) => String(t(k + 'Sh', lang) || k).toUpperCase();
 // rolagem achava que o hexágono estava quebrado. Arrastar (rolar a página) continua
 // cancelando; segurar ainda "carrega" a metade (.is-charging-roll), só como retorno visual.
 const BELT_HOLD_MS = 220;
+const BELT_BIND_HOLD_MS = 340;   // segurar o nome do atributo para prendê-lo a um dado do cinto
 const beltHoldToRoll = (fn) => {
   let t0 = 0; let x0 = 0; let y0 = 0; let moved = false; let timer = null; let el = null; let fired = false;
   const clear = () => { clearTimeout(timer); timer = null; el?.classList.remove('is-charging-roll'); };
@@ -2452,13 +2676,23 @@ const beltHoldToRoll = (fn) => {
 };
 // spec (opcional): hexágono de ação com a mesma peça e os mesmos gestos do de atributo —
 // { abbr, tone, center, halves: [{ mod, label, cls, aria }] }. Sem spec, é o atributo k.
-const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag, spec = null }) => {
-  const [advMode, setAdvMode] = useState('normal'); // 'normal' | 'adv' | 'dis'
+// stance/onStance (só a colmeia da aba Jogar): a vantagem/desvantagem é a MESMA do seletor
+// "Próximo d20" do painel — o botão do meio vira um atalho dele e `roll` (rollD20) é quem
+// aplica e devolve para Normal. Sem eles (cinto da aba Atributos), o hexágono guarda a sua.
+const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag, spec = null, stance = null, onStance = null, bites = null }) => {
+  const [ownAdv, setOwnAdv] = useState('normal'); // 'normal' | 'adv' | 'dis'
+  const shared = typeof onStance === 'function';
+  const advMode = shared ? (stance || 'normal') : ownAdv;
+  const setAdvMode = (v) => {
+    const next = typeof v === 'function' ? v(advMode) : v;
+    if (shared) onStance(next); else setOwnAdv(next);
+  };
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const gestureRef = useRef({ startY: 0, moved: false, pointerId: null });
   const hexRef = useRef(null);
   const hoodGestureRef = useRef({ startX: 0, startY: 0, moved: false, timer: null, pointerId: null });
+  const hoodFiredRef = useRef(false);   // o toque no capuz rolou: cancela o clique sintético do toque
 
   const pt = lang === 'pt';
   const isAbility = !spec;
@@ -2470,6 +2704,8 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
   // A vantagem/desvantagem do botão do meio vale para UMA rolagem: depois dela o hexágono
   // volta para Normal (antes ficava armado, só com a cor da borda avisando).
   const onRollHalf = (mod, label, isSave = false, extra = null) => {
+    // postura do painel: rollD20 (SheetPlay) lê, aplica e zera — uma regra só para a aba
+    if (shared) { roll({ die: 20, mod, label, isSave, ...(extra || {}) }); return; }
     roll({ die: 20, mod, label, advMode, isSave, ...(extra || {}) });
     if (advMode !== 'normal') setAdvMode('normal');
   };
@@ -2539,8 +2775,9 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
         setAdvMode('normal');
       }
     } else {
-      // Tap on knob: deactivate if already active, or toggle
-      setAdvMode(m => (m !== 'normal' ? 'normal' : 'adv'));
+      // Toque/clique no botão: Normal → Vantagem → Desvantagem → Normal (o clique do mouse
+      // não desliza; antes ele só alternava vantagem e a desvantagem ficava fora de alcance)
+      setAdvMode(m => (m === 'normal' ? 'adv' : m === 'adv' ? 'dis' : 'normal'));
     }
   };
 
@@ -2560,12 +2797,15 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     const startX = e.clientX;
     const startY = e.clientY;
 
+    const target = e.currentTarget;
     const timer = setTimeout(() => {
-      // Hold >= 110ms initiates ability-to-belt assignment drag!
-      hoodGestureRef.current.moved = true;
-      try { e.currentTarget.releasePointerCapture?.(pointerId); } catch (_) {}
+      // Segurar (>= 340 ms, DESIGN.md 6.2) começa o vínculo do atributo com um dado do cinto:
+      // soltar no lugar prende ao dado ativo; arrastar leva a outro dado. Um toque curto ROLA.
+      hoodGestureRef.current = { ...hoodGestureRef.current, moved: true, timer: null, pointerId: null };
+      try { target.releasePointerCapture?.(pointerId); } catch (_) {}
+      if (navigator.vibrate) navigator.vibrate(15);
       onStartDrag?.(k, { clientX: startX, clientY: startY }, getBadgeAnchor());
-    }, 110);
+    }, BELT_BIND_HOLD_MS);
 
     hoodGestureRef.current = { startX, startY, moved: false, timer, pointerId };
     try { e.currentTarget.setPointerCapture?.(pointerId); } catch (_) {}
@@ -2575,7 +2815,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     const h = hoodGestureRef.current;
     if (!h.pointerId) return;
     const dist = Math.hypot(e.clientX - h.startX, e.clientY - h.startY);
-    if (dist > 4 && onStartDrag) {
+    if (dist > 10 && onStartDrag) {
       if (h.timer) clearTimeout(h.timer);
       h.moved = true;
       const pid = h.pointerId;
@@ -2594,9 +2834,11 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     if (pid) {
       try { e.currentTarget.releasePointerCapture?.(pid); } catch (_) {}
     }
-    // A quick tap (< 110ms without dragging) binds/unbinds to active belt slot
-    if (!wasMoved) {
-      onBind?.(k);
+    // Toque curto (sem segurar nem arrastar): rola o teste do atributo, como o mesmo capuz
+    // na aba Jogar. Antes o toque trocava em silêncio o atributo do dado ativo do cinto.
+    if (!wasMoved && pid) {
+      hoodFiredRef.current = true;
+      onRollHalf(checkMod, checkLabel, false, { isCheck: true });
     }
   };
 
@@ -2631,16 +2873,20 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
 
   const meta = HONEY_ABILITY_META[k] || { zone: 'physical', tone: 'strength' };
   const abbr = spec ? spec.abbr : beltAbbr(k, lang);
+  // nome dito pelo botão do meio: "Força 17" no atributo, "Arma"/"Magia" no hexágono de ação
+  const knobName = spec ? (spec.name || spec.abbr) : `${t(k, lang)} ${score}`;
+  const stanceMark = advMode === 'adv' ? '▲' : advMode === 'dis' ? '▼' : '';
   const advTxt = advMode === 'adv' ? (pt ? ' (com vantagem)' : ' (with advantage)') : advMode === 'dis' ? (pt ? ' (com desvantagem)' : ' (with disadvantage)') : '';
   // Rótulos da rolagem: "Teste de Força" / "Resistência de Força" (antes "Força Teste de habilidade")
   const checkLabel = isAbility ? (pt ? `Teste de ${t(k, lang)}` : `${t(k, lang)} check`) : '';
   const saveLabel = isAbility ? (pt ? `Resistência de ${t(k, lang)}` : `${t(k, lang)} save`) : '';
   // `cap`: a legenda sob o número diz qual metade é o teste e qual é a resistência (no toque
-  // não existe o balão do title); ◆ marca a resistência com proficiência.
+  // não existe o balão do title); ◆ marca a resistência com proficiência. A legenda é curta ("RES.") porque
+  // "◆ RESIST." era cortado pelo hexágono em telas de 360 px; o nome inteiro está no aria-label.
   const halves = spec ? spec.halves : [
     { cls: 'is-check', mod: checkMod, label: checkLabel, isCheck: true, cap: pt ? 'teste' : 'check',
       aria: pt ? `${t(k, lang)}: teste ${Utils.fmtMod(checkMod)}` : `${t(k, lang)}: check ${Utils.fmtMod(checkMod)}` },
-    { cls: `is-save${isProf ? ' is-prof' : ''}`, mod: saveMod, isSave: true, label: saveLabel, cap: pt ? (isProf ? '◆ resist.' : 'resist.') : (isProf ? '◆ save' : 'save'),
+    { cls: `is-save${isProf ? ' is-prof' : ''}`, mod: saveMod, isSave: true, label: saveLabel, prof: isProf, cap: pt ? 'res.' : 'save',
       aria: pt ? `${t(k, lang)}: resistência ${Utils.fmtMod(saveMod)}${isProf ? ' (proficiente)' : ''}` : `${t(k, lang)}: save ${Utils.fmtMod(saveMod)}${isProf ? ' (proficient)' : ''}` },
   ];
 
@@ -2706,12 +2952,19 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
           onPointerMove={onHoodPointerMove}
           onPointerUp={onHoodPointerUp}
           onPointerCancel={onHoodPointerCancel}
+          onTouchEnd={(e) => { if (hoodFiredRef.current) { e.preventDefault(); hoodFiredRef.current = false; } }}
+          onContextMenu={(e) => e.preventDefault()}
+          onKeyDown={(e) => {
+            if (!isActionKey(e)) return;
+            e.preventDefault();
+            if (e.shiftKey) onBind?.(k); else onRollHalf(checkMod, checkLabel, false, { isCheck: true });
+          }}
           aria-label={pt
-            ? `${t(k, lang)}: segure ou arraste o capuz para vincular a um slot do cinto; toque para o slot ativo`
-            : `${t(k, lang)}: hold or drag the hood to bind to a belt slot; tap for active slot`}
+            ? `${t(k, lang)}: rolar teste ${Utils.fmtMod(checkMod)}${advTxt}. Segure ou arraste para prender a um dado do cinto`
+            : `${t(k, lang)}: roll check ${Utils.fmtMod(checkMod)}${advTxt}. Hold or drag to bind to a belt die`}
           title={pt
-            ? `${t(k, lang)}: segure/arraste o capuz para vincular ao cinto · toque para o slot ativo`
-            : `${t(k, lang)}: hold/drag the hood to bind to belt · tap for active slot`}
+            ? `${t(k, lang)}: toque para rolar o teste ${Utils.fmtMod(checkMod)} · segure ou arraste para prender a um dado do cinto`
+            : `${t(k, lang)}: tap to roll the check ${Utils.fmtMod(checkMod)} · hold or drag to bind to a belt die`}
         >
           <span className="fh-honey-abbr">{abbr}</span>
         </button>}
@@ -2735,13 +2988,13 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
           aria-valuenow={advMode === 'adv' ? 1 : advMode === 'dis' ? -1 : 0}
           aria-valuemin={-1}
           aria-valuemax={1}
-          aria-valuetext={advMode === 'adv' ? 'Vantagem' : advMode === 'dis' ? 'Desvantagem' : 'Normal'}
+          aria-valuetext={advMode === 'adv' ? (pt ? 'Vantagem' : 'Advantage') : advMode === 'dis' ? (pt ? 'Desvantagem' : 'Disadvantage') : 'Normal'}
           aria-label={pt
-            ? `${t(k, lang)}: ${score}. Deslize ↑ vantagem, ↓ desvantagem, ou toque para normal`
-            : `${t(k, lang)}: ${score}. Swipe ↑ advantage, ↓ disadvantage, or tap for normal`}
+            ? `${knobName}. Próximo d20: toque para alternar Normal, Vantagem, Desvantagem (ou deslize para cima ou para baixo)`
+            : `${knobName}. Next d20: tap to cycle Normal, Advantage, Disadvantage (or swipe up or down)`}
           title={pt
-            ? `${t(k, lang)} ${score}: Deslize ↑ vantagem 🟢, ↓ desvantagem 🔴 · Toque para normal`
-            : `${t(k, lang)} ${score}: Swipe ↑ advantage 🟢, ↓ disadvantage 🔴 · Tap for normal`}
+            ? `${knobName} · Próximo d20: toque para alternar Normal → Vantagem → Desvantagem`
+            : `${knobName} · Next d20: tap to cycle Normal → Advantage → Disadvantage`}
         >
           <span className="fh-badge-arrow is-up" aria-hidden="true">▲</span>
           <span className="fh-honey-score">{score}</span>
@@ -2749,7 +3002,10 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
         </button>
 
         <div className={`fh-honey-halves${halves.length === 1 ? ' is-single' : ''}`}>
-          {halves.map((hf, i) => (
+          {halves.map((hf, i) => {
+            // marca de estado ativo (src/sheet/FhStatus.jsx): ▼ desvantagem, ✕ falha automática. Só aviso.
+            const bite = bites ? halfMark(bites, { ability: k, isCheck: !!hf.isCheck, isSave: !!hf.isSave, isAttack: !!spec }, lang) : null;
+            return (
             <button
               key={i}
               type="button"
@@ -2760,13 +3016,15 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
                 e.preventDefault();
                 onRollHalf(hf.mod, hf.label, !!hf.isSave, hf.isCheck ? { isCheck: true } : spec ? { isAttack: true } : null);
               }}
-              aria-label={`${hf.aria}${advTxt}`}
-              title={hf.aria}
+              aria-label={`${hf.aria}${advTxt}${bite ? `. ${bite.aria}` : ''}`}
+              title={bite ? `${hf.aria} · ${bite.aria}` : hf.aria}
             >
-              <span className="fh-honey-val">{Utils.fmtMod(hf.mod)}</span>
-              {hf.cap && <span className="fh-honey-cap">{hf.cap}</span>}
+              <span className="fh-honey-val">{Utils.fmtMod(hf.mod)}{stanceMark && <span className={`fh-honey-stance is-${advMode}`} aria-hidden="true">{stanceMark}</span>}</span>
+              {/* a marca vai na legenda, nunca em cima do número */}
+              {(hf.cap || bite) && <span className={`fh-honey-cap${bite ? ` has-bite is-${bite.kind}` : ''}`}>{bite && <span className="fh-half-bite" aria-hidden="true">{bite.glyph}</span>}{hf.prof && <span className="fh-honey-prof" aria-hidden="true">◆ </span>}{hf.cap}</span>}
             </button>
-          ))}
+            );
+          })}
         </div>
       </article>
     </div>
@@ -3319,8 +3577,8 @@ const BeltQuickSlot = ({
                    : '';
 
   const ariaLabel = pt
-    ? `Slot do cinto: ${formulaLabel}${stanceText}. Segure e solte para rolar`
-    : `Belt slot: ${formulaLabel}${stanceText}. Hold and release to roll`;
+    ? `Dado do cinto: ${formulaLabel}${stanceText}. Toque para rolar`
+    : `Belt die: ${formulaLabel}${stanceText}. Tap to roll`;
 
   return (
     <div className={`fh-belt-hex-wrap is-quick-slot die-d${slot.die}${isD20 ? ` adv-${advMode}` : ''}${isBound ? ` is-bound tone-${slot.bound}` : ''}`}>
@@ -3365,8 +3623,8 @@ const BeltQuickSlot = ({
         role="button"
         aria-label={ariaLabel}
         title={isD20
-          ? (pt ? `d20: arraste ↑ vantagem, ↓ desvantagem · toque para desativar · segure e solte para rolar` : `d20: drag ↑ advantage, ↓ disadvantage · tap to clear · hold & release to roll`)
-          : (pt ? `Deslize ↔ dado, ↕ qtd · segure e solte para rolar` : `Swipe ↔ die, ↕ count · hold & release to roll`)}
+          ? (pt ? `d20: toque para rolar · arraste ↑ vantagem, ↓ desvantagem` : `d20: tap to roll · drag ↑ advantage, ↓ disadvantage`)
+          : (pt ? `Toque para rolar · deslize ↔ troca o dado, ↕ a quantidade` : `Tap to roll · swipe ↔ changes the die, ↕ the count`)}
       >
         {/* Specular Reflection Sheen when PB Active */}
         {pbActive && <div className={`fh-belt-sheen is-slot-${index}`} aria-hidden="true" />}
@@ -3414,6 +3672,10 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
   const effectiveProfB = profB != null ? profB : Utils.profBonus(char.level);
 
   const [activeSlot, setActiveSlot] = useState(0);
+  const activeSlotRef = useRef(0);
+  activeSlotRef.current = activeSlot;
+  const bindRef = useRef(() => {});     // bindTo desta renderização, para o pointerup da janela
+  const beltToast = useSheetToast();
   const [dragLink, setDragLink] = useState(null);
   const dragLinkRef = useRef(null);
   dragLinkRef.current = dragLink;
@@ -3465,12 +3727,12 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
     const onPointerUp = (e) => {
       const current = dragLinkRef.current;
       const pointSlot = e && e.clientX != null ? getSlotAtPoint(e.clientX, e.clientY) : null;
-      const targetIndex = pointSlot ?? lastTargetSlotRef.current ?? current?.targetSlot;
+      let targetIndex = pointSlot ?? lastTargetSlotRef.current ?? current?.targetSlot;
+      // segurou o nome do atributo e soltou no lugar (sem arrastar): prende ao dado ATIVO
+      if (current && current.fromHold && targetIndex == null && e && e.type !== 'pointercancel' && e.clientX != null
+        && Math.hypot(e.clientX - current.originX, e.clientY - current.originY) < 12) targetIndex = activeSlotRef.current;
       if (current && targetIndex != null) {
-        const ability = current.ability;
-        setSlots((slotsPrev) => slotsPrev.map((s, i) => (
-          i === targetIndex ? { ...s, bound: s.bound === ability ? null : ability } : s
-        )));
+        bindRef.current(targetIndex, current.ability);
         setActiveSlot(targetIndex);
         if (navigator.vibrate) navigator.vibrate(40);
       }
@@ -3497,6 +3759,9 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
     lastTargetSlotRef.current = targetSlot;
     setDragLink({
       ability: k,
+      fromHold: !e.type,          // veio de segurar parado (o arrasto passa o evento de verdade)
+      originX: e.clientX,
+      originY: e.clientY,
       startX,
       startY,
       radius,
@@ -3573,12 +3838,26 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
     }));
   };
 
-  const onBind = (k) => {
-    setSlots((prev) => prev.map((s, i) => {
-      if (i !== activeSlot) return s;
-      return { ...s, bound: s.bound === k ? null : k };
-    }));
+  // Prender (ou soltar) um atributo num dado do cinto: o aviso diz o que mudou e desfaz.
+  // Antes a troca era silenciosa e não tinha volta.
+  const bindTo = (idx, k) => {
+    const before = slots;
+    const s = before[idx];
+    if (!s) return;
+    const off = s.bound === k;
+    setSlots(before.map((x, i) => (i === idx ? { ...x, bound: off ? null : k } : x)));
+    const die = `${s.count || 1}d${s.die}`;
+    const ab = `${beltAbbr(k, lang)} ${Utils.fmtMod(Utils.abilityMod(char, k))}`;
+    beltToast?.show({
+      ms: 5000,
+      text: off
+        ? (pt ? `${beltAbbr(k, lang)} solto do dado ${die}.` : `${beltAbbr(k, lang)} released from the ${die} die.`)
+        : (pt ? `${ab} preso ao dado ${die} do cinto.` : `${ab} bound to the ${die} belt die.`),
+      onAction: () => setSlots(before),
+    });
   };
+  bindRef.current = bindTo;
+  const onBind = (k) => bindTo(activeSlot, k);
 
   const [beltMulti, setBeltMulti] = useState(null);
   const onRollSlot = (idx) => {
@@ -3611,8 +3890,8 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
       count: rollCount,
       mod: totalMod,
       label: pt
-        ? `Cinto [Slot ${idx + 1}] ${rollCount}d${s.die}${modText}${advText}`
-        : `Belt [Slot ${idx + 1}] ${rollCount}d${s.die}${modText}${advText}`,
+        ? `Cinto, dado ${idx + 1}: ${rollCount}d${s.die}${modText}${advText}`
+        : `Belt, die ${idx + 1}: ${rollCount}d${s.die}${modText}${advText}`,
       advMode,
     });
   };
@@ -3692,8 +3971,9 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
             className={`fh-belt-pb-wedge is-${si === 1 ? 'left' : 'right'}${slots[si]?.pb ? ' is-on' : ''}`}
             aria-pressed={!!slots[si]?.pb}
             aria-label={pt
-              ? `BP +${effectiveProfB} no dado abaixo (${slots[si]?.pb ? 'ligado' : 'desligado'})`
-              : `PB +${effectiveProfB} on the die below (${slots[si]?.pb ? 'on' : 'off'})`}
+              ? `Bônus de proficiência +${effectiveProfB} no dado abaixo (${slots[si]?.pb ? 'ligado' : 'desligado'})`
+              : `Proficiency bonus +${effectiveProfB} on the die below (${slots[si]?.pb ? 'on' : 'off'})`}
+            title={pt ? `Bônus de proficiência (BP) +${effectiveProfB}: soma no dado abaixo` : `Proficiency bonus (PB) +${effectiveProfB}: adds to the die below`}
             onClick={(e) => { e.stopPropagation(); togglePb(si); }}
           >
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -3798,11 +4078,24 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
           </button>
         ))}
       </div>
-      <p className="fh-honey-help">
-        {pt
-          ? 'Rolar: segure e solte · BP: toque na cunha acima do dado · I/II: troca a carga dos dados · d20: arraste a silhueta ↑ vantagem 🟢, ↓ desvantagem 🔴 · segure um atributo para vincular ao cinto.'
-          : 'Roll: hold and release · PB: tap the wedge above a die · I/II: swap the dice loadout on that side · d20: drag silhouette ↑ advantage 🟢, ↓ disadvantage 🔴 · hold an attribute badge to bind to belt.'}
-      </p>
+      <div className="fh-honey-help">
+        <p>
+          {pt
+            ? <><FhTap lang={lang} /> numa metade do atributo para rolar <b>Teste</b> ou <b>Resistência</b>. <FhTap lang={lang} /> num dado do cinto para rolá-lo.</>
+            : <><FhTap lang={lang} /> a half of an ability to roll its <b>Check</b> or <b>Save</b>. <FhTap lang={lang} /> a belt die to roll it.</>}
+        </p>
+        <details className="fh-honey-more">
+          <summary>{pt ? 'Mais gestos' : 'More gestures'}</summary>
+          <ul>
+            <li>{pt ? <><b>BP</b> (bônus de proficiência): toque na cunha acima de um dado para somar o bônus nele.</> : <><b>PB</b> (proficiency bonus): tap the wedge above a die to add the bonus to it.</>}</li>
+            <li>{pt ? <><b>I / II</b>: troca a carga (o par de dados) daquele lado do cinto.</> : <><b>I / II</b>: swaps the loadout (the pair of dice) on that side of the belt.</>}</li>
+            <li>{pt ? <><b>d20</b>: arraste a silhueta para cima (vantagem) ou para baixo (desvantagem).</> : <><b>d20</b>: drag the silhouette up (advantage) or down (disadvantage).</>}</li>
+            <li>{pt ? 'Dado: deslize para os lados para trocar o dado, para cima ou para baixo para a quantidade.' : 'Die: swipe sideways to change the die, up or down for the count.'}</li>
+            <li>{pt ? <>O <b>nome do atributo</b> (a faixa colorida no alto): <FhTap lang={lang} /> para rolar o teste; segure para prendê-lo ao dado ativo do cinto, ou arraste até outro dado.</> : <>The <b>ability name</b> (the coloured band on top): <FhTap lang={lang} /> to roll its check; hold to bind it to the active belt die, or drag it onto another die.</>}</li>
+            <li>{pt ? <>A <b>medalha do valor</b> (no meio): <FhTap lang={lang} /> para alternar Normal, Vantagem e Desvantagem na próxima rolagem daquele atributo.</> : <>The <b>score medal</b> (in the middle): <FhTap lang={lang} /> to cycle Normal, Advantage and Disadvantage for that ability's next roll.</>}</li>
+          </ul>
+        </details>
+      </div>
     </div>
   );
 };
@@ -3820,7 +4113,7 @@ export const actionHexSpecs = (char, lang) => {
       aria: `${label} ${Utils.fmtMod(mod)} (${abName} + ${pt ? 'prof.' : 'prof.'})` };
   };
   const out = [{
-    key: 'weapon', abbr: pt ? 'ARMA' : 'WEAPON', tone: 'weapon', center: '⚔',
+    key: 'weapon', abbr: pt ? 'ARMA' : 'WEAPON', name: pt ? 'Arma' : 'Weapon', tone: 'weapon', center: '⚔',
     halves: [
       half('str', Utils.abilityMod(char, 'str') + pb, pt ? 'Ataque com arma (FOR)' : 'Weapon attack (STR)'),
       half('dex', Utils.abilityMod(char, 'dex') + pb, pt ? 'Ataque com arma (DES)' : 'Weapon attack (DEX)'),
@@ -3829,38 +4122,51 @@ export const actionHexSpecs = (char, lang) => {
   const ab = Utils.spellcastingAbility(char);
   const sa = Utils.spellAttackBonus(char);
   if (ab && sa != null) {
-    out.push({ key: 'spell', abbr: pt ? 'MAGIA' : 'SPELL', tone: ab, center: '✦',
+    out.push({ key: 'spell', abbr: pt ? 'MAGIA' : 'SPELL', name: pt ? 'Magia' : 'Spell', tone: ab, center: '✦',
       halves: [half(ab, sa, pt ? 'Ataque mágico' : 'Spell attack')] });
   }
   return out;
 };
-export const AbilityHive = ({ char, lang, roll }) => {
+export const AbilityHive = ({ char, lang, roll, stance = null, onStance = null, bites = null }) => {
   const actions = actionHexSpecs(char, lang);
-  const abil = (k) => <BeltHex key={k} k={k} char={char} lang={lang} roll={roll} onBind={noBind} isBound={false} isAssigned={false} />;
+  const abil = (k) => <BeltHex key={k} k={k} char={char} lang={lang} roll={roll} onBind={noBind} isBound={false} isAssigned={false} stance={stance} onStance={onStance} bites={bites} />;
   return (
     <div className="fh-belt is-hive-only" data-fab-pass="">
       <div className="fh-belt-hive-row is-top">{['str', 'con', 'dex'].map(abil)}</div>
       <div className={`fh-belt-hive-row is-mid${actions.length % 2 ? ' is-odd' : ''}`}>
-        {actions.map(sp => <BeltHex key={sp.key} k={sp.key} spec={sp} char={char} lang={lang} roll={roll} />)}
+        {actions.map(sp => <BeltHex key={sp.key} k={sp.key} spec={sp} char={char} lang={lang} roll={roll} stance={stance} onStance={onStance} bites={bites} />)}
       </div>
       <div className="fh-belt-hive-row is-bottom">{['int', 'cha', 'wis'].map(abil)}</div>
     </div>
   );
 };
 
-export const SheetAbilities = ({ char, lang, update, profB, roll }) => {
+export const SheetAbilities = ({ char, lang, update, profB, roll, stance = null, onStance = null }) => {
+  // "Próximo d20" (Desv. · Normal · Vant.) no título dos painéis que rolam, como na aba Jogar
+  const adv3 = stance && onStance ? <FhAdv3 value={stance} onChange={onStance} lang={lang} /> : null;
   const pt = lang === 'pt';
   const [beltMode, setBeltMode] = useState(false);
   const profText = (level) => level === 2 ? (pt ? 'Especialista' : 'Expertise') : level ? (pt ? 'Treinado' : 'Proficient') : (pt ? 'Sem treino' : 'Not proficient');
+  // Em campanha (ficha da conta) o servidor trava as proficiências: o losango só informa.
+  const locked = !!char.inCampaign && typeof char.id === 'number';
+  const lockedTitle = pt ? 'Em campanha o treino só muda pelo mestre ou pela subida de nível' : 'In a campaign, training changes only via the DM or leveling up';
 
   return (
-    <div className="fh-scope-content fh-scope-abilities">
+    <div className={`fh-scope-content fh-scope-abilities${beltMode ? ' is-belt' : ''}`}>
       <section className="fh-panel">
-        <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Atributos' : 'Ability Scores'}</FhTitle>
-        <label className="fh-honey-toggle">
-          <input type="checkbox" checked={beltMode} onChange={(e) => setBeltMode(e.target.checked)} />
-          <span>{pt ? 'Modo cinto de rolagem (belt)' : 'Dice belt mode'}</span>
-        </label>
+        <FhTitle act={beltMode ? null : adv3} sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Atributos' : 'Ability Scores'}</FhTitle>
+        {/* Selos | Cinto de dados: duas vistas dos mesmos atributos (controle segmentado) */}
+        <div className="fh-honey-toggle" role="group" aria-label={pt ? 'Vista dos atributos' : 'Ability view'}>
+          <div className="fh-seg">
+            <button type="button" className={`fh-seg-b${beltMode ? '' : ' is-on'}`} aria-pressed={!beltMode} onClick={() => setBeltMode(false)}>{pt ? 'Selos' : 'Seals'}</button>
+            <button type="button" className={`fh-seg-b${beltMode ? ' is-on' : ''}`} aria-pressed={beltMode} onClick={() => { setBeltMode(true); onStance?.('normal'); }}>{pt ? 'Cinto de dados' : 'Dice belt'}</button>
+          </div>
+          <span className="fh-seg-sub">
+            {beltMode
+              ? (pt ? 'Teste e resistência em cada atributo, mais 4 dados de atalho.' : 'Check and save on each ability, plus 4 shortcut dice.')
+              : (pt ? 'Um selo por atributo; as resistências ficam no painel Testes de Resistência.' : 'One seal per ability; saves sit in the Saving Throws panel.')}
+          </span>
+        </div>
         {beltMode
           ? <BeltAbilities char={char} lang={lang} roll={roll} profB={profB} />
           : <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang)} />}
@@ -3868,22 +4174,23 @@ export const SheetAbilities = ({ char, lang, update, profB, roll }) => {
 
       {!beltMode && (
         <section className="fh-panel">
-          <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
+          <FhTitle act={adv3} sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
           <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(SRD.ABILITIES.length / 2) }}>
             {SRD.ABILITIES.map(k => {
               const bonus = Utils.saveBonus(char, k);
               const isProf = Utils.hasSaveProf(char, k);
               return (
-                <FhSkillRow key={k} name={t(k, lang)} abbr={t(k + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
-                  level={isProf ? 1 : 0}
-                  profTitle={profText(isProf ? 1 : 0)}
+                <FhSkillRow key={k} lang={lang} name={t(k, lang)} abbr={t(k + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
+                  level={isProf ? 1 : 0} locked={locked}
+                  profTitle={locked ? `${profText(isProf ? 1 : 0)}. ${lockedTitle}` : profText(isProf ? 1 : 0)}
                   profLabel={`${t(k, lang)}: ${profText(isProf ? 1 : 0)}`}
+                  rollLabel={pt ? `${t(k, lang)}: rolar resistência ${Utils.fmtMod(bonus)}` : `${t(k, lang)}: roll save ${Utils.fmtMod(bonus)}`}
                   onToggle={() => update({ saveProfs: isProf ? (char.saveProfs || []).filter(x => x !== k) : [...(char.saveProfs || []), k] })}
                   onRoll={() => roll({ die: 20, mod: bonus, label: t(k, lang) + ' ' + t('saveRoll', lang), isSave: true })} />
               );
             })}
           </div>
-          <FhProfLegend lang={lang} />
+          <FhProfLegend lang={lang} locked={locked} />
         </section>
       )}
     </div>
@@ -3947,27 +4254,44 @@ export const SKILL_GROUPS = [
   },
 ];
 
-export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
-  const pt = lang === 'pt';
-  const profText = (level) => level === 2 ? (pt ? 'Especialista' : 'Expertise') : level ? (pt ? 'Treinado' : 'Proficient') : (pt ? 'Sem treino' : 'Not proficient');
+// Ícone (traço dourado, sem emoji) de cada ação das perícias e das ferramentas.
+const SKILL_GROUP_ICON = { search: 'search', study: 'book', influence: 'users', hide: 'eye-off', tools: 'toolbox' };
+const SKILLS_FOLD_KEY = 'dnd5e-forge:skills-folded:v1';
+const readSkillFolds = () => {
+  try { const v = JSON.parse(localStorage.getItem(SKILLS_FOLD_KEY) || 'null'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
+};
 
-  // Estado recolhível/dobrável para cada uma das categorias de ações (padrão parcialmente recolhido)
-  const [collapsed, setCollapsed] = useState({
-    search: true,
-    hide: true,
-    influence: true,
-    study: true,
-    tools: true,
-  });
+// Aba Perícias no visual da ficha (FhSkillRow, src/sheet/FhChecks.jsx): as 18 perícias
+// agrupadas pelas 4 ações de 2024 (Busca, Estudo, Influência, Furtividade) e as ferramentas.
+// - Todas as perícias aparecem ao abrir a aba: cada linha rola o PRÓPRIO bônus num toque
+//   (o antigo botão de dado do cabeçalho rolava o número "consolidado" do grupo, menor ou
+//   maior que o da perícia pedida: Atletismo saía com o bônus de Furtividade).
+// - O cabeçalho de cada ação é um <button aria-expanded> que dobra o grupo; dobrado, o
+//   grupo continua mostrando as perícias treinadas. A dobra fica lembrada no aparelho.
+// - Em campanha (ficha da conta) o servidor trava o treino: o losango fica só de leitura.
+export const SheetSkills = ({ char, lang, update, passPerc, roll, placed, stance = null, onStance = null }) => {
+  const pt = lang === 'pt';
+  const adv3 = stance && onStance ? <FhAdv3 value={stance} onChange={onStance} lang={lang} /> : null;
+  // Armadura com desvantagem em Furtividade (acolchoada, cota de malha, placas…): a linha da
+  // Furtividade rola com desvantagem e mostra ▼ com o motivo (antes rolava um d20 simples).
+  const stealthArmor = (() => { try { const a = Utils.wornArmor(char); return a?.stealth === 'disadv' ? a : null; } catch { return null; } })();
+  const stealthArmorName = stealthArmor ? (stealthArmor.item ? (stealthArmor.name || (pt ? 'armadura' : 'armor')) : tName('armor', stealthArmor.id, lang)) : '';
+  const profText = (level) => level === 2 ? (pt ? 'Especialista' : 'Expertise') : level ? (pt ? 'Treinado' : 'Proficient') : (pt ? 'Sem treino' : 'Not proficient');
+  const locked = !!char.inCampaign && typeof char.id === 'number';
+  const lockedTitle = pt ? 'Em campanha o treino só muda pelo mestre ou pela subida de nível' : 'In a campaign, training changes only via the DM or leveling up';
+
+  // Dobra de cada ação (padrão: tudo aberto, as 18 perícias à vista)
+  const [collapsed, setCollapsed] = useState(() => ({
+    search: false, hide: false, influence: false, study: false, tools: false,
+    ...readSkillFolds(),
+  }));
 
   const toggleGroup = (groupId) => {
-    setCollapsed(prev => ({ ...prev, [groupId]: !prev[groupId] }));
-  };
-
-  const allCollapsed = Object.values(collapsed).every(Boolean);
-  const toggleAll = () => {
-    const nextVal = !allCollapsed;
-    setCollapsed({ search: nextVal, hide: nextVal, influence: nextVal, study: nextVal, tools: nextVal });
+    setCollapsed(prev => {
+      const next = { ...prev, [groupId]: !prev[groupId] };
+      try { localStorage.setItem(SKILLS_FOLD_KEY, JSON.stringify(next)); } catch { /* sem armazenamento: vale só nesta visita */ }
+      return next;
+    });
   };
 
   const explicitSkillMap = useMemo(() => {
@@ -3981,28 +4305,33 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
 
   const keen = useMemo(() => hasKeenSenses(char), [char]);
 
+  // Os grupos (e quem pertence a cada um) vêm da mesma tabela do bloco de monstro; o nome
+  // é o da ficha (tName) e a ordem dentro do grupo é alfabética no idioma da tela.
   const actionSkillData = useMemo(() => {
-    return ACTION_SKILL_GROUPS.map((grp) => ({
-      ...grp,
-      ...computeActionGroupData(grp, char.abilities, explicitSkillMap, lang, { hasKeen: keen }),
-    }));
-  }, [char.abilities, explicitSkillMap, lang, keen]);
-
-  const handleSkillRoll = (formula, label, defaultAdv, e) => {
-    const el = e?.currentTarget;
-    const swipedAdv = el?.getAttribute('data-roll-adv');
-    const finalAdv = swipedAdv || defaultAdv;
-    const match = formula.match(/1d20([+-]\d+)/);
-    const mod = match ? parseInt(match[1], 10) : 0;
-    roll({
-      die: 20,
-      mod,
-      formula,
-      label,
-      isCheck: true,
-      ...(finalAdv ? { adv: finalAdv, advMode: finalAdv } : {}),
+    return ACTION_SKILL_GROUPS.map((grp) => {
+      const data = computeActionGroupData(grp, char.abilities, explicitSkillMap, lang, { hasKeen: keen });
+      const skills = data.skills
+        .map(sk => ({ ...sk, name: tName('skill', sk.id, lang) || sk.name }))
+        .sort((a, b) => a.name.localeCompare(b.name, pt ? 'pt' : 'en'));
+      return { ...grp, ...data, skills };
     });
+  }, [char.abilities, explicitSkillMap, lang, keen, pt]);
+
+  // Vantagem/desvantagem própria da perícia: Sentidos Aguçados (vantagem) e a armadura
+  // (desvantagem em Furtividade). As duas juntas se anulam.
+  const advOf = (sk) => {
+    const armorDis = sk.id === 'stealth' && !!stealthArmor;
+    if (armorDis) return sk.defaultAdv === 'adv' ? null : 'dis';
+    return sk.defaultAdv || null;
   };
+  const rollSkill = (sk) => roll({
+    die: 20,
+    mod: sk.bonus,
+    label: pt ? `Teste de ${sk.name}` : `${sk.name} check`,
+    isCheck: true,
+    checkKind: 'skill',
+    ...(advOf(sk) ? { adv: advOf(sk), advMode: advOf(sk) } : {}),
+  });
 
   const toggleProf = (sId) => {
     const isExpert = Utils.hasExpertise(char, sId);
@@ -4019,7 +4348,7 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
     }
   };
 
-  // 5th Action Group: Action: Use Tool (Usar Ferramenta)
+  // 5º grupo: Usar Ferramenta. Só as ferramentas em que o personagem é treinado.
   const toolItems = useMemo(() => {
     const profs = new Set([
       ...(char.toolProfs || []),
@@ -4036,277 +4365,140 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
       const abilMod = Utils.abilityMod(char, stat);
       const bonus = abilMod + pb * (hasToolExp ? 2 : 1);
       const bonusStr = bonus >= 0 ? `+${bonus}` : `${bonus}`;
-      const passive = 10 + bonus;
-      const name = toolName(tId, lang);
-      list.push({
-        id: tId,
-        name,
-        stat: stat.toUpperCase(),
-        bonus,
-        bonusStr,
-        passive,
-        isTrained: true,
-        formula: `1d20${bonusStr}`,
-      });
+      list.push({ id: tId, name: toolName(tId, lang), stat, bonus, bonusStr, passive: 10 + bonus, isTrained: true, level: hasToolExp ? 2 : 1 });
     });
     if (!list.length) {
       const stat = 'dex';
       const abilMod = Utils.abilityMod(char, stat);
       const bonusStr = abilMod >= 0 ? `+${abilMod}` : `${abilMod}`;
-      list.push({
-        id: 'improvised',
-        name: pt ? 'Ferramentas Improvisadas' : 'Improvised Tools',
-        stat: 'DEX',
-        bonus: abilMod,
-        bonusStr,
-        passive: 10 + abilMod,
-        isTrained: false,
-        formula: `1d20${bonusStr}`,
-      });
+      list.push({ id: 'improvised', name: pt ? 'Ferramentas improvisadas' : 'Improvised tools', stat, bonus: abilMod, bonusStr, passive: 10 + abilMod, isTrained: false, level: 0 });
     }
-    return list;
+    return list.sort((a, b) => a.name.localeCompare(b.name, pt ? 'pt' : 'en'));
   }, [char, lang, pt]);
 
-  const toolBaselineBonus = toolItems[0]?.bonus || 0;
-  const toolBaselineBonusStr = toolBaselineBonus >= 0 ? `+${toolBaselineBonus}` : `${toolBaselineBonus}`;
-  const toolBaselinePassive = 10 + toolBaselineBonus;
+  const skillRow = (sk) => {
+    const isExpert = Utils.hasExpertise(char, sk.id);
+    const isProf = Utils.hasSkillProf(char, sk.id);
+    const level = isExpert ? 2 : isProf ? 1 : 0;
+    const adv = advOf(sk);
+    const advWhy = adv === 'dis'
+      ? (pt ? `Desvantagem: armadura (${stealthArmorName})` : `Disadvantage: armor (${stealthArmorName})`)
+      : null;
+    const advSay = adv === 'adv' ? (pt ? ' com vantagem' : ' with advantage') : adv === 'dis' ? (pt ? ` com desvantagem pela armadura (${stealthArmorName})` : ` with disadvantage from armor (${stealthArmorName})`) : '';
+    return (
+      <FhSkillRow key={sk.id} lang={lang}
+        name={sk.name} abbr={t(sk.abil + 'Sh', lang)} bonus={sk.bonusStr} passive={sk.passive}
+        level={level} locked={locked} adv={adv} advTitle={advWhy}
+        profTitle={locked ? `${profText(level)}. ${lockedTitle}` : profText(level)}
+        profLabel={`${sk.name}: ${profText(level)}`}
+        rollLabel={pt
+          ? `${sk.name} (${t(sk.abil + 'Sh', lang)}): rolar teste ${sk.bonusStr}${advSay}. Passiva ${sk.passive}`
+          : `${sk.name} (${t(sk.abil + 'Sh', lang)}): roll check ${sk.bonusStr}${advSay}. Passive ${sk.passive}`}
+        onToggle={() => toggleProf(sk.id)}
+        onRoll={() => rollSkill(sk)} />
+    );
+  };
+
+  // ferramenta não tem valor passivo: a linha mostra só o bônus do teste
+  const toolRow = (tool) => (
+    <FhSkillRow key={tool.id} lang={lang}
+      name={tool.name} abbr={t(tool.stat + 'Sh', lang)} bonus={tool.bonusStr} passive={null}
+      level={tool.level}
+      profTitle={profText(tool.level)}
+      rollLabel={pt
+        ? `${tool.name} (${t(tool.stat + 'Sh', lang)}): rolar teste ${tool.bonusStr}`
+        : `${tool.name} (${t(tool.stat + 'Sh', lang)}): roll check ${tool.bonusStr}`}
+      onRoll={() => roll({ die: 20, mod: tool.bonus, label: pt ? `Teste de ${tool.name}` : `${tool.name} check`, isCheck: true, checkKind: 'tool' })} />
+  );
+
+  // Cabeçalho de um grupo: botão de verdade (Enter/Espaço dobram), sem rolagem própria.
+  const groupHead = (key, title, total, trained) => {
+    const isFolded = !!collapsed[key];
+    return (
+      <button type="button" className="fh-skg-head" onClick={() => toggleGroup(key)}
+        aria-expanded={!isFolded} aria-controls={`fh-skill-group-${key}`}>
+        <span className="fh-skg-icon" aria-hidden="true"><Icon name={SKILL_GROUP_ICON[key] || 'target'} size={16} /></span>
+        <span className="fh-skg-title">{title}</span>
+        <span className="fh-skg-count">
+          {trained > 0
+            ? (pt ? `${trained} de ${total} treinada${trained > 1 ? 's' : ''}` : `${trained} of ${total} proficient`)
+            : (pt ? `${total} ${key === 'tools' ? (total > 1 ? 'ferramentas' : 'ferramenta') : 'perícias'}` : `${total} ${key === 'tools' ? (total > 1 ? 'tools' : 'tool') : 'skills'}`)}
+        </span>
+        <span className="fh-skill-group-chevron fh-skg-chev" aria-hidden="true"><Icon name={isFolded ? 'chevron-down' : 'chevron-up'} size={16} /></span>
+      </button>
+    );
+  };
+
+  const trainedTools = toolItems.filter(tl => tl.isTrained);
 
   return (
     <div className="fh-scope-content fh-scope-skills">
-      <section className="fh-panel">
-        <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{t('skills', lang)}</FhTitle>
+      <section className="fh-panel fh-skills-panel">
+        <FhTitle act={adv3} sub={<span><FhTapToRoll lang={lang} /></span>}>{t('skills', lang)}</FhTitle>
 
-        {/* 4 Categorical Rows / Foldable Cards: Search, Hide, Influence, Study */}
-        <div className="fh-skill-categories-grid">
+        {/* As 4 ações (Busca, Estudo, Influência, Furtividade), de cima para baixo */}
+        <div className="fh-skill-categories-grid" data-fab-pass="">
           {actionSkillData.map(grp => {
             const isFolded = !!collapsed[grp.key];
-            const trainedSkills = (grp.skills || []).filter(sk => {
-              const isTrained = Utils.hasSkillProf(char, sk.id) || Utils.hasExpertise?.(char, sk.id);
-              if (!isTrained) return false;
-              const isDisclosedOnConsolidatedPanel = (sk.passive === grp.baselinePassive && sk.bonusStr === grp.baselineBonusStr);
-              return !isDisclosedOnConsolidatedPanel;
-            });
+            const trainedSkills = (grp.skills || []).filter(sk => Utils.hasSkillProf(char, sk.id) || Utils.hasExpertise?.(char, sk.id));
+            const shownRows = isFolded ? trainedSkills : grp.skills;
+            const untrained = grp.skills.filter(sk => !trainedSkills.includes(sk));
+            // o grupo da ação Esconder também guarda Atletismo e Acrobacia: o título diz isso
+            const title = grp.key === 'hide' ? (pt ? 'Furtividade e corpo' : 'Hide & body') : grp.groupTitle;
             return (
-              <div key={grp.key} className={`fh-skill-group-card card statblock-action-details fh-skills-action-details ${isFolded ? 'is-collapsed' : 'open'}`}>
-                <div
-                  className="fh-skill-group-header statblock-action-summary"
-                  onClick={() => toggleGroup(grp.key)}
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={!isFolded}
-                  aria-controls={`fh-skill-group-${grp.key}`}
-                >
-                  <span className="statblock-action-header-left">
-                    <span className="fh-skill-group-chevron statblock-action-chevron" aria-hidden="true">{isFolded ? '▸' : '▾'}</span>
-                    <span className="fh-skill-group-icon statblock-action-icon" aria-hidden="true">{grp.icon}</span>
-                    <span className="fh-skill-group-title statblock-action-title">{grp.groupTitle}</span>
-                  </span>
-
-                  <div className="statblock-action-summary-actions">
-                    <button
-                      type="button"
-                      className="statblock-roll-btn statblock-action-header-roll-btn"
-                      data-roll-check={`1d20${grp.baselineBonusStr}`}
-                      data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${grp.groupTitle} (${grp.baselineBonusStr})`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        handleSkillRoll(`1d20${grp.baselineBonusStr}`, `${grp.groupTitle} (${grp.baselineBonusStr})`, undefined, e);
-                      }}
-                      title={pt ? `Rolar ação consolidada ${grp.groupTitle} (1d20${grp.baselineBonusStr})` : `Roll consolidated action ${grp.groupTitle} (1d20${grp.baselineBonusStr})`}
-                    >
-                      <span className="statblock-action-roll-dice" aria-hidden="true">🎲</span>
-                      <span className="statblock-action-roll-score">{grp.baselinePassive}/{grp.baselineBonusStr}</span>
-                    </button>
-                  </div>
+              <div key={grp.key} className={`fh-skg${isFolded ? ' is-collapsed' : ' is-open'}`}>
+                {groupHead(grp.key, title, grp.skills.length, trainedSkills.length)}
+                <div id={`fh-skill-group-${grp.key}`}>
+                  {/* dobrado sem nenhuma perícia treinada: nada de faixa vazia */}
+                  {shownRows.length > 0 && (
+                    <div className={`fh-skg-list${isFolded ? ' statblock-action-indented-profs' : ''}`}
+                      style={{ '--fh-rows': Math.ceil(shownRows.length / 2) }}>
+                      {(isFolded ? trainedSkills : grp.skills).map(skillRow)}
+                    </div>
+                  )}
+                  {/* dobrado: as sem treino continuam roláveis, em botões pequenos */}
+                  {isFolded && untrained.length > 0 && (
+                    <div className="fh-skg-more is-rolls">
+                      <span className="fh-skg-more-k">{pt ? 'Sem treino' : 'Not proficient'}</span>
+                      {untrained.map(sk => (
+                        <button key={sk.id} type="button" className="fh-skg-chip" onClick={() => rollSkill(sk)}
+                          aria-label={pt ? `${sk.name}: rolar teste ${sk.bonusStr}` : `${sk.name}: roll check ${sk.bonusStr}`}>
+                          {sk.name} <b>{sk.bonusStr}</b>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-
-                {/* Exposição parcial e identada das perícias treinadas sob o cabeçalho sanfonado */}
-                {isFolded && (grp.skills || []).some(sk => Utils.hasSkillProf(char, sk.id) || Utils.hasExpertise?.(char, sk.id)) && (
-                  <div className="statblock-action-indented-profs">
-                    {(grp.skills || [])
-                      .filter(sk => Utils.hasSkillProf(char, sk.id) || Utils.hasExpertise?.(char, sk.id))
-                      .map(sk => {
-                        const isExpert = Utils.hasExpertise?.(char, sk.id);
-                        return (
-                          <div key={sk.id} className="statblock-action-skill-row is-trained">
-                            <div style={{ display: 'inline-flex', alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
-                              <span className="statblock-action-prof-mark" aria-hidden="true">
-                                {isExpert ? '⭐' : '●'}
-                              </span>
-                              <span className="statblock-action-skill-name" title={`${sk.name} (${sk.abilUpper})`}>
-                                {sk.name} <abbr>({sk.abilUpper})</abbr>
-                              </span>
-                            </div>
-
-                            <div className="statblock-action-skill-controls">
-                              <span className="statblock-action-skill-pass" title={pt ? 'Passiva' : 'Passive'}>
-                                {sk.passive}
-                              </span>
-                              <button
-                                type="button"
-                                className={`statblock-roll-btn statblock-action-skill-btn${sk.defaultAdv ? ' has-adv' : ''}`}
-                                data-roll-check={`1d20${sk.bonusStr}`}
-                                data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${sk.name} (${sk.bonusStr})`}
-                                data-roll-adv={sk.defaultAdv}
-                                onClick={(e) => handleSkillRoll(`1d20${sk.bonusStr}`, `${sk.name} (${sk.bonusStr})`, sk.defaultAdv, e)}
-                                title={pt ? `Toque para rolar ${sk.name} (1d20${sk.bonusStr}). Deslize ↑ para Vantagem ou ↓ para Desvantagem.` : `Tap to roll ${sk.name} (1d20${sk.bonusStr}). Swipe ↑ for Advantage or ↓ for Disadvantage.`}
-                              >
-                                {sk.bonusStr}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                )}
-
-                {!isFolded && (
-                  <div id={`fh-skill-group-${grp.key}`} className="statblock-action-grid">
-                    {grp.skills.map(sk => {
-                      const isExpert = Utils.hasExpertise(char, sk.id);
-                      const isProf = Utils.hasSkillProf(char, sk.id);
-                      const level = isExpert ? 2 : isProf ? 1 : 0;
-                      return (
-                        <div key={sk.id} className={`statblock-action-skill-row${isProf || isExpert ? ' is-trained' : ''}`}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
-                            <button
-                              type="button"
-                              className="fh-skill-cycle-btn no-print"
-                              onClick={() => toggleProf(sk.id)}
-                              title={profText(level)}
-                              aria-label={`${sk.name}: ${profText(level)}`}
-                            >
-                              {level === 2 ? '⭐' : level === 1 ? '●' : '○'}
-                            </button>
-                            <span className="statblock-action-skill-name" title={`${sk.name} (${sk.abilUpper})`}>
-                              {sk.name} <abbr>({sk.abilUpper})</abbr>
-                            </span>
-                          </div>
-
-                          <div className="statblock-action-skill-controls">
-                            <span className="statblock-action-skill-pass" title={pt ? 'Passiva' : 'Passive'}>
-                              {sk.passive}
-                            </span>
-                            <button
-                              type="button"
-                              className={`statblock-roll-btn statblock-action-skill-btn${sk.defaultAdv ? ' has-adv' : ''}`}
-                              data-roll-check={`1d20${sk.bonusStr}`}
-                              data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${sk.name} (${sk.bonusStr})`}
-                              data-roll-adv={sk.defaultAdv}
-                              onClick={(e) => handleSkillRoll(`1d20${sk.bonusStr}`, `${sk.name} (${sk.bonusStr})`, sk.defaultAdv, e)}
-                              title={pt ? `Toque para rolar ${sk.name} (1d20${sk.bonusStr}). Deslize ↑ para Vantagem ou ↓ para Desvantagem.` : `Tap to roll ${sk.name} (1d20${sk.bonusStr}). Swipe ↑ for Advantage or ↓ for Disadvantage.`}
-                            >
-                              {sk.bonusStr}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             );
           })}
-
-          {/* 5th Action Group: Action: Use Tool (Usar Ferramenta) */}
-          <div className={`fh-skill-group-card card statblock-action-details fh-skills-action-details ${collapsed.tools ? 'is-collapsed' : 'open'}`}>
-            <div
-              className="fh-skill-group-header statblock-action-summary"
-              onClick={() => toggleGroup('tools')}
-              role="button"
-              tabIndex={0}
-              aria-expanded={!collapsed.tools}
-              aria-controls="fh-skill-group-tools"
-            >
-              <span className="statblock-action-header-left">
-                <span className="fh-skill-group-chevron statblock-action-chevron" aria-hidden="true">{collapsed.tools ? '▸' : '▾'}</span>
-                <span className="fh-skill-group-icon statblock-action-icon" aria-hidden="true">🛠️</span>
-                <span className="fh-skill-group-title statblock-action-title">{pt ? 'Usar Ferramenta' : 'Use Tool'}</span>
-              </span>
-
-              <div className="statblock-action-summary-actions">
-                <button
-                  type="button"
-                  className="statblock-roll-btn statblock-action-header-roll-btn"
-                  data-roll-check={`1d20${toolBaselineBonusStr}`}
-                  data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${pt ? 'Usar Ferramenta' : 'Use Tool'} (${toolBaselineBonusStr})`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    handleSkillRoll(`1d20${toolBaselineBonusStr}`, `${pt ? 'Usar Ferramenta' : 'Use Tool'} (${toolBaselineBonusStr})`, undefined, e);
-                  }}
-                  title={pt ? `Rolar uso de ferramenta (1d20${toolBaselineBonusStr})` : `Roll tool use (1d20${toolBaselineBonusStr})`}
-                >
-                  <span className="statblock-action-roll-dice" aria-hidden="true">🎲</span>
-                  <span className="statblock-action-roll-score">{toolBaselinePassive}/{toolBaselineBonusStr}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Exposição parcial e identada das ferramentas sob o cabeçalho sanfonado */}
-            {collapsed.tools && toolItems.filter(t => t.isTrained).length > 0 && (
-              <div className="statblock-action-indented-profs">
-                {toolItems.filter(t => t.isTrained).map(tool => (
-                  <div key={tool.id} className="statblock-action-skill-row is-trained">
-                    <div style={{ display: 'inline-flex', alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
-                      <span className="statblock-action-prof-mark" aria-hidden="true">🛠️</span>
-                      <span className="statblock-action-skill-name" title={`${tool.name} (${tool.stat})`}>
-                        {tool.name} <abbr>({tool.stat})</abbr>
-                      </span>
-                    </div>
-
-                    <div className="statblock-action-skill-controls">
-                      <span className="statblock-action-skill-pass" title={pt ? 'Passiva' : 'Passive'}>
-                        {tool.passive}
-                      </span>
-                      <button
-                        type="button"
-                        className="statblock-roll-btn statblock-action-skill-btn"
-                        data-roll-check={tool.formula}
-                        data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${tool.name} (${tool.bonusStr})`}
-                        onClick={(e) => handleSkillRoll(tool.formula, `${tool.name} (${tool.bonusStr})`, undefined, e)}
-                        title={pt ? `Toque para rolar ${tool.name} (${tool.formula}).` : `Tap to roll ${tool.name} (${tool.formula}).`}
-                      >
-                        {tool.bonusStr}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {!collapsed.tools && (
-              <div id="fh-skill-group-tools" className="statblock-action-grid">
-                {toolItems.map(tool => (
-                  <div key={tool.id} className="statblock-action-skill-row is-trained">
-                    <span className="statblock-action-skill-name" title={`${tool.name} (${tool.stat})`}>
-                      🛠️ {tool.name} <abbr>({tool.stat})</abbr>
-                    </span>
-                    <div className="statblock-action-skill-controls">
-                      <span className="statblock-action-skill-pass" title={pt ? 'Passiva' : 'Passive'}>
-                        {tool.passive}
-                      </span>
-                      <button
-                        type="button"
-                        className="statblock-roll-btn statblock-action-skill-btn"
-                        data-roll-check={tool.formula}
-                        data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${tool.name} (${tool.bonusStr})`}
-                        onClick={(e) => handleSkillRoll(tool.formula, `${tool.name} (${tool.bonusStr})`, undefined, e)}
-                        title={pt ? `Toque para rolar ${tool.name} (${tool.formula}). Deslize ↑ para Vantagem ou ↓ para Desvantagem.` : `Tap to roll ${tool.name} (${tool.formula}). Swipe ↑ for Advantage or ↓ for Disadvantage.`}
-                      >
-                        {tool.bonusStr}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
-        <FhProfLegend lang={lang} expert />
+        <div className="fh-prof-legend fh-skills-key">
+          <span><b className="fh-key-pass">12</b>{pt ? 'valor passivo' : 'passive score'}</span>
+          <span><b className="fh-key-mod">+2</b>{pt ? 'bônus do teste (d20 + bônus)' : 'check bonus (d20 + bonus)'}</span>
+          {keen && <span><b className="fh-key-adv" aria-hidden="true">▲</b>{pt ? 'rola com vantagem' : 'rolls with advantage'}</span>}
+          {stealthArmor && <span><b className="fh-key-dis" aria-hidden="true">▼</b>{pt ? `desvantagem: armadura (${stealthArmorName})` : `disadvantage: armor (${stealthArmorName})`}</span>}
+        </div>
+        <FhProfLegend lang={lang} expert locked={locked} />
         {placed?.by?.skills && <FhFeatures items={placed.by.skills} multi={placed.multi} lang={lang} place="skills" />}
+      </section>
+
+      <section className="fh-panel fh-tools-panel">
+        <FhTitle act={adv3} sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Ferramentas' : 'Tools'}</FhTitle>
+        {/* poucas linhas: sem dobra (o título do painel já diz o que são) */}
+        <div className="fh-skill-categories-grid" data-fab-pass="">
+          <div className="fh-skg is-open is-bare">
+            <div className="fh-skg-list is-single">
+              {toolItems.map(toolRow)}
+            </div>
+          </div>
+        </div>
+        {!trainedTools.length && (
+          <p className="fh-skg-more">
+            {pt ? 'Nenhuma ferramenta treinada. Sem treino, o teste usa só o modificador do atributo.' : 'No tool proficiency. Without it, the check uses the ability modifier alone.'}
+          </p>
+        )}
       </section>
     </div>
   );
@@ -4316,7 +4508,6 @@ export const SheetTools = ({ char, lang, update, placed, embedded = false }) => 
   const pt = lang === 'pt';
   const toolSummaries = [
     ...trainingLines(char, lang),
-    ...(char.otherProfs ? [{ key: 'other', label: pt ? 'Outras proficiências' : 'Other proficiencies', text: char.otherProfs }] : []),
   ];
 
   // `embedded`: dentro do nível 1 da linha do tempo (sem painel nem título; os traços de
@@ -4356,7 +4547,17 @@ export const SheetTools = ({ char, lang, update, placed, embedded = false }) => 
 };
 
 // Modal de perícias e ferramentas iniciais da classe (nível 1) a partir da linha do tempo.
-const TimelineClassSkillsModal = ({ char, lang, onConfirm, onClose }) => {
+// Em campanha a troca de uma escolha vira pedido ao mestre: o botão principal diz isso
+// ("Pedir ao mestre", não "Salvar") e uma linha acima dele avisa antes do toque.
+const saveLabel = (askDm, lang) => (askDm ? (lang === 'pt' ? 'Pedir ao mestre' : 'Ask the DM') : (lang === 'pt' ? 'Salvar' : 'Save'));
+const AskDmNote = ({ lang }) => (
+  <p className="fh-ask-dm" role="note">
+    <Icon name="lock" size={13} aria-hidden="true" />
+    <span>{lang === 'pt' ? 'Em campanha, o mestre aprova esta troca. A ficha só muda quando ele aceitar.' : 'In a campaign, the DM approves this change. The sheet only changes once they accept.'}</span>
+  </p>
+);
+
+const TimelineClassSkillsModal = ({ char, lang, onConfirm, onClose, askDm = false }) => {
   const pt = lang === 'pt';
   const [draft, setDraft] = useState(() => ({ ...char }));
   const [busy, setBusy] = useState(false);
@@ -4427,10 +4628,11 @@ const TimelineClassSkillsModal = ({ char, lang, onConfirm, onClose }) => {
           </div>
         </div>
       )}
+      {askDm && <AskDmNote lang={lang} />}
       <div className="row gap-2">
         <button type="button" className="btn btn-ghost" onClick={onClose}>{pt ? 'Cancelar' : 'Cancel'}</button>
         <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={busy || picks.length !== need} onClick={save}>
-          {pt ? 'Salvar' : 'Save'}
+          {saveLabel(askDm, lang)}
         </button>
       </div>
     </Modal>
@@ -4438,7 +4640,7 @@ const TimelineClassSkillsModal = ({ char, lang, onConfirm, onClose }) => {
 };
 
 // Modal de antecedente e escolhas (2014 e 2024: antecedente, bônus de atributo, ferramentas e idiomas).
-const TimelineBackgroundModal = ({ char, lang, onConfirm, onClose }) => {
+const TimelineBackgroundModal = ({ char, lang, onConfirm, onClose, askDm = false }) => {
   const pt = lang === 'pt';
   const [draft, setDraft] = useState(() => ({ ...char }));
   const [busy, setBusy] = useState(false);
@@ -4557,14 +4759,38 @@ const TimelineBackgroundModal = ({ char, lang, onConfirm, onClose }) => {
             onChange={langs => setDraft(d => ({ ...d, languages: Utils.withChosenLanguages(d, langs) }))} free />
         </div>
       </div>
+      {askDm && <AskDmNote lang={lang} />}
       <div className="row gap-2">
         <button type="button" className="btn btn-ghost" onClick={onClose}>{pt ? 'Cancelar' : 'Cancel'}</button>
         <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={busy || !draft.background} onClick={save}>
-          {pt ? 'Salvar' : 'Save'}
+          {saveLabel(askDm, lang)}
         </button>
       </div>
     </Modal>
   );
+};
+
+// JSON com as chaves em ordem (o servidor pode devolver o objeto com as chaves noutra ordem).
+const stableJson = (v) => JSON.stringify(v, (_k, x) => (x && typeof x === 'object' && !Array.isArray(x)
+  ? Object.keys(x).sort().reduce((o, k) => { o[k] = x[k]; return o; }, {}) : x));
+
+// Escolhas pendentes da ficha, para o ponto na aba Características: as da engine (subclasse,
+// ASI, opções de classe) mais as de origem que a linha do tempo marca com "Escolher agora"
+// (perícias/ferramentas da classe, ferramenta e atributos do antecedente, espécie).
+const countPendingChoices = (char) => {
+  if (!char?.className) return 0;
+  const safe = (fn, d) => { try { return fn(); } catch { return d; } };
+  let n = safe(() => (computeProgression(char).pendingChoices || []).length, 0);
+  const start = safe(() => classStart(char), null);
+  if (safe(() => classSkillPicks(char).length < classSkillCount(char), false)
+    || (start?.tools?.choose > 0 && !(char.creation?.toolChoices?.class?.length))) n += 1;
+  if (char.background) {
+    const missingTool = safe(() => backgroundTool(char).choose > chosenBackgroundTools(char).length, false);
+    const missingBonus = char.rulesVersion === '2024' && !Object.values(char.raceBonus || {}).some(Boolean);
+    if (missingTool || missingBonus) n += 1;
+  }
+  n += safe(() => (Utils.speciesChoiceIssues(char).filter(i => !(char.inCampaign && (i.key === 'feat' || i.key === 'asi'))).length ? 1 : 0), 0);
+  return n;
 };
 
 // Linha do tempo de traços (src/sheet/feature-timeline.js): classe/subclasse no nível do
@@ -4582,9 +4808,39 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
   const canEdit = Boolean(respec || update);
   const [localModal, setLocalModal] = useState(null);
 
+  const tlToast = useSheetToast();
+  // Pedidos de troca em andamento, agrupados: o mesmo pedido (título + mudanças) enviado a
+  // duas mesas ou repetido aparecia como linhas idênticas empilhadas.
+  const respecGroups = (() => {
+    const out = [];
+    for (const a of (respec?.pending || [])) {
+      const title = a?.payload?.title || (pt ? 'Troca de escolhas' : 'Changed choices');
+      const changes = a?.payload?.changes || [];
+      const sig = `${title}|${changes.join('|')}`;
+      const g = out.find(x => x.sig === sig);
+      if (g) { g.count += 1; g.approved = g.approved || a.status === 'approved'; }
+      else out.push({ id: a.id, sig, title, changes, count: 1, approved: a.status === 'approved', patch: a?.payload?.patch || null });
+    }
+    return out;
+  })();
   const applyChange = (patch, summaryPt, summaryEn) => {
-    if (respec?.submit) return respec.submit({ ...char, ...patch }, pt ? summaryPt : summaryEn);
+    if (respec?.submit) {
+      // Em campanha a troca vira pedido ao mestre: o MESMO pedido não é enviado duas vezes.
+      if (char.inCampaign) {
+        let same = false;
+        try {
+          const want = stableJson(respecPatch(char, applyAutosToCharacter({ ...char, ...patch })));
+          same = respecGroups.some(g => !g.approved && g.patch && stableJson(g.patch) === want);
+        } catch { same = false; }
+        if (same) {
+          tlToast?.show({ tone: 'info', ms: 5000, text: pt ? 'Este pedido já está com o mestre. Aguarde a resposta dele.' : 'This request is already with your DM. Wait for the answer.' });
+          return undefined;
+        }
+      }
+      return respec.submit({ ...char, ...patch }, pt ? summaryPt : summaryEn);
+    }
     if (update) return update(patch);
+    return undefined;
   };
 
   // Fonte única (aba Características e painel Progressão): os mesmos traços posicionados,
@@ -4711,7 +4967,7 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
   const baseSpeciesTraits = race?.traits || [];
   const speciesAt = assignSpeciesChoices(baseSpeciesTraits, speciesSpecs);
   const spellCatalog = (() => { try { return Utils.spellCatalog(char); } catch { return []; } })();
-  const spName = (id, l) => spellCatalog.find(s => s.id === id)?.name?.[l] || tName('spellName', id, l) || id;
+  const spName = (id, l) => { const n = tName('spellName', id, l); return (n && n !== id ? n : spellCatalog.find(s => s.id === id)?.name?.[l]) || id; };
 
   const extraSpeciesTraits = (() => {
     const out = [...baseSpeciesTraits];
@@ -4824,7 +5080,7 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
     return { name, desc, picks };
   })();
 
-  const entries = buildTimeline({
+  const built = buildTimeline({
     level: char.level || 1, seq, classItems,
     speciesTraits: extraSpeciesTraits,
     feats: char.feats || [],
@@ -4833,6 +5089,23 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
     asiText: (asi) => Object.entries(asi || {}).map(([k, v]) => `${t(k + 'Sh', lang)} +${v}`).join(', '),
     pending: prog?.pendingChoices || [], multiclass, extras,
   });
+  // Uma pendência, uma linha: enquanto a subclasse não foi escolhida, o traço "Subclasse de X"
+  // (só descritivo) sai da lista e o texto dele vai para a linha "Escolha sua subclasse ·
+  // PENDENTE", que é a que tem o botão. Escolhida a subclasse, o traço volta como antes.
+  const entries = (() => {
+    const pend = built.filter(e => e.pending && e.choice?.type === 'subclass');
+    if (!pend.length) return built;
+    const drop = new Set();
+    const out = built.map(e => {
+      if (!pend.includes(e)) return e;
+      const twin = built.find(x => x.kind === 'class' && !x.pending && x.level === e.level && /Subclass$/.test(String(x.item?.id || ''))
+        && (!e.classId || !x.classId || x.classId === e.classId));
+      if (!twin) return e;
+      drop.add(twin);
+      return { ...e, item: { ...e.item, desc: twin.item?.desc || e.item.desc } };
+    });
+    return out.filter(e => !drop.has(e));
+  })();
   if (!entries.length) return null;
   const tagOf = (e) => {
     if (e.kind === 'species') return pt ? 'Espécie' : 'Species';
@@ -4903,7 +5176,9 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
           },
         }] : []),
       ];
-      return { ...e.item, desc: { pt: add(e.item.desc?.pt, true), en: add(e.item.desc?.en, false) }, picks };
+      // as escolhas aparecem UMA vez, na lista chave/valor (`picks`): a frase "Escolhido: …"
+      // que as repetia no fim do texto saiu. Sem lista (nenhuma linha), a frase continua.
+      return picks.length ? { ...e.item, picks } : { ...e.item, desc: { pt: add(e.item.desc?.pt, true), en: add(e.item.desc?.en, false) }, picks };
     }
     if (e.kind !== 'feat') return e.item;
     const f = e.feat;
@@ -4945,7 +5220,7 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
     setLocalModal(req);
   };
   // Botão "Escolher agora" nas pendências (quando quem usa a linha do tempo resolve escolhas)
-  const actionOf = (e) => {
+  const goOf = (e) => {
     let go = null;
     if (e.pending) {
       const c = e.choice;
@@ -4974,9 +5249,16 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
         }
       }
     }
+    return go || null;
+  };
+  const actionOf = (e) => {
+    const go = goOf(e);
     if (!go) return null;
     return <button type="button" className="btn btn-sm btn-primary prog-choose" onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); go(); }}>{pt ? 'Escolher agora' : 'Choose now'}</button>;
   };
+  // Pendência = o que a engine marca como pendente OU qualquer linha com "Escolher agora"
+  // (antecedente sem ferramenta, perícias da classe em falta…): é o que os contadores somam.
+  const needsChoice = (e) => { try { return !!e.pending || !!goOf(e); } catch { return !!e.pending; } };
   // Botão "Trocar" nas escolhas já feitas: espécie, antecedente, perícias/opções/subclasse e talentos/ASI.
   const changeOf = (e) => {
     if (!canEdit || e.pending || e.later) return null;
@@ -4996,8 +5278,9 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
     if (!req) return null;
     return (
       <button type="button" className="btn btn-sm btn-ghost fh-tl-change" title={pt ? 'Trocar esta escolha' : 'Change this choice'}
+        aria-label={`${pt ? 'Trocar' : 'Change'}: ${itemOf(e)?.name?.[pt ? 'pt' : 'en'] || ''}`}
         onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); triggerReq(req); }}>
-        ✎ {pt ? 'Trocar' : 'Change'}
+        <Icon name="edit" size={13} aria-hidden="true" /><span className="fh-tl-change-t">{pt ? 'Trocar' : 'Change'}</span>
       </button>
     );
   };
@@ -5026,16 +5309,24 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
   })() : null;
   return (
     <section className={title === false ? 'fh-timeline fh-timeline-bare' : 'fh-panel fh-timeline'}>
-      {title !== false && <FhTitle sub={<span className="fh-tl-now">{pt ? `Patamar ${cur.tier} · ${cur.pt}` : `Tier ${cur.tier} · ${cur.en}`}</span>}>{pt ? 'Linha do tempo' : 'Timeline'}</FhTitle>}
-      {respec?.pending?.length > 0 && (
+      {title !== false && (typeof title === 'string'
+        ? <FhTitle sub={<span className="fh-tl-now">{pt ? 'por nível' : 'by level'}</span>}>{title}</FhTitle>
+        : <FhTitle sub={<span className="fh-tl-now">{pt ? `Patamar ${cur.tier} · ${cur.pt}` : `Tier ${cur.tier} · ${cur.en}`}</span>}>{pt ? 'Linha do tempo' : 'Timeline'}</FhTitle>)}
+      {respecGroups.length > 0 && (
         <div className="fh-tl-respec" role="status">
-          <strong>⏳ {pt ? (respec.pending.length === 1 ? 'Troca aguardando o mestre' : `${respec.pending.length} trocas aguardando o mestre`) : (respec.pending.length === 1 ? 'Change waiting for your DM' : `${respec.pending.length} changes waiting for your DM`)}</strong>
-          {respec.pending.map(a => (
-            <div key={a.id} className="fh-tl-respec-item">
-              <span className="fh-tl-respec-t">{a.payload.title}{a.status === 'approved' ? (pt ? ' · aprovada, aplicando…' : ' · approved, applying…') : ''}</span>
-              {(a.payload.changes || []).length > 0 && <span className="fh-tl-respec-c">{a.payload.changes.join(' · ')}</span>}
+          <strong className="fh-tl-respec-h"><Icon name="info" size={15} aria-hidden="true" /> {pt ? (respecGroups.length === 1 ? 'Troca aguardando o mestre' : `${respecGroups.length} trocas aguardando o mestre`) : (respecGroups.length === 1 ? 'Change waiting for your DM' : `${respecGroups.length} changes waiting for your DM`)}</strong>
+          {/* o mesmo pedido enviado a várias mesas (ou repetido) vira UMA linha, com a contagem */}
+          {respecGroups.map(g => (
+            <div key={g.id} className="fh-tl-respec-item">
+              <span className="fh-tl-respec-t">
+                {g.title}
+                {g.count > 1 ? (pt ? ` · enviado ${g.count}×` : ` · sent ${g.count}×`) : ''}
+                {g.approved ? (pt ? ' · aprovada, aplicando…' : ' · approved, applying…') : ''}
+              </span>
+              {g.changes.length > 0 && <span className="fh-tl-respec-c">{g.changes.join(' · ')}</span>}
             </div>
           ))}
+          <span className="fh-tl-respec-foot">{pt ? 'A ficha muda quando o mestre aprovar. Para desistir de um pedido, avise o mestre: ele recusa na fila de aprovações.' : 'The sheet changes once the DM approves. To drop a request, tell the DM: they reject it in the approvals queue.'}</span>
         </div>
       )}
       <ol className="fh-tl">
@@ -5046,7 +5337,7 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
               <span className="fh-tl-tier-t">{pt ? tr.pt : tr.en}</span>
               <span className="fh-tl-tier-r">{pt ? `Nv. ${tr.from}–${tr.to}` : `Lv ${tr.from}–${tr.to}`}</span>
               {(() => {
-                const n = tr.levels.reduce((k, g) => k + g.entries.filter(e => e.pending).length, 0);
+                const n = tr.levels.reduce((k, g) => k + g.entries.filter(needsChoice).length, 0);
                 return n ? <span className="fh-tl-badge is-tier" title={pt ? (n === 1 ? '1 escolha pendente neste patamar' : `${n} escolhas pendentes neste patamar`) : (n === 1 ? '1 pending choice in this tier' : `${n} pending choices in this tier`)}>{n}</span> : null;
               })()}
             </div>
@@ -5055,18 +5346,19 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
                 <li key={g.level} className={`fh-tl-level${g.level > now ? ' is-later' : ''}${g.level === now ? ' is-now' : ''}${isOpen(g) ? '' : ' is-folded'}`}>
                   {/* o marcador do nível abre/fecha o conteúdo dele (acordeão) */}
                   <button type="button" className="fh-tl-node" aria-expanded={isOpen(g)}
-                    aria-label={(pt ? `Nível ${g.level}: ${isOpen(g) ? 'recolher' : 'expandir'}` : `Level ${g.level}: ${isOpen(g) ? 'collapse' : 'expand'}`) + (g.entries.some(e => e.pending) ? (pt ? ' · tem escolhas pendentes' : ' · has pending choices') : '')}
+                    aria-label={(pt ? `Nível ${g.level}: ${isOpen(g) ? 'recolher' : 'expandir'}` : `Level ${g.level}: ${isOpen(g) ? 'collapse' : 'expand'}`) + (g.entries.some(needsChoice) ? (pt ? ' · tem escolhas pendentes' : ' · has pending choices') : '')}
                     onClick={() => toggle(g)}>{g.level}
                     {(() => {
                       // contador de escolhas pendentes neste marcador (estilo notificação)
-                      const n = g.entries.filter(e => e.pending).length;
+                      const n = g.entries.filter(needsChoice).length;
                       return n ? <span className="fh-tl-badge" aria-label={pt ? `${n} ${n === 1 ? 'escolha pendente' : 'escolhas pendentes'}` : `${n} pending ${n === 1 ? 'choice' : 'choices'}`}>{n}</span> : null;
                     })()}
                   </button>
                   {!isOpen(g) && (
-                    <button type="button" className="fh-tl-fold" onClick={() => toggle(g)}>
-                      {classesAt(seq, g.level).filter(c => c.up).map(c => `${tName('class', c.id, lang)} ${c.level}`).join(' · ')}
-                      <span className="fh-tl-fold-n">{g.entries.length} {pt ? (g.entries.length === 1 ? 'item' : 'itens') : (g.entries.length === 1 ? 'item' : 'items')}{g.entries.some(e => e.pending) ? (pt ? ' · pendente' : ' · pending') : ''}</span>
+                    <button type="button" className="fh-tl-fold" aria-expanded={false} onClick={() => toggle(g)}>
+                      <span className="fh-tl-fold-k">{classesAt(seq, g.level).filter(c => c.up).map(c => `${tName('class', c.id, lang)} ${c.level}`).join(' · ') || (pt ? `Nível ${g.level}` : `Level ${g.level}`)}</span>
+                      <span className="fh-tl-fold-n">{g.entries.length} {pt ? (g.entries.length === 1 ? 'traço' : 'traços') : (g.entries.length === 1 ? 'feature' : 'features')}{g.level > now ? (pt ? (g.entries.length === 1 ? ' futuro' : ' futuros') : ' ahead') : ''}{g.entries.some(e => e.pending) ? (pt ? ' · pendente' : ' · pending') : ''}</span>
+                      <Icon name="chevron-down" size={14} aria-hidden="true" />
                     </button>
                   )}
                   {isOpen(g) && <div className="fh-tl-body">
@@ -5114,8 +5406,21 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
             const p = !subModalTarget.entry || subModalTarget.entry.primary
               ? patch
               : { multiclass: (char.multiclass || []).map(m => m.id === subModalTarget.entry.id ? { ...m, ...patch } : m) };
-            applyChange(p, 'Troca de subclasse', 'Subclass changed');
+            // o pedido diz o resultado ("Círculo das Estrelas → Círculo dos Sonhos"), não só "troca"
+            const nameOf = (id, l) => subModalTarget.subs.find(s => s.id === id)?.name?.[l] || '';
+            const land = (id, l) => (subModalTarget.subs.find(s => s.id === 'land')?.landTypes || []).find(x => x.id === id)?.name?.[l] || '';
+            const title = (l) => {
+              const base = subModalTarget.label[l];
+              if (patch.subclass && patch.subclass !== subModalTarget.view.subclass) {
+                const from = nameOf(subModalTarget.view.subclass, l);
+                return `${base}: ${from ? `${from} → ` : ''}${nameOf(patch.subclass, l)}${patch.landType ? ` (${land(patch.landType, l)})` : ''}`;
+              }
+              if (patch.landType) return `${l === 'pt' ? 'Terreno' : 'Terrain'}: ${land(patch.landType, l)}`;
+              return l === 'pt' ? 'Troca de subclasse' : 'Subclass changed';
+            };
+            applyChange(p, title('pt'), title('en'));
           }}
+          askDm={!!respec?.submit && !!char.inCampaign}
           onClose={() => setLocalModal(null)}
         />
       )}
@@ -5123,6 +5428,7 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
         <TimelineClassSkillsModal
           char={char}
           lang={lang}
+          askDm={!!respec?.submit && !!char.inCampaign}
           onConfirm={(after) => applyChange(after, 'Perícias da classe alteradas', 'Class skills changed')}
           onClose={() => setLocalModal(null)}
         />
@@ -5131,12 +5437,13 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
         <TimelineBackgroundModal
           char={char}
           lang={lang}
+          askDm={!!respec?.submit && !!char.inCampaign}
           onConfirm={(after) => applyChange(after, 'Antecedente e escolhas alterados', 'Background choices changed')}
           onClose={() => setLocalModal(null)}
         />
       )}
       {localModal?.kind === 'species' && update && (
-        <SpeciesChoicesModal char={char} lang={lang} onClose={() => setLocalModal(null)} onChange={(p) => update(p)} />
+        <SpeciesChoicesModal char={char} lang={lang} onClose={() => setLocalModal(null)} onSave={(p) => update(p)} />
       )}
       {localModal?.kind === 'origin' && localModal.index >= 0 && update && (
         <OriginFeatModal char={char} index={localModal.index} lang={lang}
@@ -5151,7 +5458,8 @@ export const SheetFeatures = ({ char, lang, placed, cls, race, update }) => {
     <div className="fh-scope-content fh-scope-features">
       {/* Tudo numa linha do tempo por nível, agrupada nos tiers de jogo: traços de classe,
           espécie, antecedente, talentos e, no nível 1, idiomas, proficiências e escolhas */}
-      <FeatureTimeline char={char} lang={lang} placed={placed} cls={cls} race={race} update={update} />
+      <FeatureTimeline char={char} lang={lang} placed={placed} cls={cls} race={race} update={update}
+        title={lang === 'pt' ? 'Características' : 'Features'} />
     </div>
   );
 };

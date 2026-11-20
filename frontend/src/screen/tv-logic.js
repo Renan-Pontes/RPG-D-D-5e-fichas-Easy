@@ -110,18 +110,58 @@ const MAP_W = 1200;   // o tamanho padrão do mapa do combate (CombatGrid), sem 
 const MAP_H = 800;
 const CORNERS = ['bl', 'br', 'tl', 'tr'];
 
+// Onde o servidor põe os tokens sozinho (backend/api/views_combat.py: MONSTER_START,
+// PC_START e a posição padrão de um combatente avulso), em px do mapa.
+const AUTO_STARTS = { monster: [100, 100], pc: [100, 200] };
+const AUTO_LOOSE = [50, 50];
+
+/**
+ * O mestre posicionou algum token? O servidor enfileira os tokens casa a casa a partir de
+ * um canto fixo (monstros numa fileira, personagens em outra): enquanto TODOS estão nessa
+ * fila de entrada (ou no ponto padrão), a grade não diz nada sobre a cena. Vale como
+ * "posicionado" qualquer token fora das primeiras casas da fila do seu tipo (o dobro das
+ * casas que os tokens ocupam: folga para token grande e para quem saiu do combate).
+ */
+export function tokensPlaced(combat) {
+  const map = combat?.map || {};
+  const g = Number(map.grid_size_px) > 0 ? Number(map.grid_size_px) : 50;
+  const cols = Math.max(1, Math.floor((map.width_px || MAP_W) / g));
+  const rows = Math.max(1, Math.floor((map.height_px || MAP_H) / g));
+  const total = cols * rows;
+  const list = (combat?.combatants || []).filter(Boolean);
+  const span = (c) => Math.max(1, Math.ceil(Number(c.token_scale) || 1));
+  const room = 2 * list.reduce((n, c) => n + span(c) * span(c), 0);
+  for (const c of list) {
+    const x = Number(c.position?.x);
+    const y = Number(c.position?.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;          // sem posição: o ponto padrão
+    if (x === AUTO_LOOSE[0] && y === AUTO_LOOSE[1]) continue;
+    const half = (g * (Number(c.token_scale) || 1)) / 2;
+    const col = Math.floor((x - half) / g);
+    const row = Math.floor((y - half) / g);
+    if (col < 0 || row < 0 || col >= cols || row >= rows) return true;
+    const [sx, sy] = AUTO_STARTS[c.type === 'pc' ? 'pc' : 'monster'];
+    const start = Math.min(rows - 1, Math.floor(sy / g)) * cols + Math.min(cols - 1, Math.floor(sx / g));
+    const idx = (row * cols + col - start + total) % total;
+    if (idx >= room) return true;
+  }
+  return false;
+}
+
 /**
  * O desenho do combate na TV: 'map' = há imagem de mapa → o mapa em 70% e a coluna da
  * iniciativa em 30%, como sempre. Sem imagem de mapa (teatro da mente, o normal numa mesa
  * iniciante) 70% da TV era uma grade vazia com tokens ilegíveis: a vez e a ordem ganham o
- * palco — 'grid' = a grade continua, menor, embaixo de "Vez de X" (quem posicionou os
- * tokens sem imagem não perde as posições); 'theatre' = o mestre desligou a grade
- * (`grid_visible: false`): só a vez e a ordem.
+ * palco — 'theatre' = só a vez (grande, com o retrato) e a ordem: o mestre desligou a grade
+ * (`grid_visible: false`) ou ninguém saiu da fila de entrada (tokensPlaced: a grade teria
+ * 4 bolinhas de 35 px num canto e 80% de casas vazias); 'grid' = o mestre posicionou os
+ * tokens sem imagem: a grade continua, menor, embaixo de "Vez de X" (as posições valem).
  */
 export function combatLayout(combat) {
   const map = combat?.map || {};
   if (map.backgroundUrl || map.background_image) return 'map';
-  return map.grid_visible === false ? 'theatre' : 'grid';
+  if (map.grid_visible === false) return 'theatre';
+  return tokensPlaced(combat) ? 'grid' : 'theatre';
 }
 
 /**

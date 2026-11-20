@@ -9,7 +9,8 @@ import { HERO_ART, hideOnError, conditionIcon, classArt, speciesArt } from '../a
 import ArtThumb, { ArtIcon } from '../components/ArtThumb.jsx';
 import { loadNameIndex, needsNameIndex, portraitFor } from '../combat/monster-portrait.js';
 import { absUrl, cardKey, charLine, healthLabel, paragraphs, screenMode } from '../player/player-model.js';
-import { defaultArt, kindIcon } from '../world/world-model.js';
+import { defaultArt } from '../world/world-model.js';
+import { KindIcon, LineIcon, WeatherIcon } from '../player/PlayerIcons.jsx';
 import { defaultCoverArt } from '../shell/shell-logic.js';
 import { stageNow } from '../stage/stage-now.js';
 import {
@@ -258,11 +259,11 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
     return (
       <div className="tv-error tv-dead" role="alert">
         <div className="tv-dead-box">
-          <div className="tv-dead-ico" aria-hidden="true">📺</div>
+          <div className="tv-dead-ico" aria-hidden="true"><LineIcon name="screen" size={48} /></div>
           <h1>{t(lang, 'Este link da Tela não vale mais', 'This screen link no longer works')}</h1>
           <p>{t(lang,
-            'O mestre pode ter gerado um link novo. Peça a ele o link atual — fica em ⚙ Ajustes › Convite e Tela, em Jogar › Tela ou no botão 📺 Tela da campanha.',
-            'The DM may have generated a new link. Ask them for the current one — it is under ⚙ Settings › Invite & screen, Play › Screen or the 📺 Screen button of the campaign.')}</p>
+            'O mestre pode ter gerado um link novo. Peça a ele o link atual — fica em Ajustes › Convite e Tela, em Jogar › Tela ou no botão “Tela” da campanha.',
+            'The DM may have generated a new link. Ask them for the current one — it is under Settings › Invite & screen, Play › Screen or the “Screen” button of the campaign.')}</p>
         </div>
       </div>
     );
@@ -313,7 +314,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
     <div className="tv-cover-pills">
       {state.live && <span className="tv-live"><span className="tv-live-dot" aria-hidden="true" />{t(lang, 'Ao vivo', 'Live')}</span>}
       {state.session && <span className="tv-session-pill">{t(lang, 'Sessão', 'Session')} {state.session}</span>}
-      {state.weather && <span className="tv-weather">☁ {state.weather}</span>}
+      {state.weather && <span className="tv-weather"><WeatherIcon className="tv-ico" />{state.weather}</span>}
     </div>
   );
   const coverTop = tarja || (
@@ -659,7 +660,7 @@ function TVCard({ card, lang }) {
           ) : card.type === 'entry' ? (
             <div className="tv-card-art is-default">
               <img src={defaultArt({ id: card.entryId, kind: card.kind })} alt="" onError={hideOnError} />
-              <span className="tv-card-medal" aria-hidden="true">{kindIcon(card.kind)}</span>
+              <span className="tv-card-medal" aria-hidden="true"><KindIcon kind={card.kind} /></span>
             </div>
           ) : (
             <div className="tv-card-emblem" aria-hidden="true">🎭</div>
@@ -811,7 +812,7 @@ function RollHistory({ rolls, lang, spot = 'corner', max = 5, corner = '' }) {
   const shown = line ? [...rolls].reverse().slice(0, max) : rolls.slice(-max);
   return (
     <section className={`tv-roll-hist is-${spot} ${corner ? `at-${corner}` : ''}`} aria-label={t(lang, 'Últimas rolagens', 'Latest rolls')} aria-live="polite">
-      <h2 className="tv-hist-title">🎲 {t(lang, 'Últimas rolagens', 'Latest rolls')}</h2>
+      <h2 className="tv-hist-title"><LineIcon name="dice" className="tv-ico" />{t(lang, 'Últimas rolagens', 'Latest rolls')}</h2>
       <ol className="tv-hist-list">
         {shown.map((r) => {
           const { who, what, result, mark } = histParts(r, lang);
@@ -914,7 +915,7 @@ function CheckScreenPanel({ check, lang }) {
   return (
     <section className="tv-check-panel" aria-live="polite">
       <header className="tv-check-head">
-        <span className="tv-check-eyebrow">🎯 {t(lang, 'Teste', 'Check')}</span>
+        <span className="tv-check-eyebrow"><LineIcon name="target" className="tv-ico" />{t(lang, 'Teste', 'Check')}</span>
         <span className="tv-check-label">{check.label}</span>
         <span className="tv-check-sub">
           {check.dc != null && <span className="tv-check-dc">{t(lang, 'CD', 'DC')} {check.dc}</span>}

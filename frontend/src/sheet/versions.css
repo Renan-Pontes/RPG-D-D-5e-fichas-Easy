@@ -24,6 +24,11 @@
 @media (max-width: 480px) {
   .vr-actions { flex: 1 1 100%; justify-content: stretch; }
   .vr-actions .mesa-btn { flex: 1 1 0; }
+  /* uma ação só (Desatrelar, Abrir a original): ao lado do nome, do tamanho do rótulo — não
+     uma barra da largura toda (a ação que tira a ficha da mesa não é a principal da folha) */
+  .vr-main { flex: 1 1 130px; }
+  .vr-actions:has(> .mesa-btn:only-child) { flex: 0 0 auto; }
+  .vr-actions:has(> .mesa-btn:only-child) .mesa-btn { flex: none; padding-inline: 12px; }
 }
 .vr-typed { display: flex; flex-direction: column; gap: 6px; font-size: .9rem; text-transform: none; letter-spacing: 0; font-family: var(--body); color: var(--ink-secondary); }
 .vr-typed input { min-height: 44px; font-size: 16px; }

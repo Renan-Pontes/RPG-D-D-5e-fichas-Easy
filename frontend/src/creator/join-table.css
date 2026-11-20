@@ -45,6 +45,8 @@
   background: linear-gradient(180deg, var(--join-accent), color-mix(in srgb, var(--join-accent) 40%, transparent));
 }
 .join-block > .join-card { margin-top: 0; }
+/* Entrar em campanha: "Qual personagem vai para a mesa?" não encosta no campo do código */
+.camp-join form > fieldset { margin-top: var(--s-4) !important; }
 .join-card-cover {
   display: block; width: calc(100% + var(--s-4) * 2 + 4px); max-width: none; height: 110px; object-fit: cover;
   margin: calc(var(--s-4) * -1) calc(var(--s-4) * -1) var(--s-3) calc((var(--s-4) + 4px) * -1);

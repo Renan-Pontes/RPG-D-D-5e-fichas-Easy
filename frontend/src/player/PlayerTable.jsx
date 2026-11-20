@@ -28,7 +28,8 @@ import { charLine, memberStats } from '../group/group-model.js';
 import CheckRequestCard from '../checks/CheckRequestCard.jsx';
 import '../checks/checks-styles.css';
 import { worldImageUrl } from '../world/world-api.js';
-import { defaultArt, kindIcon } from '../world/world-model.js';
+import { defaultArt } from '../world/world-model.js';
+import { FrontIcon, WeatherIcon } from './PlayerIcons.jsx';
 import { absUrl, combatStrip, L, paragraphs, turnJustStarted } from './player-model.js';
 import { playerScreen } from '../stage/stage-now.js';
 import { useOnRev, usePlayerPulse } from '../play/table-store.js';
@@ -38,6 +39,7 @@ import './player-styles.css';
 const DICE = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'];
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 const signed = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0');
+const CHECK_HOLD_MS = 8000;   // o teste recém-respondido segura o painel de Testes no topo (celular)
 
 export default function PlayerTable({ campaign, lang = 'pt', onOpenWorld, onOpenSheet }) {
   const area = useArea();
@@ -58,6 +60,8 @@ export default function PlayerTable({ campaign, lang = 'pt', onOpenWorld, onOpen
   };
   // Teste aberto: no celular ele sobe para o topo da Mesa (acima da cena), para o
   // "Rolar no app" ficar à vista sem rolar. Só a ordem muda (CSS): nada remonta.
+  // Conta também o teste que a pessoa ACABOU de responder (ChecksSection segura por 8 s):
+  // antes o painel descia 360 px no instante do toque e o resultado ia parar fora da tela.
   const [openChecks, setOpenChecks] = useState(0);
 
   return (
@@ -80,7 +84,7 @@ export default function PlayerTable({ campaign, lang = 'pt', onOpenWorld, onOpen
                 : L(lang, 'A mesa', 'The table')}</span>
               {state.weather && (
                 <span className="pl-pill pl-pill-soft">
-                  <WeatherIcon />
+                  <WeatherIcon className="pl-ico" />
                   <span className="sr-only">{L(lang, 'Clima: ', 'Weather: ')}</span>{state.weather}
                 </span>
               )}
@@ -108,16 +112,6 @@ export default function PlayerTable({ campaign, lang = 'pt', onOpenWorld, onOpen
         <DiceSection campaign={campaign} lang={lang} />
       </div>
     </div>
-  );
-}
-
-/** Ícone de linha do clima (no lugar do emoji ☁). */
-function WeatherIcon() {
-  return (
-    <svg className="pl-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6"
-      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M7 18h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.1 11.1 3.5 3.5 0 0 0 7 18z" />
-    </svg>
   );
 }
 
@@ -261,7 +255,8 @@ function OnScreenNow({ now, lang, onOpen }) {
   // Cartão do Mundo sem imagem própria: a arte padrão do tipo como ambiente (esmaecida, com
   // o ícone do tipo por cima) — nunca como o retrato de alguém. Recap, cena e texto: o ícone.
   const fallbackArt = now.kind === 'card' && now.entryId != null ? defaultArt({ id: now.entryId, kind: now.entryKind }) : null;
-  const icon = now.kind === 'recap' ? '📖' : now.kind === 'scene' ? '🎭' : now.kind === 'image' ? '🖼' : now.kind === 'text' ? '📝' : kindIcon(now.entryKind);
+  // ícone de linha (recap, cena, imagem, texto ou o tipo do cartão): o mesmo traço dos títulos
+  const icon = <FrontIcon kind={now.kind} entryKind={now.entryKind} size={28} />;
   return (
     <section className={`mesa-panel pl-onscreen is-${now.kind}`} aria-label={L(lang, 'Na tela agora', 'On screen now')}>
       {title}
@@ -302,7 +297,33 @@ function ChecksSection({ campaign, char, lang, onOpenCount }) {
   useOnRev(pp?.pulse?.checksRev, load, { table: pp, fallbackMs: 3000, safetyMs: Infinity });
   const open = (checks || []).filter(c => !c.myResponse);
   const openCount = open.length;
-  useEffect(() => { onOpenCount?.(openCount); }, [openCount]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Respondido agora: o painel continua no topo (onde a pessoa está olhando) por 8 s, para
+  // o total e o "Passou / Falhou" aparecerem no lugar em que ela tocou. Depois volta para
+  // baixo da cena — nunca com o dedo na tela (espera 600 ms depois do último toque).
+  const [held, setHeld] = useState([]);
+  const holdTimers = useRef(new Map());
+  const touchedAt = useRef(0);
+  useEffect(() => {
+    const mark = () => { touchedAt.current = Date.now(); };
+    const timers = holdTimers.current;
+    document.addEventListener('pointerdown', mark, true);
+    return () => { document.removeEventListener('pointerdown', mark, true); for (const tm of timers.values()) clearTimeout(tm); timers.clear(); };
+  }, []);
+  const hold = (id) => {
+    const timers = holdTimers.current;
+    clearTimeout(timers.get(id));
+    setHeld(h => (h.includes(id) ? h : [...h, id]));
+    const release = () => {
+      const quiet = Date.now() - touchedAt.current;
+      if (quiet < 600) { timers.set(id, setTimeout(release, 600 - quiet)); return; }
+      timers.delete(id);
+      setHeld(h => h.filter(x => x !== id));
+    };
+    timers.set(id, setTimeout(release, CHECK_HOLD_MS));
+  };
+  const heldCount = (checks || []).filter(c => c.myResponse && held.includes(c.id)).length;
+  const topCount = openCount + heldCount;
+  useEffect(() => { onOpenCount?.(topCount); }, [topCount]); // eslint-disable-line react-hooks/exhaustive-deps
   const empty = !!checks && checks.length === 0;
   return (
     <section className={`mesa-panel pl-section pl-checks${openCount > 0 ? ' has-open' : ''}${empty ? ' is-empty' : ''}`}
@@ -318,7 +339,7 @@ function ChecksSection({ campaign, char, lang, onOpenCount }) {
       <div className="player-checks">
         {(checks || []).map(c => (
           <CheckRequestCard key={c.id} check={c} char={char} lang={lang}
-            onAnswered={(u) => setChecks(prev => (prev || []).map(x => (x.id === u.id ? { ...x, ...u } : x)))} />
+            onAnswered={(u) => { hold(u.id); setChecks(prev => (prev || []).map(x => (x.id === u.id ? { ...x, ...u } : x))); }} />
         ))}
       </div>
     </section>

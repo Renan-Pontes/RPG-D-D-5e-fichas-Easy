@@ -2665,6 +2665,16 @@ body:has(.wizard-footer) .dice-fab { bottom: calc(92px + env(safe-area-inset-bot
 .confirm-dialog-msg { font-size: 1rem; line-height: 1.45; }
 .confirm-dialog-actions .btn { min-height: 44px; }
 .confirm-dialog-actions .btn:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+/* O diálogo recebe o foco ao abrir (leitor de tela anuncia o título): ele não é um controle,
+   então não ganha anel; os botões dentro dele continuam com o anel dourado. */
+.modal[tabindex="-1"]:focus { outline: none; }
+/* Desktop: rótulos longos ("Continuar editando" / "Descartar alterações") quebravam em duas
+   linhas de larguras diferentes. Os dois botões dividem a largura; se não couberem lado a
+   lado, cada um ocupa a linha inteira. */
+@media (min-width: 700px) {
+  .modal.confirm-dialog { max-width: 480px; }
+  .modal.confirm-dialog .confirm-dialog-actions .btn { flex: 1 1 auto; justify-content: center; }
+}
 @media (max-width: 699px) {
   .modal-backdrop.confirm-backdrop { display: flex; align-items: flex-end; justify-content: center; padding: 0 !important; }
   .modal.confirm-dialog {
@@ -2741,6 +2751,9 @@ body:has(.wizard-footer) .dice-fab { bottom: calc(92px + env(safe-area-inset-bot
 
 }
 
+/* Tablet no toque: o avatar da conta (38 px de largura) também chega a 44 px */
+@media (pointer: coarse) and (min-width: 521px) { .app-header .user-chip { min-width: 44px; justify-content: center; } }
+
 /* Painel de dados: abas de modo e passos de Qtd./Bônus com 44 px no toque */
 @media (pointer: coarse) {
   .dice-sheet .dice-mode-btn { min-height: 44px; }
@@ -2748,3 +2761,8 @@ body:has(.wizard-footer) .dice-fab { bottom: calc(92px + env(safe-area-inset-bot
 }
 .dice-sheet-anim svg { vertical-align: -2px; }
 .shell-search-glyph { display: inline-grid; place-items: center; color: var(--gold); }
+/* Ícones de traço nos Ajustes da campanha, na busca rápida e no "O que mudou" (antes: emoji) */
+.shell-set-svg { color: var(--gold); vertical-align: -3px; }
+.shell-set-nav-row.is-danger .shell-set-svg { color: var(--blood-bright); }
+.shell-search-ico svg { color: var(--gold); vertical-align: -3px; }
+.whats-new-actions .mesa-btn svg { flex: none; }

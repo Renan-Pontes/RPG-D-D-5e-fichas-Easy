@@ -7,7 +7,7 @@ import { request } from '../api/client.js';
 import { isConflict, updateEntry, worldErrorText } from './world-api.js';
 import { EntryImage, VisibilitySeal } from './EntryCard.jsx';
 import { EntryPicker } from './LinksField.jsx';
-import { KIND_META, isTouchUi, kindLabel, reorderPatches, t, timelineEntries } from './world-model.js';
+import { KIND_META, isTouchUi, kindLabel, reorderPatches, t, timelineEntries, whenText } from './world-model.js';
 
 export default function Timeline({ campaign, entries = [], lang = 'pt', readOnly = false, onOpenEntry, onEntrySaved, onReload, onCreate }) {
   const items = useMemo(() => timelineEntries(entries), [entries]);
@@ -109,7 +109,7 @@ export default function Timeline({ campaign, entries = [], lang = 'pt', readOnly
                   onDragEnd={() => { setDrag(null); setOver(null); }}
                   onDrop={ev => { ev.preventDefault(); if (drag !== null) move(drag, i); }}>
                   <span className="wl-tl-dot" aria-hidden="true" />
-                  <div className="wl-tl-when">{e.whenLabel}</div>
+                  <div className="wl-tl-when">{whenText(e.whenLabel, lang)}</div>
                   <button type="button" className="wl-tl-card" onClick={() => onOpenEntry?.(e.id)}>
                     <span className="wl-tl-thumb"><EntryImage entry={e} className="wl-thumb-img" /></span>
                     <span className="wl-tl-text">

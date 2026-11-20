@@ -28,14 +28,14 @@
 }
 .ready-level {
   position: absolute; left: 10px; bottom: 8px; z-index: 1;
-  font-size: .72rem; letter-spacing: .08em; text-transform: uppercase;
+  font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
   padding: 2px 9px; border-radius: 999px;
   color: var(--gold-bright, var(--gold)); border: 1px solid var(--gold-deep, var(--gold));
   background: rgba(14, 11, 7, .72);
 }
 
 .ready-body { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px 12px; min-width: 0; }
-.ready-theme { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
+.ready-theme { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
 .ready-name { font-family: var(--display); font-size: 1.12rem; color: var(--gold-bright, var(--gold)); line-height: 1.2; }
 .ready-tagline { color: var(--ink-secondary); font-size: .9rem; font-style: italic; }
 .ready-pitch {
@@ -45,7 +45,7 @@
 .ready-pitch.is-open { -webkit-line-clamp: unset; display: block; }
 .ready-card.is-pick .ready-pitch { display: none; }
 .ready-card.is-pick.active .ready-pitch { display: block; }
-.ready-meta { font-size: .78rem; color: var(--ink-muted); margin-top: 2px; }
+.ready-meta { font-size: .8rem; color: var(--ink-muted); margin-top: 2px; }
 
 .ready-actions {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
@@ -66,7 +66,11 @@
   .camp-wizard .ready-grid { grid-template-columns: 1fr; }
   .camp-wizard .ready-card.is-pick { flex-direction: row; }
   .camp-wizard .ready-card.is-pick .ready-art { width: 38%; flex: 0 0 38%; aspect-ratio: auto; min-height: 110px; }
-  .camp-wizard .ready-card.is-pick .ready-level { left: 6px; bottom: 6px; font-size: .72rem; padding: 1px 6px; }
+  .camp-wizard .ready-card.is-pick .ready-level { left: 6px; bottom: 6px; font-size: 12px; padding: 1px 6px; }
+  /* A escolhida abre a descrição e cresce: em linha, a arte esticava junto e virava uma tira
+     de 135 × 440 (um ombro e um pedaço de céu). Escolhida, a arte volta para cima, inteira. */
+  .camp-wizard .ready-card.is-pick.active { flex-direction: column; }
+  .camp-wizard .ready-card.is-pick.active .ready-art { width: 100%; flex: none; aspect-ratio: 16 / 9; min-height: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

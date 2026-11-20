@@ -153,7 +153,7 @@
 @media (hover: hover) {
   :is(.shell-actions, .shell-tv-wrap) > .mesa-btn:not(.is-primary):not(:disabled):hover { background: rgba(40, 30, 18, 0.9); }
 }
-.shell-start { box-shadow: 0 0 0 1px var(--camp-accent), 0 6px 18px rgba(0, 0, 0, 0.4); }
+.shell-start.is-primary { box-shadow: 0 0 0 1px var(--camp-accent), 0 6px 18px rgba(0, 0, 0, 0.4); }
 
 /* 📺 Tela da capa (PC): abre a janela da Tela (V4). O TvPanel é o da folha "Mais". */
 .shell-tv-wrap { position: relative; }
@@ -220,10 +220,21 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   box-shadow: inset 0 -2px 0 var(--camp-accent);
 }
 .shell-area-ico { font-size: 1.1rem; }
-.shell-area-key {
-  font-family: var(--mono); font-size: 0.68rem; color: var(--ink-faint);
-  border: 1px solid var(--stroke-faint); border-radius: 3px; padding: 0 4px; margin-left: 2px;
+/* O número do atalho (teclas 1–4) parecia um contador ("Mundo 1" com 3 cartões, "Grupo 4" com 1
+   jogador) e aparecia até no tablet, sem teclado. Agora é uma tecla desenhada que só aparece
+   num PC com mouse, quando as abas estão sob o cursor ou com o foco do teclado; o atalho
+   continua no title de cada aba e no Guia do mestre. */
+.shell-area-key { display: none; }
+@media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
+  .shell-area-key {
+    display: inline-block; opacity: 0; transition: opacity 0.15s;
+    font-family: var(--mono); font-size: 0.68rem; line-height: 1.4; color: var(--ink-muted);
+    border: 1px solid var(--stroke); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; margin-left: 2px;
+    background: rgba(10, 7, 6, 0.5);
+  }
+  .shell-areas:is(:hover, :focus-within) .shell-area-key { opacity: 1; }
 }
+@media (prefers-reduced-motion: reduce) { .shell-area-key { transition: none; } }
 .shell-badge {
   display: inline-grid; place-items: center;
   min-width: 18px; height: 18px; padding: 0 5px;
@@ -979,6 +990,19 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 }
 /* Entrar com código: a lista de fichas não rola sozinha (um só corpo rolável) */
 .camp-join .join-chars { max-height: none; overflow: visible; }
+/* o rádio no couro: a bolinha branca do navegador vira um aro dourado com o miolo de ouro */
+.camp-join .join-char input[type="radio"] {
+  -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid var(--gold-deep); background: rgba(10, 7, 6, 0.6); display: inline-grid; place-content: center; cursor: pointer;
+}
+.camp-join .join-char input[type="radio"]::before {
+  content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--gold-bright); transform: scale(0);
+}
+.camp-join .join-char input[type="radio"]:checked { border-color: var(--gold-bright); }
+.camp-join .join-char input[type="radio"]:checked::before { transform: scale(1); }
+.camp-join .join-char input[type="radio"]:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.camp-join .join-char input[type="radio"]:disabled { cursor: not-allowed; }
+@media (forced-colors: active) { .camp-join .join-char input[type="radio"] { appearance: auto; -webkit-appearance: radio; } }
 .camp-join-actions { display: flex; flex-direction: column; gap: 8px; }
 .camp-join-actions > .auth-error { margin: 0; }
 /* cartão da mesa dentro das folhas de entrada: rótulos de 12 px no mínimo */
@@ -1040,4 +1064,10 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
    Ela já está inteira no cartão "Cena agora" e na folha "Mais": aqui some abaixo de 480 px. */
 @media (max-width: 479px) {
   .shell-header.is-dm .shell-meta .shell-scene { display: none; }
+}
+
+/* "Primeiros passos" aberto no PC: os 5 passos numa linha só (antes 4 + 1 órfão numa 2ª linha) */
+@media (min-width: 1100px) {
+  .shell-ob-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .shell-ob-item { align-content: flex-start; }
 }

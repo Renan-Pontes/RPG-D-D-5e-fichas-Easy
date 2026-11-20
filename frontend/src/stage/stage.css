@@ -18,11 +18,8 @@
   color: var(--ink-secondary); font-size: 15px; line-height: 1.3; cursor: pointer;
 }
 .sot-keep-box input { flex: none; width: 22px; height: 22px; margin: 0; accent-color: var(--gold); }
-@media (min-width: 768px) {
-  .sot-foot { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; }
-  .sot-foot .mesa-btn { width: auto; }
-  .sot-keep-box { flex: 1 0 100%; }
-}
+/* PC: a folha é estreita (w-sm) e 3 botões numa fila quebravam em escada (um sozinho na 1ª
+   linha, dois na 2ª). Empilhados na largura toda, como no celular. */
 
 /* ---------- resumo 16:9 desenhado pelo app ---------- */
 .stage-thumb {
@@ -485,7 +482,7 @@
   .screen-win.is-docked .screen-win-tools { justify-content: flex-start; gap: 8px; padding-top: 2px; }
   /* o fim da página sobe além da janela (nada fica preso embaixo dela) */
   /* E2.5e: a folga mede a janela (resumo, ao vivo ou a pílula recolhida; --screen-win-h) */
-  body:has(.screen-win:is(.is-float, .is-pill)) main.container:has(> .campaign-detail.shell) { padding-bottom: calc(var(--screen-win-h, 300px) + 48px); }
+  body:has(.screen-win:is(.is-float, .is-pill:not(.is-row))) main.container:has(> .campaign-detail.shell) { padding-bottom: calc(var(--screen-win-h, 300px) + 48px); }
   .screen-win.is-docked { position: relative; width: 100%; margin: 0 0 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
   .screen-win-head { display: flex; justify-content: space-between; gap: 8px; margin: 0; padding: 8px 10px 6px; }
   .screen-win.is-docked .screen-win-tools .mesa-btn { min-height: 44px; }
@@ -512,7 +509,7 @@
   /* o 🎲 flutuante fica à esquerda da janela (não embaixo dela) */
   body:has(.screen-win.is-float.is-right) .dice-fab { right: calc(24px + 320px + 16px); }
   body:has(.screen-win.is-float.is-right.is-live) .dice-fab { right: calc(24px + 480px + 16px); }
-  body:has(.screen-win.is-pill.is-right) .dice-fab { bottom: calc(24px + 44px + 12px); }
+  body:has(.screen-win.is-pill.is-right:not(.is-row)) .dice-fab { bottom: calc(24px + 44px + 12px); }
 }
 .live-tv-dot { color: var(--ink-muted); }
 .live-tv-dot.is-on { color: #7fc48a; }
@@ -576,3 +573,55 @@
   }
   .screen-win-strip-next.mesa-btn { flex: none; min-height: 40px; padding: 4px 14px; border-radius: 999px; white-space: nowrap; }
 }
+
+/* ---------- a janela recolhida NO FLUXO (.is-row): uma linha logo abaixo das abas das áreas ----------
+   Flutuando no canto ela cobria botões da página (o "Próximo passo" do Plano, os filtros do
+   Mundo, o código de convite). Agora é uma linha da própria página: nada fica por baixo dela em
+   repouso. Com o combate andando fora de Jogar (.is-strip) ela prende abaixo das abas, como a
+   faixa do turno de Jogar, e o que prende no mesmo lugar (a barra do Atlas, o trilho do Raio-X)
+   desce a altura dela (--areas-stick). */
+.shell-winslot { display: none; }
+@media (min-width: 768px) {
+  .shell-winslot:has(> .screen-win) { display: flex; justify-content: flex-end; margin: -8px 0 12px; }
+  .shell-winslot:has(> .is-strip) { position: sticky; top: 64px; z-index: 26; }
+  .campaign-detail.shell:has(> .shell-winslot > .is-strip) { --areas-stick: 116px; }
+  .screen-win.is-pill.is-row {
+    position: static; max-width: min(100%, 420px); min-height: 40px; padding: 0 12px 0 14px; border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); font-size: 14px;
+  }
+  .screen-win.is-pill.is-row:hover { filter: brightness(1.12); }
+  .screen-win.is-pill.is-strip.is-row {
+    display: flex; width: 100%; max-width: none; min-height: 48px; padding: 4px 4px 4px 0; gap: 8px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  }
+  .is-row .screen-win-strip-open {
+    flex: 1 1 auto; justify-content: space-between; gap: 12px; min-height: 40px; padding: 0 10px 0 14px; border-radius: 6px;
+    font-family: var(--display); font-size: 0.95rem; letter-spacing: 0.02em; text-align: left;
+  }
+  .is-row .screen-win-strip-open:hover { background: var(--gold-soft); }
+  .screen-win-pill-tv {
+    flex: none; display: inline-flex; align-items: center; gap: 6px; color: var(--ink-secondary);
+    font-family: var(--body); font-size: 14px; letter-spacing: 0;
+  }
+  .screen-win-pill-tv > .mesa-ico { color: var(--gold); }
+  .is-row .screen-win-strip-next.mesa-btn { min-height: 40px; min-width: 11em; border-radius: 6px; justify-content: center; }
+}
+/* PC (≥ 1024): sem combate a pílula "Tela · X" não precisa de uma linha só para ela — mora na
+   MESMA linha das subvistas, à direita, onde sempre sobra espaço (as subvistas têm no máximo
+   ~570 px numa página de 960+). Só quando a área começa pelo segmentado das subvistas. */
+@media (min-width: 1024px) {
+  .campaign-detail.shell:has(#shell-panel > * > .shell-seg-tabs:first-child) > .shell-winslot:has(> .is-row:not(.is-strip)) {
+    position: relative; height: 0; margin: 0; z-index: 3;
+  }
+  .campaign-detail.shell:has(#shell-panel > * > .shell-seg-tabs:first-child) > .shell-winslot > .is-row:not(.is-strip) {
+    position: absolute; right: 0; top: 4px; max-width: min(40%, 420px);
+  }
+}
+@media (min-width: 768px) and (pointer: coarse) {
+  .screen-win.is-pill.is-row { min-height: 44px; }
+  .is-row .screen-win-strip-open, .is-row .screen-win-strip-next.mesa-btn { min-height: 44px; }
+}
+
+/* ícones de linha (no lugar dos emoji) nas abas do Mostrar e nas regras de rolagem */
+.stage-tab-ico, .stage-rule-ico { color: var(--gold); }
+.stage-tab-ico > .mesa-ico, .stage-rule-ico > .mesa-ico { vertical-align: -0.18em; }

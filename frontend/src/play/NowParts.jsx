@@ -8,6 +8,7 @@
 //               Esc desfaz, "✓" por 1,5 s, o polling não atropela, 120 caracteres)
 //   CombatStrip a faixa do combate (fora da casca; na casca, só o "montado e parado")
 //   PlanClues   Pistas (recolhível e lembrada) + À mão na sessão toda + Anotações do plano
+import { mesaGlyph } from '../shell/MesaIcon.jsx';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Utils from '../../utils.js';
 import { tName } from '../../data/i18n.js';
@@ -60,9 +61,9 @@ export function PartyCard({ p, campaign, lang, onSaveState, onToggleInspiration,
   const stats = member ? memberStats(member) : null;
   const log = editLogEntries(d);
   const menu = [
-    onEdit && { id: 'edit', label: `🛠 ${L(lang, 'Editar ficha', 'Edit sheet')}`, onSelect: onEdit },
-    onGive && !closed && { id: 'give', label: `🎁 ${L(lang, 'Dar item', 'Give item')}`, onSelect: onGive },
-    onLog && log.length > 0 && { id: 'log', label: `📜 ${L(lang, 'Registro', 'Edit log')} (${log.length})`, onSelect: onLog },
+    onEdit && { id: 'edit', label: L(lang, 'Editar ficha', 'Edit sheet'), onSelect: onEdit },
+    onGive && !closed && { id: 'give', label: L(lang, 'Dar item', 'Give item'), onSelect: onGive },
+    onLog && log.length > 0 && { id: 'log', label: `${L(lang, 'Registro', 'Edit log')} (${log.length})`, onSelect: onLog },
     onRaioX && { id: 'xray', label: `✦ ${L(lang, 'Ver no Raio-X', 'See in the X-ray')}`, onSelect: onRaioX },
   ].filter(Boolean);
 
@@ -353,7 +354,7 @@ export function ToolsSheet({ lang, onClose, onPick, wizardOn, onWizard, busy, pa
         {rows.map(([id, icon, label, sub]) => (
           <button key={id} type="button" className="mesa-row now-tool" onClick={() => onPick(id)}
             disabled={closed && id !== 'grimoire' && id !== 'recap' || (busy && (id === 'short' || id === 'long')) || (!partyCount && (id === 'short' || id === 'long'))}>
-            <span className="now-tool-ico" aria-hidden="true">{icon}</span>
+            <span className="now-tool-ico" aria-hidden="true">{mesaGlyph(icon)}</span>
             <span className="mesa-row-main"><span className="mesa-row-title">{label}</span><span className="mesa-row-sub">{sub}</span></span>
           </button>
         ))}

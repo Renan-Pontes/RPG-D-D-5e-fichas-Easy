@@ -780,6 +780,7 @@ export default function NextSession({ campaign, lang, goTo }) {
       </div>
 
       <ReadyToPlay plan={plan} lang={lang} party={party} heading={heading} closed={closed} compact={!desk && !!shownOpen} withImage={withImage}
+        primary={!step /* com o "O que fazer agora" na tela, o dourado é o dele */}
         recap={recap} recapOf={recapOf} moments={insights?.chars || null}
         onRecap={() => setSheet({ kind: 'recap' })} onStep={(id) => openStep(id)}
         tv={!!(campaign.onboarding?.tv || table?.tvLive)} busy={busy === 'startSession'}
@@ -990,7 +991,7 @@ function PartyStep({ party, lang, raiox, insights, rx, onInvite, onRemind, onMom
     return (
       <div className="ns-empty">
         <p>{t(lang, 'Ninguém entrou na mesa ainda. Mande o link de convite: cada um entra e escolhe a ficha.', 'Nobody has joined yet. Send the invite link: each one joins and picks a sheet.')}</p>
-        <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={onInvite}>🔗 {t(lang, 'Copiar link de convite', 'Copy invite link')}</button>
+        <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={onInvite}>{t(lang, 'Copiar link de convite', 'Copy invite link')}</button>
       </div>
     );
   }
@@ -1112,7 +1113,7 @@ function ScenesStep({
       </ol>
       {!closed && (
         <div className="ns-scene-acts">
-          <button type="button" className="mesa-btn mesa-btn-lg is-primary ns-add" disabled={list.length >= PLAN_LIMITS.scenes} onClick={onAdd}>＋ {t(lang, 'Cena', 'Scene')}</button>
+          <button type="button" className="mesa-btn mesa-btn-lg ns-add" disabled={list.length >= PLAN_LIMITS.scenes} onClick={onAdd}>＋ {t(lang, 'Cena', 'Scene')}</button>
           {list.length > 1 && (
             <button type="button" className="mesa-btn mesa-btn-lg" aria-pressed={reorder} onClick={() => setReorder(!reorder)}>
               {reorder ? t(lang, '✓ Pronto', '✓ Done') : t(lang, '⇅ Mudar a ordem', '⇅ Reorder')}
@@ -1202,7 +1203,7 @@ function CluesStep({ plan, lang, closed, clues, world, asks, logDiary, setLogDia
  * passo aberto no celular (`compact`), só a conta e os botões: a lista volta ao fechar o passo.
  */
 const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, compact = false, withImage = null, recap = null, recapOf = 0, moments = null, onCopyTv, onStart, onRehearse, onRecap, onStep }) {
+function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, compact = false, primary = true, withImage = null, recap = null, recapOf = 0, moments = null, onCopyTv, onStart, onRehearse, onRecap, onStep }) {
   const rows = readyChecklist(plan, { party, tv, lang, withImage, recap, session: recapOf, moments });
   // o que falta tem o atalho de quem resolve (as mesmas regras do "O que fazer agora")
   const fix = {
@@ -1230,8 +1231,8 @@ function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, compact = f
         <div className="ns-ready-acts">
           {onRehearse && !heading.live && <button type="button" className="mesa-btn mesa-btn-lg" onClick={onRehearse}>▶ {t(lang, 'Ensaiar', 'Rehearse')}</button>}
           {heading.live
-            ? onRehearse && <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={onRehearse}>{t(lang, 'Ir para Jogar › Agora', 'Go to Play › Now')} →</button>
-            : <button type="button" className="mesa-btn mesa-btn-lg is-primary" disabled={busy} onClick={onStart}>{busy ? '…' : t(lang, `▶ Começar a Sessão ${heading.next}`, `▶ Start session ${heading.next}`)}</button>}
+            ? onRehearse && <button type="button" className={`mesa-btn mesa-btn-lg ${primary ? 'is-primary' : ''}`.trim()} onClick={onRehearse}>{t(lang, 'Ir para Jogar › Agora', 'Go to Play › Now')} →</button>
+            : <button type="button" className={`mesa-btn mesa-btn-lg ${primary ? 'is-primary' : ''}`.trim()} disabled={busy} onClick={onStart}>{busy ? '…' : t(lang, `▶ Começar a Sessão ${heading.next}`, `▶ Start session ${heading.next}`)}</button>}
         </div>
       )}
       {!heading.live && !closed && onRehearse && !compact && (
