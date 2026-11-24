@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "BASH_MAX_OUTPUT_LENGTH": "20000",
+    "MAX_MCP_OUTPUT_TOKENS": "15000"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm test:*)",
+      "Bash(npm run build:*)",
+      "Bash(node --test:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ],
+    "deny": [
+      "Read(./frontend/public/rules/**)",
+      "Read(./frontend/data/*.json)",
+      "Read(./frontend/data/srd.js)",
+      "Read(./frontend/data/magic-items-srd.js)",
+      "Read(./frontend/data/monsters-srd521.js)",
+      "Read(./frontend/data/spells-extra.js)",
+      "Read(./frontend/data/expanded-*.js)",
+      "Read(./frontend/src/art-*.json)",
+      "Read(./backend/api/progression/catalog.json)",
+      "Read(./backend/db.sqlite3)",
+      "Read(./frontend/package-lock.json)",
+      "Read(./bun.lock)",
+      "Read(**/dist/**)",
+      "Read(**/node_modules/**)"
+    ]
+  }
+}
