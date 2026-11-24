@@ -98,13 +98,8 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone, 
     const memberships = seatsOf(table);
     const emptySeat = memberships.find(m => m.characterId == null && m.role !== 'dm');
     if (emptySeat) return api.updateMembership(table.id, emptySeat.id, { characterId: char.id });
-    let inviteCode = table.inviteCode || table.invite_code || '';
-    if (!inviteCode && table.id) {
-      try {
-        const detail = await api.getCampaign(table.id);
-        inviteCode = detail?.campaign?.inviteCode || detail?.campaign?.invite_code || '';
-      } catch { /* sem o convite: tenta só pelo id */ }
-    }
+    // só o mestre recebe o código (backend v1.0.136); membro entra pelo id da campanha
+    const inviteCode = table.inviteCode || table.invite_code || '';
     // a pessoa já tem outra ficha nesta mesa (ou é o mestre): entra com mais uma vaga
     const res = await api.joinCampaign({ inviteCode, campaignId: table.id, characterId: char.id });
     return res;

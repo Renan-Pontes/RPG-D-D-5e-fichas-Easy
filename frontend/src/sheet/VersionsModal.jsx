@@ -98,10 +98,8 @@ export default function VersionsModal({ char, lang = 'pt', onClose, onSave, onDo
     const seats = camp.myMemberships || (camp.myMembership ? [camp.myMembership] : []);
     const free = seats.find(m => m.characterId == null && m.role !== 'dm');
     if (free) return api.updateMembership(camp.id, free.id, { characterId: live.id });
-    let inviteCode = camp.inviteCode || camp.invite_code || '';
-    if (!inviteCode) {
-      try { const d = await api.getCampaign(camp.id); inviteCode = d?.campaign?.inviteCode || d?.campaign?.invite_code || ''; } catch { /* sem convite: tenta só pelo id */ }
-    }
+    // só o mestre recebe o código; membro entra pelo id da campanha
+    const inviteCode = camp.inviteCode || camp.invite_code || '';
     return api.joinCampaign({ inviteCode, campaignId: camp.id, characterId: live.id });
   };
 

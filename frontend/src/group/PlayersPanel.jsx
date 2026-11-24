@@ -76,13 +76,8 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
   }, t(lang, 'Personagem da mesa atualizado.', 'Table character updated.'));
 
   const addCharacter = (charId, isNpc = false) => run(async () => {
-    let inviteCode = campaign.inviteCode || campaign.invite_code || '';
-    if (!inviteCode && campaign.id) {
-      try {
-        const detail = await api.getCampaign(campaign.id);
-        inviteCode = detail?.campaign?.inviteCode || detail?.campaign?.invite_code || '';
-      } catch { /* ignore */ }
-    }
+    // o mestre já tem o código no detalhe; sem ele, a entrada vai pelo id da campanha
+    const inviteCode = campaign.inviteCode || campaign.invite_code || '';
     await api.joinCampaign({
       inviteCode,
       campaignId: campaign.id,
