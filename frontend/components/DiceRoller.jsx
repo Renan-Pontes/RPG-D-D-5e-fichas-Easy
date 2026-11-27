@@ -51,6 +51,7 @@ import {
   getAnimPref, setAnimPref, loadHistory, saveHistory, loadRecentFormulas, saveRecentFormulas,
 } from '../src/dice/dice-prefs.js';
 import { setupGlobalDiceClickListener } from '../src/dice/dice-text.jsx';
+import { triggerHaptic } from '../src/utils/wake-lock.js';
 import '../src/dice/dice-styles.css';
 
 const DICE = [4, 6, 8, 10, 12, 20, 100];
@@ -249,12 +250,12 @@ const DiceRoller = ({ lang }) => {
     setLog(prev => [full, ...prev].slice(0, 30));
     if (!animated) {
       // Sem animação o resultado aparece na hora: o tremor do crítico vem junto.
-      if (navigator.vibrate) navigator.vibrate(full.isCrit ? [60, 40, 100] : 30);
+      triggerHaptic(full.isCrit ? 'nat20' : full.isFumble ? 'nat1' : 'tap');
       setOverlay(null);
       setPop(full);
     } else {
       // Com o dado rolando, o tremor do crítico espera ele parar (onSettled do overlay).
-      if (navigator.vibrate) navigator.vibrate(30);
+      triggerHaptic('tap');
       setPop(null);
       setOverlay({ ...full, settled: false, openedAt: Date.now() });
     }

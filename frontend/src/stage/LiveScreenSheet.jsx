@@ -14,109 +14,22 @@
 // Nenhum polling próprio (o palco vem do GET da campanha e da resposta de cada
 // toque; o resto, da loja da mesa). Só o iframe pede à TV, ~30 pedidos/min,
 // enquanto a folha está aberta.
-import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import { screenLink } from '../shell/shell-logic.js';
 import { copyText } from '../group/InviteCard.jsx';
-import { flash } from '../play/flash.js';
 import { useTable } from '../play/table-store.js';
 import useStage from './useStage.js';
 import { L, ruleText, stageLines, stageNow, undoLabel } from './stage-now.js';
-import { sendToStage, showCheckOnStage, stageBack, stageBg, stageClear, stageDark, stageUndo } from './stage-api.js';
-import { BAR_PREFS, afterLine, offlineLine, seenSuffix, tvLine, tvState, turnLine } from './table-bar-model.js';
+import { sendToStage, showCheckOnStage, stageBack, stageBg, stageClear, stageDark, stageOp, stageUndo } from './stage-api.js';
+import { afterLine, offlineLine, seenSuffix, tvLine, tvState, turnLine } from './table-bar-model.js';
 import { openDice } from './TableBar.jsx';
+import { LiveTv, BarPrefs, LIVE_IDLE_MS } from './LiveScreenParts.jsx';
+import SoundscapeBar from './SoundscapeBar.jsx';
 import './stage.css';
 
+export { LiveTv, BarPrefs, LIVE_IDLE_MS };
 const ShowSheet = lazy(() => import('./ShowSheet.jsx'));
-export const LIVE_IDLE_MS = 3 * 60_000;
-
-/**
- * A TV de verdade num iframe (a TV desenha em 1280×720; a caixa reduz na
- * proporção). Desmonta sozinha depois de 3 min sem toque ("Pausado · toque para
- * ver ao vivo") e enquanto a aba está escondida — sem carga à toa; quando a aba
- * volta, o espelho volta sozinho (onda 3, E2.5d: a janela do PC lembra o "Ao vivo").
- */
-export function LiveTv({ token, lang = 'pt', className = '' }) {
-  const [paused, setPaused] = useState(false);   // false · 'idle' (3 min parado) · 'hidden' (aba escondida)
-  const timer = useRef(null);
-  const box = useRef(null);
-  useEffect(() => {
-    if (paused !== 'hidden') return undefined;
-    const onVis = () => { if (!document.hidden) setPaused(false); };
-    document.addEventListener('visibilitychange', onVis);
-    return () => document.removeEventListener('visibilitychange', onVis);
-  }, [paused]);
-  useEffect(() => {
-    if (paused) return undefined;
-    if (typeof document !== 'undefined' && document.hidden) { setPaused('hidden'); return undefined; }
-    const arm = () => { clearTimeout(timer.current); timer.current = setTimeout(() => setPaused('idle'), LIVE_IDLE_MS); };
-    arm();
-    const onVis = () => { if (document.hidden) setPaused('hidden'); };
-    window.addEventListener('pointerdown', arm, { passive: true });
-    window.addEventListener('keydown', arm);
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      clearTimeout(timer.current);
-      window.removeEventListener('pointerdown', arm);
-      window.removeEventListener('keydown', arm);
-      document.removeEventListener('visibilitychange', onVis);
-    };
-  }, [paused]);
-  useEffect(() => {
-    const el = box.current;
-    if (!el || typeof ResizeObserver === 'undefined') return undefined;
-    const fit = () => el.style.setProperty('--stage-live-k', String(el.clientWidth / 1280));
-    fit();
-    const ro = new ResizeObserver(fit);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [paused]);
-  if (!token) return null;
-  if (paused) {
-    return (
-      <button type="button" className={`stage-live is-paused ${className}`.trim()} onClick={() => setPaused(false)}>
-        <span>⏸ {L(lang, 'Pausado · toque para ver ao vivo', 'Paused · tap to watch live')}</span>
-      </button>
-    );
-  }
-  return (
-    <div className={`stage-live ${className}`.trim()} ref={box}>
-      <iframe className="stage-live-frame" src={`/tv/${token}?preview=1`} title={L(lang, 'Tela ao vivo', 'Live screen')}
-        tabIndex={-1} aria-hidden="true" />
-    </div>
-  );
-}
-
-/** Barra da mesa: Sempre · Só ao vivo · Nunca (e o "Esconder até a próxima sessão"). */
-export function BarPrefs({ prefs, onPrefs, session, lang = 'pt', desk = false }) {
-  const labels = { always: L(lang, 'Sempre', 'Always'), live: L(lang, 'Só ao vivo', 'Only when live'), never: L(lang, 'Nunca', 'Never') };
-  const hidden = desk ? prefs.winSession != null && String(prefs.winSession) === String(session ?? '')
-    : prefs.hideSession != null && String(prefs.hideSession) === String(session ?? '');
-  const key = desk ? 'winSession' : 'hideSession';
-  const hid = useId();
-  return (
-    <div className="live-prefs">
-      <p className="mesa-eyebrow" id={hid}>{desk ? L(lang, 'Janela da Tela', 'Screen window') : L(lang, 'Barra da mesa', 'Table bar')}</p>
-      <div className="mesa-seg live-prefs-seg" role="radiogroup" aria-labelledby={hid}>
-        {BAR_PREFS.map(p => (
-          <button key={p} type="button" role="radio" aria-checked={prefs.pref === p}
-            className={`mesa-seg-btn ${prefs.pref === p ? 'active' : ''}`} onClick={() => onPrefs({ ...prefs, pref: p })}>
-            {labels[p]}
-          </button>
-        ))}
-      </div>
-      <p className="mesa-hint">{L(lang,
-        '“Só ao vivo”: aparece com a sessão ao vivo, com combate ou com uma TV conectada. Em combate, dentro de Jogar, aparece sempre.',
-        '“Only when live”: shows with a live session, a combat or a connected TV. In combat, inside Play, it always shows.')}</p>
-      <button type="button" className="mesa-btn live-hide" aria-pressed={hidden}
-        onClick={() => onPrefs({ ...prefs, [key]: hidden ? null : String(session ?? '') })}>
-        {hidden ? L(lang, 'Mostrar de novo', 'Show it again')
-          : desk ? L(lang, 'Esconder a janela até a próxima sessão', 'Hide the window until next session')
-            : L(lang, 'Esconder a barra até a próxima sessão', 'Hide the bar until next session')}
-      </button>
-    </div>
-  );
-}
 
 export default function LiveScreenSheet({ campaign, lang = 'pt', onClose, onFullControl, onActor, onTvLink, desk = false }) {
   const table = useTable();
@@ -252,6 +165,14 @@ export default function LiveScreenSheet({ campaign, lang = 'pt', onClose, onFull
       <button type="button" className="mesa-btn is-quiet live-full" onClick={onFullControl}>
         {L(lang, 'Abrir o controle completo → Jogar › Tela', 'Open full control → Play › Screen')}
       </button>
+      <SoundscapeBar
+        lang={lang}
+        initial={stage?.audio}
+        compact
+        onStageAudio={(audio) => {
+          if (!closed) stageOp(cid, { op: 'prefs', prefs: { ...(stage?.prefs || {}), audio } }).catch(() => {});
+        }}
+      />
       {table?.prefs && <BarPrefs prefs={table.prefs} onPrefs={table.setPrefs} session={session} lang={lang} desk={desk} />}
 
       {show && (

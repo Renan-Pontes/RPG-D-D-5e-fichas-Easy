@@ -1138,7 +1138,8 @@ textarea:focus-visible {
     -webkit-overflow-scrolling: touch;
     white-space: nowrap;
   }
-  .tab { padding: 8px 12px; font-size: 0.9rem; }
+  .tab { min-height: 44px; padding: 10px 14px; font-size: 0.9rem; display: inline-flex; align-items: center; }
+  .camp-char-Inspect { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
   .auth-card { padding: 24px 16px; }
   .modal { max-width: 95vw; }
   .dice-log-row {
@@ -1157,8 +1158,8 @@ textarea:focus-visible {
   padding-inline: 12px;
 }
 .cr-progress-step {
-  display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1 0 auto; min-width: 54px;
-  background: none; border: none; padding: 2px; color: var(--ink-muted); cursor: pointer; font: inherit;
+  display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1 0 auto; min-width: 54px; min-height: 44px; justify-content: center;
+  background: none; border: none; padding: 4px 6px; color: var(--ink-muted); cursor: pointer; font: inherit;
 }
 .cr-progress-step:disabled { cursor: not-allowed; opacity: 0.45; }
 .cr-progress-step.pending .cr-progress-dot { border-color: var(--amber, #c98a2b); color: var(--amber, #c98a2b); font-weight: 700; }

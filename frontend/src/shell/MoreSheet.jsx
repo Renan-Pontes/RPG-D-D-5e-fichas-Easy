@@ -14,7 +14,7 @@ import MesaSheet from './MesaSheet.jsx';
 import MesaTitle from './MesaTitle.jsx';
 import MesaIcon from './MesaIcon.jsx';
 import { TvPanel } from './CampaignHeader.jsx';
-import { BarPrefs } from '../stage/LiveScreenSheet.jsx';
+import { BarPrefs } from '../stage/LiveScreenParts.jsx';
 import { nextSessionNumber, SETTINGS_SECTIONS, settingsSectionLabel, settingsSummary, t } from './shell-logic.js';
 import { immersionOn } from '../world/living/living-logic.js';
 

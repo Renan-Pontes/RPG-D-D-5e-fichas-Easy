@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readModular } from './_sheet-source.js';
 import SRD from '../data/srd.js';
 const j = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const S24 = j('../data/srd2024-spells.json');
@@ -64,6 +65,6 @@ test('magia sem texto livre: link de busca da D&D Beyond pelo nome em inglês', 
   const body = src.match(/export const ddbSpellUrl = (\(nameEn\) => `[^`]+`);/)[1];
   const ddbSpellUrl = eval(body);
   assert.equal(ddbSpellUrl("Tasha's Hideous Laughter"), "https://www.dndbeyond.com/spells?filter-search=Tasha's%20Hideous%20Laughter");
-  const tabs = readFileSync(new URL('../components/SheetTabs.jsx', import.meta.url), 'utf8');
+  const tabs = readModular('../components/SheetTabs.jsx');
   assert.match(tabs, /ddbSpellUrl\(tName\('spellName', sp\.id, 'en'\)\)/);
 });

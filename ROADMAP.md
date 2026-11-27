@@ -1,9 +1,9 @@
 # Forja de Heróis — Master Engineering & Product Roadmap
 
-> **Current Engine State:** `v1.0.141` on `main` (2026-11-27)  
-> **Frontend Test Baseline:** 100% Green across 157 test files (~1,700 assertions)  
-> **Backend Test Baseline:** 100% Green across 57 test modules on `main` (Epic 1 `C1`–`C9` resolved in `v1.0.136`)  
-> **Build Status:** Vite v6.4.3 Production Build Clean (0 errors, 683+ modules)  
+> **Current Engine State:** `v1.0.143` on `main` (2026-11-27)  
+> **Frontend Test Baseline:** 100% Green across 158 test files (`1,748` assertions)  
+> **Backend Test Baseline:** 100% Green (`1,009` test cases on `main`, Epic 1 `C1`–`C9` resolved in `v1.0.136`)  
+> **Build Status:** Vite v6.4.6 Production Build Clean (`734` modules, `app` entry `104.7 KiB` / `107.23 kB` gzip `<= 250 kB`, Workbox PWA `145` precache entries)  
 > **Master Specifications:** [`docs/frontend-backend-split-and-oss-blueprint.md`](docs/frontend-backend-split-and-oss-blueprint.md) · [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) · [`docs/sync-spec.md`](docs/sync-spec.md) · [`docs/sync-contracts.md`](docs/sync-contracts.md) · [`docs/character-versions.md`](docs/character-versions.md) · [`docs/ux-audit-table-speed.md`](docs/ux-audit-table-speed.md) · [`PLANO-MESA-E-METRICAS.md`](PLANO-MESA-E-METRICAS.md) · [`SPEC_BELT_HIVE_STATS_HANDOFF.md`](SPEC_BELT_HIVE_STATS_HANDOFF.md) · [`TECH_DEBT.md`](TECH_DEBT.md) · [`ADR.md`](ADR.md)
 
 ---
@@ -59,11 +59,11 @@
 - [x] **Keyboard Accessibility & Visual Parity:** Arrow navigation, Enter/Space roll triggers, and responsive scaling down to 320px viewports.
 - [ ] **Server Persistence & Table-Roll Broadcast (`sync-spec` D2.1–D2.5, Epic 3):** Move `fh-belt:<id>` from `localStorage` into `Character.data.beltConfig` / `CharacterVersion.data.beltConfig` and post paired/multiattack rolls to `POST /api/characters/:pk/table-roll`.
 
-### Track 1.2: Bundle Chunking & Performance Optimization (`AUDIT.md` P1, Epic 6)
-- [ ] **Dynamic SRD & Vendor Splitting (`Task 6.1`):** Configure `manualChunks` in `frontend/vite.config.js` (`srd-core`, `srd-spells`, `srd-bestiary`, `vendor-three`, `vendor-pdf`) to reduce initial entry chunk from `1,843 kB` (`528 kB` gzip) to `< 300 kB` gzip.
-- [ ] **Species & Stage Import Unification (`Task 6.1`):** Resolve static/dynamic import collisions in `frontend/src/progression/SpeciesChoices.jsx` and `frontend/src/stage/LiveScreenSheet.jsx`.
-- [ ] **Layout Transition Jank Remediation (`Task 6.2`):** Replace CSS `transition: width/height/margin/all` with GPU-composited `transform` and `opacity` in `styles.css`, `creator.css`, `tv-styles.css`, `shell.css`, and `mesa.css`.
-- [ ] **Dependency SCA Hardening:** Resolve `source-map-js` / toolchain advisories via `npm audit`.
+### Track 1.2: Bundle Chunking & Performance Optimization (`AUDIT.md` P1, Epic 6 — Shipped `v1.0.143`)
+- [x] **Dynamic SRD & Vendor Splitting (`Task 6.1`, `NANO-028`/`NANO-030`/`NANO-031`):** Configured `pickChunk` in `frontend/vite.config.js` (`vendor-react`, `vendor-three`, `vendor-pdf`, `vendor-state`, `srd`, `srd-spells-2024`, `srd-spells-extra`, `srd-magic-items`, `srd-bestiary`, `srd-subclasses`, `progression`), extracted `frontend/src/api/char-card-summary.js`, lazy-loaded heavy routes + Web Worker `frontend/src/pdf/pdf.worker.js`, and enforced `scripts/check_bundle_budget.mjs` (`app` entry reduced from `2,082 kB` / `600 kB` gzip to `319.43 kB` / `107.23 kB` gzip).
+- [x] **Species & Stage Import Unification (`Task 6.1`, `NANO-029`):** Resolved static/dynamic import collisions via `frontend/src/progression/species-summary.js` and `frontend/src/stage/LiveScreenParts.jsx` (0 Rollup collision warnings).
+- [x] **Layout Transition Jank Remediation (`Task 6.2`, `NANO-056`):** Replaced CSS `transition: width/height/max-height/margin/all` with GPU-composited `transform`, `opacity`, and `grid-template-rows` across `src/styles/*.css`, `creator.css`, `tv-styles.css`, `shell.css`, `Onboarding.jsx`, and `TVScreen.jsx`.
+- [x] **Dependency SCA Hardening (`NANO-011`):** Resolved `source-map-js` / `vite` advisories via `npm audit fix` (0 high/critical vulnerabilities).
 
 ### Track 1.3: User Experience, Sheet Consolidation & Design Polish (`CRITIQUE.md` P1)
 - [x] **DM Fast-Track Onboarding (`GmGuide.jsx`, `NextStepCard.jsx`):** Actionable setup guide (`guide-model.js`, `next-step.js`) and `WhatsNew.jsx` release walkthrough.
@@ -72,7 +72,8 @@
 - [x] **Character Sheet Hero, Skills & Spells Consolidation (`2f22e00`):** Removed intrusive alignment/player/milestone tags from hero banner; discrete top-right `Cheat -> Edit -> Export` toolbar; universal `RestButtons` beneath spoken languages; consolidated `(Abil) Spell Save DC` & `(Abil) Spell Attack Bonus`; restored `SlotMatrix` (Long Rest vs Short Rest Pact Magic); casting time on folded spell rows; SRD 5.2.1 spell descriptions (`spell-text.js`, `spell-mechanics.json`); collapsible Skills action groups (`Search`, `Study`, `Influence`, `Hide`, `Use Tool`).
 - [x] **1:1 Official Rules & Metric PT-BR Catalog Completion (`v1.0.133`):** Completed 1:1 EN + metric PT-BR official texts across all 2014 (`520`) & 2024 (`536`) spells, classes/subclasses/options, `180` feats, 2014/2024 species/races/subraces, 2014 & `16` 2024 backgrounds, and `90` non-pack items (`412`/`416` catalog items described, excluding the 4 equipment packs), with `backend/api/progression/catalog.json` (`scripts/sync-rules.mjs`) and `frontend/data/spell-tags.json` (`scripts/build-spell-tags.mjs`) synchronized.
 - [x] **Rich Rule Blocks, Slim Spell Core, Universal Timeline Choices & Condition FX (`v1.0.133`–`v1.0.141`):** One-line 2024 spell summaries on initial load (`frontend/scripts/slim-spells.mjs`), structured paragraphs/tables/bullets + inline summon creature `MonsterStatblock.jsx` (`frontend/src/sheet/rich-text.jsx`), universal timeline choice capture/disclosure/respec across species/classes/feats/backgrounds (`v1.0.134`), Play-tab direct tap-to-roll on medals and ability hexes (`v1.0.137`), and full condition/HP/exhaustion visual + informational marker system (`FhStatus.jsx`, `condition-rules.js`, `condition-fx.css`, `v1.0.138`–`v1.0.139`).
-- [ ] **Touch Target Sizing (`Task 6.2`):** Expand remaining undersized interactive targets ($< 44\times 44\text{px}$) in `frontend/src/creator/join-table.css` (`.fh-join-code-actions .btn`) and `frontend/src/app-extra-styles.css` (`.camp-char-Inspect`).
+- [x] **Touch Target Sizing (`Task 6.2`, `NANO-057`, `v1.0.143`):** Expanded undersized interactive targets ($\ge 44\times 44\text{px}$) in `frontend/src/creator/join-table.css` (`.fh-join-code-actions .btn`), `frontend/src/app-extra-styles.css` (`.camp-char-Inspect`), spell slot diamonds, and resource pips.
+- [x] **Mobile Table-Speed UX, Undo & Concentration Guard (`NANO-032`, `NANO-051`–`NANO-055`, `NANO-058`, `v1.0.143`):** Added `Immer` 20-step Undo/Redo (`frontend/src/sheet/undo-history.js`), mobile 56px `MobileStickyHero` + `Jump-to` bar (`SheetHero.jsx`), 5-tab `MobileSheetNav.jsx`, `MyTurnView.jsx`, automatic Concentration DC banner, `HpDeltaPopover.jsx`, Screen Wake Lock + haptics (`wake-lock.js`).
 
 ---
 
@@ -92,8 +93,8 @@
 - [ ] **Fog of War Brush Painting (`Task 7.1`):** DM canvas brush tool (`fog.ops[]`) to reveal/hide tactical map regions in `CombatGrid.jsx` and `TVScreen.jsx`.
 - [ ] **Player Self-Token Dragging (`Task 7.2`):** Allow authenticated players to drag their own token on `CombatGrid.jsx` (`PATCH /api/combat/campaign/:id/token-move`).
 - [ ] **Map Pings & Laser Indicators (`Task 7.3`):** `POST /api/campaigns/:id/ping` rendering a 4s radial pulse on all connected screens.
-- [ ] **Diegetic Soundscapes & Ambience (`Task 7.4`):** Integrated WebAudio ambient loop controller (`stage.audio` + CC0 loops).
-- [ ] **Resilient Polling Exponential Backoff (`Task 7.5`):** Upgrade `frontend/src/api/polling.js` with `2.5s → 5s → 10s → 30s` backoff, `visibilitychange` wake-up, and offline status indicator.
+- [x] **Diegetic Soundscapes & Ambience (`Task 7.4`, `NANO-065`, `v1.0.143`):** Built WebAudio ambient mixer `frontend/src/stage/SoundscapeBar.jsx` + `frontend/src/stage/soundscape-engine.js` with 6 cross-faded synthesized presets (`tavern`, `dungeon`, `forest`, `storm`, `boss`, `crypt`) wired to `LiveScreenSheet.jsx` and synced to `TVScreen.jsx`.
+- [x] **Resilient Polling Exponential Backoff (`Task 7.5`, `NANO-036`, `v1.0.143`):** Upgraded `frontend/src/api/polling.js` & `frontend/src/play/table-store.js` with `2.5s -> 30s` ($\pm 15\%$ jitter) `computeBackoffMs`, `online`/`visibilitychange` wake-up, and status propagation.
 
 ---
 
@@ -106,7 +107,7 @@
 
 ### Track 3.2: Community & Offline Resilience
 - [ ] **Homebrew Bestiary Exporter/Importer:** Shareable JSON bundle format for custom monster statblocks, spells, and magic items.
-- [ ] **Progressive Web App (PWA) Service Worker (`Task 8.3`):** Offline-capable service worker (`CacheFirst` for SRD catalogs/assets, `NetworkFirst` for character sheets).
+- [x] **Progressive Web App (PWA) Service Worker & IndexedDB (`Task 8.3`, `NANO-033`/`NANO-035`, `v1.0.143`):** Configured `vite-plugin-pwa` (`generateSW`, `145` precache entries, `CacheFirst` SRD JSONs/media, `NetworkFirst` `/api/`) plus `frontend/src/api/idb-store.js` (`idb`) with one-time `localStorage` migration (`outbox-sync.js` *(a criar)* completes offline writes).
 
 ---
 
@@ -127,7 +128,7 @@ Full specifications: [`docs/sync-spec.md`](docs/sync-spec.md), [`docs/character-
 
 Full blueprint and file-size budgets: [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) (Epic 5) and [`TECH_DEBT.md`](TECH_DEBT.md) §8.
 
-- [ ] **Task 5.1 — Decompose `frontend/components/Sheet.jsx` (`5,469` lines $\to$ `< 500` lines):** Delete dead `BeltPbSlot`; extract `SheetHero.jsx`, `BeltHive.jsx`, `SheetSkillsSection.jsx`, `SheetFeaturesSection.jsx`, and `SheetCompanionsAndNotes.jsx`. *(a criar)*
-- [ ] **Task 5.2 — Decompose `frontend/components/SheetTabs.jsx` (`2,647` lines $\to$ `< 400` lines):** Extract `UnifiedSpellsHUD.jsx`, `SlotMatrix.jsx`, `SpellRow.jsx`, `SheetInventoryTab.jsx`, and `SheetStoryTab.jsx`. *(a criar)*
-- [ ] **Task 5.3 — Split `frontend/src/sheet/ficha.css` (`7,381` lines, alongside `ficha-tabs.css` `518` & `condition-fx.css` `886`) & Tokenize Colors:** Modularize into `sheet-tokens.css`, `sheet-hero.css`, `sheet-belt.css`, `sheet-skills-features.css`, `sheet-spells.css`, and `sheet-inventory-modals.css`. *(a criar)*
+- [x] **Task 5.1 — Decompose `frontend/components/Sheet.jsx` (`5,469` $\to$ `611` lines, `v1.0.143`):** Deleted dead `BeltPbSlot`; extracted `frontend/src/sheet/hero/SheetHero.jsx`, `frontend/src/sheet/belt/` (`BeltHive.jsx`, `BeltHex.jsx`, `BeltQuickSlot.jsx`), and `frontend/src/sheet/tabs/` (`SheetSkillsSection.jsx`, `SheetFeaturesSection.jsx`, `SheetCompanionsAndNotes.jsx`, `SheetPlay.jsx`, `TimelineModals.jsx`).
+- [x] **Task 5.2 — Decompose `frontend/components/SheetTabs.jsx` (`2,647` $\to$ `8` lines barrel, `v1.0.143`):** Extracted `frontend/src/sheet/spells/` (`UnifiedSpellsHUD.jsx`, `SlotMatrix.jsx`, `SpellRow.jsx`, `RestButtons.jsx`, `SpellViews.jsx`), `frontend/src/sheet/inventory/SheetInventoryTab.jsx`, and `frontend/src/sheet/story/SheetStoryTab.jsx`.
+- [x] **Task 5.3 — Split `frontend/src/sheet/ficha.css` (`7,381` $\to$ `15` lines manifest) & `frontend/styles.css` (`2,768` $\to$ `6` lines, `v1.0.143`):** Modularized into `frontend/src/sheet/css/` (14 ordered CSS files) and `frontend/src/styles/` (5 ordered CSS files). Also extracted `SessionSummaryHeader.jsx`, `SceneChecklistDrawer.jsx`, and `EncounterLauncher.jsx` from `frontend/src/prep/NextSession.jsx` (`1,441` $\to$ `958` lines).
 - [ ] **Task 5.4 — Decompose `backend/api/views_combat.py` (`2,714` lines) & `world_rules.py` (`1,518` lines):** Extract `combat_setup.py`, `combat_undo.py`, `combat_actions.py`, and `combat_media.py` under `backend/api/services/`. *(a criar)*

@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readModular } from './_sheet-source.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const read = (rel) => fs.readFileSync(path.join(__dirname, rel), 'utf8');
+const read = (rel) => readModular(rel);
 
 test('Top HUD Roll Banner: posicionado no topo da tela com suporte expandido para tipos de ataque', () => {
   const diceRollerSrc = read('../components/DiceRoller.jsx');

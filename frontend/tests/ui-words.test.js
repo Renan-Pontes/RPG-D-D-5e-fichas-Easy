@@ -27,7 +27,7 @@ const GONE = [
   { word: /\b(?:[Oo]|um|do|ao|[Mm]ontar)\s+recap\b|\bRecap\s+(?:desta|salvo)\b/, now: 'Resumo' },
   // V14: "Encontro" virou "Combate" (a ficha do jogador, fora da área do mestre, fala do
   // "encontro" das anotações dele)
-  { word: /\b[Ee]ncontros?\b/, now: 'Combate', skip: /components[\\/]SheetTabs\.jsx$/ },
+  { word: /\b[Ee]ncontros?\b/, now: 'Combate', skip: /(?:components[\\/]SheetTabs\.jsx|src[\\/]sheet[\\/]story[\\/]SheetStoryTab\.jsx)$/ },
   // V14: o modo da aventura "Conduzir" virou "Na mesa"
   { word: /\b[Cc]onduzir\b/, now: 'Na mesa' },
   // V14: a Tela escurece, nunca "apaga"

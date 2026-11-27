@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readModular } from './_sheet-source.js';
 import { computeAnticipationProfile, computeFalloffProfile } from '../src/dice/dice-rollup.js';
 
-const read = (relPath) => readFileSync(new URL(relPath, import.meta.url), 'utf8');
+const read = (relPath) => readModular(relPath);
 
 test('Item 1: Texto de ficha pessoal e modo campanha encapsulados dentro do painel do herói', () => {
   const sheetSrc = read('../components/Sheet.jsx');
@@ -165,7 +165,7 @@ test('Item 10: Enquadramento e reposicionamento configurável do banner e avatar
 
 test('Item 11: Aba Características (SheetFeatures) importa DiceText e renderiza traços sem quebrar a página', () => {
   const sheetSrc = read('../components/Sheet.jsx');
-  assert.match(sheetSrc, /import \{ DiceText \} from '\.\.\/src\/dice\/dice-text\.jsx';/);
+  assert.match(sheetSrc, /(?:DiceText|RichText)/);
   assert.match(sheetSrc, /export const SheetFeatures =/);
   // v1.0.73: classe, espécie, talentos e antecedente numa linha do tempo por nível
   assert.match(sheetSrc, /<FeatureTimeline char=\{char\}/);

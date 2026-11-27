@@ -399,7 +399,7 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 .shell-ob-progress { display: flex; align-items: center; gap: 8px; }
 .shell-ob-count { font-family: var(--display); color: var(--camp-accent); font-size: 1rem; }
 .shell-ob-bar { width: 110px; height: 6px; border-radius: 3px; background: rgba(10, 7, 6, 0.6); overflow: hidden; display: block; box-shadow: inset 0 0 0 1px rgba(224, 181, 94, 0.18); }
-.shell-ob-bar span { display: block; height: 100%; background: var(--camp-accent); transition: width 0.4s; }
+.shell-ob-bar span { display: block; width: 100%; height: 100%; background: var(--camp-accent); transform: scaleX(var(--p, 1)); transform-origin: left; transition: transform 0.4s ease; }
 .shell-ob-list { position: relative; z-index: 1; list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .shell-ob-item {
   display: flex; align-items: center; gap: 10px;

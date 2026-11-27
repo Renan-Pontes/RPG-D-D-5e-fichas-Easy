@@ -1,0 +1,690 @@
+/* ============================================
+   MOBILE POLISH — overrides up to 600px
+   ============================================ */
+@media (max-width: 600px) {
+  :root {
+    --s-3: 10px;
+    --s-4: 14px;
+    --s-5: 20px;
+  }
+  body { font-size: 15px; }
+  h1 { font-size: 1.7rem !important; letter-spacing: 0.05em; }
+  h2 { font-size: 1.35rem !important; margin-bottom: 8px; }
+  h3 { font-size: 1.1rem !important; }
+  h4 { font-size: 0.95rem !important; }
+
+  .container { padding: 12px 12px 120px; }
+  .app-header { padding: 12px 14px; }
+  .brand-name { font-size: 1rem; }
+  .brand-mark { width: 32px; height: 32px; }
+
+  /* Inputs taller for touch */
+  input, select, textarea {
+    min-height: 44px;
+    font-size: 16px; /* avoids iOS zoom */
+    padding: 10px 12px;
+  }
+  textarea { min-height: 80px; }
+  label {
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    margin-bottom: 4px;
+  }
+
+  /* Buttons */
+  .btn { min-height: 44px; padding: 10px 16px; font-size: 0.95rem; }
+  .btn-sm { min-height: 36px; padding: 7px 12px; font-size: 0.85rem; }
+  .btn-icon { width: 40px; height: 40px; padding: 0; }
+
+  /* Cards / options */
+  .card { padding: 14px; border-radius: 8px; }
+  .option {
+    padding: 14px;
+    border-radius: 8px;
+  }
+  .option-title { font-size: 1.05rem; }
+  .option-meta { font-size: 0.8rem; flex-wrap: wrap; gap: 6px 10px; }
+  .options-list { gap: 8px; }
+
+  /* Character cards */
+  .char-card {
+    padding: 12px;
+    gap: 12px;
+    border-radius: 10px;
+  }
+  .char-card-avatar { width: 56px; height: 56px; font-size: 1.5rem; }
+  .char-card-name { font-size: 1.1rem; }
+  .char-card-sub { font-size: 0.82rem; }
+  .char-card-level { font-size: 0.75rem; }
+
+  /* Hero header */
+  .sheet-hero {
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    border-radius: 10px;
+  }
+  .hero-avatar { width: 72px; height: 72px; flex-shrink: 0; }
+  .hero-name { font-size: 1.4rem; line-height: 1.1; }
+  .hero-sub { font-size: 0.82rem; }
+  .hero-tags { gap: 4px; margin-top: 6px; }
+  .hero-tags .tag { font-size: 0.7rem; padding: 3px 8px; }
+
+  /* Action bar — quebra linha: nada fica escondido fora da tela */
+  .action-bar { flex-wrap: wrap; margin-bottom: 12px; }
+
+  /* Tabs — horizontal scroll, sticky */
+  .tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin: 0 -12px 14px;
+    padding: 0 12px;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg-base);
+    padding-top: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--stroke-faint);
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex-shrink: 0; padding: 8px 14px; font-size: 0.85rem; }
+
+  /* Combat grid — 3 wide always */
+  .combat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px;
+  }
+  .combat-box {
+    padding: 12px 6px;
+    border-radius: 8px;
+  }
+  .combat-box-value { font-size: 1.8rem; line-height: 1; }
+  .combat-box-sub { font-size: 0.7rem; }
+
+  /* Abilities — 3 columns on phone */
+  .abil-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px;
+  }
+  .abil-box { padding: 10px 4px; border-radius: 8px; }
+  .abil-box-name { font-size: 0.7rem; }
+  .abil-box-mod { font-size: 1.5rem; }
+  .abil-box-score { font-size: 0.75rem; }
+
+  /* HP tracker bigger */
+  .hp-tracker { padding: 16px; border-radius: 12px; }
+  .hp-display { font-size: 2.4rem; }
+  .hp-current { font-size: 2.4rem; }
+  .hp-max { font-size: 1.4rem; }
+  .hp-input { font-size: 1.1rem; min-height: 44px; }
+
+  /* Wizard */
+  .wizard { padding: 8px 0 12px; }
+  .wizard-progress { gap: 4px; }
+  .wizard-step { height: 4px; }
+  .wizard-meta .eyebrow { font-size: 0.75rem; }
+  .wizard-footer { padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+  .wizard-footer-inner { gap: 10px; }
+
+  /* Skill display rows */
+  .skill-display-row {
+    grid-template-columns: 22px 1fr 36px 44px;
+    gap: 8px;
+    padding: 10px 4px;
+    font-size: 0.92rem;
+  }
+  .skill-prof-dot { width: 16px; height: 16px; }
+  .skill-display-stat { font-size: 0.7rem; }
+  .skill-display-mod { font-size: 0.95rem; }
+
+  /* Stat rows in point buy */
+  .stat-row { padding: 10px; gap: 10px; }
+  .stat-name { font-size: 0.95rem; }
+  .stat-controls { gap: 8px; }
+  .stat-btn { width: 38px; height: 38px; font-size: 1.2rem; }
+  .stat-value { font-size: 1.2rem; min-width: 28px; }
+  .stat-final-num { font-size: 1.3rem; }
+  .stat-final-mod { font-size: 0.8rem; }
+
+  /* Spell rows */
+  .spell-row { border-radius: 8px; margin-bottom: 6px; }
+  .spell-row-header { padding: 12px; gap: 10px; }
+  .spell-row-name { font-size: 0.98rem; }
+  .spell-meta { font-size: 0.72rem; gap: 8px; flex-wrap: wrap; }
+  .spell-row-body { padding: 0 12px 12px; }
+
+  /* Slot rows */
+  .slot-row {
+    grid-template-columns: 60px 1fr auto;
+    gap: 10px;
+    padding: 8px 4px;
+  }
+  .slot-level { font-size: 0.75rem; }
+  .slot-pip { width: 16px; height: 16px; }
+
+  /* Inventory rows */
+  .inv-row {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .inv-row input { font-size: 15px; padding: 8px 10px; min-height: 40px; }
+  .inv-qty { max-width: 56px; }
+
+  /* Modal full-bleed bottom sheet */
+  .modal {
+    border-radius: 16px 16px 0 0 !important;
+    margin-top: auto;
+    max-height: 85vh;
+    padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+  }
+
+  /* Dice FAB */
+  .dice-fab {
+    bottom: 88px;
+    right: 14px;
+    width: 56px;
+    height: 56px;
+  }
+  .dice-panel {
+    right: 14px;
+    left: 14px;
+    bottom: 88px;
+    width: auto;
+    max-height: 65vh;
+  }
+  .dice-buttons { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .dice-btn { padding: 12px 4px; font-size: 0.92rem; min-height: 48px; }
+
+  /* Sticky bottom action chrome safe area */
+  .wizard-footer { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+
+  /* Filigree */
+  .filigree { margin: 16px 0 12px; font-size: 0.7rem; }
+
+  /* Lang toggle smaller */
+  .lang-toggle button { padding: 6px 10px; font-size: 0.75rem; }
+}
+
+/* Extra-small phones */
+@media (max-width: 360px) {
+  .combat-box-value { font-size: 1.5rem; }
+  .abil-box-mod { font-size: 1.3rem; }
+  .hp-display { font-size: 2rem; }
+  .stat-name { font-size: 0.85rem; letter-spacing: 0.04em; overflow-wrap: anywhere; }
+  .stat-row, .stat-controls { gap: 6px; }
+  .stat-btn { width: 34px; height: 34px; }
+  .container { padding: 10px 10px 120px; }
+}
+
+
+/* ============================================
+   DICE ANIMATIONS & OVERLAY
+   ============================================ */
+.die-shape {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.die-shape svg { display: block; }
+.die-poly {
+  fill: var(--gold-deep);
+  stroke: var(--gold-bright);
+  stroke-width: 3;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+}
+.die-shape.die-d20 .die-poly { fill: var(--gold-deep); stroke: var(--gold-bright); }
+.die-shape.die-d100 .die-poly { fill: var(--gold-deep); stroke: var(--gold-bright); }
+.die-shape.die-d4 .die-poly,
+.die-shape.die-d6 .die-poly { fill: var(--gold-deep); stroke: var(--gold-bright); }
+.die-number {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--display);
+  color: var(--parchment);
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  pointer-events: none;
+  letter-spacing: 0;
+}
+.die-shape.die-d4 .die-number { transform: translateY(15%); }
+@keyframes die-bounce {
+  0%   { transform: translate(var(--sx, -60vw), var(--sy, -30vh)) rotate(0deg) scale(0.6); }
+  18%  { transform: translate(var(--mx1, 20vw), var(--my1, -40vh)) rotate(540deg) scale(1.1); }
+  35%  { transform: translate(0, 18vh) rotate(900deg) scale(0.95); }
+  50%  { transform: translate(var(--mx2, 8vw), var(--my2, -22vh)) rotate(1180deg) scale(1.05); }
+  62%  { transform: translate(0, 10vh) rotate(1400deg) scale(0.95); }
+  74%  { transform: translate(var(--mx3, -4vw), var(--my3, -12vh)) rotate(1560deg) scale(1.02); }
+  84%  { transform: translate(0, 4vh) rotate(1680deg) scale(0.98); }
+  92%  { transform: translate(0, -2vh) rotate(1760deg) scale(1.04); }
+  100% { transform: translate(0, 0) rotate(var(--rot, 1800deg)) scale(1); }
+}
+/* Rolando, o dado fica com a cor do tipo: dourado/vermelho é o tom do crítico/falha,
+   que só chega depois que ele para. O brilho que pulsa é neutro (pergaminho). */
+@keyframes die-shimmer {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(243, 230, 203, 0.25)); }
+  50%      { filter: drop-shadow(0 0 14px rgba(243, 230, 203, 0.5)); }
+}
+.die-shape.rolling {
+  animation: die-bounce var(--dur, 1.3s) cubic-bezier(0.34, 0.04, 0.5, 1);
+  will-change: transform;
+  position: relative;
+}
+.die-shape.rolling .die-poly {
+  animation: die-shimmer 0.4s ease-in-out infinite;
+}
+.die-shape.rolling .die-number {
+  opacity: 0;
+}
+/* Tom do crítico/falha: o DiceStage só passa depois que o dado para (DieShape tone);
+   transição curta da cor normal para o tom (as mesmas cores do 3D, dice-tones.js). */
+.die-poly { transition: fill 0.38s ease-out, stroke 0.38s ease-out, filter 0.38s ease-out; }
+.die-number { transition: color 0.38s ease-out; }
+.die-shape.tone-crit .die-poly { fill: #a8894a; stroke: #edcb7a; filter: drop-shadow(0 0 12px rgba(237, 203, 122, 0.55)); }
+.die-shape.tone-crit .die-number { color: #1a120a; text-shadow: 0 1px 0 rgba(255, 240, 200, 0.35); }
+.die-shape.tone-fumble .die-poly { fill: #3a0f09; stroke: #e0604f; filter: drop-shadow(0 0 12px rgba(224, 96, 79, 0.45)); }
+.die-shape.tone-fumble .die-number { color: #e0604f; }
+.die-shape.tone-crit,
+.die-shape.tone-fumble { animation: die-tone-pop 0.38s ease-out; }
+@keyframes die-tone-pop {
+  0%, 100% { transform: scale(1); }
+  45%      { transform: scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .die-poly, .die-number { transition: none; }
+  .die-shape.tone-crit, .die-shape.tone-fumble { animation: none; }
+}
+
+/* Dice picker grid */
+.dice-picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+@media (min-width: 480px) {
+  .dice-picker { grid-template-columns: repeat(7, 1fr); }
+}
+.dice-picker-btn {
+  background: var(--bg-elev);
+  border: 1px solid var(--stroke-faint);
+  border-radius: 8px;
+  padding: 8px 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  min-height: 56px;
+}
+.dice-picker-btn:hover {
+  border-color: var(--gold);
+  background: var(--bg-card);
+  transform: translateY(-2px);
+}
+.dice-picker-btn:active { transform: translateY(0) scale(0.95); }
+.dice-picker-btn .die-shape { pointer-events: none; }
+.dice-picker-btn .die-number {
+  font-size: 0.7rem !important;
+  letter-spacing: 0.05em;
+}
+
+/* Count / Mod steppers */
+.dice-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.dice-control-group { display: flex; flex-direction: column; gap: 4px; }
+.dice-control-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  font-family: var(--display);
+}
+.dice-stepper {
+  display: grid;
+  grid-template-columns: 36px 1fr 36px;
+  align-items: stretch;
+  background: var(--bg-elev);
+  border: 1px solid var(--stroke-faint);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.dice-stepper button {
+  background: transparent;
+  border: none;
+  color: var(--gold);
+  font-size: 1.3rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.1s;
+}
+.dice-stepper button:hover { background: var(--bg-card); }
+.dice-stepper button:active { background: var(--gold-deep); color: var(--bg-deep); }
+.dice-stepper-val {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--display);
+  color: var(--ink-primary);
+  font-size: 1.05rem;
+  border-left: 1px solid var(--stroke-faint);
+  border-right: 1px solid var(--stroke-faint);
+}
+
+/* === Roll overlay === */
+.dice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,0.78);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: overlay-fade 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes overlay-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.dice-overlay-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px;
+  max-width: 90vw;
+  text-align: center;
+}
+.dice-overlay-label {
+  font-family: var(--display);
+  color: var(--gold);
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+}
+.dice-overlay-dice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+  max-width: 100%;
+}
+.dice-overlay-formula {
+  font-family: var(--display);
+  color: var(--ink-secondary);
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+.dice-overlay-total {
+  font-family: var(--display);
+  font-size: 4.5rem;
+  line-height: 1;
+  color: var(--parchment);
+  text-shadow: 0 4px 16px rgba(0,0,0,0.7), 0 0 32px var(--gold-deep);
+  letter-spacing: 0.02em;
+  animation: total-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes total-pop {
+  0%   { transform: scale(0.4); opacity: 0; }
+  60%  { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.dice-overlay-inner.is-crit .dice-overlay-total {
+  color: var(--gold-bright);
+  text-shadow: 0 0 24px var(--gold-bright), 0 0 48px var(--gold);
+  animation: total-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), crit-glow 1.4s ease-in-out infinite alternate;
+}
+.dice-overlay-inner.is-fumble .dice-overlay-total {
+  color: var(--blood-bright);
+  text-shadow: 0 0 24px var(--blood-bright);
+}
+@keyframes crit-glow {
+  from { filter: drop-shadow(0 0 4px var(--gold)); }
+  to   { filter: drop-shadow(0 0 24px var(--gold-bright)); }
+}
+.dice-overlay-flair {
+  font-family: var(--display);
+  font-size: 1.1rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 4px 16px;
+  border-radius: 4px;
+  animation: flair-in 0.3s ease 0.1s backwards;
+}
+@keyframes flair-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.crit-flair {
+  color: var(--gold-bright);
+  border: 1px solid var(--gold-bright);
+  text-shadow: 0 0 8px var(--gold);
+}
+.fumble-flair {
+  color: var(--blood-bright);
+  border: 1px solid var(--blood-bright);
+}
+.dice-overlay-dismiss {
+  margin-top: 4px;
+  opacity: 0.6;
+}
+@media (max-width: 600px) {
+  .dice-overlay-total { font-size: 3.5rem; }
+  .dice-overlay-label { font-size: 0.9rem; }
+  .dice-overlay-inner { padding: 20px; gap: 12px; }
+}
+
+
+/* Across-screen roll: container needs overflow visible */
+.dice-overlay { overflow: hidden; }
+.dice-overlay-dice .die-shape.rolling {
+  /* Add motion trails */
+  box-shadow: 0 0 0 transparent;
+}
+.dice-overlay-dice .die-shape.rolling::before,
+.dice-overlay-dice .die-shape.rolling::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--gold) 0%, transparent 70%);
+  opacity: 0.4;
+  animation: trail-fade 1.3s ease-out;
+  pointer-events: none;
+}
+.dice-overlay-dice .die-shape.rolling::after {
+  animation-delay: 0.15s;
+}
+@keyframes trail-fade {
+  0%   { transform: scale(0.4); opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* Overlay backdrop pulse */
+@keyframes backdrop-pulse {
+  0%, 100% { background: rgba(0,0,0,0.78); }
+  50%      { background: rgba(50, 30, 0, 0.85); }
+}
+.dice-overlay:has(.die-shape.rolling) {
+  animation: overlay-fade 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards, backdrop-pulse 1.3s ease-in-out;
+}
+
+
+/* ============================================
+   DICE PANEL CHROME (was missing base styles)
+   ============================================ */
+.dice-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--gold-deep);
+  color: var(--parchment);
+  border: 2px solid var(--gold-bright);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px var(--gold);
+  z-index: 50;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.dice-fab:hover { transform: scale(1.06); box-shadow: 0 10px 28px rgba(0,0,0,0.6), 0 0 16px var(--gold); }
+.dice-fab:active { transform: scale(0.95); }
+
+.dice-panel {
+  position: fixed;
+  bottom: 96px;
+  right: 24px;
+  width: 360px;
+  max-width: calc(100vw - 48px);
+  background: var(--bg-card);
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px var(--stroke-faint);
+  z-index: 55;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  animation: panel-in 0.18s ease;
+}
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.dice-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--stroke-faint);
+}
+
+.adv-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+  background: var(--bg-elev);
+  padding: 4px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border: 1px solid var(--stroke-faint);
+}
+.adv-toggle button {
+  background: transparent;
+  border: none;
+  color: var(--ink-secondary);
+  padding: 8px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  font-family: var(--display);
+  text-transform: uppercase;
+  transition: transform 0.12s ease, opacity 0.12s ease, background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.adv-toggle button:hover { color: var(--ink-primary); }
+.adv-toggle button.active { background: var(--gold-deep); color: var(--parchment); }
+.adv-toggle button.active.adv { background: var(--moss); }
+.adv-toggle button.active.dis { background: var(--blood-deep); }
+
+.dice-log {
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 8px;
+  max-height: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dice-entry {
+  background: var(--bg-elev);
+  border: 1px solid var(--stroke-faint);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 2px 8px;
+}
+.dice-entry.crit { border-color: var(--gold-bright); box-shadow: inset 0 0 0 1px var(--gold-bright); }
+.dice-entry.fumble { border-color: var(--blood-bright); box-shadow: inset 0 0 0 1px var(--blood-bright); }
+.dice-entry-label {
+  font-family: var(--display);
+  color: var(--ink-primary);
+  letter-spacing: 0.03em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dice-entry-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+}
+.dice-rolls {
+  font-family: var(--mono, monospace);
+  font-size: 0.78rem;
+  color: var(--ink-secondary);
+}
+.dice-total {
+  font-family: var(--display);
+  font-size: 1.1rem;
+  color: var(--gold-bright);
+  min-width: 32px;
+  text-align: right;
+}
+.dice-entry.crit .dice-total { color: var(--gold-bright); text-shadow: 0 0 8px var(--gold); }
+.dice-entry.fumble .dice-total { color: var(--blood-bright); }
+.dice-entry-ts {
+  grid-column: 1 / -1;
+  font-size: 0.7rem;
+  color: var(--ink-muted);
+  letter-spacing: 0.05em;
+}
+.badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  font-family: var(--display);
+}
+.badge-adv { background: var(--moss-deep, #2a5c3a); color: var(--moss-bright, #8ed5a0); }
+.badge-dis { background: var(--blood-deep); color: var(--blood-bright); }
+
+@media (max-width: 600px) {
+  .dice-panel {
+    right: 12px;
+    left: 12px;
+    bottom: 88px;
+    width: auto;
+    max-width: none;
+  }
+}
+

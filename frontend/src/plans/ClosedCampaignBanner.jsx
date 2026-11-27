@@ -43,7 +43,7 @@ export async function sheetWithPhoto(s) {
 
 export async function downloadSheetPdf(char, lang) {
   const [{ downloadDnd5ePdf }, { speciesSummary }] = await Promise.all([
-    import('../pdf/export-pdf.js'), import('../progression/SpeciesChoices.jsx'),
+    import('../pdf/export-pdf.js'), import('../progression/species-summary.js'),
   ]);
   await downloadDnd5ePdf(char, lang, { speciesSummary });
 }

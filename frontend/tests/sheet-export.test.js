@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readModular } from './_sheet-source.js';
 import { EXPORT_OPTIONS, exportText, runExport } from '../src/sheet/export-options.js';
 
 // Modal Exportar da ficha: as 5 saídas que eram botões soltos na barra de ações.
@@ -70,7 +70,7 @@ test('resultado: fecha quando deu certo; fica aberto quando o handler diz que n�
 });
 
 // ---------- Contratos da tela (lidos do código, sem renderizar) ----------
-const src = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
+const src = (p) => readModular(p);
 
 test('Sheet: um botão Exportar no lugar dos 5 soltos, sem duplicar as saídas', () => {
   const s = src('../components/Sheet.jsx');

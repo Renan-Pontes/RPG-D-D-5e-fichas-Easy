@@ -10,11 +10,11 @@
 .cr-miles::-webkit-scrollbar { display: none; }
 .cr-miles-path, .cr-miles-fill { position: absolute; left: 22px; top: 19px; height: 2px; pointer-events: none; }
 .cr-miles-path { right: 22px; background: repeating-linear-gradient(90deg, var(--stroke) 0 6px, transparent 6px 12px); }
-.cr-miles-fill { width: calc((100% - 44px) * var(--p, 0)); background: var(--gold); box-shadow: 0 0 8px rgba(237, 203, 122, 0.55); transition: width 0.8s ease; }
+.cr-miles-fill { width: calc(100% - 44px); transform: scaleX(var(--p, 0)); transform-origin: left; background: var(--gold); box-shadow: 0 0 8px rgba(237, 203, 122, 0.55); transition: transform 0.8s ease; will-change: transform; }
 .cr-mile { position: relative; z-index: 1; flex: 1 0 58px; min-width: 58px; display: grid; justify-items: center; gap: 4px; background: none; border: 0; padding: 0 2px; cursor: pointer; font: inherit; color: inherit; }
 .cr-mile:disabled { cursor: default; }
 .cr-mile-dot { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 0.78rem;
-  background: var(--bg-raised); border: 1px solid var(--stroke); color: var(--ink-muted); transition: all 0.4s ease; }
+  background: var(--bg-raised); border: 1px solid var(--stroke); color: var(--ink-muted); transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease, transform 0.4s ease; }
 .cr-mile-name { font-family: var(--display); font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted); text-align: center; line-height: 1.2; }
 .cr-mile.done .cr-mile-dot { background: radial-gradient(circle at 35% 30%, #fff0bf, var(--gold-bright) 45%, var(--gold-deep) 100%); color: var(--on-gold); border-color: var(--gold-bright); }
 .cr-mile.pending .cr-mile-dot { border-color: var(--amber); color: var(--amber); }
@@ -134,9 +134,9 @@
 .cr-hold { position: relative; flex: 1; overflow: hidden; min-height: 52px; border-radius: 999px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
   color: var(--gold-bright); border: 1px solid var(--gold); background: radial-gradient(120% 140% at 50% 120%, rgba(255, 120, 40, 0.28), transparent 60%), var(--bg-elevated);
   box-shadow: 0 0 0 4px var(--gold-soft), 0 0 22px rgba(255, 148, 70, 0.25); }
-.cr-hold-fill { position: absolute; inset: 0; width: 0; background: linear-gradient(90deg, #7a2a0c, #e2702a 60%, #ffd27a); box-shadow: 0 0 24px rgba(255, 150, 60, 0.8); }
+.cr-hold-fill { position: absolute; inset: 0; width: 100%; transform: scaleX(0); transform-origin: left; background: linear-gradient(90deg, #7a2a0c, #e2702a 60%, #ffd27a); box-shadow: 0 0 24px rgba(255, 150, 60, 0.8); }
 .cr-hold-txt { position: relative; }
-.cr-hold.holding .cr-hold-fill { width: 100%; transition: width var(--hold, 1.2s) cubic-bezier(0.4, 0, 0.9, 0.6); }
+.cr-hold.holding .cr-hold-fill { transform: scaleX(1); transition: transform var(--hold, 1.2s) cubic-bezier(0.4, 0, 0.9, 0.6); }
 .cr-hold.holding { color: #fff8e6; transform: scale(0.98); }
 .cr-hold.nudge { animation: cr-nudge 0.35s; }
 @keyframes cr-nudge { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }

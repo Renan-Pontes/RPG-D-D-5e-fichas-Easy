@@ -12,6 +12,7 @@ import SRD51_META from './srd51-spells-meta.json' with { type: 'json' };
 // Fora do SRD: ficha técnica 2014 (PHB 2014 e suplementos) conferida no acervo offline do GM
 // Craft — só fatos de regra (círculo, escola, tempo, alcance, componentes, duração), sem texto.
 import META_2014 from './spells-2014-meta.json' with { type: 'json' };
+import { SPELL_ID_ALIASES } from './spell-id-aliases.js';
 
 export const SRD51_ID = (id) => ({ spareDying: 'spareTheDying', identifySpell: 'identify', expediteRetreat: 'expeditiousRetreat', commandSpell: 'command', arcanistsMagicAura: 'arcanistSMagicAura' }[id] || id);
 
@@ -3404,9 +3405,6 @@ for (const spell of SPELLS) {
   delete spell.metaPt;
   delete spell.rulesVersion;
 }
-
-// Ids antigos de magia → atuais (fichas salvas são migradas ao carregar).
-const SPELL_ID_ALIASES = { huntersMarkUp: 'thunderousSmite', 'feign death': 'feignDeath' };
 
 return { SPELL_ID_ALIASES, ABILITIES, SKILLS, RACES, CLASSES, BACKGROUNDS, ALIGNMENTS, WEAPONS, weaponFor, weaponsFor, ARMOR, SPELLS, BEASTS, SUBCLASSES, SOURCES, PACKS, profBonus, getSpellSlots };
 })();

@@ -6,11 +6,7 @@ import { t } from './data/i18n.js';
 import Icon from './components/Icons.jsx';
 import { AppHeader, Toast } from './components/Shared.jsx';
 import { confirmDialog } from './components/ConfirmDialog.jsx';
-import DiceRoller from './components/DiceRoller.jsx';
 import CharacterList from './components/CharacterList.jsx';
-import Creator from './components/Creator.jsx';
-import CreatorWizard from './src/creator/CreatorWizard.jsx';
-import Sheet from './components/Sheet.jsx';
 import { fork as forkSheet, familyOf, forksOf, copyDevicePrefs, isArchivedFork, archivedPreview, unarchiveFork } from './src/sheet/forks.js';
 import { previewChar, parseSheetHash, hasVersion, storeOf as versionStoreOf, isReadOnly as versionReadOnly } from './src/sheet/versions.js';
 
@@ -19,23 +15,27 @@ import AuthScreen from './src/auth/AuthScreen.jsx';
 import ForcePasswordChange from './src/auth/ForcePasswordChange.jsx';
 import { createStorageAdapter } from './src/api/storage.js';
 import { api } from './src/api/client.js';
-import CampaignList from './src/campaigns/CampaignList.jsx';
-import CampaignDetail from './src/campaigns/CampaignDetail.jsx';
-import ProgressionPanel from './src/progression/ProgressionPanel.jsx';
 import { applyAutosToCharacter, applyLevelUpChoices, applyLevelChoice, applyClassOptions, revertLastLevel, revertLevelChoice, changeLevelChoice } from './src/progression/engine.js';
 import { RespecContext, respecApprovalBody, respecPatch, pendingRespecs } from './src/progression/respec.js';
-import OriginFeatModal from './src/progression/OriginFeatModal.jsx';
-import { SpeciesChoicesModal } from './src/progression/SpeciesChoices.jsx';
 import { dropSubclassesBelowLevel } from './src/progression/subclass-lock.js';
-import LevelUpModal from './src/progression/LevelUpModal.jsx';
-import { ClassOptionsModal } from './src/progression/ClassOptionsPicker.jsx';
-import InviteChoice from './src/campaigns/InviteChoice.jsx';
 import { parseJoinRoute, savePendingInvite, loadPendingInvite, joinToast, joinFailMessage, loadDraft } from './src/creator/creation.js';
 import { parseCampaignRoute } from './src/shell/shell-logic.js';
 import LimitDialogHost from './src/plans/LimitDialog.jsx';
 import { onOpenMyPlan, plansApi, showPlanLimit } from './src/plans/plans-api.js';
 import { planLimitFrom, sponsoredFrom, sponsoredText } from './src/plans/plans-logic.js';
 
+const DiceRoller = lazy(() => import('./components/DiceRoller.jsx'));
+const Creator = lazy(() => import('./components/Creator.jsx'));
+const CreatorWizard = lazy(() => import('./src/creator/CreatorWizard.jsx'));
+const Sheet = lazy(() => import('./components/Sheet.jsx'));
+const CampaignList = lazy(() => import('./src/campaigns/CampaignList.jsx'));
+const CampaignDetail = lazy(() => import('./src/campaigns/CampaignDetail.jsx'));
+const ProgressionPanel = lazy(() => import('./src/progression/ProgressionPanel.jsx'));
+const OriginFeatModal = lazy(() => import('./src/progression/OriginFeatModal.jsx'));
+const SpeciesChoicesModal = lazy(() => import('./src/progression/SpeciesChoices.jsx').then(m => ({ default: m.SpeciesChoicesModal })));
+const LevelUpModal = lazy(() => import('./src/progression/LevelUpModal.jsx'));
+const ClassOptionsModal = lazy(() => import('./src/progression/ClassOptionsPicker.jsx').then(m => ({ default: m.ClassOptionsModal })));
+const InviteChoice = lazy(() => import('./src/campaigns/InviteChoice.jsx'));
 const AdminScreen = lazy(() => import('./src/admin/AdminScreen.jsx'));
 // Grimório (regras para jogadores): chunk próprio, só carrega quando aberto.
 const GrimoireScreen = lazy(() => import('./src/grimoire/GrimoireScreen.jsx'));
@@ -535,10 +535,8 @@ const App = () => {
   // fecha quando deu certo e fica aberto quando não deu (o toast é o mesmo de sempre).
   const handleExportPdf = async (char, { flatten = false, blank = false } = {}) => {
     try {
-      const [{ downloadDnd5ePdf }, { speciesSummary }] = await Promise.all([
-        import('./src/pdf/export-pdf.js'), import('./src/progression/SpeciesChoices.jsx'),
-      ]);
-      await downloadDnd5ePdf(char, lang, { speciesSummary, flatten, blank });
+      const { runExportPdf } = await import('./src/pdf/pdf-runner.js');
+      await runExportPdf(char, lang, { flatten, blank });
       setToast(lang === 'pt' ? 'PDF gerado.' : 'PDF created.');
       return true;
     } catch (e) {
@@ -550,8 +548,8 @@ const App = () => {
 
   const handleImportPdf = async (file) => {
     try {
-      const { importDnd5ePdf } = await import('./src/pdf/import-pdf.js');
-      const { char, unmatched, fieldCount } = await importDnd5ePdf(new Uint8Array(await file.arrayBuffer()));
+      const { runImportPdf } = await import('./src/pdf/pdf-runner.js');
+      const { char, unmatched, fieldCount } = await runImportPdf(await file.arrayBuffer());
       if (!fieldCount) {
         setToast(lang === 'pt'
           ? 'Esse PDF não tem campos preenchíveis: só dá pra importar fichas de formulário (ficha oficial, D&D Beyond ou exportada daqui).'
@@ -604,7 +602,7 @@ const App = () => {
     if (tab) tab.document.write(`<p style="font-family:sans-serif;padding:24px">${lang === 'pt' ? 'Preparando a ficha para impressão…' : 'Preparing the sheet for printing…'}</p>`);
     try {
       const [{ printDnd5ePdf, downloadDnd5ePdf }, { speciesSummary }] = await Promise.all([
-        import('./src/pdf/export-pdf.js'), import('./src/progression/SpeciesChoices.jsx'),
+        import('./src/pdf/export-pdf.js'), import('./src/progression/species-summary.js'),
       ]);
       const opened = await printDnd5ePdf(active, lang, { speciesSummary }, tab);
       if (!opened) {
@@ -1117,19 +1115,21 @@ const App = () => {
             </span>
           </div>
         )}
-        {content}
+        <Suspense fallback={null}>{content}</Suspense>
       </main>
       {pendingInvite && auth.user && !auth.loading && (
-        <InviteChoice
-          code={pendingInvite}
-          lang={lang}
-          hasCharacters={characters.some(c => typeof c.id === 'number')}
-          onClose={clearPendingInvite}
-          onCreate={(join) => { clearPendingInvite(); setEditingChar(null); setInviteJoin(join); setScreen(SCREENS.CREATE); }}
-          onUseExisting={(join) => { clearPendingInvite(); setCampaignJoinCode(join.code); setScreen(SCREENS.CAMPAIGNS); }}
-        />
+        <Suspense fallback={null}>
+          <InviteChoice
+            code={pendingInvite}
+            lang={lang}
+            hasCharacters={characters.some(c => typeof c.id === 'number')}
+            onClose={clearPendingInvite}
+            onCreate={(join) => { clearPendingInvite(); setEditingChar(null); setInviteJoin(join); setScreen(SCREENS.CREATE); }}
+            onUseExisting={(join) => { clearPendingInvite(); setCampaignJoinCode(join.code); setScreen(SCREENS.CAMPAIGNS); }}
+          />
+        </Suspense>
       )}
-      <DiceRoller lang={lang} />
+      <Suspense fallback={null}><DiceRoller lang={lang} /></Suspense>
       <LimitDialogHost lang={lang} />
       {toast && <Toast msg={toast} onDone={() => setToast('')} />}
     </>

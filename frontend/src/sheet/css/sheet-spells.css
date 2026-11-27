@@ -1,0 +1,535 @@
+/* ---------- Magias (plano §4.9, F10; components/SheetTabs.jsx) ----------
+   Cada classe conjuradora é um painel: atributo, CD e ataque em medalhões; a barra de
+   contadores (Preparar magias); os grupos por círculo; o Livro de magias do mago. A
+   linha da magia (SpellRow) segue a demo: emblema redondo, nome em Cinzel, "escola ·
+   tempo · alcance", etiqueta de círculo e chevron; aberta, em tom astral. Abrir/fechar,
+   a estrela de preparada, o seletor de espaço, Conjurar e remover são os de antes.
+   Nada aqui abre Modal, exceto os botões "Preparar magias" e "Copiar magia" (painel sem
+   transform/filter/isolation/z-index). */
+/* o .class-spells global (multiclasse) separava as seções com um filete no topo: aqui
+   cada classe já é um painel com o filete dourado */
+.ficha .fh-spells.class-spells { margin-top: 0; border-top: 1px solid transparent; }
+
+/* HUD Unificado de Conjuração (Atributos + Descanso + Espaços de Magia) */
+.ficha .fh-spells-unified-hud {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(22, 17, 14, 0.88), rgba(12, 9, 7, 0.94));
+  border: 1px solid rgba(224, 181, 94, 0.28);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(224, 181, 94, 0.15);
+}
+
+.ficha .fh-spells-hud-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(224, 181, 94, 0.15);
+}
+
+.ficha .fh-spells-hud-top .fh-spell-stats {
+  margin: 0;
+  max-width: none;
+  flex: 1 1 280px;
+}
+
+.ficha .fh-spells-hud-rests {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ficha .fh-spells-hud-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ficha .fh-spells-slots-title {
+  font-family: var(--display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-bright, #edcb7a);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ficha .fh-spells-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+/* Magias Sempre Preparadas / Subclasse de Ouro */
+.ficha .spell-row.is-always-prepared .spell-row-name {
+  color: var(--gold-bright, #edcb7a) !important;
+  font-weight: 700 !important;
+  text-shadow: 0 0 10px rgba(237, 203, 122, 0.25);
+}
+
+.ficha .fh-spell-fixed-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  font-family: var(--display);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff2c8;
+  background: linear-gradient(135deg, rgba(214, 176, 100, 0.28), rgba(160, 118, 48, 0.4));
+  border: 1px solid rgba(237, 203, 122, 0.6);
+  border-radius: 4px;
+  box-shadow: 0 0 8px rgba(237, 203, 122, 0.2);
+}
+
+.ficha .fh-spell-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  max-width: 420px;
+  margin: 0 auto 6px;
+}
+.ficha .fh-spells-note { margin: 0 0 10px; font-size: 0.9rem; line-height: 1.45; color: var(--ink-muted); }
+.ficha .fh-spells-empty { padding: 12px 4px; font-style: italic; text-align: center; color: var(--ink-muted); }
+
+/* barra de contadores + Preparar magias (e a do Livro de magias): linha com filete em cima */
+.ficha .fh-spells .spells-toolbar {
+  margin: 14px 0 6px;
+  padding: 14px 0 4px;
+  background: none;
+  border: 0;
+  border-top: 1px solid rgba(224, 181, 94, 0.18);
+  border-radius: 0;
+}
+.ficha .spell-count { align-items: baseline; gap: 7px; font-size: 1rem; }
+.ficha .spell-count .muted {
+  font-family: var(--display);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+/* números em Garamond (no Cinzel o "1" parece um "I": "I/2") */
+.ficha .spell-count b { font-family: var(--body); font-weight: 700; font-size: 1.12rem; font-variant-numeric: lining-nums tabular-nums; color: var(--gold-bright); }
+.ficha .spell-count.full b { color: var(--fh-verdigris); }
+.ficha .spell-count.over b { color: var(--fh-blood); }
+.ficha .fh-spells .spells-toolbar .btn { min-height: 42px; }
+@media (max-width: 600px) {
+  /* no celular a ação fica com a largura toda, embaixo dos contadores */
+  .ficha .fh-spells .spells-toolbar > .btn { flex: 1 1 100%; min-height: 44px; }
+}
+
+/* Livro de magias (mago) */
+.ficha .fh-book { margin-top: 18px; }
+.ficha .fh-book .spells-toolbar { margin-top: 0; border-top-color: rgba(224, 181, 94, 0.35); }
+.ficha .fh-book-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--gold-bright);
+}
+.ficha .fh-book-title svg { color: var(--gold); }
+
+/* adicionar magia conhecida (select) */
+.ficha .fh-spell-add { margin: 14px 0 12px; }
+.ficha .fh-spell-add select { background-color: #070505; border-color: rgba(224, 181, 94, 0.35); color: var(--ink-primary); }
+
+/* magias fora da lista da classe: aviso em vinho, com os botões de remover */
+.ficha .fh-panel .card.fh-offlist:not(.modal *) {
+  margin: 4px 0 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 106, 90, 0.5);
+  background: linear-gradient(180deg, rgba(94, 21, 17, 0.45), rgba(40, 10, 8, 0.5));
+  color: #ffd7cf;
+}
+.ficha .fh-offlist-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.ficha .fh-offlist-acts .btn { color: #ffd7cf; border-color: rgba(255, 106, 90, 0.45); }
+.ficha .spell-tag-warn { display: inline-block; white-space: nowrap; font-family: var(--display); font-size: 0.6rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; padding: 1px 6px; border-radius: 3px; vertical-align: 2px; color: var(--fh-blood); }
+/* Usos fora do padrão de magia da espécie (1×/descanso curto, à vontade). */
+.ficha .spell-tag-uses { display: inline-block; white-space: nowrap; font-family: var(--display); font-size: 0.6rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; padding: 1px 6px; margin-left: 6px; border: 1px solid rgba(224, 181, 94, 0.45); border-radius: 3px; vertical-align: 2px; color: var(--fh-gold-hi); }
+
+/* Grupos por círculo (<details>): rótulo astral com losango, contador e chevron. Valem
+   também nos modais Preparar e Copiar (estão dentro da ficha). */
+.ficha .spell-group { margin-top: 8px; }
+.ficha .spell-group > summary {
+  gap: 10px;
+  min-height: 46px;
+  margin: 0 0 8px;
+  padding: 8px 4px 8px 2px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid rgba(159, 176, 240, 0.22);
+  border-radius: 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--arcane-bright);
+  transition: border-color 0.2s, color 0.2s;
+}
+.ficha .spell-group > summary::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg); /* pseudo-elemento folha */
+  background: var(--arcane-bright);
+  box-shadow: 0 0 6px rgba(159, 176, 240, 0.6);
+}
+.ficha .spell-group > summary::after,
+.ficha .spell-group:not([open]) > summary::after {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin: -4px 6px 0 2px;
+  border-right: 1.5px solid var(--ink-muted);
+  border-bottom: 1.5px solid var(--ink-muted);
+  transform: rotate(45deg);
+  transition: transform 0.2s var(--fh-ease);
+}
+.ficha .spell-group:not([open]) > summary::after { margin-top: 0; transform: rotate(-45deg); }
+.ficha .spell-group[open] > summary { background: none; border-color: rgba(159, 176, 240, 0.4); }
+@media (hover: hover) {
+  .ficha .spell-group > summary:hover { color: #c9d4ff; border-color: rgba(159, 176, 240, 0.5); }
+}
+.ficha .spell-group > summary:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.ficha .spell-group-count {
+  padding: 1px 9px;
+  border: 1px solid rgba(159, 176, 240, 0.35);
+  background: rgba(93, 107, 224, 0.16);
+  font-family: var(--body);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--arcane-bright);
+}
+/* magias de talento/espécie: no lugar do contador vai "atributo · CD · ataque" (texto) */
+.ficha .spell-group-count.fh-group-info {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--body);
+  font-size: 0.88rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-align: right;
+  text-transform: none;
+  color: var(--ink-secondary);
+}
+@media (max-width: 600px) {
+  /* no celular "atributo · CD · ataque" desce para baixo do nome da origem */
+  .ficha .spell-group > summary:has(.fh-group-info) {
+    display: grid;
+    grid-template-columns: 7px minmax(0, 1fr) auto;
+    column-gap: 10px;
+    row-gap: 2px;
+  }
+  .ficha .spell-group > summary:has(.fh-group-info)::before { grid-area: 1 / 1; }
+  .ficha .spell-group > summary:has(.fh-group-info) > :first-child { grid-area: 1 / 2; }
+  .ficha .spell-group > summary:has(.fh-group-info)::after { grid-area: 1 / 3; }
+  .ficha .spell-group-count.fh-group-info { grid-area: 2 / 2 / 3 / 4; margin: 0; text-align: left; }
+}
+
+/* Linha da magia */
+.ficha .spell-row.fh-spell {
+  margin: 0 0 8px;
+  padding: 0;
+  cursor: default;
+  border-radius: 6px;
+  border: 1px solid rgba(224, 181, 94, 0.16);
+  background: rgba(10, 7, 6, 0.45);
+  opacity: 1; /* o .unprepared global esmaece a linha inteira (e a estrela); aqui só o cabeçalho */
+  transition: border-color 0.2s, background-color 0.2s;
+}
+.ficha .spell-row.fh-spell:hover { border-color: rgba(224, 181, 94, 0.3); }
+.ficha .spell-row.fh-spell.open {
+  border-color: rgba(159, 176, 240, 0.45);
+  background: linear-gradient(180deg, rgba(27, 32, 80, 0.38), rgba(10, 7, 6, 0.45));
+}
+.ficha .fh-spell-head { display: flex; align-items: stretch; min-width: 0; }
+.ficha .spell-row-header.fh-spell-toggle {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  margin: 0;
+  padding: 9px 12px 9px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ficha .fh-spell-star + .fh-spell-toggle { padding-left: 0; border-radius: 0 6px 6px 0; }
+@media (hover: hover) {
+  .ficha .fh-spell-toggle:hover { background: linear-gradient(90deg, rgba(224, 181, 94, 0.1), transparent 85%); }
+}
+@media (hover: none) {
+  .ficha .fh-spell-toggle:active { background: rgba(224, 181, 94, 0.1); }
+}
+.ficha .fh-spell-toggle:focus-visible,
+.ficha .fh-spell-star:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+.ficha .fh-spell .school-badge { box-shadow: 0 0 0 1px rgba(224, 181, 94, 0.5), 0 2px 6px rgba(0, 0, 0, 0.5); }
+.ficha .fh-spell-main { flex: 1 1 auto; display: grid; gap: 2px; min-width: 0; }
+.ficha .fh-spell .spell-row-name {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  color: var(--ink-primary);
+  overflow-wrap: anywhere;
+}
+.ficha .fh-spell .spell-meta {
+  display: block;
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  color: var(--ink-muted);
+}
+/* "escola · tempo · alcance": o ponto fica colado ao item anterior (quebra só depois dele) */
+.ficha .fh-spell .spell-meta > span:not(.fh-mark) + span:not(.fh-mark)::before { content: "\00a0· "; }
+.ficha .fh-mark {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 0 5px;
+  border: 1px solid;
+  border-radius: 3px;
+  font-family: var(--display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.06em;
+  vertical-align: 1px;
+}
+.ficha .fh-mark + .fh-mark { margin-left: 4px; }
+.ficha .fh-mark.is-c { color: var(--arcane-bright); border-color: rgba(159, 176, 240, 0.45); }
+.ficha .fh-mark.is-r { color: var(--fh-verdigris); border-color: rgba(116, 214, 180, 0.45); }
+.ficha .fh-lvl {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid rgba(159, 176, 240, 0.4);
+  border-radius: 3px;
+  font-family: var(--display);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--arcane-bright);
+}
+.ficha .fh-spell-chev { flex: none; color: var(--ink-muted); transition: color 0.2s; }
+.ficha .fh-spell.open .fh-spell-chev { color: var(--arcane-bright); }
+/* estrela de preparada (grimório): botão irmão do cabeçalho, alvo de 44px */
+.ficha .fh-spell-star {
+  flex: none;
+  width: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px 0 0 6px;
+  background: none;
+  color: var(--ink-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s;
+}
+.ficha .fh-spell-star.on { color: var(--gold); }
+.ficha .fh-spell-star.on svg { filter: drop-shadow(0 0 5px rgba(240, 190, 90, 0.6)); } /* folha */
+.ficha .fh-spell-star:disabled { opacity: 0.4; cursor: not-allowed; }
+@media (hover: hover) {
+  .ficha .fh-spell-star:not(:disabled):hover { color: var(--gold-bright); }
+}
+/* esmaecida: não preparada (grimório) ou sem espaço livre para conjurar (o canCast do
+   botão Conjurar). Só o conteúdo do cabeçalho: a estrela e o foco continuam nítidos. */
+.ficha .fh-spell.unprepared .fh-spell-toggle > *,
+.ficha .fh-spell.no-slot .fh-spell-toggle > * { opacity: 0.5; transition: opacity 0.2s; }
+.ficha .fh-spell.unprepared .spell-row-name { color: var(--ink-secondary); }
+@media (hover: hover) {
+  .ficha .fh-spell.unprepared .fh-spell-toggle:hover > *,
+  .ficha .fh-spell.no-slot .fh-spell-toggle:hover > * { opacity: 0.8; }
+}
+
+/* corpo aberto: componentes e duração em chiplines, texto, ações */
+.ficha .spell-row-body.fh-spell-body { padding: 2px 14px 14px 60px; }
+.ficha .fh-spell:has(.fh-spell-star) .fh-spell-body { padding-left: 94px; }
+.ficha .fh-spell-facts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.ficha .fh-chipline {
+  max-width: 100%;
+  padding: 3px 8px;
+  border: 1px solid rgba(224, 181, 94, 0.22);
+  border-radius: 3px;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  color: var(--ink-secondary);
+}
+.ficha .fh-chipline-k {
+  font-family: var(--display);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.ficha .fh-chipline.conc { border-color: rgba(159, 176, 240, 0.45); color: var(--arcane-bright); }
+.ficha .fh-chipline.conc .fh-chipline-k { color: var(--arcane-bright); }
+.ficha .fh-spell-desc { font-size: 0.98rem; line-height: 1.5; color: var(--ink-secondary); }
+.ficha .fh-spell-error { margin-top: 8px; font-size: 0.9rem; color: var(--fh-blood); }
+.ficha .fh-spell-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
+.ficha .fh-spell-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  color: var(--ink-muted);
+}
+.ficha .fh-spell-slot select {
+  width: auto;
+  min-height: 42px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid rgba(159, 176, 240, 0.45);
+  background-color: #070505;
+  font-family: var(--body);
+  font-size: 0.95rem;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--arcane-bright);
+}
+.ficha .fh-spell-slot select:focus { border-color: var(--arcane-bright); box-shadow: 0 0 0 3px rgba(159, 176, 240, 0.2); }
+.ficha .fh-spell-cast { min-height: 42px; padding-left: 16px; padding-right: 16px; }
+.ficha .fh-spell-noslot {
+  font-family: var(--display);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fh-blood);
+}
+.ficha .fh-spell-remove {
+  width: 42px;
+  min-height: 42px;
+  margin-left: auto;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  color: var(--fh-blood);
+  border-color: rgba(255, 106, 90, 0.45);
+}
+@media (hover: hover) {
+  .ficha .fh-spell-remove:hover { color: #ffd7cf; border-color: var(--fh-blood); background: rgba(94, 21, 17, 0.55); }
+}
+@media (max-width: 600px) {
+  .ficha .spell-row-header.fh-spell-toggle { gap: 10px; padding: 8px 10px 8px 8px; }
+  .ficha .fh-spell-star + .fh-spell-toggle { padding-left: 0; }
+  /* dentro de um grupo por círculo, a etiqueta repete o título do grupo: no celular sai,
+     para o nome ter espaço (nas magias de talento/espécie, agrupadas por origem, fica) */
+  .ficha .fh-by-level .fh-lvl { display: none; }
+  /* nas magias de talento/espécie o selo do círculo desce para baixo do nome, em vez de
+     tirar largura dele (os nomes quebravam no meio da palavra: "PRESTIDIGITA/ÇÃO") */
+  .ficha .spell-row-header.fh-spell-toggle { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 0; }
+  .ficha .fh-spell-toggle > .school-badge { grid-column: 1; grid-row: 1 / span 2; }
+  .ficha .fh-spell-toggle > .fh-spell-main { grid-column: 2; grid-row: 1; }
+  .ficha .fh-spell-toggle > .fh-lvl { grid-column: 2; grid-row: 2; justify-self: start; margin-top: 5px; }
+  .ficha .fh-spell-toggle > .fh-spell-chev { grid-column: 3; grid-row: 1 / span 2; }
+  .ficha .spell-row-body.fh-spell-body,
+  .ficha .fh-spell:has(.fh-spell-star) .fh-spell-body { padding: 2px 12px 14px; }
+  /* espaço numa linha (o select com a largura toda); Conjurar e remover na de baixo */
+  .ficha .fh-spell-slot { flex: 1 1 100%; }
+  .ficha .fh-spell-slot select { flex: 1 1 auto; min-width: 0; min-height: 44px; }
+  .ficha .fh-spell-cast { flex: 1 1 auto; min-height: 44px; }
+  .ficha .fh-spell-remove { width: 44px; min-height: 44px; margin-left: 0; }
+}
+
+/* Modais Preparar magias e Copiar magia (renderizados dentro da ficha): o mesmo couro com
+   filete dourado; as faixas fixas de cima e de baixo no tom do couro daquela altura. */
+.ficha .modal:has(.prep-sticky) {
+  border: 1px solid transparent;
+  background:
+    var(--fh-noise) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 40%, var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+}
+.ficha .modal:has(.prep-sticky) > h2 { color: var(--gold-bright); letter-spacing: 0.06em; }
+.ficha .modal .prep-sticky { background: var(--fh-leather-hi); border-bottom-color: rgba(224, 181, 94, 0.22); }
+.ficha .modal:has(.prep-sticky) .modal-actions.sticky { background: var(--fh-leather-lo); border-top-color: rgba(224, 181, 94, 0.22); }
+.ficha .modal .prep-sticky input { background-color: #070505; border-color: rgba(224, 181, 94, 0.35); }
+.ficha .prep-row {
+  margin-bottom: 6px;
+  border-radius: 6px;
+  border-color: rgba(224, 181, 94, 0.16);
+  background: rgba(10, 7, 6, 0.45);
+}
+.ficha .prep-row.on { border-color: rgba(224, 181, 94, 0.6); background: linear-gradient(90deg, rgba(110, 80, 28, 0.38), rgba(10, 7, 6, 0.45)); }
+.ficha .prep-row.blocked { opacity: 0.5; }
+.ficha .prep-check { border-color: var(--gold-deep); border-radius: 3px; }
+.ficha .prep-row.on .prep-check { background: var(--gold); border-color: var(--gold); }
+.ficha .prep-row:not(.on) .prep-check { color: var(--gold); } /* o "+" do Copiar (escuro sobre escuro, sumia) */
+.ficha .prep-name { font-weight: 600; letter-spacing: 0.03em; }
+.ficha .prep-meta { font-size: 0.84rem; }
+.ficha .prep-tag.c { color: var(--arcane-bright); border-color: rgba(159, 176, 240, 0.45); }
+.ficha .prep-tag.r { color: var(--fh-verdigris); border-color: rgba(116, 214, 180, 0.45); }
+.ficha .prep-info { border-left-color: rgba(224, 181, 94, 0.14); }
+.ficha .prep-desc { border-top-color: rgba(224, 181, 94, 0.14); }
+.ficha .prep-toggle:focus-visible,
+.ficha .prep-info:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ficha .fh-atk-btn,
+  .ficha .spell-group > summary,
+  .ficha .spell-group > summary::after,
+  .ficha .spell-row.fh-spell,
+  .ficha .fh-spell-star,
+  .ficha .fh-spell-chev,
+  .ficha .fh-spell-toggle > * { transition: none; }
+  .ficha .fh-atk-btn:active { transform: none; }
+}
+@media (forced-colors: active) {
+  .ficha .fh-atk-btn { border-color: ButtonText; }
+  .ficha .fh-spell-star.on svg { filter: none; }
+  .ficha .fh-spell-star.on { color: Highlight; }
+  .ficha .spell-group > summary::before { background: CanvasText; box-shadow: none; }
+  .ficha .spell-row.fh-spell.open { border-color: Highlight; }
+}
+@media print {
+  .ficha .fh-atk-name,
+  .ficha .fh-spell .spell-row-name,
+  .ficha .fh-trait-text,
+  .ficha .fh-spell-desc { color: #1a1410; }
+  .ficha .fh-atk-btn,
+  .ficha .fh-style-react,
+  .ficha .spell-row.fh-spell { background: none; box-shadow: none; }
+  .ficha .fh-atk-btn.is-hit,
+  .ficha .fh-trait-name { color: #6b4f1d; }
+  .ficha .fh-atk-btn.is-dmg,
+  .ficha .fh-style-react,
+  .ficha .fh-style-react strong { color: #7a1c12; }
+}
+
+
+/* v1.0.143 WCAG >= 44px hit boxes on spell slot gems */
+.ficha .fh-slot-gem { position: relative; }
+.ficha .fh-slot-gem::after { content: ''; position: absolute; inset: -8px; }

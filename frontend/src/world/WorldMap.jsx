@@ -213,7 +213,8 @@ export default function WorldMap({ campaign, readOnly = false, entries = [], lan
       onClose={() => setSel(null)}
       onOpenCard={(id) => { if (!wide) setSel(null); onOpenEntry?.(id); }}
       onEnterMap={(id) => setMapId(id, { push: true })}
-      onRemove={() => removeZone(selZone.id)} />
+      onRemove={() => removeZone(selZone.id)}
+      onEntrySaved={onEntrySaved} />
   ) : null;
 
   return (
@@ -414,20 +415,41 @@ function PinPanel({ pin, target, map, entries, lang, readOnly, rv, layout, inner
   );
 }
 
-function ZonePanel({ zone, target, map, entries, lang, readOnly, rv, layout, innerRef, saveState, alerts, onUpdate, onClose, onOpenCard, onEnterMap, onRemove }) {
+function ZonePanel({ zone, target, map, entries, lang, readOnly, rv, layout, innerRef, saveState, alerts, onUpdate, onClose, onOpenCard, onEnterMap, onRemove, onEntrySaved }) {
   const name = target?.name || zone.label || t(lang, 'Área nova', 'New zone');
   const flippedAt = useRef(0);
+  const aspectCacheRef = useRef(new Map());
   useEffect(() => { flippedAt.current = Date.now(); }, [zone.id, zone.visible]);
+
+  useEffect(() => {
+    if (!target || target.data?.imageAspect || !(target.imageUrl || target.imageVer)) return undefined;
+    if (aspectCacheRef.current.has(target.id)) return undefined;
+    let cancelled = false;
+    const direct = target.imageUrl || null;
+    const proxy = target.id ? `/api/world/${target.id}/image` : null;
+    aspectCacheRef.current.set(target.id, null);
+    fetchImageRatio(direct, proxy).then(meta => {
+      if (cancelled || !meta?.ratio) return;
+      aspectCacheRef.current.set(target.id, meta.ratio);
+      if (!readOnly && target.id && target.version != null) {
+        updateEntry(target.id, { data: { ...(target.data || {}), imageAspect: meta.ratio }, version: target.version })
+          .then(saved => onEntrySaved?.(saved))
+          .catch(() => { /* ignore conflict during background probe */ });
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [target?.id, target?.imageUrl, target?.imageVer, target?.data?.imageAspect, readOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAutoFit = async () => {
     if (!target) return;
+    const cachedRatio = target.data?.imageAspect ?? aspectCacheRef.current.get(target.id);
     const targetDirect = target.imageUrl || null;
     const targetProxy = target.id ? `/api/world/${target.id}/image` : null;
     const mapDirect = map?.imageUrl || null;
     const mapProxy = map?.id ? `/api/world/${map.id}/image` : null;
     try {
       const [targetMeta, mapMeta] = await Promise.all([
-        fetchImageRatio(targetDirect, targetProxy),
+        cachedRatio ? Promise.resolve({ ratio: cachedRatio }) : fetchImageRatio(targetDirect, targetProxy),
         fetchImageRatio(mapDirect, mapProxy),
       ]);
       if (targetMeta && mapMeta) {

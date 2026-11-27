@@ -1,0 +1,633 @@
+/* ---------- Salvaguardas e perícias (plano §3, §4.6; FhSkillRow em src/sheet/FhChecks.jsx) ----------
+   Linha sem caixa, com filete embaixo: [losango que alterna o treino][nome · sigla · bônus
+   que rola]. Dois botões irmãos. Sem treino o nome fica um tom abaixo; treinado e
+   especialista acendem o losango (e também estão no title / aria-label: não é só cor).
+   No desktop, 2 colunas na ordem do DOM (desce a 1ª, depois a 2ª): --fh-rows vem do JSX. */
+.ficha .fh-skills { display: grid; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 720px) {
+  .ficha .fh-skills {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(var(--fh-rows, 9), auto);
+    grid-auto-flow: column;
+    column-gap: 28px;
+  }
+}
+.ficha .fh-skill {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
+  border-radius: 4px;
+}
+.ficha .fh-skill::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(224, 181, 94, 0.18), transparent);
+}
+@media (hover: hover) {
+  .ficha .fh-skill:hover { background: linear-gradient(90deg, rgba(224, 181, 94, 0.12), transparent 80%); }
+}
+
+/* losango de treino: alvo de 40px (44px no celular), desenho de 10px no ::before */
+.ficha .fh-prof {
+  width: 40px;
+  min-height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ficha .fh-prof::before,
+.ficha .fh-prof-mark {
+  content: "";
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg); /* pseudo-elemento folha */
+  border: 1.5px solid var(--gold-deep);
+  background: rgba(7, 5, 5, 0.5);
+}
+.ficha .fh-prof::before { transition: transform 0.2s var(--fh-ease), background 0.2s, border-color 0.2s, box-shadow 0.2s; }
+.ficha .fh-prof.prof::before,
+.ficha .fh-prof-mark.prof { background: var(--gold); border-color: var(--gold); box-shadow: 0 0 6px rgba(240, 190, 90, 0.5); }
+.ficha .fh-prof.expert::before,
+.ficha .fh-prof-mark.expert { background: var(--fh-gold-hi); border-color: var(--fh-gold-hi); box-shadow: 0 0 0 2px var(--fh-leather), 0 0 0 3px var(--gold), 0 0 10px rgba(240, 190, 90, 0.5); }
+@media (hover: hover) {
+  .ficha .fh-prof:hover::before { transform: rotate(45deg) scale(1.25); border-color: var(--gold-bright); }
+}
+@media (hover: none) {
+  .ficha .fh-prof:active::before { transform: rotate(45deg) scale(1.3); }
+}
+.ficha .fh-prof:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -5px; }
+
+/* o resto da linha: rola o teste */
+.ficha .fh-skill-roll {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 10px 6px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ficha .fh-skill-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-size: 1.02rem;
+  line-height: 1.25;
+  color: var(--ink-secondary);
+  overflow-wrap: break-word;
+}
+.ficha .fh-skill.is-prof .fh-skill-name { color: var(--ink-primary); }
+.ficha .fh-skill-abil-inline {
+  font-family: var(--display);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  opacity: 0.9;
+}
+.ficha .fh-skill-abil {
+  font-family: var(--display);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-align: center;
+  color: var(--ink-muted);
+}
+.ficha .fh-skill-scores {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-family: var(--display);
+  white-space: nowrap;
+}
+.ficha .fh-score-divider {
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+  font-weight: 400;
+  opacity: 0.55;
+}
+.ficha .fh-skill-pass .fh-score-num {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+.ficha .fh-skill-mod .fh-score-num {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--gold-bright);
+}
+.ficha .fh-skill.is-prof .fh-skill-mod { color: var(--gold-bright); }
+@media (hover: hover) {
+  .ficha .fh-skill-roll:hover .fh-skill-name { color: var(--ink-primary); }
+  .ficha .fh-skill-roll:hover .fh-skill-mod { color: var(--fh-gold-hi); }
+}
+@media (hover: none) {
+  .ficha .fh-skill-roll:active { background: rgba(224, 181, 94, 0.14); }
+}
+.ficha .fh-skill-roll:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+
+/* legenda dos losangos no pé do painel */
+.ficha .fh-prof-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 16px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  color: var(--ink-muted);
+}
+.ficha .fh-prof-legend > span { display: inline-flex; align-items: center; gap: 8px; }
+.ficha .fh-prof-mark { display: inline-block; flex: none; width: 8px; height: 8px; }
+.ficha .fh-prof-mark.expert { margin: 0 2px; }
+.ficha .fh-prof-legend > .fh-prof-legend-tip { display: inline; font-style: italic; } /* o verbo (FhTap) e o resto correm como texto */
+
+/* dicas de uso: "toque" no celular, "clique" com mouse (FhTap em src/sheet/FhChecks.jsx) */
+.ficha .fh-tap-mouse { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .ficha .fh-tap-touch { display: none; }
+  .ficha .fh-tap-mouse { display: inline; }
+}
+
+/* Celular e tablet estreito: o botão de dados fica fixo no canto (52px a 14px da borda) e
+   não desvia destas listas (data-fab-pass, ver DiceRoller). A lista termina antes da faixa
+   dele, então nenhum bônus fica por baixo do botão (só na tela: na impressão não há botão).
+   Para o nome não perder lugar, as colunas da sigla e do bônus ficam mais justas (abaixo).
+   Com letra muito grande (raiz de 21px ou mais) a faixa vira 0: aí o nome inteiro vale
+   mais que o canto livre (o clamp com * 999 dá 42px ou 0, sem meio-termo). */
+@media screen and (max-width: 719px) {
+  .ficha .fh-skills { padding-right: clamp(0px, (21px - 1rem) * 999, 42px); }
+}
+@media (max-width: 600px) {
+  .ficha .fh-skill { grid-template-columns: 44px minmax(0, 1fr); }
+  .ficha .fh-prof { width: 44px; min-height: 44px; }
+  .ficha .fh-prof::before { width: 11px; height: 11px; }
+  .ficha .fh-skill-roll { min-height: 44px; grid-template-columns: minmax(0, 1fr) min(2rem, 44px) min(2.1rem, 48px); gap: 6px; padding-right: 6px; }
+  .ficha .fh-skill-name { font-size: 1rem; }
+  .ficha .fh-prof-legend { gap: 4px 12px; font-size: 0.82rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ficha .fh-hex,
+  .ficha .fh-prof::before { transition: none; }
+  .ficha .fh-hex:hover,
+  .ficha .fh-hex:active { transform: none; }
+  .ficha .fh-prof:hover::before,
+  .ficha .fh-prof:active::before { transform: rotate(45deg); }
+}
+@media (forced-colors: active) {
+  /* o hexágono e os losangos são desenho de fundo (sumiriam): cores do sistema */
+  .ficha .fh-hex,
+  .ficha .fh-prof::before,
+  .ficha .fh-prof-mark { forced-color-adjust: none; }
+  .ficha .fh-hex::before { background: CanvasText; }
+  .ficha .fh-hex:hover::before,
+  .ficha .fh-hex:focus-visible::before { background: Highlight; }
+  .ficha .fh-hex-in { background: Canvas; }
+  .ficha .fh-hex-abbr,
+  .ficha .fh-hex-mod,
+  .ficha .fh-hex-score { color: CanvasText; }
+  .ficha .fh-hex:focus-visible { outline-color: Highlight; }
+  .ficha .fh-prof::before,
+  .ficha .fh-prof-mark { border-color: CanvasText; background: Canvas; box-shadow: none; }
+  .ficha .fh-prof.prof::before,
+  .ficha .fh-prof-mark.prof { border-color: Highlight; background: Highlight; }
+  .ficha .fh-prof.expert::before,
+  .ficha .fh-prof-mark.expert { border-color: Highlight; background: Highlight; box-shadow: 0 0 0 2px Canvas, 0 0 0 3.5px Highlight; }
+}
+@media print {
+  /* papel branco: o texto claro sumiria; os desenhos saem com as cores (print-color-adjust) */
+  .ficha .fh-hex::before,
+  .ficha .fh-hex-in,
+  .ficha .fh-prof::before,
+  .ficha .fh-prof-mark { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ficha .fh-hex-in { background: #fff; }
+  .ficha .fh-hex-mod,
+  .ficha .fh-skill-name,
+  .ficha .fh-skill.is-prof .fh-skill-name { color: #1a1410; }
+  .ficha .fh-hex-abbr,
+  .ficha .fh-skill-mod,
+  .ficha .fh-skill.is-prof .fh-skill-mod { color: #6b4f1d; }
+  .ficha .fh-hex-score,
+  .ficha .fh-skill-abil,
+  .ficha .fh-prof-legend { color: #5a4a35; }
+  .ficha .fh-prof:not(.prof):not(.expert)::before,
+  .ficha .fh-prof-mark:not(.prof):not(.expert) { background: #fff; }
+  .ficha .fh-prof-legend-tip { display: none; }
+}
+@media (max-width: 340px) {
+  /* 320px: nenhum nome parte no meio da palavra ("Lidar com Animais" quebra no espaço) */
+  .ficha .fh-skill-roll { grid-template-columns: minmax(0, 1fr) 1.8rem 1.9rem; gap: 4px; }
+  .ficha .fh-skill-name { font-size: 0.95rem; }
+}
+
+/* ---------- Gemas de recurso (plano §3, §4.7) ----------
+   Espaços de magia (astral), usos da Forma Selvagem (verdete) e recursos de classe (ouro,
+   .fh-res em volta do ResourcesCard). A gema é desenhada DENTRO do mesmo button.slot-pip:
+   ::before é a gema acesa (losango facetado com brilho) e ::after o engaste vazio e
+   rachado da gema gasta. Ficam a marcação, o disabled, o .locked e os handlers.
+   - O global gira o quadrado (rotate 45°): aqui o botão não gira; o losango é o desenho.
+   - Celular: o app força 32×32px (mobile-styles.css). Não brigar com o !important: o
+     ::after cresce para fora do botão e leva a área de toque a 40×44px.
+   - Gastar e recuperar animam por transição (a gema encolhe e some; ao voltar, cresce
+     com um repique). Transição só dispara quando a classe muda: abrir a ficha ou trocar
+     de aba não anima nada. */
+.ficha {
+  --fh-gem-arcane: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 36'><polygon points='15,1 29,12 15,35 1,12' fill='%238c9cff'/><polygon points='15,1 22,12 15,35 8,12' fill='%23e2e8ff' opacity='.55'/><polygon points='1,12 29,12 15,35' fill='%233d48b8' opacity='.55'/><polygon points='15,1 29,12 1,12' fill='%23e2e8ff' opacity='.35'/></svg>");
+  --fh-gem-wild: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 36'><polygon points='15,1 29,12 15,35 1,12' fill='%2374d6b4'/><polygon points='15,1 22,12 15,35 8,12' fill='%23dcfff1' opacity='.55'/><polygon points='1,12 29,12 15,35' fill='%231d6e58' opacity='.55'/><polygon points='15,1 29,12 1,12' fill='%23dcfff1' opacity='.35'/></svg>");
+  --fh-gem-gold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 36'><polygon points='15,1 29,12 15,35 1,12' fill='%23f0c96d'/><polygon points='15,1 22,12 15,35 8,12' fill='%23fff6d6' opacity='.55'/><polygon points='1,12 29,12 15,35' fill='%239a6c22' opacity='.55'/><polygon points='15,1 29,12 1,12' fill='%23fff6d6' opacity='.35'/></svg>");
+  /* gasta: engaste escuro com contorno visível sobre o couro e a rachadura da demo */
+  --fh-gem-spent: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 36'><polygon points='15,1.5 28.5,12 15,34.5 1.5,12' fill='%23241c17' stroke='%23857360' stroke-width='1'/><polygon points='15,1 22,12 15,35 8,12' fill='%233a302a' opacity='.55'/><polygon points='1,12 29,12 15,35' fill='%23120d0b' opacity='.55'/><polygon points='15,1 29,12 1,12' fill='%233a302a' opacity='.35'/><path d='M10 9 L15 16 L12 22 L17 28' stroke='%23a08c72' stroke-width='1.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+}
+.ficha .slot-pips,
+.ficha .slot-row .slot-pips,
+.ficha .slot-pips.wild { gap: 6px; padding: 0; align-items: center; }
+.ficha .slot-pip,
+.ficha .slot-pips.wild .slot-pip {
+  --fh-gem: var(--fh-gem-arcane);
+  --fh-glow: rgba(140, 160, 255, 0.75);
+  --fh-gem-w: 26px;
+  --fh-gem-h: 31px;
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  box-shadow: none;
+  transform: none;
+  filter: none;
+  opacity: 1;
+  transition: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ficha .slot-pips.wild .slot-pip { --fh-gem: var(--fh-gem-wild); --fh-glow: rgba(116, 214, 180, 0.7); }
+.ficha .fh-res .slot-pip { --fh-gem: var(--fh-gem-gold); --fh-glow: rgba(240, 200, 110, 0.75); }
+.ficha .slot-pip::before,
+.ficha .slot-pip::after {
+  content: "";
+  position: absolute;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+/* gema acesa */
+.ficha .slot-pip::before {
+  left: 50%;
+  top: 50%;
+  width: var(--fh-gem-w);
+  height: var(--fh-gem-h);
+  margin: calc(var(--fh-gem-h) / -2) 0 0 calc(var(--fh-gem-w) / -2);
+  pointer-events: none;
+  background: var(--fh-gem) center / contain no-repeat;
+  filter: drop-shadow(0 0 5px var(--fh-glow));
+  transition: opacity 0.3s var(--fh-ease), transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s;
+}
+/* engaste da gema gasta (centrado no botão; no celular, também a área de toque maior) */
+.ficha .slot-pip::after {
+  inset: 0;
+  background: var(--fh-gem-spent) center / var(--fh-gem-w) var(--fh-gem-h) no-repeat;
+  opacity: 0;
+  transition: opacity 0.3s var(--fh-ease);
+}
+.ficha .slot-pip.used::before { opacity: 0; transform: scale(0.55); }
+.ficha .slot-pip.used::after { opacity: 1; }
+/* travada (sem trapaça a gasta não volta; em campanha, nenhuma responde): o global
+   esmaece o botão inteiro; aqui a gasta continua legível e a acesa perde só o brilho */
+.ficha .slot-pip.locked { opacity: 1; filter: none; cursor: not-allowed; }
+.ficha .slot-pip.locked:not(.used)::before { filter: saturate(0.7) brightness(0.85); }
+.ficha .slot-pip:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 1px; }
+@media (hover: hover) {
+  .ficha .slot-pip:not(:disabled):not(.used):hover::before { transform: translateY(-2px) scale(1.06); filter: drop-shadow(0 0 9px var(--fh-glow)) brightness(1.08); }
+  /* gasta que pode voltar (trapaça): a gema aparece de leve */
+  .ficha .slot-pip.used:not(:disabled):hover::before { opacity: 0.4; transform: scale(0.85); }
+}
+@media (max-width: 720px) {
+  .ficha .slot-pips,
+  .ficha .slot-row .slot-pips,
+  .ficha .slot-pips.wild { gap: 12px 8px; } /* as áreas de toque (40×44) não se sobrepõem */
+  .ficha .slot-pip { --fh-gem-w: 25px; --fh-gem-h: 30px; }
+  .ficha .slot-pip::after { inset: -6px -4px; }
+}
+
+/* Linha de espaços: "1º CÍRCULO" em Cinzel astral à esquerda, gemas e "livres/máx" */
+.ficha .fh-slot-line {
+  grid-template-columns: 6.6rem minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: 56px;
+}
+.ficha .fh-slot-line .slot-level {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1.25;
+}
+.ficha .fh-gem-count,
+.ficha .fh-res .slot-row > .mono {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-secondary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* Forma Selvagem: "1/2 usos · …", com o número em verdete */
+.ficha .fh-gem-note { line-height: 1.35; }
+.ficha .fh-gem-note .fh-gem-count { font-size: 1rem; color: var(--fh-verdigris); }
+/* Recursos com mais de 12 usos: −1 / −5 / +1 no tom do ouro */
+.ficha .fh-res .slot-row .btn-ghost { color: var(--gold-bright); border-color: rgba(240, 200, 110, 0.4); }
+@media (max-width: 600px) {
+  .ficha .fh-slot-line { grid-template-columns: 5.6rem minmax(0, 1fr) auto; min-height: 52px; }
+  .ficha .fh-slot-line .slot-level { letter-spacing: 0.1em; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ficha .slot-pip::before,
+  .ficha .slot-pip::after { transition: none; }
+  .ficha .slot-pip.used::before,
+  .ficha .slot-pip:not(:disabled):hover::before { transform: none; }
+}
+@media (forced-colors: active) {
+  /* o desenho é imagem de fundo: mantém as cores (o estado também vai no nome acessível) */
+  .ficha .slot-pip { forced-color-adjust: none; }
+  .ficha .slot-pip:focus-visible { outline-color: Highlight; }
+}
+
+/* ---------- Condições (plano §3, §4.8; ConditionsPanel em components/Sheet.jsx) ----------
+   Pílulas com ícone; a ligada fica em vinho com brilho. aria-pressed no botão. */
+.ficha .cond-chips { gap: 8px; }
+.ficha .cond-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 4px 14px 4px 4px;
+  border-radius: 999px;
+  font-family: var(--body);
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-align: left;
+  color: var(--ink-secondary);
+  background: rgba(10, 7, 6, 0.5);
+  border: 1px solid rgba(224, 181, 94, 0.22);
+  transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s, color 0.2s;
+}
+.ficha .cond-chip .art-icon {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(224, 181, 94, 0.3);
+  filter: grayscale(0.7) brightness(0.7);
+  transition: filter 0.3s, transform 0.3s var(--fh-ease), box-shadow 0.3s;
+}
+.ficha .cond-chip .art-icon-emoji { display: inline-block; background: rgba(224, 181, 94, 0.08); }
+.ficha .cond-chip.on {
+  color: #ffd7cf;
+  font-weight: 600;
+  border-color: var(--fh-blood);
+  background: rgba(94, 21, 17, 0.55);
+  box-shadow: 0 0 14px rgba(255, 90, 70, 0.35);
+}
+.ficha .cond-chip.on .art-icon { filter: none; transform: scale(1.08); box-shadow: 0 0 0 1px rgba(255, 106, 90, 0.7); }
+.ficha .fh-cond-x { margin-left: -4px; font-size: 0.8em; opacity: 0.85; }
+.ficha .cond-chip:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.ficha .fh-cond-on { gap: 0; }
+@media (hover: hover) {
+  .ficha .cond-chip:hover { border-color: rgba(255, 106, 90, 0.55); }
+  .ficha .cond-chip:not(.on):hover .art-icon { filter: grayscale(0.25) brightness(0.9); }
+}
+@media (hover: none) {
+  .ficha .cond-chip:active { transform: scale(0.97); } /* botão-folha: não contém nada que abra Modal */
+}
+/* Efeitos personalizados: linha dourada (nome e duração continuam editáveis) */
+.ficha .fh-cond-temp {
+  padding: 6px 6px 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(240, 200, 110, 0.45);
+  background: linear-gradient(90deg, rgba(90, 64, 20, 0.45), rgba(10, 7, 6, 0.5));
+}
+.ficha .fh-cond-temp-mark {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  transform: rotate(45deg); /* elemento-folha */
+  background: var(--fh-gilt);
+  box-shadow: 0 0 8px rgba(240, 200, 110, 0.6);
+}
+.ficha .fh-cond-temp input,
+.ficha .fh-cond-add input { min-width: 0; }
+.ficha .fh-cond-temp input { background: rgba(10, 7, 6, 0.55); }
+
+/* Camadas das condições (retrato, bordas da tela, moldura do painel, marcas): saíram daqui.
+   Tudo em src/sheet/condition-fx.css, com a lógica em src/sheet/FhConditions.jsx. */
+@media (prefers-reduced-motion: reduce) {
+  .ficha .cond-chip,
+  .ficha .cond-chip .art-icon { transition: none; }
+  .ficha .cond-chip:active { transform: none; }
+}
+@media (forced-colors: active) {
+  .ficha .cond-chip.on { border: 2px solid Highlight; }
+  .ficha .cond-chip .art-icon { forced-color-adjust: none; }
+}
+@media print {
+  .ficha .cond-chip.on { color: #7a1c12; background: none; box-shadow: none; }
+  .ficha .cond-chip { color: #3a2e22; background: none; }
+}
+
+/* ---------- Ataques (plano §4.10, F9; FhAttackRow em src/sheet/FhAttack.jsx) ----------
+   Linha sem caixa, com filete entre as armas: [miniatura][nome / tipo de dano][ATAQUE +5]
+   [DANO 1d8+3] e as notas embaixo (Artes Marciais, sem proficiência, Estilo, Maestria).
+   Os dois botões são os de antes (mesmas rolagens); no celular descem para uma linha
+   própria, lado a lado, com 44px de altura. Ouro para o ataque, vinho para o dano. */
+.ficha .fh-atks { display: grid; }
+.ficha .fh-atk {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  grid-template-areas: "art head acts" ". notes notes";
+  align-items: center;
+  column-gap: 12px;
+  padding: 14px 0;
+}
+.ficha .fh-atk:first-child { padding-top: 0; }
+.ficha .fh-atk:last-child { padding-bottom: 0; }
+.ficha .fh-atk + .fh-atk::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(224, 181, 94, 0.3), rgba(224, 181, 94, 0.1) 70%, transparent);
+}
+.ficha .fh-atk-art { grid-area: art; display: flex; align-self: start; }
+.ficha .fh-atk-head { grid-area: head; min-width: 0; }
+.ficha .fh-atk-name {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.02rem;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  color: var(--ink-primary);
+  overflow-wrap: anywhere;
+}
+.ficha .fh-atk-sub { margin-top: 2px; font-size: 0.92rem; line-height: 1.3; color: var(--ink-muted); }
+.ficha .fh-atk-sub::first-letter { text-transform: uppercase; }
+.ficha .fh-atk-acts { grid-area: acts; display: flex; justify-content: flex-end; gap: 8px; }
+.ficha .fh-atk-btn {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 7px;
+  min-width: 96px;
+  min-height: 44px;
+  padding: 11px 12px 9px;
+  border: 1px solid;
+  border-radius: 5px;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: box-shadow 0.2s, border-color 0.2s, color 0.2s, background-color 0.2s;
+}
+.ficha .fh-atk-btn-k {
+  font-family: var(--display);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+/* o valor em Garamond: no Cinzel (só maiúsculas) "1d6" virava "ID6" */
+.ficha .fh-atk-btn-v {
+  font-family: var(--body);
+  font-weight: 700;
+  font-size: 1.2rem;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+/* larguras mínimas iguais em todas as linhas: no desktop os botões ficam alinhados em coluna */
+.ficha .fh-atk-btn.is-hit { min-width: 112px; }
+.ficha .fh-atk-btn.is-dmg { min-width: 136px; }
+.ficha .fh-atk-btn.is-hit {
+  color: var(--gold-bright);
+  border-color: rgba(224, 181, 94, 0.55);
+  background: linear-gradient(180deg, rgba(110, 80, 28, 0.5), rgba(36, 24, 10, 0.6));
+}
+.ficha .fh-atk-btn.is-dmg {
+  color: #ffc9c0;
+  border-color: rgba(255, 106, 90, 0.5);
+  background: linear-gradient(180deg, rgba(94, 21, 17, 0.6), rgba(40, 10, 8, 0.65));
+}
+@media (hover: hover) {
+  .ficha .fh-atk-btn.is-hit:hover { color: var(--fh-gold-hi); border-color: var(--gold); box-shadow: 0 0 16px rgba(240, 190, 90, 0.35); }
+  .ficha .fh-atk-btn.is-dmg:hover { color: #ffe3dd; border-color: var(--fh-blood); box-shadow: 0 0 16px rgba(255, 106, 90, 0.35); }
+}
+@media (hover: none) {
+  .ficha .fh-atk-btn:active { transform: scale(0.96); } /* botão-folha: não contém nada que abra Modal */
+}
+.ficha .fh-atk-btn:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.ficha .fh-atk-notes {
+  grid-area: notes;
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--ink-muted);
+}
+.ficha .fh-atk-note.is-gold { color: var(--gold); }
+.ficha .fh-atk-note.is-warn { color: var(--fh-blood); }
+.ficha .fh-atk-note.is-mastery { color: var(--ink-secondary); }
+.ficha .fh-atk-note.is-mastery strong { font-weight: 600; color: var(--fh-verdigris); }
+@media (max-width: 600px) {
+  .ficha .fh-atk {
+    grid-template-columns: 40px minmax(0, 1fr);
+    grid-template-areas: "art head" "acts acts" "notes notes";
+  }
+  .ficha .fh-atk-acts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 10px; }
+  .ficha .fh-atk-btn.is-hit,
+  .ficha .fh-atk-btn.is-dmg { min-width: 0; }
+}
+
+/* Estilos de Luta: linhas de traço (losango dourado + nome), sentidos e lembretes de reação */
+.ficha .fh-traits { display: grid; gap: 12px; }
+.ficha .fh-trait-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  color: var(--fh-gold-hi);
+}
+.ficha .fh-trait-name::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg); /* pseudo-elemento folha */
+  background: var(--fh-gilt);
+}
+.ficha .fh-trait-text { margin: 3px 0 0 17px; font-size: 0.95rem; line-height: 1.45; color: var(--ink-secondary); }
+.ficha .fh-trait-text::first-letter { text-transform: uppercase; } /* "reação (ver lembrete)" */
+.ficha .fh-style-sense {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(224, 181, 94, 0.16);
+  font-size: 0.95rem;
+  color: var(--ink-secondary);
+}
+.ficha .fh-style-sense strong { font-weight: 600; color: var(--gold); }
+.ficha .fh-style-react {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 106, 90, 0.42);
+  background: linear-gradient(180deg, rgba(94, 21, 17, 0.45), rgba(40, 10, 8, 0.5));
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: #ffd7cf;
+}
+.ficha .fh-style-react strong { font-weight: 600; color: #ffb4a8; }
+
+
+/* v1.0.143 WCAG >= 44px hit boxes on sheet pips */
+.ficha .fh-res-pip, .ficha .fh-skill-prof { min-width: 28px; min-height: 28px; position: relative; }
+.ficha .fh-res-pip::after, .ficha .fh-skill-prof::after { content: ''; position: absolute; inset: -8px; }

@@ -32,7 +32,7 @@ import StageThumb from './StageThumb.jsx';
 import useStage from './useStage.js';
 import { L, screenLine } from './stage-now.js';
 import { seenSuffix, tvLine, tvShort, tvState, turnLine } from './table-bar-model.js';
-import { LiveTv } from './LiveScreenSheet.jsx';
+import { LiveTv } from './LiveScreenParts.jsx';
 import { openDice, useFreshRoll } from './TableBar.jsx';
 import { useTable } from '../play/table-store.js';
 import MesaIcon from '../shell/MesaIcon.jsx';

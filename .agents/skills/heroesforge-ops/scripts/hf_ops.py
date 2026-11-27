@@ -38,8 +38,17 @@ GRAPH_DIR = ROOT / "graphify-out"
 
 OUTLINE_ALIASES = {
     "sheet": "frontend/components/Sheet.jsx",
+    "sheet-hero": "frontend/src/sheet/hero/SheetHero.jsx",
+    "belt": "frontend/src/sheet/belt/BeltHive.jsx",
+    "play": "frontend/src/sheet/tabs/SheetPlay.jsx",
+    "skills": "frontend/src/sheet/tabs/SheetSkillsSection.jsx",
+    "features": "frontend/src/sheet/tabs/SheetFeaturesSection.jsx",
     "tabs": "frontend/components/SheetTabs.jsx",
+    "spells": "frontend/src/sheet/spells/SpellViews.jsx",
+    "inv": "frontend/src/sheet/inventory/SheetInventoryTab.jsx",
+    "story": "frontend/src/sheet/story/SheetStoryTab.jsx",
     "css": "frontend/src/sheet/ficha.css",
+    "polish-css": "frontend/src/sheet/css/sheet-polish.css",
     "tabs-css": "frontend/src/sheet/ficha-tabs.css",
     "cond-css": "frontend/src/sheet/condition-fx.css",
     "styles": "frontend/styles.css",

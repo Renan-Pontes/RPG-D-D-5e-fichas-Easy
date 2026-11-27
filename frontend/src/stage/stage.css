@@ -625,3 +625,12 @@
 /* ícones de linha (no lugar dos emoji) nas abas do Mostrar e nas regras de rolagem */
 .stage-tab-ico, .stage-rule-ico { color: var(--gold); }
 .stage-tab-ico > .mesa-ico, .stage-rule-ico > .mesa-ico { vertical-align: -0.18em; }
+
+.mesa-soundscape { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--border, rgba(214, 176, 100, 0.25)); border-radius: 8px; background: rgba(14, 10, 7, 0.45); display: grid; gap: 8px; }
+.mesa-soundscape-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mesa-soundscape-head .mesa-eyebrow { margin: 0; }
+.mesa-soundscape-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.mesa-sound-pill { min-height: 36px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--stroke, rgba(214, 176, 100, 0.28)); background: var(--bg-raised, #1b150f); color: var(--ink-secondary, #d9c9a6); font: inherit; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease; }
+.mesa-sound-pill.active { border-color: var(--gold, #d6b064); background: var(--gold-soft, rgba(214, 176, 100, 0.16)); color: var(--gold-bright, #edcb7a); }
+.mesa-soundscape-vol { display: flex; align-items: center; gap: 10px; }
+.mesa-soundscape-vol input[type="range"] { flex: 1; accent-color: var(--gold, #d6b064); }

@@ -1,7 +1,7 @@
 # Technical Debt & Legacy Modernization Register — Forja de Heróis
 
-> **Audit Date:** 2026-11-27 (synced through `v1.0.141`)  
-> **Health Score:** 14/20 (Backend CI & test suite stabilized; monolith split & production cutover next)  
+> **Audit Date:** 2026-11-27 (synced through `v1.0.143`)  
+> **Health Score:** 17/20 (31 standalone FE tasks shipped in `v1.0.143`: FE monoliths decomposed, CSS split + GPU transitions, WCAG targets >=44px, bundle <110kB gz, Immer Undo, idb + PWA, exponential polling)  
 > **Source Documents:** `AUDIT.md`, `CRITIQUE.md`, `DECISIONS.md`, `ARCHITECTURE.md`, `docs/ux-audit-table-speed.md`, [`docs/frontend-backend-split-and-oss-blueprint.md`](docs/frontend-backend-split-and-oss-blueprint.md) (`NANO-001`–`NANO-072`)
 
 ---
@@ -10,12 +10,12 @@
 
 | Category | Priority | Item Count | Primary Risk | Remediation Target |
 |---|---|---|---|---|
-| **Architecture / Legacy** | P1 | 92 references | High maintenance cost, regression risk during feature additions | Deprecation & shim isolation |
-| **Performance / Chunks** | P1 | 5 large chunks | Slow initial page load, high TTI on low-end mobile devices | Dynamic `import()` & manualChunks |
-| **Animation / Layout** | P1 | 12 selectors | UI jank & frame drops during intense combat/TV updates | `transform`/`opacity` refactor |
-| **Accessibility / Mobile**| P1 | 18 controls | Touch inaccuracy and player frustration during live play | $\ge 44\times 44\text{px}$ touch targets |
-| **Theming / CSS Tokens** | P2 | 411 hex literals | High friction for theme modifications and dark/light shifts | Token consolidation to CSS vars |
-| **Network / Polling** | P2 | 1 module | Silent failure loops when server is degraded or restarting | Exponential backoff & status UI |
+| **Architecture / Legacy** | P1 | 92 references | High maintenance cost, regression risk during feature additions | Deprecation & shim isolation (`NANO-015`, `NANO-050`) |
+| **Performance / Chunks** | Done (`v1.0.143`) | Entry `< 108 kB` gz | Resolved via `pickChunk` + `char-card-summary.js` + `React.lazy` + `check_bundle_budget.mjs` | Enforced in CI/verify |
+| **Animation / Layout** | Done (`v1.0.143`) | 12 selectors fixed | Transitioned to GPU `transform`/`opacity`/`grid-template-rows` | Closed (`NANO-056`) |
+| **Accessibility / Mobile**| Done (`v1.0.143`) | 18+ controls fixed | Expanded to $\ge 44\times 44\text{px}$ hit boxes | Closed (`NANO-057`) |
+| **Theming / CSS Tokens** | P2 | Modularized (`v1.0.143`) | Split into `src/sheet/css/` (14 files) & `src/styles/` (5 files) | Incremental token polish |
+| **Network / Polling** | Done (`v1.0.143`) | `polling.js` + `table-store.js` | Upgraded to `2.5s -> 30s` exponential backoff + jitter + visibility wake | Closed (`NANO-036`) |
 
 ---
 
@@ -58,78 +58,38 @@ During the migration from the original v1/v2 tab-based interface to the unified 
 
 ## 3. Frontend Bundle Splitting & Performance Debt
 
-### 3.1 Current Build Chunk Breakdown (`v1.0.141`)
-Production build currently yields oversized bundles (further amplified because `frontend/src/api/storage.js` eagerly imports `srd.js` + `utils.js` inside `list()` — queued for decoupling in `NANO-028`):
-- `dist/assets/srd-*.js`: **3,542.82 kB** (`924.32 kB` gzip)
-- `dist/assets/app-*.js`: **2,082.09 kB** (`599.55 kB` gzip)
-- `dist/assets/srd2024-spells-*.js`: **606 kB**
-- `dist/assets/bestiary-*.js`: **747 kB**
-- `dist/assets/progression-*.js`: **600 kB**
-- `dist/assets/dice-scene-*.js`: **534 kB**
-- `dist/assets/sheet-data-*.js`: **483 kB**
+### 3.1 Current Build Chunk Breakdown (`v1.0.143` — Shipped)
+`frontend/src/api/storage.js` `list()`/`get()` now read `frontend/src/api/char-card-summary.js` without eagerly importing `srd.js` or `utils.js`, heavy routes/modals are lazy-loaded, and `pickChunk` in `frontend/vite.config.js` splits vendors & SRD catalogs (`scripts/check_bundle_budget.mjs` enforces `<= 250 kB` gzip entry):
+- `dist/assets/app-*.js`: **319.43 kB** (`107.23 kB` Vite gz / `104.7 KiB` gz — down from `2,082.09 kB` / `599.55 kB` gzip)
+- `dist/assets/vendor-react-*.js`: **142.97 kB** (`45.80 kB` gz), `vendor-three-*.js`: **525.87 kB** (`131.45 kB` gz), `vendor-pdf-*.js`: **430.83 kB** (`178.21 kB` gz)
+- `dist/assets/srd-*.js`: **1,052.94 kB** (`260.82 kB` gz) + split `srd-spells-2024` (`215.18 kB` gz), `srd-spells-extra` (`404.81 kB` gz), `srd-bestiary` (`139.10 kB` gz), `srd-magic-items` (`162.45 kB` gz), `srd-subclasses` (`546.83 kB` gz)
+- `dist/assets/pdf.worker-*.js`: **5,417.69 kB** (`1,423.7 KiB` gz — loaded off-thread only when exporting/importing PDF)
 
-### 3.2 Vite Dynamic / Static Import Collision Fix
-The Vite build emits warnings where modules are dynamically imported in one file but statically imported in another, preventing Rollup from moving them into separate lazy chunks:
-1. **`SpeciesChoices.jsx`:**
-   - *Issue:* Dynamically imported in `app.jsx`, `AdminScreen.jsx`, `ClosedCampaignBanner.jsx`, but statically imported in `components/Creator.jsx`, `components/Sheet.jsx`, `components/SheetTabs.jsx`.
-   - *Fix:* Convert static imports in `Creator.jsx` and `Sheet.jsx` to `React.lazy()` with `<Suspense>` wrappers.
-2. **`LiveScreenSheet.jsx`:**
-   - *Issue:* Dynamically imported in `CampaignDetail.jsx`, but statically imported in `MoreSheet.jsx` and `ScreenWindow.jsx`.
-   - *Fix:* Align all import sites to lazy imports.
+### 3.2 Vite Dynamic / Static Import Collision Fix (Resolved `v1.0.143`)
+Both Rollup static/dynamic import collision warnings are eliminated (0 warnings):
+1. **`SpeciesChoices.jsx`:** Shared summary helpers moved into `frontend/src/progression/species-summary.js`; heavy picker consumers lazy-load cleanly.
+2. **`LiveScreenSheet.jsx`:** Shared primitives extracted to `frontend/src/stage/LiveScreenParts.jsx`; consumers unified cleanly.
 
-### 3.3 Target Rollup Chunking Architecture
-Configure `vite.config.js` with explicit `output.manualChunks`:
-```js
-manualChunks: {
-  'vendor-react': ['react', 'react-dom'],
-  'vendor-three': ['three'],
-  'vendor-pdf': ['pdf-lib'],
-  'srd-core': ['./frontend/data/srd.js'],
-  'srd-spells': ['./frontend/data/srd2024-spells.json', './frontend/data/srd2024-spells-pt.json'],
-  'srd-bestiary': ['./frontend/data/monsters-srd521.js', './frontend/data/monsters-pt.js'],
-  'srd-rules': ['./frontend/data/srd2024-rules.json', './frontend/data/class-options/index.js'],
-}
-```
+### 3.3 Active Rollup Chunking (`frontend/vite.config.js`)
+Configured via `pickChunk(id)` isolating `vendor-react`, `vendor-three`, `vendor-pdf`, `vendor-state`, `srd`, `srd-spells-2024`, `srd-spells-extra`, `srd-magic-items`, `srd-bestiary`, `srd-subclasses`, and `progression` alongside `VitePWA` (`generateSW`, 145 precache entries).
 
 ---
 
-## 4. CSS Layout Transitions & Jank Elimination
+## 4. CSS Layout Transitions & Jank Elimination (Resolved `v1.0.143`)
 
-Animating layout properties triggers expensive browser reflows (Layout $\rightarrow$ Paint $\rightarrow$ Composite). The following files contain P1 layout transitions:
-
-| File & Line | Current Property | Refactor Target |
-|---|---|---|
-| `frontend/styles.css:898` | `transition: width 0.3s ease` | `transform: scaleX(...)` with `transform-origin: left` |
-| `frontend/src/creator/creator.css:13` | `transition: height 0.4s` | CSS Grid `grid-template-rows: 0fr -> 1fr` |
-| `frontend/src/screen/tv-styles.css:279`| `transition: margin-top 0.5s` | `transform: translateY(...)` |
-| `frontend/src/shell/shell.css:391` | `transition: max-height 0.3s` | CSS Grid row expansion or opacity cross-fade |
-| `frontend/src/shell/mesa.css:690` | `transition: width 0.2s` | `transform: scaleX(...)` |
+All 12 P1 layout transitions (`width`, `height`, `max-height`, `margin-top`, `all`) across `frontend/src/styles/*.css`, `frontend/src/creator/creator.css`, `frontend/src/screen/tv-styles.css` (`TVScreen.jsx`), and `frontend/src/shell/shell.css` (`Onboarding.jsx`) were migrated to GPU-composited `transform`, `opacity`, and `grid-template-rows`.
 
 ---
 
-## 5. Touch Target & Accessibility Compliance
+## 5. Touch Target & Accessibility Compliance (Resolved `v1.0.143`)
 
-WCAG 2.5.5 (Target Size AAA: $44\times 44\text{px}$) and WCAG 2.5.8 (Target Size AA: $24\times 24\text{px}$) remediation targets:
-
-1. **`frontend/src/creator/join-table.css:102`:** Radio button currently sized at $18\times 18\text{px}$.
-   - *Remediation:* Wrap radio input in a container label with minimum `min-height: 44px; display: flex; align-items: center;`.
-2. **`frontend/src/app-extra-styles.css:1158` & `:1137`:** Miniature action icons sized at $14\times 14\text{px}$ and $22\times 22\text{px}$.
-   - *Remediation:* Expand hit box using `padding: 11px; margin: -11px;` or setting container button `min-width: 44px; min-height: 44px;`.
-3. **`frontend/components/Sheet.jsx` (Sub-actions and spell slots):**
-   - *Remediation:* Ensure all clickable pips and small toggles enforce a transparent hit-box buffer.
+WCAG 2.5.5 (Target Size AAA: $44\times 44\text{px}$) and WCAG 2.5.8 (Target Size AA: $24\times 24\text{px}$) hits expanded across `frontend/src/creator/join-table.css`, `frontend/src/app-extra-styles.css`, `frontend/src/sheet/css/sheet-skills-features.css`, `frontend/src/sheet/css/sheet-spells.css`, and `frontend/src/sheet/css/sheet-polish.css`.
 
 ---
 
-## 6. Network Resilience & Polling Improvements
+## 6. Network Resilience & Polling Improvements (Resolved `v1.0.143`)
 
-Current implementation in `frontend/src/api/polling.js`:
-- Uses fixed 2,500ms interval.
-- Catches network errors with empty `catch { /* swallow */ }` blocks.
-- When PythonAnywhere experiences temporary maintenance or network latency, the client loops continuously without informing the user.
-
-**Remediation Architecture:**
-1. **Exponential Backoff:** Start at 2.5s; on network failure, back off to 5s, 10s, max 30s. Reset to 2.5s upon first successful 200/304 response.
-2. **UI Telemetry:** Trigger an unobtrusive offline status pill in the shell when 3 consecutive polls fail, notifying the DM that real-time sync is paused.
+Upgraded `frontend/src/api/polling.js` (`computeBackoffMs`: `2.5s -> 30s` with $\pm 15\%$ jitter, `online` / `visibilitychange` instant reset) and wired failure-aware scheduling into `frontend/src/play/table-store.js`.
 
 ---
 
@@ -149,23 +109,23 @@ Register of debt created by the frontend running ahead of the deployed backend. 
 | Stale version label in production (`fcaa730` vs code of 2026-10-26) | `scripts/self_update.py` | A4 |
 | ~~Backend suite red on `main` (13 failures, 2 errors)~~ **Resolved in `v1.0.136`** (`5de5cf5`, `606f4df`, `bc98391`, `29f6b3a`, `f22ac4c`) | `backend/api/tests/` | Done |
 | ~~Release packaged without running tests~~ **Resolved in `v1.0.136`** (`d824fa2`: `check:rules`, `makemigrations --check`, `check_doc_refs.py`, `manage.py test` gate) | `.github/workflows/backend-release.yml` | Done |
-| Unused `BeltPbSlot` component left after the belt redesign | `components/Sheet.jsx` | delete |
+| ~~Unused `BeltPbSlot` component left after the belt redesign~~ **Removed in `v1.0.143`** | `components/Sheet.jsx` | Done |
 
 ---
 
-## 8. Monolithic File Decomposition & Component Abstraction Blueprint (updated 2026-11-27)
+## 8. Monolithic File Decomposition & Component Abstraction Blueprint (updated 2026-11-27, `v1.0.143`)
 
-Full deterministic decomposition plan and cascade maps: [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) (Epic 5) and [`ADR.md`](ADR.md) (`ADR-0036`). Note: `ficha-tabs.css` (518 lines) and `condition-fx.css` (886 lines) were extracted alongside `ficha.css` in `v1.0.138`–`v1.0.139`.
+Full deterministic decomposition plan and cascade maps: [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) (Epic 5) and [`ADR.md`](ADR.md) (`ADR-0036`). Note: FE CSS & sheet monoliths (`ficha.css`, `styles.css`, `Sheet.jsx`, `SheetTabs.jsx`, and `NextSession.jsx` subviews) were decomposed in `v1.0.143`.
 
-| Monolithic File | Current Lines | Target Budget | Planned High-Level Extraction Modules |
+| Monolithic File | Lines (`v1.0.143`) | Target Budget | Extracted / Planned High-Level Modules |
 | :--- | ---: | ---: | :--- |
-| [`frontend/src/sheet/ficha.css`](frontend/src/sheet/ficha.css) | 7,381 | `< 800` / module | `sheet-tokens.css`, `sheet-hero.css`, `sheet-belt.css`, `sheet-skills-features.css`, `sheet-spells.css`, `sheet-inventory-modals.css` |
-| [`frontend/components/Sheet.jsx`](frontend/components/Sheet.jsx) | 5,469 | `< 500` (orchestrator) | `SheetHero.jsx`, `BeltHive.jsx`, `SheetSkillsSection.jsx`, `SheetFeaturesSection.jsx`, `SheetCompanionsAndNotes.jsx` + delete dead `BeltPbSlot` |
+| [`frontend/src/sheet/ficha.css`](frontend/src/sheet/ficha.css) | **15** (was 7,381) | `< 800` / module | **Done (`v1.0.143`)**: 14 ordered domain stylesheets under `frontend/src/sheet/css/` (`sheet-tokens`, `sheet-hero`, `sheet-belt`, `sheet-skills-features`, `sheet-spells`, `sheet-inventory-modals`, `sheet-polish`, etc.) |
+| [`frontend/components/Sheet.jsx`](frontend/components/Sheet.jsx) | **611** (was 5,469) | `< 500` (orchestrator) | **Extracted (`v1.0.143`)**: `hero/SheetHero.jsx`, `belt/{BeltHive,BeltHex,BeltQuickSlot}.jsx`, `tabs/{SheetSkillsSection,SheetFeaturesSection,SheetCompanionsAndNotes,SheetPlay,TimelineModals}.jsx`; dead `BeltPbSlot` removed |
 | [`backend/api/views_combat.py`](backend/api/views_combat.py) | 2,714 | `< 600` / module | `services/combat_setup.py`, `services/combat_undo.py`, `services/combat_actions.py`, `services/combat_media.py` *(a criar)* |
-| [`frontend/styles.css`](frontend/styles.css) | 2,768 | `< 800` / module | Split global design tokens (`:root`), creator shell, and catalog grids; replace layout transitions with `transform`/`opacity` |
-| [`frontend/components/SheetTabs.jsx`](frontend/components/SheetTabs.jsx) | 2,647 | `< 450` / module | `UnifiedSpellsHUD.jsx`, `SlotMatrix.jsx`, `SpellRow.jsx`, `SheetInventoryTab.jsx`, `SheetStoryTab.jsx` |
-| [`frontend/src/campaigns/url-monster-importer.js`](frontend/src/campaigns/url-monster-importer.js) | 1,742 | `< 500` / stage | Separate HTML sanitizer/scraper, bilingual statblock regex parser, and CR normalizer |
-| [`backend/api/world_rules.py`](backend/api/world_rules.py) | 1,518 | `< 550` / module | Split world consistency linter, graph relation validators, and NPC sheet extractor |
-| [`frontend/src/prep/NextSession.jsx`](frontend/src/prep/NextSession.jsx) | 1,441 | `< 500` / view | Extract scene checklist drawer, encounter launcher, and session summary header |
+| [`frontend/styles.css`](frontend/styles.css) | **6** (was 2,768) | `< 800` / module | **Done (`v1.0.143`)**: split into `frontend/src/styles/{tokens,base,catalog,overlays,modals}.css` with GPU compositor transitions |
+| [`frontend/components/SheetTabs.jsx`](frontend/components/SheetTabs.jsx) | **8** (was 2,647) | `< 450` / module | **Done (`v1.0.143`)**: `spells/{UnifiedSpellsHUD,SlotMatrix,SpellRow,RestButtons,SpellViews}.jsx`, `inventory/{InventoryList,SheetInventoryTab}.jsx`, `story/SheetStoryTab.jsx` |
+| [`frontend/src/campaigns/url-monster-importer.js`](frontend/src/campaigns/url-monster-importer.js) | 1,742 | `< 500` / stage | Separate HTML scraping onto `backend/api/monster_ingest.py` *(a criar)* (`NANO-037`) |
+| [`backend/api/world_rules.py`](backend/api/world_rules.py) | 1,518 | `< 550` / module | Split world consistency linter, graph relation validators, and NPC sheet extractor (`services/` *(a criar)*) |
+| [`frontend/src/prep/NextSession.jsx`](frontend/src/prep/NextSession.jsx) | **958** (was 1,441) | `< 500` / view | **Extracted (`v1.0.143`)**: `SessionSummaryHeader.jsx`, `SceneChecklistDrawer.jsx`, `EncounterLauncher.jsx` |
 
 

@@ -101,7 +101,8 @@
 }
 .join-char:has(input:checked) { border-color: var(--gold); background: var(--gold-soft); }
 .join-char input[type="radio"] {
-  width: 18px; height: 18px; min-height: 0; flex: 0 0 auto; padding: 0; margin: 0; accent-color: var(--gold);
+  width: 20px; height: 20px; min-height: 0; flex: 0 0 auto; padding: 12px; margin: -12px; accent-color: var(--gold); cursor: pointer;
 }
+.fh-join-code-actions .btn { min-width: 44px; min-height: 44px; }
 .join-char.is-disabled { opacity: .55; cursor: not-allowed; }
 .join-char-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }

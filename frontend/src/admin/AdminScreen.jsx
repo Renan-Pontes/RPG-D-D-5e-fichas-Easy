@@ -376,7 +376,7 @@ function CharacterModal({ id, lang, onClose, openUser }) {
     setBusy(true);
     try {
       const [{ downloadDnd5ePdf }, { speciesSummary }] = await Promise.all([
-        import('../pdf/export-pdf.js'), import('../progression/SpeciesChoices.jsx'),
+        import('../pdf/export-pdf.js'), import('../progression/species-summary.js'),
       ]);
       await downloadDnd5ePdf(c.data, lang, { speciesSummary, flatten: true });
     } finally { setBusy(false); }

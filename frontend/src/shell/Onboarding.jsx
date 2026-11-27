@@ -31,7 +31,7 @@ export default function Onboarding({ lang, status, onAction, onDismiss, onSample
         <span className="mesa-eyebrow shell-ob-line-title">{t(lang, 'Primeiros passos', 'First steps')}</span>
         <span className="shell-ob-progress" aria-label={t(lang, `${status.count} de ${status.total} concluídos`, `${status.count} of ${status.total} done`)}>
           <span className="shell-ob-count">{status.count}/{status.total}</span>
-          <span className="shell-ob-bar"><span style={{ width: `${(status.count / status.total) * 100}%` }} /></span>
+          <span className="shell-ob-bar"><span style={{ '--p': status.total ? status.count / status.total : 0 }} /></span>
         </span>
         <button type="button" className="mesa-btn shell-ob-toggle" aria-expanded={false}
           onClick={() => { setUnfolded(true); setOpen(true); }}>
@@ -56,7 +56,7 @@ export default function Onboarding({ lang, status, onAction, onDismiss, onSample
         </div>
         <div className="shell-ob-progress" aria-label={t(lang, `${status.count} de ${status.total} concluídos`, `${status.count} of ${status.total} done`)}>
           <span className="shell-ob-count">{status.count}/{status.total}</span>
-          <span className="shell-ob-bar"><span style={{ width: `${(status.count / status.total) * 100}%` }} /></span>
+          <span className="shell-ob-bar"><span style={{ '--p': status.total ? status.count / status.total : 0 }} /></span>
         </div>
         <div className="shell-ob-head-actions">
           <button type="button" className="mesa-btn shell-ob-toggle" onClick={() => setOpen(v => !v)}

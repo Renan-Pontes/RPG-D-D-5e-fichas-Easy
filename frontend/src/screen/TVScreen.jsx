@@ -23,6 +23,7 @@ import {
   rollGroups, rollWho, saveHead, showsSum,
 } from './roll-queue.js';
 import { abilityLabel, damageTypeLabel } from '../combat/monster-i18n.js';
+import { soundscapeEngine } from '../stage/soundscape-engine.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -284,6 +285,14 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   const showKey = stg ? frontKey : cardKey(card);
   const inCombat = mode === 'combat';
   const dark = mode === 'dark';
+  const stageAudio = stage?.audio || stage?.prefs?.audio || null;
+  useEffect(() => {
+    if (!IS_PREVIEW && stageAudio?.playing) {
+      soundscapeEngine.sync(stageAudio);
+    } else if (!stageAudio?.playing) {
+      soundscapeEngine.stop();
+    }
+  }, [stageAudio?.trackId, stageAudio?.playing, stageAudio?.volume]); // eslint-disable-line react-hooks/exhaustive-deps
   // Últimas rolagens: à vista sem cartão grande por cima (nem com a Tela escurecida), num
   // lugar que não cobre texto, a ordem nem os tokens (tv-logic.histPlacement)
   const showHist = !dark && !big && queue.hist.length > 0;
@@ -514,7 +523,7 @@ function InitiativeOrder({ combat, party, order, portraitOf, lang, big = false }
           <OrderName name={r.name} />
           {r.hp ? (
             <span className={`tv-order-hp tv-hp-bar tv-hp-${hpToneTv(r.hp.cur, r.hp.max)}`}>
-              <span className="tv-hp-fill" style={{ width: `${hpPctTv(r.hp.cur, r.hp.max)}%` }} />
+              <span className="tv-hp-fill" style={{ transform: `scaleX(${hpPctTv(r.hp.cur, r.hp.max) / 100})` }} />
               <span className="tv-hp-text">{r.fallen ? healthLabel(r.stable ? 'stable' : 'fallen', lang) : r.down ? healthLabel('dead', lang) : `${r.hp.cur}/${r.hp.max ?? '?'}`}{r.hp.temp ? <span className="tv-hp-temp"> +{r.hp.temp}</span> : null}</span>
             </span>
           ) : (
@@ -741,7 +750,7 @@ function CharCard({ member, lang, isActiveTurn, compact = false, dense = false }
       {!compact && <div className="tv-char-sub" data-fit="0.8">{line}</div>}
       {!compact && member.user?.displayName && <div className="tv-char-player" data-fit="0.8">{member.user.displayName}</div>}
       <div className={`tv-hp-bar tv-hp-${tone}`} role="meter" aria-label={t(lang, 'Pontos de vida', 'Hit points')} aria-valuenow={c.currentHp} aria-valuemin={0} aria-valuemax={c.maxHp}>
-        <div className="tv-hp-fill" style={{ width: `${hpPct}%` }} />
+        <div className="tv-hp-fill" style={{ transform: `scaleX(${hpPct / 100})` }} />
         <div className="tv-hp-text">
           {c.currentHp} / {c.maxHp ?? '?'}{c.tempHp ? <span className="tv-hp-temp"> (+{c.tempHp})</span> : null} {t(lang, 'PV', 'HP')}
         </div>

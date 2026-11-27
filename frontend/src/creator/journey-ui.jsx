@@ -14,6 +14,7 @@ import { quickSummary, expectedRaceBonus, ABILITIES } from './ability-helpers.js
 import { chronicleLines } from './chronicle.js';
 import { heroStats, statDiffs, lostByPatch, battleOdds, classPath, abilitiesSet, STAT_LABEL } from './decision.js';
 import { L } from './ui.jsx';
+import { triggerHaptic } from '../utils/wake-lock.js';
 
 const k = (lang) => (lang === 'pt' ? 'pt' : 'en');
 const txt = (x, lang) => (x && typeof x === 'object' ? x[k(lang)] || x.pt : x);
@@ -375,6 +376,7 @@ export function HoldButton({ label, onComplete, lang, disabled, className = '', 
     clear(); disarm();
     holdingRef.current = false;
     setHolding(false); setWord(null); setNudge(false);
+    triggerHaptic('seal');
     onComplete();
   };
   const start = (e) => {

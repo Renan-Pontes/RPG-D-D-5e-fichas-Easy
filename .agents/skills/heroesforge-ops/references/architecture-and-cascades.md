@@ -11,9 +11,9 @@
 ## 1. Dual-Stack Runtime & Entry Points
 
 - **Frontend (`frontend/`)**: Vite 6 + React 18 SPA, bilingual (`lang: 'pt' | 'en'`), dual D&D 5e rules (`rulesVersion: '2024' | '2014'`).
-  - Root router & state shell: `frontend/app.jsx`
-  - Character Sheet monoliths: `frontend/components/Sheet.jsx` (hero, Belt v2 hive, skills, features timeline, modals) and `frontend/components/SheetTabs.jsx` (UnifiedSpellsHUD, SlotMatrix, SpellRow, inventory, story, notes).
-  - Sheet domain modules: `frontend/src/sheet/` (`feature-timeline.js`, `feature-placement.js`, `species-trait-choices.js`, `rich-text.{js,jsx}`, `condition-rules.js`, `FhStatus.jsx`, `versions.js`, `VersionsModal.jsx`, `ficha.css`, `ficha-tabs.css`, `condition-fx.css`).
+  - Root router & state shell: `frontend/app.jsx` (with `React.lazy` routes, `VitePWA` SW, and `pickChunk` splitting checked by `scripts/check_bundle_budget.mjs`).
+  - Character Sheet (`frontend/components/Sheet.jsx`, `frontend/components/SheetTabs.jsx` barrel): modularized under `frontend/src/sheet/{hero,belt,tabs,spells,inventory,story}/` (`SheetHero.jsx`, `BeltHive.jsx`, `SheetPlay.jsx`, `SheetSkillsSection.jsx`, `SheetFeaturesSection.jsx`, `SheetCompanionsAndNotes.jsx`, `UnifiedSpellsHUD.jsx`, `SlotMatrix.jsx`, `SpellRow.jsx`, `SheetInventoryTab.jsx`, `SheetStoryTab.jsx`).
+  - Sheet domain & infra modules: `frontend/src/sheet/` (`undo-history.js`, `MobileSheetNav.jsx`, `MyTurnView.jsx`, `HpDeltaPopover.jsx`, `feature-timeline.js`, `feature-placement.js`, `species-trait-choices.js`, `rich-text.{js,jsx}`, `condition-rules.js`, `FhStatus.jsx`, `versions.js`, `VersionsModal.jsx`, `css/*.css` imported by `ficha.css`).
   - Progression engine: `frontend/src/progression/` (`engine.js`, `rules.js`, `options.js`, `species.js`, `feat-rules.js`, `respec.js`, `LevelUpModal.jsx`, `ProgressionPanel.jsx`).
   - Campaign & DM Mesa 4-area shell: `frontend/src/shell/` (`world`, `prepare`, `play`, `group`), `frontend/src/campaigns/`, `frontend/src/play/`, `frontend/src/prep/`, `frontend/src/world/`, `frontend/src/group/`, `frontend/src/stage/`, `frontend/src/screen/`, `frontend/src/player/`.
 - **Backend (`backend/`)**: Python 3.11/3.12 + Django 5.2 + DRF (`backend/forja/settings.py`, `backend/api/urls.py`).
@@ -59,5 +59,5 @@ Shortcut: `python .agents/skills/heroesforge-ops/scripts/hf_ops.py verify --sync
    - Touches: `CreatorWizard.jsx` -> `progression/engine.js` (`applyAutosToCharacter`) -> `Sheet.jsx` / `SheetTabs.jsx` -> `pdf/export-pdf.js` & `import-pdf.js` -> `sheet/versions.js` -> `backend/api/views_characters.py` & `backend/api/progression/`.
    - Always preserve backward compatibility for existing saved sheets and `rulesVersion: '2014'` characters.
 2. **Regex-Asserted Frontend Source Tests**:
-   - Several tests in `frontend/tests/` (e.g., `sheet-skills-vignette-enhancements.test.js`, `multi-char-inspiration-skills.test.js`, `top-hud-campaigns-tools.test.js`, `sheet-export.test.js`) assert exact JSX prop signatures or class names in `Sheet.jsx` and `ficha.css`.
-   - Always run `hf_ops.py impact` and `hf_ops.py verify` after editing `Sheet.jsx`, `SheetTabs.jsx`, or `ficha.css`.
+   - Several tests in `frontend/tests/` (e.g., `sheet-skills-vignette-enhancements.test.js`, `multi-char-inspiration-skills.test.js`, `top-hud-campaigns-tools.test.js`, `sheet-export.test.js`) read unified sheet/CSS sources via `frontend/tests/_sheet-source.js` across `Sheet.jsx`, `SheetTabs.jsx`, and the `src/sheet/` + `src/sheet/css/` modules.
+   - Always run `hf_ops.py impact` and `hf_ops.py verify` after editing `Sheet.jsx`, `SheetTabs.jsx`, or `src/sheet/` modules.

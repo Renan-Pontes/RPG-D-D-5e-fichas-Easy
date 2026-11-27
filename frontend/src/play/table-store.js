@@ -29,6 +29,7 @@
 // ao GET completo de 2,5 s e à lista de testes de 3 s, sem a faixa do combate.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
+import { computeBackoffMs } from '../api/polling.js';
 import { errorMessage, isOldServer } from '../api/errors.js';
 import { STAGE_EVENT, STAGE_SENDING_EVENT, STAGE_SENT_EVENT, tvToCombatNotice } from '../stage/stage-api.js';
 import { frontLabel, L } from '../stage/stage-now.js';
@@ -107,22 +108,26 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse, fullIns
     if (!live) return undefined;
     let alive = true;
     let timer = null;
+    let failures = 0;
     const tick = async () => {
       clearTimeout(timer);
       if (!alive) return;
       if (typeof document !== 'undefined' && document.hidden) { timer = setTimeout(tick, PULSE_MS); return; }
+      let nextDelay = PULSE_MS;
       // o GET completo de segurança entra no lugar do pulso deste tick
       const full = fullRef.current;
       if (full.onFull && full.fullInstead?.()) {
         const ok = await full.onFull();
         if (!alive) return;
-        if (ok) { okRef.current = Date.now(); setLastOkAt(okRef.current); setOfflineFor(0); }
-        timer = setTimeout(tick, PULSE_MS);
+        if (ok) { failures = 0; okRef.current = Date.now(); setLastOkAt(okRef.current); setOfflineFor(0); }
+        else { failures += 1; nextDelay = computeBackoffMs(failures, PULSE_MS, 30_000); }
+        timer = setTimeout(tick, nextDelay);
         return;
       }
       try {
         const p = await api.getPulse(id);
         if (!alive) return;
+        failures = 0;
         okRef.current = Date.now();
         setLastOkAt(okRef.current);
         setOfflineFor(0);
@@ -145,20 +150,25 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse, fullIns
         if (!alive) return;
         // Servidor sem a rota (deploy fora de ordem) ou sem permissão: volta ao GET completo.
         if ([403, 404, 405, 501].includes(e?.status)) { setMissing(true); return; }
+        failures += 1;
+        nextDelay = computeBackoffMs(failures, PULSE_MS, 30_000);
       }
-      if (alive) timer = setTimeout(tick, PULSE_MS);
+      if (alive) timer = setTimeout(tick, nextDelay);
     };
-    kick.current = () => { clearTimeout(timer); tick(); };
+    kick.current = () => { failures = 0; clearTimeout(timer); tick(); };
     okRef.current = Date.now();
     tick();
     // A aba escondida não pergunta nada: ao voltar, o relógio do "sem conexão" recomeça.
-    const onVis = () => { if (!document.hidden) { okRef.current = Math.max(okRef.current, Date.now()); clearTimeout(timer); tick(); } };
+    const onVis = () => { if (!document.hidden) { failures = 0; okRef.current = Math.max(okRef.current, Date.now()); clearTimeout(timer); tick(); } };
+    const onOnline = () => { failures = 0; okRef.current = Math.max(okRef.current, Date.now()); clearTimeout(timer); tick(); };
     document.addEventListener('visibilitychange', onVis);
+    if (typeof window !== 'undefined') window.addEventListener('online', onOnline);
     return () => {
       alive = false;
       clearTimeout(timer);
       kick.current = () => {};
       document.removeEventListener('visibilitychange', onVis);
+      if (typeof window !== 'undefined') window.removeEventListener('online', onOnline);
     };
   }, [live, id]);
 

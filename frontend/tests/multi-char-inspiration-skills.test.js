@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readModular } from './_sheet-source.js';
 import { playerTables, seatState } from '../src/sheet/campaign-link.js';
 
-const read = (relPath) => readFileSync(new URL(relPath, import.meta.url), 'utf8');
+const read = (relPath) => readModular(relPath);
 
 test('Multi-personagem: DMs e Jogadores podem ter múltiplas fichas ativas na mesma mesa sem sobrescrever', () => {
   const backendCampaigns = read('../../backend/api/views_campaigns.py');

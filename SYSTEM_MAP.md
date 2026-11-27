@@ -43,9 +43,10 @@
 - `ToneAccentFields.jsx`: Visual theme tone and accent color picker for the campaign header.
 
 ### 2.2 Character Sheet Subsystem (`frontend/src/sheet/` & `frontend/components/Sheet.jsx`)
-- `components/Sheet.jsx`: Master character sheet orchestrator (5,469 lines; queued for decomposition in Epic 5); handles ability scores, vitals, Belt v2 Hive Stats, skills groups, universal feature timeline choice capture/respec, death saves, rest dialogs, and actions.
-- `components/SheetTabs.jsx`: Character sheet secondary tabs (2,647 lines; queued for decomposition in Epic 5); handles `UnifiedSpellsHUD`, `SlotMatrix`, `SpellRow`, inventory, story, and species traits.
-- `ficha.css`, `ficha-tabs.css` & `condition-fx.css`: Styling specification for the "Ficha Forjada" (`ficha.css` 7,381 lines, `ficha-tabs.css` 518 lines, `condition-fx.css` 886 lines; queued for domain modularization in Epic 5).
+- `components/Sheet.jsx`: Character sheet orchestrator (`611` lines); coordinates `SheetHero`, Belt v2 hive, play/skills/features/companions tabs, undo history (`undo-history.js`), mobile sticky hero, concentration guard, and Wake Lock (`wake-lock.js`).
+- `src/sheet/hero/`, `belt/`, `tabs/`: Modular sheet sections (`SheetHero.jsx`, `BeltHive.jsx`, `BeltHex.jsx`, `BeltQuickSlot.jsx`, `SheetPlay.jsx`, `SheetSkillsSection.jsx`, `SheetFeaturesSection.jsx`, `SheetCompanionsAndNotes.jsx`, `TimelineModals.jsx`).
+- `components/SheetTabs.jsx`: Barrel re-export (`8` lines) pointing to `src/sheet/spells/` (`UnifiedSpellsHUD.jsx`, `SlotMatrix.jsx`, `SpellRow.jsx`, `RestButtons.jsx`, `SpellViews.jsx`), `src/sheet/inventory/` (`SheetInventoryTab.jsx`, `InventoryList.jsx`), and `src/sheet/story/` (`SheetStoryTab.jsx`).
+- `ficha.css` (`15` lines manifest -> `src/sheet/css/*.css`), `ficha-tabs.css`, & `condition-fx.css`: Modular styling for the "Ficha Forjada" across 14 domain stylesheets in `frontend/src/sheet/css/`.
 - `FhChecks.jsx`: Ability checks and saving throw rows with proficiency diamonds and advantage toggles.
 - `FhAttack.jsx`: Action cards for weapon attacks, cantrip attacks, and spell DC abilities.
 - `FhFeatures.jsx`: Class and species trait accordions with level tags.
@@ -133,10 +134,17 @@
 
 ---
 
-## 4. Additions since 2026-11-07 (through v1.0.141)
+## 4. Additions since 2026-11-07 (through v1.0.143)
 
 | Path | Responsibility |
 |---|---|
+| `frontend/src/sheet/undo-history.js`, `sheet-undo-helpers.js` | Immer `produceWithPatches`/`applyPatches` 20-step sheet Undo/Redo history + toast/keyboard bindings (`v1.0.143`). |
+| `frontend/src/sheet/MobileSheetNav.jsx`, `MyTurnView.jsx`, `HpDeltaPopover.jsx` | Mobile 5-tab thumb bar, combat action-economy `My Turn` view, and quick HP delta keypad (`v1.0.143`). |
+| `frontend/src/api/idb-store.js`, `char-card-summary.js`, `frontend/data/spell-id-aliases.js` | IndexedDB store + one-time `localStorage` migration (`idb`), and lightweight card summary avoiding eager `srd.js` import (`v1.0.143`). |
+| `frontend/src/pdf/pdf.worker.js`, `pdf-runner.js`, `frontend/src/utils/wake-lock.js` | Off-thread `pdf-lib` Web Worker runner with fallback, plus Screen Wake Lock & haptic feedback helpers (`v1.0.143`). |
+| `frontend/src/stage/SoundscapeBar.jsx`, `soundscape-engine.js`, `LiveScreenParts.jsx` | WebAudio ambient soundscape synthesizer (6 presets) synced to TV stage + shared stage parts (`v1.0.143`). |
+| `frontend/src/prep/SessionSummaryHeader.jsx`, `SceneChecklistDrawer.jsx`, `EncounterLauncher.jsx` | Modular prep panels extracted from `NextSession.jsx` (`v1.0.143`). |
+| `frontend/src/styles/*.css`, `frontend/src/sheet/css/*.css`, `scripts/check_bundle_budget.mjs` | Modularized global & sheet CSS suites (`< 800` lines/file, GPU transitions, WCAG 44px targets) and Vite gzip entry budget gate (`v1.0.143`). |
 | `frontend/src/dice/multi-roll.js`, `MultiRoll.jsx` | Badge-array multi-roll: rows, coupling, locks, focus-mode roll-up (ADR-0032). |
 | `frontend/src/dice/BeltMultiRoll.jsx` | Belt paired rolls: d20 + damage per column, crit re-roll (ADR-0033). |
 | `frontend/src/dice/active-char.js` | Store the open sheet publishes itself to, for the dice panel. |

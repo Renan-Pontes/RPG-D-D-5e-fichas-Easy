@@ -1,0 +1,440 @@
+/* ============================================================================
+   v1.0.138 — rodada de UX do topo e da aba Jogar (mesma "Ficha Forjada": couro,
+   filete dourado, medalhões, selos). O que muda é clareza e retorno:
+   nada que pareça botão fica mudo, nada fica armado sem dizer em palavras.
+   ========================================================================== */
+
+/* Rede de segurança: um filho largo demais (lista em grade, nome sem quebra) nunca mais
+   alarga a página no celular — isso tirava o botão de dados e os modais da tela. */
+.ficha .fh-tab-body { overflow-x: clip; overflow-clip-margin: 28px; }
+.ficha .fh-play-col > * { min-width: 0; max-width: 100%; }
+.ficha .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* ---------- "Próximo d20": Desv. · Normal · Vant. (src/sheet/FhAdv3.jsx) ---------- */
+.ficha .fh-adv3 { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.ficha .fh-adv3-k { font: 700 0.62rem/1 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-muted); white-space: nowrap; }
+.ficha .fh-adv3-set { display: inline-flex; border: 1px solid var(--stroke); border-radius: 6px; background: rgba(8, 5, 4, 0.55); overflow: hidden; }
+.ficha .fh-adv3-b {
+  position: relative; display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 11px;
+  border: 0; border-left: 1px solid var(--stroke-faint); background: none; cursor: pointer;
+  font: 600 0.78rem/1 var(--body); letter-spacing: 0.02em; color: var(--ink-muted); white-space: nowrap;
+}
+.ficha .fh-adv3-b:first-child { border-left: 0; }
+.ficha .fh-adv3-g { font-size: 0.6rem; line-height: 1; }
+.ficha .fh-adv3-b.is-on { color: #1a120a; background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep)); font-weight: 700; }
+.ficha .fh-adv3-b.is-adv.is-on { color: #10160a; background: linear-gradient(180deg, var(--moss-bright), var(--moss)); }
+.ficha .fh-adv3-b.is-dis.is-on { color: #fff; background: linear-gradient(180deg, var(--blood-bright), var(--blood)); }
+.ficha .fh-adv3-b:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+@media (hover: hover) { .ficha .fh-adv3-b:not(.is-on):hover { color: var(--gold-bright); background: rgba(214, 176, 100, 0.08); } }
+@media (pointer: coarse) {
+  .ficha .fh-adv3-b { min-height: 34px; padding: 0 13px; }
+  .ficha .fh-adv3-b::after { content: ''; position: absolute; inset: -6px 0; }
+}
+.ficha .fh-title-sub:has(> .fh-adv3) { margin-top: 0; align-items: center; }
+/* a escolha aparece TAMBÉM em cada botão que ela afeta: seta + palavra, não só cor */
+.ficha .fh-play[data-stance="adv"] :is(.fh-atk-btn.is-hit, .fh-medal.is-roll:not(.is-edit)) { --fh-stance: var(--moss-bright); }
+.ficha .fh-play[data-stance="dis"] :is(.fh-atk-btn.is-hit, .fh-medal.is-roll:not(.is-edit)) { --fh-stance: var(--blood-bright); }
+.ficha .fh-play:is([data-stance="adv"], [data-stance="dis"]) .fh-atk-btn.is-hit { border-color: var(--fh-stance); box-shadow: 0 0 0 1px var(--fh-stance) inset; }
+.ficha .fh-play[data-stance="adv"] .fh-atk-btn.is-hit .fh-atk-btn-v::after { content: ' ▲'; font-size: 0.7em; color: var(--fh-stance); }
+.ficha .fh-play[data-stance="dis"] .fh-atk-btn.is-hit .fh-atk-btn-v::after { content: ' ▼'; font-size: 0.7em; color: var(--fh-stance); }
+.ficha .fh-play[data-stance="adv"] .fh-medal.is-roll:not(.is-edit) .fh-medal-rollmod::after,
+.ficha .fh-play[data-stance="adv"] .fh-medal.has-hint .fh-medal-rollmod::after { content: ' ▲'; color: var(--moss-bright); }
+.ficha .fh-play[data-stance="dis"] .fh-medal.is-roll:not(.is-edit) .fh-medal-rollmod::after,
+.ficha .fh-play[data-stance="dis"] .fh-medal.has-hint .fh-medal-rollmod::after { content: ' ▼'; color: var(--blood-bright); }
+
+/* ---------- Aviso com "Desfazer" (src/sheet/sheet-toast.jsx) ---------- */
+.ficha .fh-toast {
+  position: fixed; z-index: 190; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; max-width: min(560px, calc(100vw - 32px)); padding: 8px 8px 8px 16px;
+  border: 1px solid transparent; border-radius: 8px;
+  background: linear-gradient(180deg, #2a1d15, #140e0b) padding-box, var(--fh-gilt) border-box;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65); color: var(--ink-primary);
+  animation: fh-toast-in 0.2s var(--fh-ease);
+}
+@keyframes fh-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } }
+.ficha .fh-toast-text { flex: 1 1 auto; min-width: 0; font-size: 0.95rem; line-height: 1.3; }
+.ficha .fh-toast.is-hurt .fh-toast-text { color: #ffd9d2; }
+.ficha .fh-toast.is-heal .fh-toast-text { color: #d7f6ea; }
+.ficha .fh-toast.is-temp .fh-toast-text { color: var(--arcane-bright); }
+.ficha .fh-toast-act {
+  flex: none; min-height: 40px; padding: 0 14px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--gold); background: rgba(214, 176, 100, 0.12); color: var(--gold-bright);
+  font: 700 0.72rem/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase;
+}
+.ficha .fh-toast-x { flex: none; width: 36px; height: 40px; border: 0; background: none; color: var(--ink-muted); cursor: pointer; font-size: 0.85rem; }
+.ficha .fh-toast :is(.fh-toast-act, .fh-toast-x):focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+@media (hover: hover) { .ficha .fh-toast-act:hover { background: rgba(214, 176, 100, 0.24); } .ficha .fh-toast-x:hover { color: var(--ink-primary); } }
+/* celular: encostado à esquerda, deixando o canto do botão de dados livre */
+@media (max-width: 719px) {
+  .ficha .fh-toast { left: 12px; right: 78px; transform: none; max-width: none; gap: 6px; padding-left: 12px; }
+  .ficha .fh-toast-text { font-size: 0.9rem; }
+  .ficha .fh-toast-act { padding: 0 10px; }
+  .ficha .fh-toast-x { width: 30px; }
+  @keyframes fh-toast-in { from { opacity: 0; transform: translateY(8px); } }
+  body.dice-sheet-open .ficha .fh-toast { bottom: calc(var(--dice-sheet-h, 0px) + 12px); right: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .ficha .fh-toast, .ficha .fh-hp-pad { animation: none; } }
+
+/* ---------- Selos do topo: nome embaixo de cada um; descanso curto em andamento ---------- */
+.ficha .fh-seal-cap {
+  position: absolute; left: 50%; top: calc(100% + 3px); transform: translateX(-50%); pointer-events: none; white-space: nowrap;
+  font: 700 0.56rem/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted);
+}
+.ficha .fh-hero-name-seals { margin-bottom: 12px; gap: 22px !important; }   /* as legendas não encostam uma na outra */
+.ficha .fh-hero-name-seals .fh-seal.hero-rest.is-on .fh-seal-cap,
+.ficha .fh-hero-name-seals .fh-seal.hero-insp.is-inspired .fh-seal-cap { color: var(--gold-bright); }
+.ficha .fh-rest-slot:empty { display: none; }
+.ficha .fh-rest-strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 0 0 16px; padding: 10px 14px;
+  border: 1px solid var(--gold); border-radius: 8px; background: linear-gradient(180deg, rgba(214, 176, 100, 0.14), rgba(10, 7, 6, 0.5));
+}
+.ficha .fh-rest-strip-t { flex: 1 1 240px; display: grid; gap: 2px; min-width: 0; font-size: 0.92rem; line-height: 1.35; color: var(--ink-secondary); }
+.ficha .fh-rest-strip-t strong { font: 700 0.8rem/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-bright); }
+.ficha .fh-rest-strip-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.ficha .fh-rest-strip-acts .btn { min-height: 44px; white-space: nowrap; }
+
+/* ---------- Faixa de classes sem nada para abrir: texto ao lado do selo, sem moldura ---------- */
+.ficha .fh-hero-classrow { display: flex; align-items: center; gap: 12px; padding: 0 12px 0 6px; flex-wrap: nowrap; min-width: 0; }
+.ficha .fh-hero-fold.fh-hero-classfold.is-flat { border-color: transparent; background: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.ficha .fh-hero-fold.fh-hero-classfold.is-flat.is-pending { border-color: rgba(245, 158, 11, 0.6); }
+.ficha .fh-hero-classfold.is-flat .fh-hero-classchip-name { text-shadow: 0 1px 3px #000, 0 0 10px rgba(0, 0, 0, 0.8); }
+/* lápis trancado (em campanha): continua com cara de trancado, mas responde ao toque */
+.ficha .fh-hero-chip.is-locked { cursor: help; }
+.ficha .fh-hero-copy-why { flex: 1 1 100%; font-size: 0.8rem; line-height: 1.3; color: var(--ink-muted); text-transform: none; letter-spacing: 0; }
+
+/* ---------- Colmeia: qual metade é o teste e qual é a resistência ---------- */
+.ficha .fh-belt-hex-wrap:not(.is-action) .fh-honey-half { flex-direction: column; justify-content: center; gap: 0; }
+.ficha .fh-belt-hex-wrap:not(.is-action) .fh-honey-cap {
+  font: 700 0.5rem/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: #5b4630; opacity: 1; margin-top: 2px; white-space: nowrap;
+}
+.ficha .fh-belt-hex-wrap:not(.is-action) .fh-honey-half.is-save.is-prof .fh-honey-cap { color: #3d2c12; }
+/* a página rola a partir das metades (antes o dedo parado num hexágono travava a rolagem) */
+.ficha .fh-honey-half { touch-action: pan-y; }
+
+/* ---------- Linha do tempo no painel Progressão: etiqueta de classe em texto; desfazer nível discreto ---------- */
+.ficha .fh-tl-cls, .ficha .fh-tl-cls.is-up { padding: 0; border: 0; border-radius: 0; background: none; font: 700 0.7rem/1.4 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted); }
+.ficha .fh-tl-cls.is-up { color: var(--gold); }
+.ficha .fh-tl-plus { margin-left: 4px; font-family: var(--mono); letter-spacing: 0; color: var(--gold-bright); }
+.ficha .prog-actions { display: grid; gap: 4px; }
+.ficha .prog-level-down {
+  justify-self: center; min-height: 44px; padding: 0 12px; border: 0; background: none; cursor: pointer;
+  font: 600 0.86rem/1.2 var(--body); color: var(--ink-muted); text-decoration: underline; text-decoration-color: rgba(171, 154, 126, 0.5); text-underline-offset: 3px;
+}
+.ficha .prog-level-down:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; border-radius: 4px; }
+@media (hover: hover) { .ficha .prog-level-down:hover { color: var(--blood-bright); text-decoration-color: currentColor; } }
+
+/* ---------- Recursos: gema gasta explica quando volta ---------- */
+.ficha .slot-pip.locked[aria-disabled="true"] { cursor: help; }
+.ficha .fh-res-why { margin: -2px 0 6px; padding: 6px 10px; border-left: 2px solid var(--gold-deep); font-size: 0.86rem; line-height: 1.35; color: var(--ink-secondary); background: rgba(214, 176, 100, 0.06); border-radius: 0 4px 4px 0; }
+
+/* ---------- Alvos de toque de 44px nos controles pequenos do painel Vitalidade ----------
+   (as gemas e os dados no texto já ampliam a área pelo próprio ::after; aqui só as dicas
+   "?" de 18–20px, que ficavam com 38–40px) */
+@media (pointer: coarse) {
+  .ficha .fh-hp .grim-hint::after { inset: -13px; }
+}
+
+/* ---------- Topo no celular: mais curto, para a Vitalidade aparecer na primeira tela ----------
+   O que encolhe: a faixa do retrato, as duas barras (48px, selo de 36px), os respiros e o
+   corpo do nome. "Fora de campanha" (ficha sem mesa) vira uma etiqueta discreta em vez de
+   uma barra inteira, e as ações do canto sobem para cima do retrato. */
+@media (max-width: 719px) {
+  .ficha .fh-hero { --fh-cover-h: clamp(96px, 13vh, 124px); }
+  .ficha .fh-hero-body { padding: calc(var(--fh-cover-h) - 52px) 14px 14px !important; row-gap: 6px; }
+  .ficha .fh-hero-header-row.is-stacked { gap: 8px !important; }
+  .ficha .fh-hero-campbar-head { min-height: 48px; padding: 5px 10px 5px 5px !important; gap: 10px; }
+  .ficha .fh-hero-campbar-head > .fh-hero-campseal,
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) > .fh-seal { width: 38px !important; height: 38px !important; min-width: 38px; }
+  .ficha .fh-hero-campseal .fh-seal-core,
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) > .fh-seal .fh-seal-core { width: 30px !important; height: 30px !important; }
+  .ficha .fh-hero-campseal .fh-seal-core { font-size: 15px; }
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) > .fh-seal .hero-level-num { font-size: 14px !important; }
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) > .fh-seal .hero-level-label { font-size: 5.5px !important; }
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) { padding: 4px 10px 4px 5px; gap: 10px; }
+  .ficha .fh-hero-classrow { padding: 0 10px 0 5px; }
+  /* ficha sem campanha: etiqueta discreta (o selo continua sendo o alvo de toque de 44px) */
+  .ficha .fh-hero-campbar.is-solo:not(.is-open) { width: auto; justify-self: start; max-width: 100%; }
+  .ficha .fh-hero-campbar.is-solo:not(.is-open) .fh-hero-campbar-head {
+    width: auto; min-height: 44px; border-color: transparent; background: rgba(12, 8, 6, 0.62); border-radius: 999px !important;
+    padding: 3px 14px 3px 5px !important; font-size: 0.72rem;
+  }
+  .ficha .fh-hero-name-row { gap: 10px; }
+  /* os três selos da esquerda (campanha, nível, retrato) continuam na mesma vertical */
+  .ficha .fh-hero-name-seals { padding-left: 0 !important; margin-bottom: 14px; }
+  .ficha .fh-hero .hero-name { margin-top: 0; font-size: 1.6rem; line-height: 1.12; }
+  .ficha .fh-hero .hero-sub { font-size: 0.92rem; }
+  /* ações do canto: em cima, sobre o retrato (embaixo elas pediam 44px de respiro vazio) */
+  .ficha .fh-hero .fh-hero-tools { top: 10px; bottom: auto; right: 10px; }
+  .ficha .fh-hero .fh-hero-tools .fh-hero-chip { background: rgba(14, 10, 7, 0.82); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+  .ficha .fh-hero .fh-hero-rows { padding-bottom: 0; }
+}
+
+/* Linha do tempo: "PENDENTE · Escolher agora · Trocar" quebra para a linha de baixo em vez de
+   vazar pela esquerda do painel no celular */
+.ficha .fh-timeline .fh-cf-name + .fh-origin:has(.prog-choose) { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
+
+/* ==========================================================================
+   Rodada 2 da revisão de UX da aba Jogar e do topo da ficha
+   --------------------------------------------------------------------------
+   Mesmo visual "Ficha Forjada". O que muda: uma postura só ("Próximo d20") para
+   medalhões, ataques e hexágonos; PV e CA na primeira tela do celular; truques
+   de ataque no painel Ataques; legendas legíveis; alvos de toque de 44px.
+   ========================================================================== */
+
+/* ---------- "Próximo d20" na linha do título do painel ----------
+   Desktop: [◆ VITALIDADE ———— PRÓXIMO D20 (Desv.|Normal|Vant.)]. Celular: só o seletor,
+   sem a etiqueta (o grupo continua com aria-label), para não gastar uma linha inteira
+   acima dos medalhões. Se não couber ao lado do título (telas de 360px), desce sozinho. */
+.ficha .fh-title-act > .fh-adv3 { flex-wrap: nowrap; }
+.ficha .fh-title:has(> .fh-title-act > .fh-adv3) { row-gap: 6px; }
+@media (max-width: 599px) {
+  .ficha .fh-title-act > .fh-adv3 .fh-adv3-k { display: none; }
+  .ficha .fh-title-act > .fh-adv3 .fh-adv3-b { padding: 0 6px; font-size: 0.76rem; gap: 3px; }
+  .ficha .fh-title:has(> .fh-title-act > .fh-adv3) { column-gap: 8px; }
+  .ficha .fh-title:has(> .fh-title-act > .fh-adv3) .fh-title-main { flex: 0 1 auto; }
+  .ficha .fh-title:has(> .fh-title-act > .fh-adv3) .fh-title-main::after { display: none; }
+}
+@media (pointer: coarse) {
+  .ficha .fh-adv3-b { min-height: 36px; }
+  .ficha .fh-adv3-b::after { content: ''; position: absolute; inset: -4px 0; }   /* 36 + 8 = 44px de alvo */
+}
+
+/* ---------- Hexágonos: a postura do painel aparece em cada metade (▲/▼), não só no brilho ---------- */
+.ficha .fh-honey-stance { margin-left: 1px; font-size: 0.5em; line-height: 1; vertical-align: 0.5em; font-family: var(--body); }
+.ficha .fh-honey-stance.is-adv { color: #1d6b34; }
+.ficha .fh-honey-stance.is-dis { color: #a01624; }
+/* na colmeia da aba Jogar os oito hexágonos armam juntos: sem o clarão de borda em cada um
+   (lavava os hexágonos do meio); o seletor do título, o anel do botão central e as setas
+   nas metades dizem o estado */
+.ficha .fh-belt.is-hive-only .fh-belt-glow-svg { display: none; }
+.ficha .fh-belt.is-hive-only .fh-belt-badge:is(.adv-adv, .adv-dis) { transform: translate(-50%, -50%); }
+/* ◆ da resistência com proficiência: dentro da legenda curta ("◆ RES.") */
+.ficha .fh-honey-prof { font-size: 0.85em; letter-spacing: 0; }
+
+/* ---------- Legendas e rótulos pequenos: mínimo de 10px (DESIGN.md §3.2) ---------- */
+.ficha .fh-belt-hex-wrap:not(.is-action) .fh-honey-cap { font-size: 0.62rem; letter-spacing: 0.04em; }
+.ficha .fh-belt-hex-wrap.is-action .fh-honey-cap { font-size: 0.62rem; letter-spacing: 0.06em; }
+.ficha .fh-seal-cap { font-size: 0.65rem; letter-spacing: 0.08em; }
+.ficha .fh-hp .fh-hp-row .fh-medal-label { font-size: 0.65rem; }
+@media (max-width: 480px) { .ficha .fh-hp .fh-hp-row .fh-medal-label { font-size: 0.65rem; letter-spacing: 0; } }
+@media (max-width: 359px) { .ficha .fh-hp .fh-hp-row .fh-medal-label { white-space: normal; overflow-wrap: anywhere; line-height: 1.15; } }
+/* desktop: a colmeia usava pouco mais da metade do painel; cresce ~15% e as legendas com ela */
+@media (min-width: 1024px) {
+  .ficha .fh-abil-panel .fh-belt.is-hive-only { --belt-w: 128px; }
+  .ficha .fh-abil-panel .fh-belt-hex-wrap:not(.is-action) .fh-honey-cap { font-size: 0.68rem; }
+}
+
+/* ---------- Ataques: nota de Maestria dobrada no celular; truques de ataque ---------- */
+.ficha .fh-atk-note.is-fold { display: grid; }
+.ficha .fh-atk-note-toggle {
+  display: inline-flex; align-items: center; gap: 6px; justify-self: start; min-height: 32px; padding: 2px 0;
+  border: 0; background: none; cursor: pointer; font: inherit; color: var(--ink-secondary); text-align: left;
+}
+.ficha .fh-atk-note-chev { color: var(--fh-verdigris); transition: transform 0.2s; }
+.ficha .fh-atk-note.is-open .fh-atk-note-chev { transform: rotate(180deg); }
+.ficha .fh-atk-note-body { padding: 2px 0 4px; color: var(--ink-secondary); }
+.ficha .fh-atk-note-toggle:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; border-radius: 3px; }
+@media (pointer: coarse) {
+  .ficha .fh-atk-note-toggle { position: relative; }
+  .ficha .fh-atk-note-toggle::after { content: ''; position: absolute; inset: -6px -8px; }
+}
+@media (prefers-reduced-motion: reduce) { .ficha .fh-atk-note-chev { transition: none; } }
+.ficha .fh-atk-spells { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(224, 181, 94, 0.22); }
+.ficha .fh-atk-group {
+  margin: 0 0 12px; font: 700 0.68rem/1 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--arcane-bright);
+}
+/* etiqueta parada no lugar do botão de ataque: mesma medida, sem moldura de botão */
+.ficha .fh-atk-chip {
+  display: inline-flex; align-items: baseline; justify-content: center; gap: 7px; min-width: 112px; min-height: 44px; padding: 11px 12px 9px;
+  border: 1px dashed rgba(159, 176, 240, 0.4); border-radius: 5px; color: var(--arcane-bright); white-space: nowrap; background: rgba(38, 45, 82, 0.25);
+}
+.ficha .fh-atk-chip .fh-atk-btn-v { font-size: 1.05rem; }
+.ficha .fh-atk-more {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; margin-top: 12px; padding: 0 12px;
+  border: 1px solid var(--stroke); border-radius: 5px; background: rgba(8, 5, 4, 0.4); cursor: pointer;
+  font: 600 0.72rem/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); text-align: left;
+}
+.ficha .fh-atk-more:first-child { margin-top: 0; }
+.ficha .fh-atk-more:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+@media (hover: hover) { .ficha .fh-atk-more:hover { color: var(--gold-bright); border-color: var(--gold); background: rgba(214, 176, 100, 0.08); } }
+@media (max-width: 600px) {
+  .ficha .fh-atk-acts:has(> .fh-atk-chip:only-child) { grid-template-columns: minmax(0, 1fr); }
+  .ficha .fh-atk-chip { min-width: 0; }
+}
+
+/* ---------- Topo: escolha pendente dobrada; morto no retrato ---------- */
+.ficha .fh-hero-fold-pending {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  font: 700 0.65rem/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--amber);
+}
+@media (max-width: 420px) { .ficha .fh-hero-classfold .fh-hero-classchips { flex: 1 1 0; } }
+
+/* ---------- Barra da campanha aberta ---------- */
+/* fora de campanha: só a frase e o botão, alinhados à esquerda */
+.ficha .fh-hero-copy.is-active.is-none { flex-wrap: wrap; row-gap: 8px; padding: 10px 12px; }
+.ficha .fh-hero-copy.is-none .fh-hero-copy-why { flex: 1 1 auto; font-size: 0.9rem; color: var(--ink-secondary); }
+.ficha .fh-hero-copy.is-active.is-none .fh-hero-copy-acts { flex: 1 1 100%; justify-content: flex-start; margin-left: 0; padding-left: 0; }
+/* "+ Atrelar a outra campanha": uma linha tracejada, não uma caixa dentro de outra */
+.ficha .fh-hero-copy.is-add { border-style: dashed; border-color: rgba(201, 162, 74, 0.45); background: none; padding: 0; }
+.ficha .fh-hero-copy.is-add > .fh-hero-copy-head { padding: 8px 12px; min-height: 40px; justify-content: center; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.72rem; }
+@media (hover: hover) { .ficha .fh-hero-copy.is-add > .fh-hero-copy-head:hover { background: rgba(201, 162, 74, 0.08); color: var(--gold-bright); } }
+.ficha .fh-hero-copy-head:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; border-radius: 6px; }
+/* "+1": a ficha está em mais de uma mesa */
+.ficha .fh-hero-campbar-n { font-family: var(--mono); font-weight: 700; color: var(--gold-bright); line-height: 18px; }
+/* toque: linhas e botões da lista com 44px; "Sair" (ação que remove) longe de "Rolagens na Tela" */
+@media (pointer: coarse) {
+  .ficha .fh-hero-copy-acts .btn { min-height: 44px !important; padding: 0 12px !important; display: inline-flex; align-items: center; }
+  .ficha .fh-hero-copy-acts .fh-roll-target :is(button, select, .btn) { min-height: 44px; }
+  .ficha .fh-hero-copy:not(.is-active) > .fh-hero-copy-head,
+  .ficha .fh-hero-copy.is-add > .fh-hero-copy-head { min-height: 44px; }
+  .ficha .fh-hero-copy.is-active:not(.is-none) .fh-hero-copy-acts { flex: 1 1 100%; justify-content: space-between; padding-left: 0; gap: 8px 16px; }
+}
+
+/* ---------- Modo trapaça: lista simples; no celular a folha tem a altura do conteúdo ---------- */
+.ficha .fh-cheat-list { margin: 0 0 12px; padding-left: 1.1rem; color: var(--ink-secondary); }
+.ficha .fh-cheat-list > li { margin-bottom: 4px; background: none; }
+@media (max-width: 699px) {
+  .ficha .modal:has(> .fh-cheat-list) { width: 100%; max-width: 100% !important; height: auto; min-height: 0; border-radius: 16px 16px 0 0 !important; }
+}
+
+/* ---------- Recursos: a seta de abrir é o mesmo desenho das outras dobras da ficha ---------- */
+.ficha .fh-res-chev.is-drawn {
+  flex: none; width: 7px; height: 7px; margin: 0 4px 3px auto; border-right: 1.5px solid var(--ink-muted); border-bottom: 1.5px solid var(--ink-muted);
+  transform: rotate(45deg); transition: transform 0.2s;
+}
+.ficha .fh-res-row.is-open .fh-res-chev.is-drawn { transform: rotate(-135deg); margin-bottom: -3px; }
+@media (prefers-reduced-motion: reduce) { .ficha .fh-res-chev.is-drawn { transition: none; } }
+
+/* ---------- Conjuração: rótulos em texto ("CD de magia INT"); gemas de espaço maiores no toque ---------- */
+.ficha .fh-spell-stat-ab {
+  display: inline-block; margin-left: 4px; padding: 1px 5px; border: 1px solid rgba(159, 176, 240, 0.4); border-radius: 3px;
+  font-family: var(--mono); font-size: 0.86em; letter-spacing: 0.02em; text-transform: uppercase; color: var(--arcane-bright); vertical-align: 1px;
+}
+.ficha .fh-spellcasting > .fh-atk-more { margin-top: 12px; }
+@media (pointer: coarse) {
+  .ficha .fh-slot-matrix { --fh-sm-cell: 36px; row-gap: 10px; }
+  .ficha .fh-sm-gem { width: 24px; height: 24px; }
+  .ficha .fh-sm-gem::after { inset: -11px -4px; }   /* 24 + 22 = 46px de alvo na vertical, 32px na horizontal */
+}
+@media (pointer: coarse) and (max-width: 480px) { .ficha .fh-slot-matrix { --fh-sm-cell: 34px; --fh-sm-gap-col: 10px; column-gap: 2px; } }
+
+/* ---------- Alvos de toque de 44px que faltavam ---------- */
+@media (pointer: coarse) {
+  /* "Escolher agora" na linha do tempo: a ação principal de uma pendência */
+  .ficha .fh-timeline .fh-origin .prog-choose { min-height: 44px; padding: 0 14px; display: inline-flex; align-items: center; }
+  /* selo do nível (38px no celular) e botão central do hexágono (30px) */
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) > .fh-seal.hero-level { position: relative; }
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) > .fh-seal.hero-level::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+  .ficha .fh-belt.is-hive-only .fh-belt-badge::before { inset: -7px; }
+}
+/* "NÍVEL" dentro do selo pequeno do celular ficava com 5,5px: o selo mostra só o número
+   (o nome acessível do botão já diz "Nível N") */
+@media (max-width: 719px) {
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) > .fh-seal .hero-level-label { display: none; }
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) > .fh-seal .hero-level-num { font-size: 17px !important; }
+}
+@media (min-width: 720px) {
+  .ficha .fh-hero-classfold > :is(summary, .fh-hero-classrow) > .fh-seal .hero-level-label { font-size: 8px !important; letter-spacing: 0.04em !important; }
+}
+
+/* ---------- Cerimônia de nível: nome numa linha, "subiu de nível" na outra ---------- */
+.ficha .fh-lu-title { overflow-wrap: break-word; }
+.ficha .fh-lu-name, .ficha .fh-lu-verb { display: block; }
+
+/* A colmeia é um contexto de empilhamento próprio: as fileiras usam z-index 5/6 para se
+   encaixarem e, sem isto, os hexágonos passavam POR CIMA da barra de abas fixa do celular
+   ao rolar a página. (Dentro da colmeia não há nada que abra Modal.) */
+.ficha .fh-belt.is-hive-only { isolation: isolate; }
+/* botões do descanso curto: rótulo e fórmula centrados na altura do botão */
+.ficha .fh-hpt-rest-btn { align-items: center; }
+
+.ficha .fh-hero-copy.is-none .fh-hero-copy-lv { display: none; }   /* o nível já está no selo logo abaixo */
+/* o grupo "Próximo d20" não recorta mais os botões (o recorte anulava a área de toque
+   ampliada): os cantos arredondados passam para o primeiro e o último botão */
+.ficha .fh-adv3-set { overflow: visible; }
+.ficha .fh-adv3-b:first-child { border-radius: 5px 0 0 5px; }
+.ficha .fh-adv3-b:last-child { border-radius: 0 5px 5px 0; }
+/* a seta de abrir fica colada no nome do recurso (no desktop ela boiava no meio da linha) */
+.ficha .fh-res-title .fh-res-chev.is-drawn { margin-left: 8px; }
+
+/* ---------- v1.0.143 · mobile sticky hero, thumb nav, my turn, conc, hp pop ---------- */
+.ficha .fh-sticky-hero { display: none; }
+.ficha .fh-mobile-nav { display: none; }
+@media (max-width: 767px) {
+  .ficha .fh-sticky-hero {
+    display: grid; gap: 6px; position: sticky; top: 0; z-index: 40;
+    margin: 0 -8px 10px; padding: 8px 12px;
+    background: linear-gradient(180deg, rgba(24, 17, 12, 0.98), rgba(18, 13, 9, 0.96));
+    border-bottom: 1px solid var(--stroke-strong, rgba(214, 176, 100, 0.45));
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+  }
+  .ficha .fh-sticky-top { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; min-width: 0; }
+  .ficha .fh-sticky-name { font-family: var(--display); font-weight: 700; color: var(--gold-bright); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .ficha .fh-sticky-lv, .ficha .fh-sticky-ac { font-size: 0.78rem; color: var(--ink-secondary); white-space: nowrap; }
+  .ficha .fh-sticky-hp {
+    min-height: 36px; padding: 2px 10px; border-radius: 999px;
+    background: var(--blood-soft); border: 1px solid var(--blood-bright);
+    color: var(--ink-primary); font-family: var(--mono); font-weight: 700; font-size: 0.82rem; cursor: pointer;
+  }
+  .ficha .fh-sticky-cond { font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: var(--amber-soft); color: var(--amber); white-space: nowrap; }
+  .ficha .fh-jump-bar { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .ficha .fh-jump-chip {
+    min-height: 32px; padding: 2px 10px; border-radius: 999px; white-space: nowrap;
+    border: 1px solid var(--stroke); background: var(--bg-raised); color: var(--ink-secondary); font-size: 0.75rem; cursor: pointer;
+  }
+  .ficha .fh-mobile-nav {
+    display: grid; grid-template-columns: repeat(5, 1fr); position: sticky; bottom: 0; z-index: 45;
+    margin: 12px -8px 0; padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px));
+    background: rgba(18, 13, 9, 0.97); border-top: 1px solid var(--stroke-strong);
+  }
+  .ficha .fh-mobile-nav-btn {
+    min-height: 48px; background: none; border: 0; color: var(--ink-muted);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    font: inherit; font-size: 0.7rem; cursor: pointer; border-radius: 6px;
+  }
+  .ficha .fh-mobile-nav-btn.active { color: var(--gold-bright); background: var(--gold-soft); }
+  .ficha .fh-mobile-nav-ico { font-size: 1rem; line-height: 1; }
+}
+.ficha .fh-conc-banner {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+  margin: 8px 0 12px; padding: 10px 14px; border-radius: 8px;
+  background: linear-gradient(135deg, rgba(91, 108, 184, 0.24), rgba(28, 20, 14, 0.95));
+  border: 1px solid var(--arcane-bright, #9fb0f0);
+}
+.ficha .fh-conc-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.ficha .fh-conc-acts button { min-height: 44px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--stroke); background: var(--bg-raised); color: var(--ink-primary); cursor: pointer; font: inherit; font-weight: 600; }
+.ficha .fh-conc-acts .is-roll { border-color: var(--arcane-bright); background: rgba(91, 108, 184, 0.28); }
+.ficha .fh-conc-acts .is-drop { border-color: var(--blood-bright); color: var(--blood-bright); }
+.ficha .fh-myturn { margin-bottom: 12px; }
+.ficha .fh-myturn-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ficha .fh-myturn-toggle {
+  flex: 1; min-height: 44px; background: none; border: 0; color: var(--gold-bright);
+  display: flex; align-items: center; justify-content: space-between; font-family: var(--display); font-size: 0.95rem; font-weight: 700; cursor: pointer;
+}
+.ficha .fh-myturn-pills { display: flex; gap: 6px; }
+.ficha .fh-myturn-dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 0.72rem; border: 1px solid var(--gold); color: var(--gold-bright); }
+.ficha .fh-myturn-dot.is-spent { opacity: 0.45; text-decoration: line-through; border-color: var(--ink-muted); color: var(--ink-muted); }
+.ficha .fh-myturn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 10px; }
+.ficha .fh-myturn-card { padding: 10px; border-radius: 6px; border: 1px solid var(--stroke); background: rgba(14, 10, 7, 0.45); transition: opacity 0.15s ease; }
+.ficha .fh-myturn-card.is-spent { opacity: 0.58; }
+.ficha .fh-myturn-card-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+.ficha .fh-myturn-use { min-height: 32px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--stroke); background: var(--bg-raised); color: var(--ink-secondary); font-size: 0.75rem; cursor: pointer; }
+.ficha .fh-myturn-use.active { border-color: var(--moss); color: var(--moss-bright); }
+.ficha .fh-myturn-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+.ficha .fh-myturn-item {
+  width: 100%; min-height: 36px; display: flex; justify-content: space-between; align-items: center; gap: 6px;
+  padding: 4px 8px; border-radius: 4px; border: 1px solid var(--stroke-faint); background: var(--bg-card); color: var(--ink-primary); font: inherit; font-size: 0.82rem; cursor: pointer; text-align: left;
+}
+.ficha .fh-hp-popover {
+  margin-top: 6px; padding: 10px; border-radius: 8px; background: var(--bg-card);
+  border: 1px solid var(--gold-deep); box-shadow: var(--shadow-card); display: grid; gap: 8px;
+}
+.ficha .fh-hp-popover-head { display: flex; align-items: center; justify-content: space-between; }
+.ficha .fh-hp-pop-x { min-width: 36px; min-height: 36px; border: 0; background: none; color: var(--ink-muted); cursor: pointer; }
+.ficha .fh-hp-pop-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.ficha .fh-hp-pop-btn, .ficha .fh-hp-pop-act {
+  min-height: 44px; border-radius: 6px; border: 1px solid var(--stroke); background: var(--bg-raised); color: var(--ink-primary); font-family: var(--mono); font-weight: 700; cursor: pointer;
+}
+.ficha .fh-hp-pop-btn.is-dmg { border-color: var(--blood); color: var(--blood-bright); }
+.ficha .fh-hp-pop-btn.is-heal { border-color: var(--moss); color: var(--moss-bright); }
+.ficha .fh-hp-pop-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }

@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readModular } from './_sheet-source.js';
 import { computeProgression } from '../src/progression/engine.js';
 
-const read = (relPath) => readFileSync(new URL(relPath, import.meta.url), 'utf8');
+const read = (relPath) => readModular(relPath);
 
 test('Subclass Spells: auto-prepared and auto-known subclass spells synthesized and marked golden', () => {
   // Test Artificer Alchemist (always-prepared subclass spells: Healing Word, Ray of Sickness at level 3, etc.)

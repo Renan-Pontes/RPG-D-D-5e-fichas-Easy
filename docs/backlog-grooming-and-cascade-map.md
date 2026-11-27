@@ -1,6 +1,6 @@
 # Master Backlog Grooming, Caveat Analysis & Deterministic Cascade Map
 
-> **Version Baseline**: Originally groomed at `v1.0.56` (`507d8b3`, 2026-11-11); reconciled against `v1.0.141` (`9a086b0` on `main`, 2026-11-27 — Epic 1 `C1`–`C9` completed in `v1.0.136`, backend & frontend suites 100% green)
+> **Version Baseline**: Originally groomed at `v1.0.56` (`507d8b3`, 2026-11-11); reconciled against `v1.0.143` (`main`, 2026-11-27 — 31 standalone FE `NANO` tasks shipped, Epic 1 `C1`–`C9` resolved, backend & frontend suites 100% green)
 > **Companion Specifications**: [`docs/frontend-backend-split-and-oss-blueprint.md`](frontend-backend-split-and-oss-blueprint.md) · [`ROADMAP.md`](../ROADMAP.md) · [`TECH_DEBT.md`](../TECH_DEBT.md) · [`SYSTEM_MAP.md`](../SYSTEM_MAP.md) · [`ADR.md`](../ADR.md) · [`docs/sync-spec.md`](sync-spec.md) · [`docs/sync-ledger.md`](sync-ledger.md) · [`docs/sync-contracts.md`](sync-contracts.md) · [`docs/character-versions.md`](character-versions.md) · [`SPEC_BELT_HIVE_STATS_HANDOFF.md`](../SPEC_BELT_HIVE_STATS_HANDOFF.md)
 
 ### §0.1 Frontier Audit Addendum (`v1.0.141` → 72-Item Nano Execution Plan)
@@ -312,32 +312,32 @@ Itens, valendo para qualquer opção:
 
 #### Task 5.1: Decompose `frontend/components/Sheet.jsx` (4,093 lines $\to$ `< 500` lines)
 - **Dead Code Removal**: Delete unused `BeltPbSlot` component and orphaned helper functions in [`frontend/components/Sheet.jsx`](../frontend/components/Sheet.jsx).
-- **Modular Extraction Map**:
-  1. `frontend/src/sheet/hero/SheetHero.jsx` (`~480` lines): `SheetHero`, `LevelUpButton`, `CampaignSealButton`, `HeroInspirationSeal`, `RestButtons`, portrait lightbox & discrete `Cheat -> Edit -> Export` toolbar. *(a criar)*
-  2. `frontend/src/sheet/belt/BeltHive.jsx` (`~520` lines): `BeltAbilities`, `BeltLoadoutWedge`, `BeltPbWedge`, `useBeltDragAndDrop`, `BeltSlotConfigPopover`. *(a criar)*
-  3. `frontend/src/sheet/tabs/SheetSkillsSection.jsx` (`~490` lines): `SheetSkills`, 4 collapsible action groups (`Search`, `Study`, `Influence`, `Hide`) + `Use Tool`, inline proficiency diamonds, passive score pills. *(a criar)*
-  4. `frontend/src/sheet/tabs/SheetFeaturesSection.jsx` (`~510` lines): `SheetFeatures`, collapsible feature cards, resource pips, action-economy filter chips (`Action`, `Bonus`, `Reaction`, `Passive`). *(a criar)*
-  5. `frontend/src/sheet/tabs/SheetCompanionsAndNotes.jsx` (`~420` lines): `SheetNotes`, `SheetNpcs`, `WildShapeBar`, `FamiliarCard`. *(a criar)*
-  6. [`frontend/components/Sheet.jsx`](../frontend/components/Sheet.jsx) (`~450` lines): Top-level sheet state orchestrator, version banner integration, and tab router.
+- **Modular Extraction Map (`[SHIPPED v1.0.143]`)**:
+  1. `frontend/src/sheet/hero/SheetHero.jsx`: `SheetHero`, `LevelUpButton`, `CampaignSealButton`, `HeroInspirationSeal`, `RestButtons`, mobile sticky hero, portrait lightbox & discrete `Cheat -> Edit -> Export` toolbar.
+  2. `frontend/src/sheet/belt/BeltHive.jsx` (+ `BeltHex.jsx`, `BeltQuickSlot.jsx`): `BeltAbilities`, wedges, drag-to-bind, swappable `beltStore` prop.
+  3. `frontend/src/sheet/tabs/SheetSkillsSection.jsx`: `SheetSkills`, 4 collapsible action groups (`Search`, `Study`, `Influence`, `Hide`) + `Use Tool`, inline proficiency diamonds, passive score pills.
+  4. `frontend/src/sheet/tabs/SheetFeaturesSection.jsx`: `SheetFeatures`, collapsible feature cards, resource pips, universal timeline picks/respec.
+  5. `frontend/src/sheet/tabs/SheetCompanionsAndNotes.jsx` (+ `SheetPlay.jsx`, `TimelineModals.jsx`): `SheetNotes`, `SheetNpcs`, `WildShapeBar`, `FamiliarCard`.
+  6. [`frontend/components/Sheet.jsx`](../frontend/components/Sheet.jsx) (`611` lines): Top-level sheet state orchestrator, Immer undo stack, Wake Lock, concentration guard, and tab router.
 
-#### Task 5.2: Decompose `frontend/components/SheetTabs.jsx` (1,785 lines $\to$ `< 400` lines)
-- **Modular Extraction Map**:
-  1. `frontend/src/sheet/spells/UnifiedSpellsHUD.jsx` (`~280` lines): Consolidated `(Abil) Spell Save DC`, `(Abil) Spell Attack Bonus`, concentration banner, and prepared counter. *(a criar)*
-  2. `frontend/src/sheet/spells/SlotMatrix.jsx` (`~240` lines): Interactive diamond slot matrix separating Long Rest Spellcasting vs Short Rest Pact Magic. *(a criar)*
-  3. `frontend/src/sheet/spells/SpellRow.jsx` (`~360` lines): Folded spell row with casting time, school, range, upcast picker, and SRD 5.2.1 description drawer (`spell-text.js`). *(a criar)*
-  4. `frontend/src/sheet/inventory/SheetInventoryTab.jsx` (`~450` lines): Coin pouch, encumbrance bar, attunement slots, equipment list, and shop modal trigger. *(a criar)*
-  5. `frontend/src/sheet/story/SheetStoryTab.jsx` (`~320` lines): Personality, backstory, languages/proficiencies editor, and `SpeciesTraits`. *(a criar)*
-  6. [`frontend/components/SheetTabs.jsx`](../frontend/components/SheetTabs.jsx): Barrel re-export + shared tab primitives.
+#### Task 5.2: Decompose `frontend/components/SheetTabs.jsx` (2,647 lines $\to$ 8 lines barrel `[SHIPPED v1.0.143]`)
+- **Modular Extraction Map (`[SHIPPED v1.0.143]`)**:
+  1. `frontend/src/sheet/spells/UnifiedSpellsHUD.jsx`: Consolidated `(Abil) Spell Save DC`, `(Abil) Spell Attack Bonus`, concentration banner, and prepared counter.
+  2. `frontend/src/sheet/spells/SlotMatrix.jsx`: Interactive diamond slot matrix separating Long Rest Spellcasting vs Short Rest Pact Magic.
+  3. `frontend/src/sheet/spells/SpellRow.jsx` (+ `RestButtons.jsx`, `SpellViews.jsx`): Folded spell row with casting time, school, range, upcast picker, and SRD 5.2.1 description drawer (`spell-text.js`).
+  4. `frontend/src/sheet/inventory/SheetInventoryTab.jsx` (+ `InventoryList.jsx`): Coin pouch, encumbrance bar, attunement slots, equipment list, and shop modal trigger.
+  5. `frontend/src/sheet/story/SheetStoryTab.jsx`: Personality, backstory, languages/proficiencies editor, and `SpeciesTraits`.
+  6. [`frontend/components/SheetTabs.jsx`](../frontend/components/SheetTabs.jsx): Barrel re-export (`8` lines).
 
-#### Task 5.3: Split `frontend/src/sheet/ficha.css` (6,549 lines) into Domain Stylesheets & Tokenize Colors
-- **Modular Extraction Map**:
-  1. `frontend/src/sheet/css/sheet-tokens.css` — semantic custom properties (`--sheet-gold`, `--sheet-surface`, `--sheet-border`, `--belt-hex-w`, etc.). *(a criar)*
-  2. `frontend/src/sheet/css/sheet-hero.css` — hero banner, portrait frame, seals, rest bar, discrete top-right icon actions. *(a criar)*
-  3. `frontend/src/sheet/css/sheet-belt.css` — 3–4–3 honeycomb hive geometry, `.fh-belt-pb-wedge`, `.fh-belt-loadout-wedge`, drag-and-drop states. *(a criar)*
-  4. `frontend/src/sheet/css/sheet-skills-features.css` — action groups, skill pills, diamond toggles, feature cards. *(a criar)*
-  5. `frontend/src/sheet/css/sheet-spells.css` — `UnifiedSpellsHUD`, `SlotMatrix` diamonds, `SpellRow` cards. *(a criar)*
-  6. `frontend/src/sheet/css/sheet-inventory-modals.css` — inventory table, shop, level-up, and version modals. *(a criar)*
-  7. [`frontend/src/sheet/ficha.css`](../frontend/src/sheet/ficha.css) — clean `@import` manifest (`< 50` lines).
+#### Task 5.3: Split `frontend/src/sheet/ficha.css` (7,381 lines $\to$ 15 lines manifest) & `frontend/styles.css` (2,768 lines $\to$ 6 lines) `[SHIPPED v1.0.143]`
+- **Modular Extraction Map (`[SHIPPED v1.0.143]`)**:
+  1. `frontend/src/sheet/css/sheet-tokens.css` — semantic custom properties (`--sheet-gold`, `--sheet-surface`, `--sheet-border`, `--belt-hex-w`, etc.).
+  2. `frontend/src/sheet/css/sheet-hero.css` (+ `sheet-hero-clusters.css`) — hero banner, portrait frame, seals, rest bar, discrete top-right icon actions.
+  3. `frontend/src/sheet/css/sheet-belt.css` (+ `sheet-belt-rows.css`) — 3–4–3 honeycomb hive geometry, `.fh-belt-pb-wedge`, `.fh-belt-loadout-wedge`, drag-and-drop states.
+  4. `frontend/src/sheet/css/sheet-skills-features.css` — action groups, skill pills, diamond toggles, feature cards.
+  5. `frontend/src/sheet/css/sheet-spells.css` (+ `sheet-spells-belt-v2.css`) — `UnifiedSpellsHUD`, `SlotMatrix` diamonds, `SpellRow` cards.
+  6. `frontend/src/sheet/css/sheet-inventory-modals.css` (+ `sheet-actions-banners.css`, `sheet-ceremonies-layout.css`, `sheet-play-vitals.css`, `sheet-rich-text.css`, `sheet-polish.css`) — inventory table, shop, level-up, mobile sticky bar, and polish tokens.
+  7. [`frontend/src/sheet/ficha.css`](../frontend/src/sheet/ficha.css) — `@import` manifest (`15` lines), alongside `frontend/src/styles/{tokens,base,catalog,overlays,modals}.css` imported by `frontend/styles.css` (`6` lines).
 
 #### Task 5.4: Decompose `backend/api/views_combat.py` (2,714 lines) & `backend/api/world_rules.py` (1,518 lines)
 - **Modular Extraction Map**:
@@ -349,23 +349,18 @@ Itens, valendo para qualquer opção:
 
 ---
 
-### EPIC 6 — Bundle Splitting, CSS Compositor Performance & WCAG 2.2 AA Hardening (Wave 1.2 & 1.3)
-**Goal**: Drop initial main JS bundle from `1,843 kB` (528 kB gzip) to `< 300 kB` gzip, eliminate layout-thrashing CSS transitions, and achieve 100% WCAG 2.2 AA touch target compliance.
+### EPIC 6 — Bundle Splitting, CSS Compositor Performance & WCAG 2.2 AA Hardening `[SHIPPED v1.0.143]`
+**Goal**: Drop initial main JS bundle from `2,082 kB` (`599.55 kB` gzip) to `< 250 kB` gzip (`107.23 kB` Vite / `104.7 KiB` gzip achieved), eliminate layout-thrashing CSS transitions, and enforce WCAG 2.2 AA / AAA touch target sizes.
 
-#### Task 6.1: Resolve Static/Dynamic Import Collisions & Configure `manualChunks`
-- **Problem**: Vite build emits chunk warnings because [`frontend/src/progression/SpeciesChoices.jsx`](../frontend/src/progression/SpeciesChoices.jsx) and [`frontend/src/stage/LiveScreenSheet.jsx`](../frontend/src/stage/LiveScreenSheet.jsx) are imported both statically and dynamically, and `frontend/data/srd-*.json` is bundled into the main entry chunk.
-- **Action**:
-  - Unify import style for `SpeciesChoices.jsx` and `LiveScreenSheet.jsx`.
-  - Configure `build.rollupOptions.output.manualChunks` in [`frontend/vite.config.js`](../frontend/vite.config.js) to isolate `srd-core`, `srd-spells`, `srd-bestiary`, `vendor-three`, and `vendor-pdf`.
-- **Cascade Map**:
-  - [`frontend/vite.config.js`](../frontend/vite.config.js)
-  - [`frontend/components/Creator.jsx`](../frontend/components/Creator.jsx), [`frontend/src/progression/SpeciesChoices.jsx`](../frontend/src/progression/SpeciesChoices.jsx)
-  - [`frontend/src/stage/TableBar.jsx`](../frontend/src/stage/TableBar.jsx), [`frontend/src/stage/LiveScreenSheet.jsx`](../frontend/src/stage/LiveScreenSheet.jsx)
+#### Task 6.1: Resolve Static/Dynamic Import Collisions & Configure `manualChunks` `[SHIPPED v1.0.143]`
+- **Done**:
+  - Extracted shared helpers (`frontend/src/progression/species-summary.js`, `frontend/src/stage/LiveScreenParts.jsx`) and lazy-loaded heavy views (`0` Rollup collision warnings).
+  - Configured `pickChunk` in [`frontend/vite.config.js`](../frontend/vite.config.js) (`vendor-react`, `vendor-three`, `vendor-pdf`, `vendor-state`, `srd`, `srd-spells-2024`, `srd-spells-extra`, `srd-magic-items`, `srd-bestiary`, `srd-subclasses`, `progression`) + `scripts/check_bundle_budget.mjs`.
 
-#### Task 6.2: Replace Non-Composited CSS Transitions & Enforce $\ge 44\times 44\text{px}$ Touch Targets
-- **Action**:
-  - Replace `transition: all` and layout transitions (`width`, `height`, `margin`, `padding`) with GPU-composited `transform: scaleX()` / `opacity` across [`frontend/styles.css`](../frontend/styles.css), [`frontend/src/creator/creator.css`](../frontend/src/creator/creator.css), [`frontend/src/screen/tv-styles.css`](../frontend/src/screen/tv-styles.css), [`frontend/src/shell/shell.css`](../frontend/src/shell/shell.css), and [`frontend/src/shell/mesa.css`](../frontend/src/shell/mesa.css).
-  - Increase `.fh-join-code-actions .btn` (`30px` $\to$ `44px` hit area) in [`frontend/src/creator/join-table.css`](../frontend/src/creator/join-table.css) and `.camp-char-Inspect` (`26px` $\to$ `44px`) in [`frontend/src/app-extra-styles.css`](../frontend/src/app-extra-styles.css).
+#### Task 6.2: Replace Non-Composited CSS Transitions & Enforce $\ge 44\times 44\text{px}$ Touch Targets `[SHIPPED v1.0.143]`
+- **Done**:
+  - Migrated 12 non-composited transitions to `transform` / `opacity` / `grid-template-rows` across [`frontend/src/styles/base.css`](../frontend/src/styles/base.css), [`frontend/src/creator/creator.css`](../frontend/src/creator/creator.css), [`frontend/src/screen/tv-styles.css`](../frontend/src/screen/tv-styles.css), and [`frontend/src/shell/shell.css`](../frontend/src/shell/shell.css).
+  - Expanded touch hit targets ($\ge 44\times 44\text{px}$) in [`frontend/src/creator/join-table.css`](../frontend/src/creator/join-table.css), [`frontend/src/app-extra-styles.css`](../frontend/src/app-extra-styles.css), [`frontend/src/sheet/css/sheet-skills-features.css`](../frontend/src/sheet/css/sheet-skills-features.css), [`frontend/src/sheet/css/sheet-spells.css`](../frontend/src/sheet/css/sheet-spells.css), and [`frontend/src/sheet/css/sheet-polish.css`](../frontend/src/sheet/css/sheet-polish.css).
 
 ---
 
@@ -381,11 +376,11 @@ Itens, valendo para qualquer opção:
 #### Task 7.3: Map Pings (`POST /api/campaigns/:id/ping`)
 - **Action**: Long-press (`350ms`) on the tactical map or world map sends `{ x, y, color, senderName }` to `POST /api/campaigns/:id/ping`, appending an ephemeral ping to Pulse/Stage that renders a 4-second expanding radial ring on all connected screens.
 
-#### Task 7.4: Diegetic Soundscapes (`stage.audio`)
-- **Action**: Add a lightweight WebAudio ambient loop controller (`frontend/src/stage/SoundscapeBar.jsx`) driven by `stage.audio` (`trackId`, `playing`, `volume`) with 6 CC0 ambient presets (`tavern`, `dungeon`, `forest`, `storm`, `boss`, `crypt`). *(a criar)*
+#### Task 7.4: Diegetic Soundscapes (`[SHIPPED v1.0.143]`)
+- **Done**: Built WebAudio ambient synthesizer (`frontend/src/stage/SoundscapeBar.jsx` + `frontend/src/stage/soundscape-engine.js`) with 6 cross-faded presets (`tavern`, `dungeon`, `forest`, `storm`, `boss`, `crypt`) wired to `LiveScreenSheet.jsx` and synced to `TVScreen.jsx`.
 
-#### Task 7.5: Resilient Polling Exponential Backoff (`frontend/src/api/polling.js`)
-- **Action**: Upgrade [`frontend/src/api/polling.js`](../frontend/src/api/polling.js) and [`frontend/src/play/table-store.js`](../frontend/src/play/table-store.js) to back off on network/5xx errors (`2.5s` $\to$ `5s` $\to$ `10s` $\to$ `30s` with $\pm 15\%$ jitter), pause when `document.hidden`, immediately resume on `visibilitychange`, and surface a discrete connection status badge (`Online` / `Reconectando…`) in `TableBar.jsx`.
+#### Task 7.5: Resilient Polling Exponential Backoff (`[SHIPPED v1.0.143]`)
+- **Done**: Upgraded [`frontend/src/api/polling.js`](../frontend/src/api/polling.js) (`computeBackoffMs`: `2.5s` $\to$ `5s` $\to$ `10s` $\to$ `30s` with $\pm 15\%$ jitter, `online` + `visibilitychange` instant reset) and wired into [`frontend/src/play/table-store.js`](../frontend/src/play/table-store.js).
 
 ---
 
@@ -394,7 +389,7 @@ Itens, valendo para qualquer opção:
 
 - **Task 8.1**: Configure `CONN_MAX_AGE = 60` and `OPTIONS.init_command = "SET sql_mode='STRICT_TRANS_TABLES'"` for MySQL in [`backend/forja/settings.py`](../backend/forja/settings.py), plus automated pre-migration database backup in [`scripts/self_update.py`](../scripts/self_update.py).
 - **Task 8.2**: Add S3/Cloudflare R2 presigned upload & CDN URL resolution (`backend/api/storage_r2.py`) so world maps, portraits, and scene handouts store lightweight HTTPS CDN URLs instead of base64 blobs in SQLite/MySQL. *(a criar)*
-- **Task 8.3**: Add a Workbox/Vite PWA Service Worker (`frontend/public/sw.js`) with `CacheFirst` for `/data/srd-*.json`, fonts, and icons, and `NetworkFirst` for `/api/characters/*` so players can view and roll from their sheets during temporary Wi-Fi drops. *(a criar)*
+- **Task 8.3 `[SHIPPED v1.0.143]`**: Configured `vite-plugin-pwa` (`generateSW`, 145 precache entries) in [`frontend/vite.config.js`](../frontend/vite.config.js) with `CacheFirst` for `/data/` JSONs, fonts, and icons, and `NetworkFirst` for `/api/` routes, alongside `frontend/src/api/idb-store.js`.
 
 ---
 

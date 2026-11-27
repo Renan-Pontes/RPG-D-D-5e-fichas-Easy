@@ -151,8 +151,17 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
   useEffect(() => { setHpMode('avg'); setRolled(null); }, [classId]);
   const hpGain = hpMode === 'roll' && rolled != null ? Math.max(1, rolled + conMod) : avgHp;
   const rollHp = () => {
-    setRolled(Math.floor(Math.random() * hitDie) + 1);
-    if (window.__diceRoll) window.__diceRoll({ die: hitDie, mod: conMod, label: lang === 'pt' ? 'PV de nível' : 'Level HP' });
+    const entry = window.__diceRoll
+      ? window.__diceRoll({ die: hitDie, mod: conMod, label: lang === 'pt' ? 'PV de nível' : 'Level HP', sheet: true })
+      : null;
+    const dieVal = entry?.groups?.[0]?.rolls?.[0];
+    if (dieVal != null) {
+      setRolled(dieVal);
+      return;
+    }
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    setRolled((buf[0] % hitDie) + 1);
   };
 
   // Perícia ganha ao entrar como multiclasse (bardo, ranger, ladino).

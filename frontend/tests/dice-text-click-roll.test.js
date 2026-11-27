@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readModular } from './_sheet-source.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -142,7 +143,7 @@ test('dice-text: DiceRoller, FhFeatures, and Sheet components integrate dice-tex
   const featuresSrc = readFileSync(resolve(__dirname, '../src/sheet/FhFeatures.jsx'), 'utf8');
   assert.ok(/DiceText|RichText/.test(featuresSrc), 'FhFeatures wraps feature text in DiceText');
 
-  const tabsSrc = readFileSync(resolve(__dirname, '../components/SheetTabs.jsx'), 'utf8');
+  const tabsSrc = readModular('../components/SheetTabs.jsx');
   assert.ok(/DiceText|RichText/.test(tabsSrc), 'SheetTabs wraps spell and item descriptions in DiceText');
 
   const cssSrc = readFileSync(resolve(__dirname, '../src/dice/dice-styles.css'), 'utf8');

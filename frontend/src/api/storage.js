@@ -9,15 +9,13 @@
  */
 
 import { api, ApiError } from './client.js';
+import { migrateSpellAliases } from './char-card-summary.js';
+import { idbGetAll, idbPut, idbDelete, idbReplaceStore, migrateCharactersFromLocalStorage } from './idb-store.js';
 
-// SRD e Utils são pesados (~2MB): carregados sob demanda para não entrarem no
-// bundle inicial (tela de login e telão /tv/ não precisam deles).
-let SRD = null;
 let Utils = null;
-async function loadDeps() {
-  if (!SRD || !Utils) {
-    const [srd, utils] = await Promise.all([import('../../data/srd.js'), import('../../utils.js')]);
-    SRD = srd.default;
+async function loadUtils() {
+  if (!Utils) {
+    const utils = await import('../../utils.js');
     Utils = utils.default;
   }
 }
@@ -36,14 +34,8 @@ export function remoteMeta(c) {
   };
 }
 
-// Ids de magia renomeados: fichas antigas são corrigidas ao carregar.
-// (Chamado só depois de loadDeps().)
 function migrate(char) {
-  if (!char || !Array.isArray(char.spells)) return char;
-  const alias = SRD?.SPELL_ID_ALIASES || {};
-  if (!char.spells.some(s => alias[typeof s === 'string' ? s : s?.id])) return char;
-  const spells = char.spells.map(s => (typeof s === 'string' ? (alias[s] || s) : alias[s?.id] ? { ...s, id: alias[s.id] } : s));
-  return { ...char, spells };
+  return migrateSpellAliases(char);
 }
 
 const STORAGE_KEY = 'dnd5e-forge:characters:v1';
@@ -56,41 +48,56 @@ function loadLocal() {
 }
 
 function saveLocal(chars) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(chars));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(chars));
+  } catch { /* localStorage quota fallback relies on IndexedDB */ }
 }
 
 export function createStorageAdapter({ remote }) {
   if (!remote) {
     return {
       mode: 'local',
-      async list() { await loadDeps(); return loadLocal().map(migrate); },
-      async get(id) { await loadDeps(); return migrate(loadLocal().find(c => c.id === id) || null); },
+      async list() {
+        await migrateCharactersFromLocalStorage(STORAGE_KEY);
+        const idbChars = await idbGetAll('characters');
+        if (idbChars.length) return idbChars.map(migrate);
+        return loadLocal().map(migrate);
+      },
+      async get(id) {
+        const fromIdb = await idbGetAll('characters');
+        if (fromIdb.length) return migrate(fromIdb.find(c => c.id === id) || null);
+        return migrate(loadLocal().find(c => c.id === id) || null);
+      },
       async save(char) {
-        const all = loadLocal();
+        const all = (await idbGetAll('characters')).length ? await idbGetAll('characters') : loadLocal();
         const next = { ...char, id: char.id || `local-${crypto.randomUUID()}`, updatedAt: Date.now() };
         const idx = all.findIndex(c => c.id === next.id);
         if (idx >= 0) all[idx] = next;
         else all.push(next);
+        await idbPut('characters', next);
         saveLocal(all);
         return next;
       },
       async remove(id) {
+        await idbDelete('characters', id);
         saveLocal(loadLocal().filter(c => c.id !== id));
       },
-      async replaceAll(chars) { saveLocal(chars); },
+      async replaceAll(chars) {
+        await idbReplaceStore('characters', chars.filter(c => c && c.id != null));
+        saveLocal(chars);
+      },
     };
   }
 
   return {
     mode: 'remote',
     async list() {
-      const [res] = await Promise.all([api.listCharacters(), loadDeps()]);
-      // O backend retorna { id, name, data, inCampaign, ... } — promove data
+      const res = await api.listCharacters();
       return res.characters.map(c => migrate({ ...c.data, id: c.id, name: c.name, ...remoteMeta(c) }));
     },
     async get(id) {
       try {
-        const [res] = await Promise.all([api.getCharacter(id), loadDeps()]);
+        const res = await api.getCharacter(id);
         const c = res.character;
         return migrate({ ...c.data, id: c.id, name: c.name, ...remoteMeta(c) });
       } catch (e) {
@@ -100,10 +107,8 @@ export function createStorageAdapter({ remote }) {
     },
     async save(char) {
       const { id, createdAt, updatedAt, inCampaign, campaignLeveling, ...data } = char;
-      // CA e deslocamento automático (armadura, escudo, estilos de luta, Monge/Bárbaro…)
-      // para o combate e a Tela no servidor, que não conhece as regras.
       if (char.className) {
-        await loadDeps();
+        await loadUtils();
         Object.assign(data, Utils.serverNumbers(char));
       }
       const body = { name: char.name || 'Sem nome', data };
