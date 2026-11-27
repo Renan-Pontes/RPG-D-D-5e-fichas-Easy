@@ -1,12 +1,15 @@
 import { useState, useContext, useRef, useLayoutEffect } from 'react';
 import Utils from '../../../utils.js';
 import { t, tName } from '../../../data/i18n.js';
+import Icon from '../../../components/Icons.jsx';
+import { confirmDialog } from '../../../components/ConfirmDialog.jsx';
 import { SpeciesChoicesModal } from '../../progression/SpeciesChoices.jsx';
 import { speciesSummary } from '../../progression/species-summary.js';
 import { speciesChoiceSpecs, speciesGrants } from '../../progression/species.js';
 import { RespecContext } from '../../progression/respec.js';
 import FhTitle from '../FhTitle.jsx';
 import FhFeatures from '../FhFeatures.jsx';
+import { RichText } from '../rich-text.jsx';
 import { useSheetToast } from '../sheet-toast.jsx';
 import { undoRemoval } from '../sheet-undo-helpers.js';
 const AutoTextarea = ({ value, minRows = 2, ...props }) => {

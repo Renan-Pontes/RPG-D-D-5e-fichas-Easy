@@ -1,24 +1,34 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import SRD from '../../../data/srd.js';
 import Utils from '../../../utils.js';
 import { t, tName } from '../../../data/i18n.js';
+import { findFeat } from '../../../data/feats.js';
+import Icon from '../../../components/Icons.jsx';
 import { featSummary } from '../../progression/FeatPicker.jsx';
 import OriginFeatModal from '../../progression/OriginFeatModal.jsx';
 import { SpeciesChoicesModal } from '../../progression/SpeciesChoices.jsx';
+import { speciesSummary } from '../../progression/species-summary.js';
+import { speciesChoiceSpecs, speciesGrants } from '../../progression/species.js';
+import { subclassesFor } from '../../progression/subclasses.js';
+import { applyAutosToCharacter, computeProgression } from '../../progression/engine.js';
+import { RespecContext, respecPatch } from '../../progression/respec.js';
 import { assignSpeciesChoices } from '../species-trait-choices.js';
-import { classToolPicks } from '../../creator/class-helpers.js';
-import { findBackground, applyBackground } from '../../creator/background-helpers.js';
+import { classSkillCount, classSkillPicks, classToolPicks } from '../../creator/class-helpers.js';
+import { findBackground, applyBackground, backgroundTool, chosenBackgroundTools } from '../../creator/background-helpers.js';
+import { classStart, toolName } from '../../creator/start-data.js';
 import { bonusMode, bonusChoice, bonusPatch, abilityBonusIssues, expectedRaceBonus } from '../../creator/ability-helpers.js';
-import { featChoiceSpecs } from '../../progression/feat-rules.js';
+import { featAsiIssues, featChoiceSpecs, featPicksIssues } from '../../progression/feat-rules.js';
 import { featName, featPicksText, backgroundFeature } from '../sheet-text.js';
 import { placeFeatures, poolParents } from '../feature-placement.js';
 import FhFeatures, { FhFeatureItem } from '../FhFeatures.jsx';
 import { RichText } from '../rich-text.jsx';
 import FhTitle from '../FhTitle.jsx';
+import { useSheetToast } from '../sheet-toast.jsx';
 import { buildTimeline, byLevel, byTier, tierOf, classesAt, charLevelOf } from '../feature-timeline.js';
 import { subclassLevelOf } from '../../progression/subclass-lock.js';
 import { SUBCLASS_LABEL } from '../sheet-shared.jsx';
 import { SubclassModal } from './SheetCompanionsAndNotes.jsx';
+import { SpeciesTraits } from '../story/SheetStoryTab.jsx';
 import { SheetAbilities } from '../belt/BeltHive.jsx';
 import { SheetTools } from './SheetSkillsSection.jsx';
 import { TimelineClassSkillsModal, TimelineBackgroundModal, stableJson, countPendingChoices } from './TimelineModals.jsx';
@@ -31,6 +41,7 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
   const effResolveOptions = onResolveOptions || respec?.resolveOptions;
   const canEdit = Boolean(respec || update);
   const [localModal, setLocalModal] = useState(null);
+  const [openMap, setOpenMap] = useState({});
 
   const tlToast = useSheetToast();
   // Pedidos de troca em andamento, agrupados: o mesmo pedido (título + mudanças) enviado a
@@ -511,7 +522,6 @@ export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race
   const now = char.level || 1;
   const cur = tierOf(now);
   // Acordeão: começam abertos o nível atual e os que têm escolha pendente; o resto, fechado
-  const [openMap, setOpenMap] = useState({});
   const isOpen = (g) => openMap[g.level] ?? ((!compact && g.level === now) || g.entries.some(e => e.pending));
   const toggle = (g) => setOpenMap(m => ({ ...m, [g.level]: !isOpen(g) }));
   // nível 1 sempre existe: é onde ficam idiomas, proficiências e as escolhas da espécie

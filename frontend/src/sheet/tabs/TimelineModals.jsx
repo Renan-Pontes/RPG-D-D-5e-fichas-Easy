@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import Utils from '../../../utils.js';
-import { tName } from '../../../data/i18n.js';
+import { t, tName } from '../../../data/i18n.js';
+import LanguagePicker, { chosenLanguages } from '../../../components/LanguagePicker.jsx';
 import { Modal } from '../../../components/Shared.jsx';
 import { classSkillList, classSkillCount, classSkillPicks, toggleClassSkill, otherSkillSources } from '../../creator/class-helpers.js';
 import { findBackground, backgroundList, backgroundTool, chosenBackgroundTools, toggleBackgroundTool, applyBackground } from '../../creator/background-helpers.js';
+import { abilityBonusIssues, bonusChoice, bonusMode, bonusPatch } from '../../creator/ability-helpers.js';
+import { classStart, toolName } from '../../creator/start-data.js';
+import { computeProgression } from '../../progression/engine.js';
 import { speciesChoiceIssues } from '../../progression/species.js';
 import { featChoiceSpecs, featPicksIssues, featAsiIssues } from '../../progression/feat-rules.js';
 import { AskDmNote, saveLabel } from '../sheet-shared.jsx';

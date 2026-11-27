@@ -1,7 +1,14 @@
-import { useState } from 'react';
-import { tName } from '../../../data/i18n.js';
+import { useId, useState } from 'react';
+import Utils from '../../../utils.js';
+import { t, tName } from '../../../data/i18n.js';
+import Icon from '../../../components/Icons.jsx';
+import { api } from '../../api/client.js';
+import { errorMessage } from '../../api/errors.js';
+import { grantedSpells } from '../../creator/spell-helpers.js';
+import { grantTakesOver } from '../../progression/engine.js';
 import { DiceText } from '../../dice/dice-text.jsx';
 import { RichText } from '../rich-text.jsx';
+import { useSheetToast } from '../sheet-toast.jsx';
 import { useSpellText, spellTextLoaded, ddbSpellUrl, spellMechanics, scaledDice, higherLevelText } from '../spell-text.js';
 import SPELL_TAGS from '../../../data/spell-tags.json';
 import { slotCircleLabel } from '../gem-text.js';
@@ -50,6 +57,8 @@ export const UsesTag = ({ uses, char, lang }) => {
  * Botões de descanso. Em campanha: chama backend (recurso autorizado pra dono
  * ou DM). Em standalone: aplica local.
  */
+const SPELL_HL = /(At Higher Levels|Using a Higher-Level Spell Slot|Cantrip Upgrade|Em Níveis Superiores|Usando um Espaço de Magia de Círculo Superior|Aprimoramento de Truque)/i;
+
 export const spellRollInfo = (text, { isCantrip, charLevel, spellLevel, slotLevel, abilityMod }) => {
   const s = String(text || '');
   if (!s) return null;

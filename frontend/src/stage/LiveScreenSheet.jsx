@@ -19,6 +19,7 @@ import MesaSheet from '../shell/MesaSheet.jsx';
 import { screenLink } from '../shell/shell-logic.js';
 import { copyText } from '../group/InviteCard.jsx';
 import { useTable } from '../play/table-store.js';
+import { flash } from '../play/flash.js';
 import useStage from './useStage.js';
 import { L, ruleText, stageLines, stageNow, undoLabel } from './stage-now.js';
 import { sendToStage, showCheckOnStage, stageBack, stageBg, stageClear, stageDark, stageOp, stageUndo } from './stage-api.js';

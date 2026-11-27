@@ -255,6 +255,14 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   const combat = data?.combat || null;
   const grid = useMemo(() => (combat ? gridCombat(combat) : null), [combat]);
   const mapGrid = useMemo(() => (combat ? { ...grid, active: false } : null), [grid]); // eslint-disable-line react-hooks/exhaustive-deps
+  const stageAudio = stage?.audio || stage?.prefs?.audio || null;
+  useEffect(() => {
+    if (!IS_PREVIEW && stageAudio?.playing) {
+      soundscapeEngine.sync(stageAudio);
+    } else if (!stageAudio?.playing) {
+      soundscapeEngine.stop();
+    }
+  }, [stageAudio?.trackId, stageAudio?.playing, stageAudio?.volume]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (dead) {
     return (
@@ -285,14 +293,6 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   const showKey = stg ? frontKey : cardKey(card);
   const inCombat = mode === 'combat';
   const dark = mode === 'dark';
-  const stageAudio = stage?.audio || stage?.prefs?.audio || null;
-  useEffect(() => {
-    if (!IS_PREVIEW && stageAudio?.playing) {
-      soundscapeEngine.sync(stageAudio);
-    } else if (!stageAudio?.playing) {
-      soundscapeEngine.stop();
-    }
-  }, [stageAudio?.trackId, stageAudio?.playing, stageAudio?.volume]); // eslint-disable-line react-hooks/exhaustive-deps
   // Últimas rolagens: à vista sem cartão grande por cima (nem com a Tela escurecida), num
   // lugar que não cobre texto, a ordem nem os tokens (tv-logic.histPlacement)
   const showHist = !dark && !big && queue.hist.length > 0;

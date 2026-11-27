@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
-import { beltHoldToRoll, renderDieShape } from './BeltHex.jsx';
+import Utils from '../../../utils.js';
+import { beltHoldToRoll, isActionKey, renderDieShape } from './BeltHex.jsx';
 
 export const BeltQuickSlot = ({
   slot,

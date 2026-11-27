@@ -1,12 +1,16 @@
 import { t, tName } from '../../../data/i18n.js';
 import Utils from '../../../utils.js';
 import { Modal } from '../../../components/Shared.jsx';
+import ArtThumb from '../../components/ArtThumb.jsx';
 import { schoolIcon, SCHOOL_EMOJI } from '../../art.js';
 import { slotCircleLabel, gemLabel, lockedSlotTitle, slotSpent, slotTap, slotTapTitle } from '../gem-text.js';
+import { higherLevelText, scaledDice } from '../spell-text.js';
+import { useSheetToast } from '../sheet-toast.jsx';
 import FhTitle from '../FhTitle.jsx';
 export const L_SP = (lang, pt, en) => (lang === 'en' ? en : pt);
 export const SlotMatrix = ({ char, lang, slots, update }) => {
   const pt = lang === 'pt';
+  const toast = useSheetToast();   // null fora da ficha
   const pact = Utils.pactSlots ? Utils.pactSlots(char) : [];
   const rows = (slots || []).map((max, i) => {
     const p = Math.min(max || 0, pact[i] || 0);
@@ -19,7 +23,6 @@ export const SlotMatrix = ({ char, lang, slots, update }) => {
   const colsR = Math.max(0, ...rows.map(x => x.r));
   const colsP = Math.max(0, ...rows.map(x => x.p));
   const locked = !!char.inCampaign;
-  const toast = useSheetToast();   // null fora da ficha
   const setUsed = (i, used) => {
     const arr = [...(char.spellSlotsUsed || [])];
     while (arr.length <= i) arr.push(0);

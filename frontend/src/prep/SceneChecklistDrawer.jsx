@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { PLAN_LIMITS, realScene } from './next-session.js';
+import { useEffect, useState } from 'react';
+import { PLAN_LIMITS, realScene, sceneParts, textForRef } from './next-session.js';
 import { kindIcon, kindLabel } from '../world/world-model.js';
+import { WORLD_KINDS } from './prep-world.js';
+import MoreMenu from '../group/MoreMenu.jsx';
 import WorldRefs from './WorldRefs.jsx';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);

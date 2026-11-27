@@ -11,7 +11,7 @@ import { hpFormula, hitDicePools, hitDiceLeftLabel } from '../hp-logic.js';
 import { useHpFeedback, hpState } from '../hp-feedback.js';
 import { attachPlaySnap } from '../play-snap.js';
 import { activeBites, hpFlags, statusList, statusLabel } from '../condition-rules.js';
-import { FhVitalFx, FhHeartMark } from '../FhConditions.jsx';
+import { FhStatusGlyph, FhVitalFx, FhHeartMark } from '../FhConditions.jsx';
 import { FhStatusPanel, FhStanceHint, FhSpeedBite, attackMark, initMark } from '../FhStatus.jsx';
 import FhFeatures from '../FhFeatures.jsx';
 import HpTracker, { HpPad } from '../HpTracker.jsx';

@@ -1,11 +1,12 @@
 import { exportDnd5ePdf } from './export-pdf.js';
 import { importDnd5ePdf } from './import-pdf.js';
+import { speciesSummary } from '../progression/species-summary.js';
 
 self.onmessage = async (event) => {
   const { id, op, payload } = event.data || {};
   try {
     if (op === 'export') {
-      const bytes = await exportDnd5ePdf(payload.char, payload.lang, payload.opts || {});
+      const bytes = await exportDnd5ePdf(payload.char, payload.lang, { speciesSummary, ...(payload.opts || {}) });
       const buf = bytes instanceof Uint8Array ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) : bytes;
       self.postMessage({ id, ok: true, result: buf }, [buf]);
       return;

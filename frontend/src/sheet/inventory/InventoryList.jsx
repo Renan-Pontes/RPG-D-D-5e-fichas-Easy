@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import Utils from '../../../utils.js';
 import { t, tName } from '../../../data/i18n.js';
 import Icon from '../../../components/Icons.jsx';
+import { confirmDialog } from '../../../components/ConfirmDialog.jsx';
+import { api } from '../../api/client.js';
+import { errorMessage } from '../../api/errors.js';
 import { ITEMS, ITEMS_BY_ID } from '../../../data/items.js';
 import { CLASS_START, BACKGROUND_START, TOOLS } from '../../creator/start-data.js';
 import { PACK_GEAR } from '../../../data/equipment-packs.js';
@@ -13,9 +16,11 @@ import ItemPickerModal from '../../items/ItemPickerModal.jsx';
 import ArtThumb from '../../components/ArtThumb.jsx';
 import FhTitle from '../FhTitle.jsx';
 import FhAdv3 from '../FhAdv3.jsx';
+import { RichText } from '../rich-text.jsx';
 import { DiceText } from '../../dice/dice-text.jsx';
 import { useSheetToast } from '../sheet-toast.jsx';
 import { undoRemoval } from '../sheet-undo-helpers.js';
+import { itemShownName } from './SheetInventoryTab.jsx';
 // Siglas das moedas (PHB em pt: peça de cobre/prata/electro/ouro/platina).
 export const COIN_LABEL = { pt: { cp: 'PC', sp: 'PP', ep: 'PE', gp: 'PO', pp: 'PL' }, en: { cp: 'CP', sp: 'SP', ep: 'EP', gp: 'GP', pp: 'PP' } };
 export const COIN_NAME = { pt: { cp: 'cobre', sp: 'prata', ep: 'electro', gp: 'ouro', pp: 'platina' }, en: { cp: 'copper', sp: 'silver', ep: 'electrum', gp: 'gold', pp: 'platinum' } };

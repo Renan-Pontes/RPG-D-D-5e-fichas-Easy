@@ -38,20 +38,25 @@ function triggerDownload(bytes, filename) {
 
 export async function runExportPdf(char, lang = 'pt', opts = {}) {
   const { speciesSummary, ...workerOpts } = opts;
+  const filename = opts?.blank
+    ? 'Ficha_DnD5e_em_branco.pdf'
+    : `${(char?.name || 'personagem').replace(/[^a-z0-9]+/gi, '_')}_DnD5e${opts?.flatten ? '' : '_editavel'}.pdf`;
   const workerSupported = typeof Worker !== 'undefined' && !opts.customHooks;
   if (workerSupported) {
     try {
       const buf = await runInWorker('export', { char, lang, opts: workerOpts });
       if (buf) {
         const bytes = new Uint8Array(buf);
-        const safe = (char?.name || 'ficha').replace(/[^a-z0-9_-]+/gi, '_').slice(0, 48) || 'ficha';
-        triggerDownload(bytes, `${safe}.pdf`);
+        triggerDownload(bytes, filename);
         return true;
       }
     } catch { /* fallback to main thread */ }
   }
+  const effectiveOpts = speciesSummary
+    ? opts
+    : { ...opts, speciesSummary: (await import('../progression/species-summary.js')).speciesSummary };
   const { downloadDnd5ePdf } = await import('./export-pdf.js');
-  await downloadDnd5ePdf(char, lang, opts);
+  await downloadDnd5ePdf(char, lang, effectiveOpts);
   return true;
 }
 

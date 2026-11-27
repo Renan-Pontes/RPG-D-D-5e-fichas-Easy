@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import Utils from '../../../utils.js';
+import { t } from '../../../data/i18n.js';
 import { FhHex } from '../FhChecks.jsx';
 import { halfMark } from '../FhStatus.jsx';
 import { stop } from '../sheet-shared.jsx';

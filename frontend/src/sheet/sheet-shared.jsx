@@ -1,4 +1,5 @@
 import Utils from '../../utils.js';
+import Icon from '../../components/Icons.jsx';
 
 export const SHEET_TABS = [
   { id: 'play',     labelPt: 'Jogar',           labelEn: 'Play' },

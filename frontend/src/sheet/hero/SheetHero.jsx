@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Utils from '../../../utils.js';
 import { t, tName } from '../../../data/i18n.js';
 import Icon from '../../../components/Icons.jsx';
@@ -6,17 +6,21 @@ import { AvatarUpload, FramedImg } from '../../../components/Shared.jsx';
 import { RestButtons } from '../spells/RestButtons.jsx';
 import { speciesChoiceSpecs, speciesGrants } from '../../progression/species.js';
 import { speciesSummary } from '../../progression/species-summary.js';
+import { SpeciesChoicesModal } from '../../progression/SpeciesChoices.jsx';
 import { featChoiceSpecs } from '../../progression/feat-rules.js';
 import { backgroundList, findBackground } from '../../creator/background-helpers.js';
-import { subclassLock, sealHint } from '../../progression/subclass-lock.js';
+import { guardSealedPatch, subclassLock, sealHint } from '../../progression/subclass-lock.js';
 import { subclassesFor } from '../../progression/subclasses.js';
 import { applyAutosToCharacter } from '../../progression/engine.js';
 import { confirmDialog } from '../../../components/ConfirmDialog.jsx';
 import { api } from '../../api/client.js';
 import { classArt, speciesArt } from '../../art.js';
-import { FhConditionArt } from '../FhConditions.jsx';
+import { FhConditionArt, FhInspBurst, useGainMoment } from '../FhConditions.jsx';
+import { useSheetToast } from '../sheet-toast.jsx';
+import SheetRollTarget from '../SheetRollTarget.jsx';
 import { statusList, statusLabel } from '../condition-rules.js';
 import { canLevelUp, stop, SUBCLASS_LABEL, SUBCLASS_LEVEL } from '../sheet-shared.jsx';
+import { SubclassModal } from '../tabs/SheetCompanionsAndNotes.jsx';
 import HpDeltaPopover from '../HpDeltaPopover.jsx';
 
 export const HeroChoicesFold = ({ char, lang, update, onLevelUp }) => {

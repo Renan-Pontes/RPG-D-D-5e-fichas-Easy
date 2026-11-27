@@ -324,7 +324,7 @@ const DiceRoller = ({ lang }) => {
   // Os toques do rolador. Mestre na campanha: pelo servidor (📺 Na tela ou 🔒 Só eu).
   // Lento não é sem rede: o pedido não é cortado (a TV mostraria o número do servidor);
   // aos 1,5 s o aviso "a Tela está lenta". Sem rede, no aparelho com o aviso. Fora: local.
-  const rollUi = useCallback(async (parsed, { label, adv = 'normal', isSave = false } = {}) => {
+  const rollUi = useCallback(async (parsed, { label, adv = 'normal', isSave = false, isCheck = false } = {}) => {
     if (!table) {
       // jogador: no aparelho, e da ficha aberta também à Tela (toTable não faz nada sem ela)
       const entry = rollParsed(parsed, { label, adv, isSave });
