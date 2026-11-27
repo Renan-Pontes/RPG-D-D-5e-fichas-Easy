@@ -1,8 +1,8 @@
 # Technical Debt & Legacy Modernization Register — Forja de Heróis
 
-> **Audit Date:** 2026-11-06  
-> **Health Score:** 11/20 (Acceptable — Significant work required)  
-> **Source Documents:** `AUDIT.md`, `CRITIQUE.md`, `DECISIONS.md`, `ARCHITECTURE.md`
+> **Audit Date:** 2026-11-27 (synced through `v1.0.141`)  
+> **Health Score:** 14/20 (Backend CI & test suite stabilized; monolith split & production cutover next)  
+> **Source Documents:** `AUDIT.md`, `CRITIQUE.md`, `DECISIONS.md`, `ARCHITECTURE.md`, `docs/ux-audit-table-speed.md`, [`docs/frontend-backend-split-and-oss-blueprint.md`](docs/frontend-backend-split-and-oss-blueprint.md) (`NANO-001`–`NANO-072`)
 
 ---
 
@@ -58,14 +58,15 @@ During the migration from the original v1/v2 tab-based interface to the unified 
 
 ## 3. Frontend Bundle Splitting & Performance Debt
 
-### 3.1 Current Build Chunk Breakdown
-Production build currently yields oversized bundles:
-- `dist/assets/app-*.js`: **1,701 kB** (508 kB gzip)
-- `dist/assets/srd-*.js`: **1,493 kB** (321 kB gzip)
-- `dist/assets/progression-*.js`: **869 kB** (263 kB gzip)
-- `dist/assets/bestiary-*.js`: **748 kB** (139 kB gzip)
-- `dist/assets/dice-scene-*.js`: **534 kB** (135 kB gzip)
-- `dist/assets/sheet-data-*.js`: **484 kB** (191 kB gzip)
+### 3.1 Current Build Chunk Breakdown (`v1.0.141`)
+Production build currently yields oversized bundles (further amplified because `frontend/src/api/storage.js` eagerly imports `srd.js` + `utils.js` inside `list()` — queued for decoupling in `NANO-028`):
+- `dist/assets/srd-*.js`: **3,542.82 kB** (`924.32 kB` gzip)
+- `dist/assets/app-*.js`: **2,082.09 kB** (`599.55 kB` gzip)
+- `dist/assets/srd2024-spells-*.js`: **606 kB**
+- `dist/assets/bestiary-*.js`: **747 kB**
+- `dist/assets/progression-*.js`: **600 kB**
+- `dist/assets/dice-scene-*.js`: **534 kB**
+- `dist/assets/sheet-data-*.js`: **483 kB**
 
 ### 3.2 Vite Dynamic / Static Import Collision Fix
 The Vite build emits warnings where modules are dynamically imported in one file but statically imported in another, preventing Rollup from moving them into separate lazy chunks:
@@ -146,25 +147,25 @@ Register of debt created by the frontend running ahead of the deployed backend. 
 | NPC card sync done through the World API from the client | `frontend/src/sheet/npc-link.js` | deploy (B11) |
 | Pact slots refunded client-side on a short rest | `components/SheetTabs.jsx` | deploy (B12) |
 | Stale version label in production (`fcaa730` vs code of 2026-10-26) | `scripts/self_update.py` | A4 |
-| Backend suite red on `main` (13 failures, 2 errors); migration fixed in v1.0.57 | `backend/api/tests/` | C2–C8 |
-| Release packaged without running tests | `.github/workflows/backend-release.yml` | C9 |
+| ~~Backend suite red on `main` (13 failures, 2 errors)~~ **Resolved in `v1.0.136`** (`5de5cf5`, `606f4df`, `bc98391`, `29f6b3a`, `f22ac4c`) | `backend/api/tests/` | Done |
+| ~~Release packaged without running tests~~ **Resolved in `v1.0.136`** (`d824fa2`: `check:rules`, `makemigrations --check`, `check_doc_refs.py`, `manage.py test` gate) | `.github/workflows/backend-release.yml` | Done |
 | Unused `BeltPbSlot` component left after the belt redesign | `components/Sheet.jsx` | delete |
 
 ---
 
-## 8. Monolithic File Decomposition & Component Abstraction Blueprint (added 2026-11-11)
+## 8. Monolithic File Decomposition & Component Abstraction Blueprint (updated 2026-11-27)
 
-Full deterministic decomposition plan and cascade maps: [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) (Epic 5) and [`ADR.md`](ADR.md) (`ADR-0036`).
+Full deterministic decomposition plan and cascade maps: [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) (Epic 5) and [`ADR.md`](ADR.md) (`ADR-0036`). Note: `ficha-tabs.css` (518 lines) and `condition-fx.css` (886 lines) were extracted alongside `ficha.css` in `v1.0.138`–`v1.0.139`.
 
 | Monolithic File | Current Lines | Target Budget | Planned High-Level Extraction Modules |
 | :--- | ---: | ---: | :--- |
-| [`frontend/src/sheet/ficha.css`](frontend/src/sheet/ficha.css) | 6,549 | `< 800` / module | `sheet-tokens.css`, `sheet-hero.css`, `sheet-belt.css`, `sheet-skills-features.css`, `sheet-spells.css`, `sheet-inventory-modals.css` |
-| [`frontend/components/Sheet.jsx`](frontend/components/Sheet.jsx) | 4,093 | `< 500` (orchestrator) | `SheetHero.jsx`, `BeltHive.jsx`, `SheetSkillsSection.jsx`, `SheetFeaturesSection.jsx`, `SheetCompanionsAndNotes.jsx` + delete dead `BeltPbSlot` |
-| [`backend/api/views_combat.py`](backend/api/views_combat.py) | 2,714 | `< 600` / module | `services/combat_setup.py`, `services/combat_undo.py`, `services/combat_actions.py`, `services/combat_media.py` |
-| [`frontend/styles.css`](frontend/styles.css) | 2,601 | `< 800` / module | Split global design tokens (`:root`), creator shell, and catalog grids; replace layout transitions with `transform`/`opacity` |
-| [`frontend/components/SheetTabs.jsx`](frontend/components/SheetTabs.jsx) | 1,785 | `< 450` / module | `UnifiedSpellsHUD.jsx`, `SlotMatrix.jsx`, `SpellRow.jsx`, `SheetInventoryTab.jsx`, `SheetStoryTab.jsx` |
+| [`frontend/src/sheet/ficha.css`](frontend/src/sheet/ficha.css) | 7,381 | `< 800` / module | `sheet-tokens.css`, `sheet-hero.css`, `sheet-belt.css`, `sheet-skills-features.css`, `sheet-spells.css`, `sheet-inventory-modals.css` |
+| [`frontend/components/Sheet.jsx`](frontend/components/Sheet.jsx) | 5,469 | `< 500` (orchestrator) | `SheetHero.jsx`, `BeltHive.jsx`, `SheetSkillsSection.jsx`, `SheetFeaturesSection.jsx`, `SheetCompanionsAndNotes.jsx` + delete dead `BeltPbSlot` |
+| [`backend/api/views_combat.py`](backend/api/views_combat.py) | 2,714 | `< 600` / module | `services/combat_setup.py`, `services/combat_undo.py`, `services/combat_actions.py`, `services/combat_media.py` *(a criar)* |
+| [`frontend/styles.css`](frontend/styles.css) | 2,768 | `< 800` / module | Split global design tokens (`:root`), creator shell, and catalog grids; replace layout transitions with `transform`/`opacity` |
+| [`frontend/components/SheetTabs.jsx`](frontend/components/SheetTabs.jsx) | 2,647 | `< 450` / module | `UnifiedSpellsHUD.jsx`, `SlotMatrix.jsx`, `SpellRow.jsx`, `SheetInventoryTab.jsx`, `SheetStoryTab.jsx` |
 | [`frontend/src/campaigns/url-monster-importer.js`](frontend/src/campaigns/url-monster-importer.js) | 1,742 | `< 500` / stage | Separate HTML sanitizer/scraper, bilingual statblock regex parser, and CR normalizer |
 | [`backend/api/world_rules.py`](backend/api/world_rules.py) | 1,518 | `< 550` / module | Split world consistency linter, graph relation validators, and NPC sheet extractor |
-| [`frontend/src/prep/NextSession.jsx`](frontend/src/prep/NextSession.jsx) | 1,434 | `< 500` / view | Extract scene checklist drawer, encounter launcher, and session summary header |
+| [`frontend/src/prep/NextSession.jsx`](frontend/src/prep/NextSession.jsx) | 1,441 | `< 500` / view | Extract scene checklist drawer, encounter launcher, and session summary header |
 
 

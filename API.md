@@ -72,7 +72,7 @@ Lista personagens do usuário. **200** `{ characters: [...] }`.
 **403 forbidden** caso contrário.
 
 ### `GET /characters/:id/campaigns` (só o dono)
-Campanhas em que a ficha está: `{ campaigns: [{id, name, slug, membershipId, status: 'active'|'closed', purgeAt, sponsored}] }` (em ordem de entrada). Normalmente 0 ou 1 (ver [Uma campanha por vez](#uma-campanha-por-vez)); fichas antigas podem ter 2.
+Campanhas em que a ficha está: `{ campaigns: [{id, name, slug, membershipId, status: 'active'|'closed', purgeAt, sponsored, isNpc, sheetRolls, sheetRollsMode, live}] }` (em ordem de entrada). Pode trazer 0, 1 ou N campanhas (ver [Várias campanhas e várias fichas por mesa](#varias-campanhas-e-varias-fichas-por-mesa)).
 
 ### `PUT /characters/:id`
 Body igual ao POST. Só o dono. Trocar o retrato por um maior checa o espaço de imagens (402 `images`); igual/menor ou sem retrato sempre pode.
@@ -98,14 +98,13 @@ Logado (rate-limited 30/h por usuário). Body `{ character: {...} }` (até ~1,5 
 
 ### `GET /campaigns`
 Lista todas as campanhas onde o user é DM ou jogador. Itens trazem `role: 'dm' | 'player'`.
-Quem joga na campanha recebe `myMembership: {id, characterId|null, characterName|null, sponsored}` — qual personagem ocupa a sua vaga (modal "Campanha" da ficha). Na mesa que a pessoa mestra o campo não vem (mesmo com vaga de mestre).
+Membros recebem `myMembership` (primeira vaga) e `myMemberships: [{id, characterId|null, characterName|null, sponsored, isNpc, charType}]` — todas as vagas da pessoa naquela mesa. `inviteCode` e `screenToken` são enviados **exclusivamente ao DM** (`v1.0.136+`).
 
-### Uma campanha por vez
-Uma ficha fica em **uma** campanha de cada vez (regra do servidor; o esquema não mudou). Ao atrelar uma ficha (`PUT /campaigns/:id/members/:membershipId` com `characterId` ou `POST /campaigns/join` com `characterId`) que já está em outra campanha:
-- **409** `{error: 'character_in_other_campaign', campaignId, campaignName}` (a outra campanha) e **nada muda**. Antes o código era `character_already_in_campaign` (o app entende os dois).
-- Com `"move": true` no corpo (só o **dono** da ficha; o mestre de uma mesa não tira a ficha de outra): a ficha sai da outra vaga — a pessoa continua jogadora lá, sem personagem, e a vaga emprestada de lá é liberada — e entra nesta, numa transação só. Vale também quando a outra campanha está encerrada: soltar a própria ficha de uma encerrada é permitido (a ficha não fica presa até a purga); entrar numa encerrada continua **423**.
-- Atrelar a mesma ficha na mesma vaga não muda nada (200). Fichas antigas que já estão em 2 campanhas continuam lendo igual; o próximo `move` deixa só uma.
-- O mestre não joga com ficha na própria mesa: **400** `dm_cannot_be_player` (join com `characterId`, PUT na vaga do mestre e `POST /characters` com o código da própria mesa).
+### Várias campanhas e várias fichas por mesa
+Desde `ADR-0030`/`ADR-0031` e `v1.0.136`, o relacionamento ficha↔campanha é **N:N**:
+- **Uma ficha em N campanhas**: a mesma ficha pode sentar em várias mesas ao mesmo tempo, mas **nunca duas vezes na mesma campanha** (`409 {error: 'character_already_in_campaign', campaignId, campaignName}`). Para manter progressões separadas por mesa, o app cria fichas-versão ligadas por `data.versionOf` (ver `docs/character-versions.md`).
+- **Várias fichas e NPCs na mesma mesa**: tanto jogadores quanto o próprio DM podem atrelar várias fichas próprias na mesma campanha (`POST /campaigns/join` com `{campaignId, characterId, isNpc?}`). Assentos marcados com `isNpc: true` (`charType: 'npc'`) não consomem vagas patrocinadas da mesa e sincronizam automaticamente um cartão `WorldEntry(category='npc')`.
+- **Campanha encerrada**: entrar numa encerrada retorna **423** `campaign_closed`, mas o dono sempre pode soltar a própria ficha (`PUT /campaigns/:id/members/:mid` com `{characterId: null}`).
 
 ### `POST /campaigns`
 ```json
@@ -140,9 +139,9 @@ Sai da campanha (atalho de `DELETE /members/<a própria>`). A ficha continua do 
 
 ### `POST /campaigns/join`
 ```json
-{ "inviteCode": "ABC123", "characterId"?: 5, "move"?: true }
+{ "inviteCode"?: "ABC123", "campaignId"?: 3, "characterId"?: 5, "isNpc"?: false }
 ```
-**200** `{ membership: {id, sponsored}, campaignId, slug, sponsored, dmName? }`. **404 invite_invalid**. **423 campaign_closed**. **409 character_in_other_campaign** / `move` / **400 dm_cannot_be_player**: ver [Uma campanha por vez](#uma-campanha-por-vez).
+**200** `{ membership: {id, sponsored, isNpc, charType}, campaignId, slug, sponsored, dmName? }`. Jogadores novos entram com `inviteCode`; quem já é membro da mesa (ou o DM) pode atrelar outra ficha passando direto `campaignId` (`v1.0.136+` / `v1.0.141`). **404 campaign_not_found**, **403 not_a_member**, **423 campaign_closed**, **409 character_already_in_campaign** (ficha já sentada nesta mesma mesa): ver [Várias campanhas e várias fichas por mesa](#varias-campanhas-e-varias-fichas-por-mesa).
 Se o jogador já está no limite de personagens do próprio plano e a mesa tem vaga livre, a ficha entra **ocupando uma vaga do mestre** (`sponsored: true`, `dmName` para a mensagem "Este personagem usa uma vaga da mesa de <Mestre>") e deixa de contar no limite do jogador enquanto a campanha existir. Entrar com uma ficha que já existe nunca é bloqueado.
 
 ### `GET /campaigns/invite/:code` (logado)

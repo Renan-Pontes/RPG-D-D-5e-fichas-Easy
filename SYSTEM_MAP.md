@@ -43,9 +43,9 @@
 - `ToneAccentFields.jsx`: Visual theme tone and accent color picker for the campaign header.
 
 ### 2.2 Character Sheet Subsystem (`frontend/src/sheet/` & `frontend/components/Sheet.jsx`)
-- `components/Sheet.jsx`: Master character sheet orchestrator (4,093 lines; queued for decomposition in Epic 5); handles ability scores, vitals, Belt v2 Hive Stats, skills groups, features, death saves, rest dialogs, and actions.
-- `components/SheetTabs.jsx`: Character sheet secondary tabs (1,785 lines; queued for decomposition in Epic 5); handles `UnifiedSpellsHUD`, `SlotMatrix`, `SpellRow`, inventory, story, and species traits.
-- `ficha.css`: Complete styling specification for the "Ficha Forjada" (6,549 lines of custom CSS; queued for domain modularization in Epic 5).
+- `components/Sheet.jsx`: Master character sheet orchestrator (5,469 lines; queued for decomposition in Epic 5); handles ability scores, vitals, Belt v2 Hive Stats, skills groups, universal feature timeline choice capture/respec, death saves, rest dialogs, and actions.
+- `components/SheetTabs.jsx`: Character sheet secondary tabs (2,647 lines; queued for decomposition in Epic 5); handles `UnifiedSpellsHUD`, `SlotMatrix`, `SpellRow`, inventory, story, and species traits.
+- `ficha.css`, `ficha-tabs.css` & `condition-fx.css`: Styling specification for the "Ficha Forjada" (`ficha.css` 7,381 lines, `ficha-tabs.css` 518 lines, `condition-fx.css` 886 lines; queued for domain modularization in Epic 5).
 - `FhChecks.jsx`: Ability checks and saving throw rows with proficiency diamonds and advantage toggles.
 - `FhAttack.jsx`: Action cards for weapon attacks, cantrip attacks, and spell DC abilities.
 - `FhFeatures.jsx`: Class and species trait accordions with level tags.
@@ -133,21 +133,29 @@
 
 ---
 
-## 4. Additions since 2026-11-07
+## 4. Additions since 2026-11-07 (through v1.0.141)
 
 | Path | Responsibility |
 |---|---|
 | `frontend/src/dice/multi-roll.js`, `MultiRoll.jsx` | Badge-array multi-roll: rows, coupling, locks, focus-mode roll-up (ADR-0032). |
 | `frontend/src/dice/BeltMultiRoll.jsx` | Belt paired rolls: d20 + damage per column, crit re-roll (ADR-0033). |
 | `frontend/src/dice/active-char.js` | Store the open sheet publishes itself to, for the dice panel. |
-| `frontend/src/sheet/versions.js`, `VersionsModal.jsx`, `versions.css` | Campaign versions of a character: rules, switcher, read-only preview (ADR-0034). |
+| `frontend/src/sheet/versions.js`, `forks.js`, `VersionsModal.jsx`, `versions.css` | Campaign versions & independent `versionOf` forks of a character: rules, switcher, read-only preview (ADR-0034). |
+| `frontend/src/sheet/feature-timeline.js`, `species-trait-choices.js` | Universal timeline choice capture, bilingual `picks` disclosure, and inline respec across species, classes, feats, and backgrounds. |
+| `frontend/src/sheet/rich-text.js`, `rich-text.jsx`, `frontend/data/feature-names-en.js` | Structured rule text parser/renderer (headings, bullets, tables, inline `MonsterStatblock.jsx` summon blocks) and 2014 EN feature names. |
+| `frontend/src/sheet/condition-rules.js`, `FhStatus.jsx`, `condition-fx.css`, `frontend/data/grimoire/condition-shorts.js` | Status, HP state, exhaustion, and condition effects on portrait, Vitalidade, screen edge, and informational roll/speed markers. |
+| `frontend/src/sheet/ficha-tabs.css`, `play-spells.js`, `sheet-toast.jsx`, `FhAdv3.jsx`, `frontend/components/focusTrap.js` | Sheet secondary tab styles, Play-tab spell helpers, feedback toasts, 3-state advantage toggle, and modal focus trap. |
+| `frontend/scripts/slim-spells.mjs`, `frontend/data/srd2024-spells-core.json`, `srd2024-spells-pt-core.json` | One-line 2024 spell summary generator for lightweight initial load (full text loads lazily on unfold). |
+| `frontend/src/home/HomeTables.jsx`, `frontend/src/shell/MesaIcon.jsx`, `frontend/src/player/PlayerIcons.jsx`, `frontend/src/combat/monster-i18n.js`, `frontend/src/shell/plural.js`, `frontend/src/creator/editor.css` | Home campaign table cards, diegetic Mesa/Player icons, monster statblock localization, pluralization helpers, and editor styles. |
 | `frontend/src/sheet/npc-link.js` | DM sheet ↔ World NPC card link. |
 | `frontend/src/sheet/spell-text.js`, `frontend/data/spell-mechanics.json` | SRD spell text and save/attack badges. |
-| `frontend/data/species-2024.js` (`SPECIES_SUPPLEMENTS`) | Species grants for 40+ species. |
+| `frontend/data/species-2024.js` (`SPECIES_SUPPLEMENTS`) | Species grants and trait choices for 40+ species. |
 | `frontend/src/world/image.js`, `WorldMap.jsx` | Full-resolution and linked images; map zones with auto-fit. |
 | `backend/api/world_ingest.py` | Link → draft card, with the outbound-request guard (ADR-0035). |
 | `backend/api/views_proxy.py` | First-party fetch proxy for monster and image imports. |
 | `backend/api/stage.py`, `table_rolls.py`, `views_insights.py` | Server-run TV stage, sheet rolls on the TV queue, party insights. |
-| `docs/sync-spec.md`, `docs/sync-ledger.md`, `docs/sync-contracts.md`, `docs/character-versions.md` | Frontend × backend × production sync plan, route/commit ledger, per-function contract ledger, and versions spec. |
+| `docs/sync-spec.md`, `docs/sync-ledger.md`, `docs/sync-contracts.md`, `docs/character-versions.md`, `docs/ux-audit-table-speed.md` | Frontend × backend × production sync plan, route/commit ledger, per-function contract ledger, versions spec, and table-speed UX audit. |
 | `docs/backlog-grooming-and-cascade-map.md` | Master groomed backlog (Epics 1–8), caveat/gap analysis, deterministic cascade map, and monolith decomposition blueprint. |
+| `docs/frontend-backend-split-and-oss-blueprint.md` | Authoritative 12-domain Frontend/Backend logic split, Debate-Council OSS ground-truth blueprint, and ordered `NANO-001`–`NANO-072` checklist. |
+| `AGENTS.md`, `CLAUDE.md`, `.graphifyignore`, `.agents/skills/heroesforge-ops/SKILL.md` | Agent token-economy operating contracts, Graphify corpus filter, and end-to-end `hf_ops.py` CLI skill. |
 

@@ -56,5 +56,5 @@ const featResources = Object.fromEntries(Object.entries(FEAT_RESOURCES).map(([rv
 const packs = packsForBackend();
 const text = JSON.stringify({ legacy: convert(PROGRESSION_RULES), current: convert(PROGRESSION_RULES_2024), options, feats, species, speciesResources, featResources, packs }, null, 2) + '\n';
 if (process.argv.includes('--check')) {
-  if (readFileSync(output, 'utf8') !== text) throw new Error('Run node scripts/sync-rules.mjs to update backend rules.');
+  if (readFileSync(output, 'utf8').replace(/\r\n/g, '\n') !== text) throw new Error('Run node scripts/sync-rules.mjs to update backend rules.');
 } else writeFileSync(output, text);

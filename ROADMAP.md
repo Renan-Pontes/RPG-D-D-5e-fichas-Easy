@@ -1,14 +1,16 @@
 # Forja de Heróis — Master Engineering & Product Roadmap
 
-> **Current Engine State:** `v1.0.133` on `main` (2026-11-14)  
-> **Frontend Test Baseline:** 1,691 / 1,691 Unit Tests Passing (100% Green across 20 test suites)  
-> **Backend Test Baseline:** 990 / 1,005 Passing on `main` (15 items queued in Epic 1 / `sync-spec` Block C)  
-> **Build Status:** Vite v6.4.3 Production Build Clean (0 errors, 678 modules in 18.15s)  
-> **Master Specifications:** [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) · [`docs/sync-spec.md`](docs/sync-spec.md) · [`docs/sync-contracts.md`](docs/sync-contracts.md) · [`docs/character-versions.md`](docs/character-versions.md) · [`PLANO-MESA-E-METRICAS.md`](PLANO-MESA-E-METRICAS.md) · [`SPEC_BELT_HIVE_STATS_HANDOFF.md`](SPEC_BELT_HIVE_STATS_HANDOFF.md) · [`TECH_DEBT.md`](TECH_DEBT.md) · [`ADR.md`](ADR.md)
+> **Current Engine State:** `v1.0.141` on `main` (2026-11-27)  
+> **Frontend Test Baseline:** 100% Green across 157 test files (~1,700 assertions)  
+> **Backend Test Baseline:** 100% Green across 57 test modules on `main` (Epic 1 `C1`–`C9` resolved in `v1.0.136`)  
+> **Build Status:** Vite v6.4.3 Production Build Clean (0 errors, 683+ modules)  
+> **Master Specifications:** [`docs/frontend-backend-split-and-oss-blueprint.md`](docs/frontend-backend-split-and-oss-blueprint.md) · [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) · [`docs/sync-spec.md`](docs/sync-spec.md) · [`docs/sync-contracts.md`](docs/sync-contracts.md) · [`docs/character-versions.md`](docs/character-versions.md) · [`docs/ux-audit-table-speed.md`](docs/ux-audit-table-speed.md) · [`PLANO-MESA-E-METRICAS.md`](PLANO-MESA-E-METRICAS.md) · [`SPEC_BELT_HIVE_STATS_HANDOFF.md`](SPEC_BELT_HIVE_STATS_HANDOFF.md) · [`TECH_DEBT.md`](TECH_DEBT.md) · [`ADR.md`](ADR.md)
 
 ---
 
 ## 1. Roadmap Horizon Overview
+
+> **72-Item Nano Backlog & OSS Architecture:** [`docs/frontend-backend-split-and-oss-blueprint.md`](docs/frontend-backend-split-and-oss-blueprint.md) defines the 12-domain Frontend/Backend ownership boundary, Debate-Council-verified OSS stack (`immer`, `idb`, `vite-plugin-pwa`, dual-canvas `destination-out` Fog + `simplify-js`, shared Dice AST, `HackSoftware` `services/`/`selectors/` *(a criar)*), and ordered `NANO-001`–`NANO-072` tasks — including newly discovered P0 items (`FEAT_RESOURCES` parity, `respec` approvals, `LevelUpModal.jsx` single-RNG fix, `combat_player_attack` save `DiceRig` fix, `vite.config.js` SSRF guard, and PythonAnywhere NFS-safe SQLite `timeout: 20`).
 
 ```
    ┌────────────────────────────────────────────────────────────────────────┐
@@ -69,7 +71,8 @@
 - [x] **Prepared Dice Per-Player Cards & Jump-Queue (`AdvancedDice.jsx`):** Promoted Prepared Dice to per-player cards with 1 queue per die size (`d4`–`d100`), `before` insertion, and `⚡` jump-queue (`prepared-dice.js`, `views_dice.py`).
 - [x] **Character Sheet Hero, Skills & Spells Consolidation (`2f22e00`):** Removed intrusive alignment/player/milestone tags from hero banner; discrete top-right `Cheat -> Edit -> Export` toolbar; universal `RestButtons` beneath spoken languages; consolidated `(Abil) Spell Save DC` & `(Abil) Spell Attack Bonus`; restored `SlotMatrix` (Long Rest vs Short Rest Pact Magic); casting time on folded spell rows; SRD 5.2.1 spell descriptions (`spell-text.js`, `spell-mechanics.json`); collapsible Skills action groups (`Search`, `Study`, `Influence`, `Hide`, `Use Tool`).
 - [x] **1:1 Official Rules & Metric PT-BR Catalog Completion (`v1.0.133`):** Completed 1:1 EN + metric PT-BR official texts across all 2014 (`520`) & 2024 (`536`) spells, classes/subclasses/options, `180` feats, 2014/2024 species/races/subraces, 2014 & `16` 2024 backgrounds, and `90` non-pack items (`412`/`416` catalog items described, excluding the 4 equipment packs), with `backend/api/progression/catalog.json` (`scripts/sync-rules.mjs`) and `frontend/data/spell-tags.json` (`scripts/build-spell-tags.mjs`) synchronized.
-- [ ] **Touch Target Sizing (`Task 6.2`):** Expand undersized interactive targets ($< 44\times 44\text{px}$) in `frontend/src/creator/join-table.css` (`.fh-join-code-actions .btn`) and `frontend/src/app-extra-styles.css` (`.camp-char-Inspect`).
+- [x] **Rich Rule Blocks, Slim Spell Core, Universal Timeline Choices & Condition FX (`v1.0.133`–`v1.0.141`):** One-line 2024 spell summaries on initial load (`frontend/scripts/slim-spells.mjs`), structured paragraphs/tables/bullets + inline summon creature `MonsterStatblock.jsx` (`frontend/src/sheet/rich-text.jsx`), universal timeline choice capture/disclosure/respec across species/classes/feats/backgrounds (`v1.0.134`), Play-tab direct tap-to-roll on medals and ability hexes (`v1.0.137`), and full condition/HP/exhaustion visual + informational marker system (`FhStatus.jsx`, `condition-rules.js`, `condition-fx.css`, `v1.0.138`–`v1.0.139`).
+- [ ] **Touch Target Sizing (`Task 6.2`):** Expand remaining undersized interactive targets ($< 44\times 44\text{px}$) in `frontend/src/creator/join-table.css` (`.fh-join-code-actions .btn`) and `frontend/src/app-extra-styles.css` (`.camp-char-Inspect`).
 
 ---
 
@@ -113,7 +116,7 @@
 
 Full specifications: [`docs/sync-spec.md`](docs/sync-spec.md), [`docs/character-versions.md`](docs/character-versions.md), and [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) (Epics 1–4).
 
-- [ ] **Epic 1 (`sync-spec` Block C + A4):** ~~migration `0015` (`C1`)~~ done in v1.0.57; decide the one-sheet-many-tables rule (`C2`–`C5`, Task 1.2) and, reconcile multi-campaign/multi-character membership tests (`C2`–`C5`), wire missing Pulse `rev` sources (`C6`), enforce `dm_settings` write guard (`C7`) & secret redaction (`C8`), add `manage.py test` gate to `.github/workflows/backend-release.yml` (`C9`), and fix `scripts/self_update.py` `VERSION.json` write (`A4`).
+- [x] **Epic 1 (`sync-spec` Block C — Shipped in `v1.0.57` & `v1.0.136`):** Migration `0015` (`C1`), N:N many-campaigns-per-sheet seat rules & tests reconciled (`C2`–`C5`, `5de5cf5`), Pulse `rev` wired for NPC/seat changes (`C6`, `606f4df`), DM-only `inviteCode` redaction (`C8`, `bc98391`), 6 MB World image upload limit (`29f6b3a`), isolated `self_update.py` tests (`f22ac4c`), and full `manage.py test` + `makemigrations --check` + `check_doc_refs.py` + `check:rules` gates active in `.github/workflows/backend-release.yml` (`C9`, `d824fa2`). Remaining minor ops item `A4` (`VERSION.json` on codeload fallback) tracks with Epic 4.
 - [ ] **Epic 2 (`sync-spec` Block D1 & D3, `ADR-0034`):** Implement `CharacterVersion` model (`D1.1`), `Membership.version` FK (`D1.2`), `views_versions.py` routes (`D1.3`–`D1.8`), `423 Locked` server guard on `left`/`archived` (`D1.9`), campaign archival hook (`D1.10`), re-route all 10 gameplay consumers (`D1.11`), two-phase data migration unpacking `Character.data.versions` (`D1.12`), and avatar ETag deduplication (`D3.1`–`D3.2`).
 - [ ] **Epic 3 (`sync-spec` Block D2, `ADR-0032`, `ADR-0033`):** Extend `POST /api/characters/:pk/table-roll` for multi-group & crit extra rolls (`D2.1`), `DiceLog`/`DiaryEntry` audit (`D2.2`), server `DiceRig` consumption (`D2.3`), and server persistence for `beltConfig` & `multiRollConfig` (`D2.4`–`D2.5`).
 - [ ] **Epic 4 (`sync-spec` Block A & B):** Configure `FORJA_UPDATE_KEY_SHA256`, deploy `main` to PythonAnywhere (`A1`–`A6`), verify all 26 new routes, and delete the `"servidor antigo"` fallbacks (47 mentions in 30 files) across 22 frontend files (`B1`–`B5`).
@@ -124,7 +127,7 @@ Full specifications: [`docs/sync-spec.md`](docs/sync-spec.md), [`docs/character-
 
 Full blueprint and file-size budgets: [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) (Epic 5) and [`TECH_DEBT.md`](TECH_DEBT.md) §8.
 
-- [ ] **Task 5.1 — Decompose `frontend/components/Sheet.jsx` (`4,093` lines $\to$ `< 500` lines):** Delete dead `BeltPbSlot`; extract `SheetHero.jsx`, `BeltHive.jsx`, `SheetSkillsSection.jsx`, `SheetFeaturesSection.jsx`, and `SheetCompanionsAndNotes.jsx`.
-- [ ] **Task 5.2 — Decompose `frontend/components/SheetTabs.jsx` (`1,785` lines $\to$ `< 400` lines):** Extract `UnifiedSpellsHUD.jsx`, `SlotMatrix.jsx`, `SpellRow.jsx`, `SheetInventoryTab.jsx`, and `SheetStoryTab.jsx`.
-- [ ] **Task 5.3 — Split `frontend/src/sheet/ficha.css` (`6,549` lines) & Tokenize Colors:** Modularize into `sheet-tokens.css`, `sheet-hero.css`, `sheet-belt.css`, `sheet-skills-features.css`, `sheet-spells.css`, and `sheet-inventory-modals.css`.
+- [ ] **Task 5.1 — Decompose `frontend/components/Sheet.jsx` (`5,469` lines $\to$ `< 500` lines):** Delete dead `BeltPbSlot`; extract `SheetHero.jsx`, `BeltHive.jsx`, `SheetSkillsSection.jsx`, `SheetFeaturesSection.jsx`, and `SheetCompanionsAndNotes.jsx`. *(a criar)*
+- [ ] **Task 5.2 — Decompose `frontend/components/SheetTabs.jsx` (`2,647` lines $\to$ `< 400` lines):** Extract `UnifiedSpellsHUD.jsx`, `SlotMatrix.jsx`, `SpellRow.jsx`, `SheetInventoryTab.jsx`, and `SheetStoryTab.jsx`. *(a criar)*
+- [ ] **Task 5.3 — Split `frontend/src/sheet/ficha.css` (`7,381` lines, alongside `ficha-tabs.css` `518` & `condition-fx.css` `886`) & Tokenize Colors:** Modularize into `sheet-tokens.css`, `sheet-hero.css`, `sheet-belt.css`, `sheet-skills-features.css`, `sheet-spells.css`, and `sheet-inventory-modals.css`. *(a criar)*
 - [ ] **Task 5.4 — Decompose `backend/api/views_combat.py` (`2,714` lines) & `world_rules.py` (`1,518` lines):** Extract `combat_setup.py`, `combat_undo.py`, `combat_actions.py`, and `combat_media.py` under `backend/api/services/`. *(a criar)*

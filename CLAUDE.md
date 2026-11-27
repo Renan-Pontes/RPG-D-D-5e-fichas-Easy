@@ -3,10 +3,11 @@
 D&D 5e (2014 + 2024): fichas, criação, campanhas do mestre, combate, mesa/TV. Frontend Vite + React 18 (`frontend/`), backend Django + DRF (`backend/`). UI em pt-BR e en (`lang`), textos de regra em `{pt, en}`.
 
 ## Comandos
-- Testes front: `cd frontend && npm test` (node --test, ~1.700). Teste só o arquivo tocado primeiro: `node --test tests/<nome>.test.js`.
+- Automação enxuta + grafo (`heroesforge-ops`): `py .agents/skills/heroesforge-ops/scripts/hf_ops.py status` · `outline sheet|tabs|css|combat` · `trace-api <rota>` · `data-peek <catálogo> <termo>` · `verify [--sync] [--full]` · `graph-query "<termo>"` · `graph-sync --update`.
+- Testes front: `cd frontend && npm test` (node --test, ~1.700). Teste só o arquivo tocado primeiro: `node --test tests/<nome>.test.js` (ou `hf_ops.py verify` para saída condensada).
 - Build: `cd frontend && npm run build` (ou `--outDir /tmp/vb` para não sujar).
-- Testes back: `cd backend && python manage.py test api --parallel auto`.
-- Regras sincronizadas: `npm run check:rules`; tags de magia: `node scripts/build-spell-tags.mjs`; resumos de magia: `node frontend/scripts/slim-spells.mjs`.
+- Testes back: `cd backend && .venv/Scripts/python manage.py test api --noinput` (Linux/CI: `python manage.py test api --parallel auto`).
+- Regras e docs sincronizados: `npm --prefix frontend run check:rules`; `py scripts/check_doc_refs.py`; tags de magia: `node scripts/build-spell-tags.mjs`; resumos de magia: `node frontend/scripts/slim-spells.mjs`.
 
 ## Onde fica o quê
 - `frontend/components/Sheet.jsx` (5,4k linhas) e `SheetTabs.jsx` (2,6k): ficha. Use Grep + Read com offset/limit, nunca o arquivo inteiro.

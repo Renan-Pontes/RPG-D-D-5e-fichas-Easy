@@ -21,7 +21,7 @@ target = Path(args.output).resolve()
 target.parent.mkdir(parents=True, exist_ok=True)
 excluded = {'.git', '.agents', '.codex', '.claude', '.github', 'node_modules', '__pycache__', '.venv', 'venv',
             'backups', 'test-results', 'playwright-report', 'staticfiles', 'frontend_dist', 'dist', '.vercel',
-            'dist-release'}
+            'dist-release', 'graphify-out'}
 slim_roots = {'backend', 'scripts'}
 
 

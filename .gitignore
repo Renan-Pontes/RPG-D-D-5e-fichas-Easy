@@ -37,6 +37,7 @@ backups/
 .vercel/
 playwright-report/
 test-results/
+graphify-out/
 
 # gerado por scripts/package_release.py dentro do pacote; nunca vai para o git
 backend/VERSION.json

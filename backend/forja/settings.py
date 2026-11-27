@@ -82,6 +82,8 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 6}},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
 ]
+if os.environ.get('FORJA_FAST_TEST_HASHER') == '1' and os.environ.get('DJANGO_ENV') != 'production':
+    PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 
 LANGUAGE_CODE = 'pt-br'
 TIME_ZONE = 'America/Sao_Paulo'

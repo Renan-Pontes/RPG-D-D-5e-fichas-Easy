@@ -2,7 +2,7 @@
 
 > **System Revision:** v2.8+ (D&D 5e 2024 / SRD 5.2.1 & 2014 Dual Engine)  
 > **Status:** Production / Active Evolution  
-> **Primary References:** `README.md`, `PRODUCT.md`, `DESIGN.md`, `DECISIONS.md`, `ADR.md`, `RULES.md`, `API.md`
+> **Primary References:** `README.md`, `PRODUCT.md`, `DESIGN.md`, `DECISIONS.md`, `ADR.md`, `RULES.md`, `API.md`, [`docs/frontend-backend-split-and-oss-blueprint.md`](docs/frontend-backend-split-and-oss-blueprint.md)
 
 ---
 
@@ -96,7 +96,7 @@ graph TD
         ProgEngine["src/progression/engine.js (Idempotent 1-20 Progression)"]
         ProgRules["src/progression/rules.js (2024 & 2014 Descriptors)"]
         OptionsEngine["src/progression/options.js (Pools, Invocations, Metamagic)"]
-        MetricsEngine["src/metrics/party-metrics.js (11 Roles Radar & SWOT)"]
+        MetricsEngine["src/group/party-metrics.js (11 Roles Radar & SWOT)"]
         DiceEngine["components/DiceRoller.jsx & src/dice/"]
         PdfEngine["src/pdf/export-pdf.js & import-pdf.js"]
     end
@@ -208,7 +208,9 @@ The backend is structured into modular viewsets:
 |---|---|---|---|
 | **Frontend** | Vercel | Static Edge SPA, Brotli/Gzip compression, automatic staging previews | Global CDN edge caching |
 | **Backend** | PythonAnywhere | WSGI Web App, Python 3.12, Django 5, DRF, Whitenoise static asset hosting | Scalable worker processes |
-| **Database** | Local SQLite / MySQL | Single-file SQLite with WAL mode on free tier; MySQL ready | Connection pooling & read replicas |
+| **Database** | Local SQLite / MySQL | Local SSD SQLite (WAL opt-in) / PythonAnywhere NFS SQLite (`DELETE` journal + `timeout: 20` — never WAL on NFS) → MySQL target | `CONN_MAX_AGE=60` MySQL connection pooling |
+
+> **Frontend vs. Backend Boundary Contract:** See [`docs/frontend-backend-split-and-oss-blueprint.md`](docs/frontend-backend-split-and-oss-blueprint.md) for the authoritative 12-domain ownership split, monotonic `baseRev` outbox reconciliation, and server-only RNG/SSRF-ingest invariants.
 | **Realtime Sync** | HTTP Polling | 2.5s base interval with visibility API pause and 304 Not Modified pulse | Sub-second conditional caching |
 
 ---

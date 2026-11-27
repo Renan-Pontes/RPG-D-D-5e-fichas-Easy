@@ -1,0 +1,37 @@
+# Generated & dependency directories
+node_modules/
+dist/
+dist-release/
+backups/
+files/
+logs/
+.venv/
+venv/
+.vercel/
+playwright-report/
+test-results/
+.claude/
+.impeccable/
+
+# Binary/static assets & PDFs (prevent vision/PDF token burn)
+frontend/public/
+backend/api/world_assets/
+backend/staticfiles/
+backend/frontend_dist/
+
+# Lockfiles & generated snapshots
+frontend/package-lock.json
+bun.lock
+backend/api/progression/catalog.json
+frontend/src/art-*.json
+
+# Giant SRD/catalog literal data blobs (query via hf_ops.py data-peek instead)
+frontend/data/*.json
+frontend/data/srd.js
+frontend/data/magic-items-srd.js
+frontend/data/monsters-srd521.js
+frontend/data/monsters-pt.js
+frontend/data/spells-extra.js
+frontend/data/expanded-subclass-features.js
+frontend/data/expanded-catalog.js
+frontend/data/subraces-2014.js

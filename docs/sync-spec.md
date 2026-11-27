@@ -65,9 +65,9 @@ Conferir cada item depois da atualização. Rotas exatas e chamadores em
 Depois do deploy: remover os caminhos "servidor antigo" (35 trechos em 22 arquivos;
 `grep -rn "servidor antigo" frontend/src`).
 
-## 5. Bloco C: consertar no `main` antes de subir
+## 5. Bloco C: consertar no `main` antes de subir — **concluído na `v1.0.136`**
 
-Suíte do backend no `main`: 1.005 testes, **13 falhas e 2 erros**.
+Suíte do backend no `main` (verificada em 27/11/2026, `v1.0.141`): **100% verde (0 falhas, 0 erros)** e portão `python manage.py test --parallel auto --noinput` ativo em `.github/workflows/backend-release.yml` (`d824fa2`). Histórico dos itens resolvidos:
 
 | # | Item | Arquivo | Detalhe |
 |---|---|---|---|

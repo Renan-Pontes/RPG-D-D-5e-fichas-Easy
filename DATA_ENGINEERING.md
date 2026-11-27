@@ -1,7 +1,7 @@
 # Data Engineering & Pipeline Specification — Forja de Heróis
 
 > **Corpus Version:** D&D 5e SRD 5.2.1 (2024 Revision) & SRD 5.1 (2014 Baseline)  
-> **Primary Scripts:** `scripts/import-open5e-monsters.mjs`, `scripts/monster-names-pt.mjs`, `scripts/sync-rules.mjs`, `scripts/build-spell-tags.mjs`, `scripts/extract_dnd5e_sheet_layout.py`
+> **Primary Scripts:** `scripts/import-open5e-monsters.mjs`, `scripts/monster-names-pt.mjs`, `scripts/sync-rules.mjs`, `scripts/build-spell-tags.mjs`, `frontend/scripts/slim-spells.mjs`, `scripts/extract_dnd5e_sheet_layout.py`
 
 ---
 
@@ -39,7 +39,7 @@ The data tier powers character creation, progression calculations, tactical VTT 
        ┌───────────────────────────┐
        │     BACKEND MIRROR        │
        │ • api/progression/rules.py│
-       │ • api/progression/data/   │
+       │ • progression/catalog.json│
        └───────────────────────────┘
 ```
 
@@ -74,12 +74,18 @@ The data tier powers character creation, progression calculations, tactical VTT 
 - **Script:** `scripts/sync-rules.mjs`
 - **Execution:**
   ```bash
-  node scripts/sync-rules.mjs          # Syncs JS descriptors to Python
-  node scripts/sync-rules.mjs --check  # CI verification step
+  node scripts/sync-rules.mjs          # Syncs JS descriptors to backend/api/progression/catalog.json
+  node scripts/sync-rules.mjs --check  # CI verification step (CRLF-normalized across Windows/Linux)
   ```
-- Reads the declarative class options pools from `frontend/data/class-options/` (Artificer, Barbarian, Bard, Cleric, Druid, Fighter, Monk, Paladin, Ranger, Rogue, Sorcerer, Warlock, Wizard).
-- Compiles the schema into Python data modules in `backend/api/progression/`.
+- Reads the declarative progression descriptors (`frontend/src/progression/rules.js`, `resources.js`, `species.js`), class option pools (`frontend/data/class-options/`), feats (`frontend/data/feats.js`), and equipment packs (`frontend/src/items/packs.js`).
+- Compiles the validation snapshot into `backend/api/progression/catalog.json`, consumed by `backend/api/progression/`.
 - Guarantees that server-side validation during level-up approval uses bit-identical rules to the client-side UI.
+
+### 2.3b Slim Spell Summaries & Structured Spell Tags
+- **Scripts:** `frontend/scripts/slim-spells.mjs` and `scripts/build-spell-tags.mjs`
+- **Outputs:** `frontend/data/srd2024-spells-core.json`, `frontend/data/srd2024-spells-pt-core.json`, `frontend/data/spell-tags.json`, and `frontend/data/spell-mechanics.json`.
+- `slim-spells.mjs` extracts compact one-line summaries (`<= 160` chars) so the initial bundle avoids shipping full 2024 spell prose until a spell row is unfolded (`tests/slim-spells.test.js` enforces parity).
+- `build-spell-tags.mjs` extracts damage types, saving throws, AoE shapes, healing, and conditions used by Party Tactical Insights (`party-metrics.js`) and sheet badges.
 
 ### 2.4 PDF Form Coordinate Extraction Engine
 - **Script:** `scripts/extract_dnd5e_sheet_layout.py`
@@ -200,7 +206,7 @@ interface AdventureGraph {
 
 ## 4. Data Quality, Linting & Verification
 
-The repository enforces automated data validation via `npm test` across 1,515 assertions:
+The repository enforces automated data validation via `npm test` across 157 test suites (~1,700 assertions):
 1. **Bestiary Integrity (`tests/bestiary.test.js`):** Validates all 331 monsters have non-empty HP, valid CR, structured attacks with rollable dice formulas, and complete Portuguese translations.
 2. **Wild Shape Parity (`tests/bestiary.test.js:20`):** Asserts every Druid Wild Shape beast exists in the 5.2.1 catalogue with genuine attack statistics (no generic 1d4 fallback).
 3. **Class Progression Contracts (`tests/classes.test.js` & `tests/class-*.test.js`):** Validates hit dice progression, spell slot formulas, and option slot unlocks for all 12 classes across levels 1 through 20.

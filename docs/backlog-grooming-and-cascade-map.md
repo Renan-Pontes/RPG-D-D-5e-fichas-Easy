@@ -1,7 +1,14 @@
 # Master Backlog Grooming, Caveat Analysis & Deterministic Cascade Map
 
-> **Version Baseline**: `v1.0.56` (`507d8b3` on `main`, 2026-11-11)
-> **Companion Specifications**: [`ROADMAP.md`](../ROADMAP.md) · [`TECH_DEBT.md`](../TECH_DEBT.md) · [`SYSTEM_MAP.md`](../SYSTEM_MAP.md) · [`ADR.md`](../ADR.md) · [`docs/sync-spec.md`](sync-spec.md) · [`docs/sync-ledger.md`](sync-ledger.md) · [`docs/sync-contracts.md`](sync-contracts.md) · [`docs/character-versions.md`](character-versions.md) · [`SPEC_BELT_HIVE_STATS_HANDOFF.md`](../SPEC_BELT_HIVE_STATS_HANDOFF.md)
+> **Version Baseline**: Originally groomed at `v1.0.56` (`507d8b3`, 2026-11-11); reconciled against `v1.0.141` (`9a086b0` on `main`, 2026-11-27 — Epic 1 `C1`–`C9` completed in `v1.0.136`, backend & frontend suites 100% green)
+> **Companion Specifications**: [`docs/frontend-backend-split-and-oss-blueprint.md`](frontend-backend-split-and-oss-blueprint.md) · [`ROADMAP.md`](../ROADMAP.md) · [`TECH_DEBT.md`](../TECH_DEBT.md) · [`SYSTEM_MAP.md`](../SYSTEM_MAP.md) · [`ADR.md`](../ADR.md) · [`docs/sync-spec.md`](sync-spec.md) · [`docs/sync-ledger.md`](sync-ledger.md) · [`docs/sync-contracts.md`](sync-contracts.md) · [`docs/character-versions.md`](character-versions.md) · [`SPEC_BELT_HIVE_STATS_HANDOFF.md`](../SPEC_BELT_HIVE_STATS_HANDOFF.md)
+
+### §0.1 Frontier Audit Addendum (`v1.0.141` → 72-Item Nano Execution Plan)
+For the authoritative **12-domain Frontend vs. Backend logic split**, **OSS ground-truth library choices** (`immer`, `idb`, `vite-plugin-pwa`, dual-canvas `destination-out` Fog + `simplify-js`, shared Dice AST, `HackSoftware` `services/`/`selectors/` *(a criar)*), and the **strictly ordered `NANO-001`–`NANO-072` checklist**, see [`docs/frontend-backend-split-and-oss-blueprint.md`](frontend-backend-split-and-oss-blueprint.md). Newly discovered P0 defects prioritized into `NANO-001`–`NANO-012`:
+- LAN SSRF exposure in `frontend/vite.config.js` (`devCorsProxyPlugin` + `host: true`);
+- PythonAnywhere NFS SQLite WAL hazard (switch PA SQLite to `DELETE` journal + `timeout: 20` prior to pooled MySQL);
+- Double-RNG roll mismatch in `frontend/src/progression/LevelUpModal.jsx` and premature `d20` `DiceRig` consumption on save spells in `backend/api/views_combat.py::combat_player_attack`;
+- Missing `FEAT_RESOURCES` in `backend/api/progression/resources.py::compute_resources` and missing `respec` handling in `backend/api/progression/engine.py::apply_approval_to_character`.
 
 ## 0. Revisão contra o código (v1.0.57, 11/11)
 
@@ -120,8 +127,8 @@ flowchart TD
 
 ---
 
-### EPIC 1 — Backend `main` Stabilization, Migration `0015` & CI Release Gate (`sync-spec` Block C + A4)
-**Goal**: Bring `python manage.py test` on `main` from `13 failures, 2 errors` to `1,005/1,005 passing (0 failures, 0 errors)` and enforce automated test gating in CI before packaging `forja-release.zip`.
+### EPIC 1 — Backend `main` Stabilization, Migration `0015` & CI Release Gate (`sync-spec` Block C + A4) — **COMPLETED (`v1.0.57` & `v1.0.136`)**
+**Status (2026-11-27, `v1.0.141`)**: `C1`–`C9` are live on `main` (`5de5cf5`, `606f4df`, `bc98391`, `29f6b3a`, `d824fa2`, `f22ac4c`). `manage.py test api` passes with 0 failures/errors, and `.github/workflows/backend-release.yml` gates every release on Vite build, `check:rules`, `makemigrations --check`, `check_doc_refs.py`, and `manage.py test`. Only minor item `A4` (`VERSION.json` on codeload zip fallback) remains alongside Epic 4 cutover.
 
 #### Task 1.1 (`C1`): Migração `0015` — **feito (v1.0.57)**
 - `backend/api/migrations/0015_drop_duplicate_membership_user_index.py` remove `api_members_user_id_idx` (cópia do índice da 0001).
