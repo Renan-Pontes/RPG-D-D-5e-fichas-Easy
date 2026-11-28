@@ -79,8 +79,15 @@ async function encodeCanvasUrl(img, w, h, quality, crop = null) {
         if (crop) ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
         else ctx.drawImage(img, 0, 0, w, h);
         if (typeof oc.convertToBlob === 'function') {
-          const blob = await oc.convertToBlob({ type: mime, quality });
-          if (blob) return blobToDataUrl(blob);
+          if (mime === 'image/webp') {
+            const webpBlob = await oc.convertToBlob({ type: 'image/webp', quality });
+            const jpegBlob = await oc.convertToBlob({ type: 'image/jpeg', quality });
+            const best = webpBlob && (!jpegBlob || webpBlob.size < jpegBlob.size) ? webpBlob : jpegBlob;
+            if (best) return blobToDataUrl(best);
+          } else {
+            const blob = await oc.convertToBlob({ type: mime, quality });
+            if (blob) return blobToDataUrl(blob);
+          }
         }
       }
     } catch { /* fall back to DOM canvas */ }

@@ -246,7 +246,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   const updateRef = useRef(update);
   updateRef.current = update;
   useEffect(() => {
-    window.__updateChar = (patch) => updateRef.current(patch);
+    window.__updateChar = (patch, label) => updateRef.current(patch, label);
     return () => { window.__updateChar = null; };
   }, []);
 

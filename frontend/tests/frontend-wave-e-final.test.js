@@ -36,6 +36,21 @@ test('NANO-059: parseSlashQuery handles /r, /cond, /cast and root hints', () => 
   const out = rollItems[0].run();
   assert.ok(out.total >= 5 && out.total <= 15);
 
+  let shown = null;
+  const advRoll = parseSlashQuery('/r 4d6kh3+2', {
+    lang: 'en',
+    dispatch: { diceRoll: () => null, diceShow: (p) => { shown = p; } },
+  });
+  assert.equal(advRoll.length, 1);
+  const advOut = advRoll[0].run();
+  assert.ok(shown);
+  assert.equal(shown.formula, '4d6kh3 + 2');
+  assert.equal(shown.groups.length, 1);
+  assert.equal(shown.groups[0].rolls.length, 3);
+  assert.ok(shown.total >= 5 && shown.total <= 20);
+  assert.equal(advOut.total, shown.total);
+  assert.ok(advOut.breakdown.length > 0);
+
   const patches = [];
   const fakeChar = { name: 'Lyra', conditions: ['poisoned'], spells: [{ id: 'fireball', name: 'Fireball' }] };
   const condItems = parseSlashQuery('/cond pois', {

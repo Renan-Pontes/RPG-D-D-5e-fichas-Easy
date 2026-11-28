@@ -32,6 +32,7 @@ export function parseSlashQuery(rawQuery, { lang = 'pt', activeChar = getActiveC
       }];
     }
     const diceRoll = dispatch?.diceRoll || (typeof window !== 'undefined' ? window.__diceRoll : null);
+    const diceShow = dispatch?.diceShow || (typeof window !== 'undefined' ? window.__diceShow : null);
     return [{
       id: `slash-roll-${parsed.normalized}`,
       kind: 'nav',
@@ -40,11 +41,24 @@ export function parseSlashQuery(rawQuery, { lang = 'pt', activeChar = getActiveC
       sub: L(lang, 'Pressione Enter para rolar agora', 'Press Enter to roll now'),
       run: () => {
         if (diceRoll) {
-          diceRoll({ formula: parsed.normalized, label: parsed.normalized });
-          return null;
+          const rolled = diceRoll({ formula: parsed.normalized, label: parsed.normalized });
+          if (rolled != null) return null;
         }
         const res = evalDiceAst(parsed.ast);
-        return { total: res.total, breakdown: formatAstBreakdown(res) };
+        const breakdown = formatAstBreakdown(res);
+        if (diceShow) {
+          const groups = (res.terms || []).map(tm => ({ die: tm.sides, sign: 1, rolls: tm.keptRolls }));
+          const diceSum = (res.terms || []).reduce((acc, tm) => acc + tm.subtotal, 0);
+          diceShow({
+            label: parsed.normalized,
+            formula: parsed.normalized,
+            groups,
+            mod: res.total - diceSum,
+            total: res.total,
+            source: 'local',
+          });
+        }
+        return { total: res.total, breakdown };
       },
     }];
   }

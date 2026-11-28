@@ -1,9 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import MesaSheet from '../shell/MesaSheet.jsx';
-import { addScene, freshSceneId, padSecrets, planExport, removeItem, rewardWithItem, updateItem } from './next-session.js';
+import { addScene, freshSceneId, planExport, removeItem, rewardWithItem, updateItem } from './next-session.js';
 import { carryText, leftoverCounts } from '../play/end-session.js';
 import { partyLevels } from './prep-graph.js';
-import { lightNode } from './scene-model.js';
 import { toLight } from '../world/world-model.js';
 import ReadySheet from './ReadySheet.jsx';
 import { IdeaSheet, MomentsSheet } from './EncounterLauncher.jsx';
@@ -175,5 +174,3 @@ export default function NextSessionOverlays({
     </>
   );
 }
-
-export { padSecrets, lightNode };
