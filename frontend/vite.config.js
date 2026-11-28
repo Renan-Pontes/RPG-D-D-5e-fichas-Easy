@@ -95,16 +95,16 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+            handler: 'NetworkOnly',
+          },
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/data/') || /\.(?:woff2?|png|svg|webp)$/i.test(url.pathname),
             handler: 'CacheFirst',
             options: { cacheName: 'forja-srd-assets', expiration: { maxEntries: 120, maxAgeSeconds: 30 * 24 * 3600 } },
-          },
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
-            handler: 'NetworkFirst',
-            options: { cacheName: 'forja-api-cache', networkTimeoutSeconds: 4, expiration: { maxEntries: 80, maxAgeSeconds: 24 * 3600 } },
           },
         ],
       },
