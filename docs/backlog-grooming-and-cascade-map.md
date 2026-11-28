@@ -318,7 +318,7 @@ Itens, valendo para qualquer opção:
   3. `frontend/src/sheet/tabs/SheetSkillsSection.jsx`: `SheetSkills`, 4 collapsible action groups (`Search`, `Study`, `Influence`, `Hide`) + `Use Tool`, inline proficiency diamonds, passive score pills.
   4. `frontend/src/sheet/tabs/SheetFeaturesSection.jsx`: `SheetFeatures`, collapsible feature cards, resource pips, universal timeline picks/respec.
   5. `frontend/src/sheet/tabs/SheetCompanionsAndNotes.jsx` (+ `SheetPlay.jsx`, `TimelineModals.jsx`): `SheetNotes`, `SheetNpcs`, `WildShapeBar`, `FamiliarCard`.
-  6. [`frontend/components/Sheet.jsx`](../frontend/components/Sheet.jsx) (`611` lines): Top-level sheet state orchestrator, Immer undo stack, Wake Lock, concentration guard, and tab router.
+  6. [`frontend/components/Sheet.jsx`](../frontend/components/Sheet.jsx) (`474` lines): Top-level sheet state orchestrator, Immer undo stack, scroll memory (`use-sheet-hooks.js`), Wake Lock, concentration guard, Table theme, and tab router.
 
 #### Task 5.2: Decompose `frontend/components/SheetTabs.jsx` (2,647 lines $\to$ 8 lines barrel `[SHIPPED v1.0.143]`)
 - **Modular Extraction Map (`[SHIPPED v1.0.143]`)**:

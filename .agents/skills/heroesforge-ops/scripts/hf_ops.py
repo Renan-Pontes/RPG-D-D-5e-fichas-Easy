@@ -963,6 +963,24 @@ def cmd_verify(args: argparse.Namespace) -> int:
         print(r_docs.stdout.strip())
         exit_code = 1
 
+    biome_bin = next((p for p in [r"F:\AI_Tools\npm\biome.cmd", shutil.which("biome")] if p and Path(p).is_file()), None)
+    if biome_bin:
+        r_bio = _run([
+            biome_bin, "lint", "--max-diagnostics=50",
+            "--only=correctness/noUndeclaredVariables",
+            "--only=correctness/useHookAtTopLevel",
+            "--only=correctness/noInvalidUseBeforeDeclaration",
+            "--only=correctness/noConstAssign",
+            "--only=suspicious/noDuplicateObjectKeys",
+            "--only=suspicious/noDuplicateJsxProps",
+            "--only=suspicious/noDuplicateParameters",
+            "frontend/components", "frontend/src", "frontend/app.jsx",
+        ], timeout=60)
+        print(f"[gate] biome correctness:  {'PASS' if r_bio.returncode == 0 else 'FAIL'}")
+        if r_bio.returncode != 0:
+            print((r_bio.stdout or r_bio.stderr)[-1500:])
+            exit_code = 1
+
     if args.full:
         # Full frontend suite
         r_fe = _run([npm, "--prefix", "frontend", "test"], timeout=240)
@@ -979,6 +997,13 @@ def cmd_verify(args: argparse.Namespace) -> int:
             if r_build.returncode != 0:
                 print(r_build.stderr[-1500:] or r_build.stdout[-1500:])
                 exit_code = 1
+            else:
+                r_bud = _run([node, "scripts/check_bundle_budget.mjs", tmp_out], timeout=30)
+                last_b = r_bud.stdout.strip().splitlines()[-1] if r_bud.stdout.strip() else ""
+                print(f"[fe]   bundle budget:      {'PASS' if r_bud.returncode == 0 else 'FAIL'} ({last_b})")
+                if r_bud.returncode != 0:
+                    print(r_bud.stderr.strip() or r_bud.stdout.strip())
+                    exit_code = 1
 
         # Backend migrations + full suite
         r_mig = _run([bpy, "manage.py", "makemigrations", "--check", "--dry-run"], cwd=ROOT / "backend", timeout=60)

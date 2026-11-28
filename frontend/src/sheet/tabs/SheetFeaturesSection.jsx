@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useState } from 'react';
 import SRD from '../../../data/srd.js';
 import Utils from '../../../utils.js';
 import { t, tName } from '../../../data/i18n.js';
@@ -14,14 +14,12 @@ import { applyAutosToCharacter, computeProgression } from '../../progression/eng
 import { RespecContext, respecPatch } from '../../progression/respec.js';
 import { assignSpeciesChoices } from '../species-trait-choices.js';
 import { classSkillCount, classSkillPicks, classToolPicks } from '../../creator/class-helpers.js';
-import { findBackground, applyBackground, backgroundTool, chosenBackgroundTools } from '../../creator/background-helpers.js';
+import { findBackground, backgroundTool, chosenBackgroundTools } from '../../creator/background-helpers.js';
 import { classStart, toolName } from '../../creator/start-data.js';
-import { bonusMode, bonusChoice, bonusPatch, abilityBonusIssues, expectedRaceBonus } from '../../creator/ability-helpers.js';
 import { featAsiIssues, featChoiceSpecs, featPicksIssues } from '../../progression/feat-rules.js';
 import { featName, featPicksText, backgroundFeature } from '../sheet-text.js';
 import { placeFeatures, poolParents } from '../feature-placement.js';
 import FhFeatures, { FhFeatureItem } from '../FhFeatures.jsx';
-import { RichText } from '../rich-text.jsx';
 import FhTitle from '../FhTitle.jsx';
 import { useSheetToast } from '../sheet-toast.jsx';
 import { buildTimeline, byLevel, byTier, tierOf, classesAt, charLevelOf } from '../feature-timeline.js';
@@ -31,7 +29,7 @@ import { SubclassModal } from './SheetCompanionsAndNotes.jsx';
 import { SpeciesTraits } from '../story/SheetStoryTab.jsx';
 import { SheetAbilities } from '../belt/BeltHive.jsx';
 import { SheetTools } from './SheetSkillsSection.jsx';
-import { TimelineClassSkillsModal, TimelineBackgroundModal, stableJson, countPendingChoices } from './TimelineModals.jsx';
+import { TimelineClassSkillsModal, TimelineBackgroundModal, stableJson, } from './TimelineModals.jsx';
 
 export const FeatureTimeline = ({ char, lang, placed: placedIn, cls: clsIn, race: raceIn, update: updateIn, onResolveChoice, onResolveOptions, title = null, compact = false }) => {
   const pt = lang === 'pt';

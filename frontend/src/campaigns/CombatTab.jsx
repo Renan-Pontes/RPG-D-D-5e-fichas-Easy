@@ -806,8 +806,9 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
               )}
             </div>
           )}
-          {empty && onNavigate && (
-            <button type="button" className="mesa-btn is-quiet ct-prep-link" onClick={() => onNavigate('prep')}>
+          {empty && (goTo || onNavigate) && (
+            <button type="button" className="mesa-btn is-quiet ct-prep-link"
+              onClick={() => (goTo ? goTo('prepare', 'adventures') : onNavigate('prep'))}>
               {t(lang, 'Ou monte com calma em Preparar →', 'Or set it up calmly in Prepare →')}
             </button>
           )}
@@ -942,7 +943,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
           onClose={() => setStartScene(null)} onStarted={(r) => { applyCombat(r?.combat); load(); }} />
       )}
       {wrapUp && (
-        <EndOfEncounterPanel campaign={campaign} combat={wrapUp} lang={lang} onNavigate={onNavigate}
+        <EndOfEncounterPanel campaign={campaign} combat={wrapUp} lang={lang} goTo={goTo} onNavigate={onNavigate}
           onClose={() => setWrapUp(null)} onGoNow={goTo ? () => { setWrapUp(null); backToNow(); } : null}
           onChange={() => { load(); onChange?.(); }} />
       )}

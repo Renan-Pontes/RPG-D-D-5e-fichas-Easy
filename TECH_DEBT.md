@@ -113,19 +113,19 @@ Register of debt created by the frontend running ahead of the deployed backend. 
 
 ---
 
-## 8. Monolithic File Decomposition & Component Abstraction Blueprint (updated 2026-11-27, `v1.0.143`)
+## 8. Monolithic File Decomposition & Component Abstraction Blueprint (updated 2026-11-28, `v1.0.145`)
 
-Full deterministic decomposition plan and cascade maps: [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) (Epic 5) and [`ADR.md`](ADR.md) (`ADR-0036`). Note: FE CSS & sheet monoliths (`ficha.css`, `styles.css`, `Sheet.jsx`, `SheetTabs.jsx`, and `NextSession.jsx` subviews) were decomposed in `v1.0.143`.
+Full deterministic decomposition plan and cascade maps: [`docs/backlog-grooming-and-cascade-map.md`](docs/backlog-grooming-and-cascade-map.md) (Epic 5) and [`ADR.md`](ADR.md) (`ADR-0036`). Note: all targeted FE CSS & JS monoliths except `url-monster-importer.js` (`NANO-037`, backend-coupled) now meet strict `< 500L` / `< 800L` budgets.
 
-| Monolithic File | Lines (`v1.0.143`) | Target Budget | Extracted / Planned High-Level Modules |
+| Monolithic File | Lines (`v1.0.145`) | Target Budget | Extracted / Planned High-Level Modules |
 | :--- | ---: | ---: | :--- |
 | [`frontend/src/sheet/ficha.css`](frontend/src/sheet/ficha.css) | **15** (was 7,381) | `< 800` / module | **Done (`v1.0.143`)**: 14 ordered domain stylesheets under `frontend/src/sheet/css/` (`sheet-tokens`, `sheet-hero`, `sheet-belt`, `sheet-skills-features`, `sheet-spells`, `sheet-inventory-modals`, `sheet-polish`, etc.) |
-| [`frontend/components/Sheet.jsx`](frontend/components/Sheet.jsx) | **611** (was 5,469) | `< 500` (orchestrator) | **Extracted (`v1.0.143`)**: `hero/SheetHero.jsx`, `belt/{BeltHive,BeltHex,BeltQuickSlot}.jsx`, `tabs/{SheetSkillsSection,SheetFeaturesSection,SheetCompanionsAndNotes,SheetPlay,TimelineModals}.jsx`; dead `BeltPbSlot` removed |
+| [`frontend/components/Sheet.jsx`](frontend/components/Sheet.jsx) | **474** (was 5,469) | `< 500` (orchestrator) | **Done (`v1.0.143`–`v1.0.145`)**: `hero/SheetHero.jsx`, `belt/{BeltHive,BeltHex,BeltQuickSlot}.jsx`, `tabs/{SheetSkillsSection,SheetFeaturesSection,SheetCompanionsAndNotes,SheetPlay,TimelineModals}.jsx`, `use-sheet-hooks.js`; dead `BeltPbSlot` removed |
 | [`backend/api/views_combat.py`](backend/api/views_combat.py) | 2,714 | `< 600` / module | `services/combat_setup.py`, `services/combat_undo.py`, `services/combat_actions.py`, `services/combat_media.py` *(a criar)* |
 | [`frontend/styles.css`](frontend/styles.css) | **6** (was 2,768) | `< 800` / module | **Done (`v1.0.143`)**: split into `frontend/src/styles/{tokens,base,catalog,overlays,modals}.css` with GPU compositor transitions |
 | [`frontend/components/SheetTabs.jsx`](frontend/components/SheetTabs.jsx) | **8** (was 2,647) | `< 450` / module | **Done (`v1.0.143`)**: `spells/{UnifiedSpellsHUD,SlotMatrix,SpellRow,RestButtons,SpellViews}.jsx`, `inventory/{InventoryList,SheetInventoryTab}.jsx`, `story/SheetStoryTab.jsx` |
 | [`frontend/src/campaigns/url-monster-importer.js`](frontend/src/campaigns/url-monster-importer.js) | 1,742 | `< 500` / stage | Separate HTML scraping onto `backend/api/monster_ingest.py` *(a criar)* (`NANO-037`) |
 | [`backend/api/world_rules.py`](backend/api/world_rules.py) | 1,518 | `< 550` / module | Split world consistency linter, graph relation validators, and NPC sheet extractor (`services/` *(a criar)*) |
-| [`frontend/src/prep/NextSession.jsx`](frontend/src/prep/NextSession.jsx) | **958** (was 1,441) | `< 500` / view | **Extracted (`v1.0.143`)**: `SessionSummaryHeader.jsx`, `SceneChecklistDrawer.jsx`, `EncounterLauncher.jsx` |
+| [`frontend/src/prep/NextSession.jsx`](frontend/src/prep/NextSession.jsx) | **369** (was 1,441) | `< 500` / view | **Done (`v1.0.143`–`v1.0.145`)**: `SessionSummaryHeader.jsx`, `SceneChecklistDrawer.jsx`, `EncounterLauncher.jsx`, `NextSessionSteps.jsx`, `NextSessionOverlays.jsx`, `use-next-session-sync.js` |
 
 

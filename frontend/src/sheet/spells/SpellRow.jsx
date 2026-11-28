@@ -6,15 +6,12 @@ import { api } from '../../api/client.js';
 import { errorMessage } from '../../api/errors.js';
 import { grantedSpells } from '../../creator/spell-helpers.js';
 import { grantTakesOver } from '../../progression/engine.js';
-import { DiceText } from '../../dice/dice-text.jsx';
 import { RichText } from '../rich-text.jsx';
 import { useSheetToast } from '../sheet-toast.jsx';
-import { useSpellText, spellTextLoaded, ddbSpellUrl, spellMechanics, scaledDice, higherLevelText } from '../spell-text.js';
+import { useSpellText, spellTextLoaded, ddbSpellUrl, spellMechanics, } from '../spell-text.js';
 import SPELL_TAGS from '../../../data/spell-tags.json';
 import { slotCircleLabel } from '../gem-text.js';
-import { confirmDialog } from '../../../components/ConfirmDialog.jsx';
 import { SchoolBadge, SlotGems, SlotSlider } from './SlotMatrix.jsx';
-import { RestButtons } from './RestButtons.jsx';
 export const isGrantEntry = (s) => !!s && typeof s === 'object' && s.auto && (s.feat || s.species);
 
 export const idOf = (s) => (typeof s === 'string' ? s : s?.id);

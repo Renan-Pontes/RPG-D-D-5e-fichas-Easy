@@ -37,6 +37,85 @@ export function fitSize(w, h, max) {
   return { w: Math.max(1, Math.round(w * s)), h: Math.max(1, Math.round(h * s)) };
 }
 
+let webpSupportCached = null;
+export function supportsWebp() {
+  if (webpSupportCached !== null) return webpSupportCached;
+  try {
+    if (typeof document !== 'undefined') {
+      const c = document.createElement('canvas');
+      c.width = 1;
+      c.height = 1;
+      webpSupportCached = c.toDataURL('image/webp').startsWith('data:image/webp');
+      return webpSupportCached;
+    }
+    webpSupportCached = typeof OffscreenCanvas !== 'undefined';
+    return webpSupportCached;
+  } catch {
+    webpSupportCached = false;
+    return false;
+  }
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(new Error('read_failed'));
+    r.onload = () => resolve(r.result);
+    r.readAsDataURL(blob);
+  });
+}
+
+async function encodeCanvasUrl(img, w, h, quality, crop = null) {
+  const mime = supportsWebp() ? 'image/webp' : 'image/jpeg';
+  if (typeof OffscreenCanvas !== 'undefined' && typeof createImageBitmap !== 'undefined') {
+    try {
+      const oc = new OffscreenCanvas(w, h);
+      const ctx = oc.getContext('2d');
+      if (ctx) {
+        if (ctx.imageSmoothingEnabled !== undefined) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+        }
+        if (crop) ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
+        else ctx.drawImage(img, 0, 0, w, h);
+        if (typeof oc.convertToBlob === 'function') {
+          const blob = await oc.convertToBlob({ type: mime, quality });
+          if (blob) return blobToDataUrl(blob);
+        }
+      }
+    } catch { /* fall back to DOM canvas */ }
+  }
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d');
+  if (ctx.imageSmoothingEnabled !== undefined) {
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+  }
+  if (crop) ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
+  else ctx.drawImage(img, 0, 0, w, h);
+  const webp = supportsWebp() ? c.toDataURL('image/webp', quality) : '';
+  const jpeg = c.toDataURL('image/jpeg', quality);
+  return webp && webp.startsWith('data:image/webp') && webp.length < jpeg.length ? webp : jpeg;
+}
+
+export async function compressImageToWebp(file, { max = 2560, quality = 0.86, limit = IMAGE_MAX_CHARS } = {}) {
+  const dataUrl = await readAsDataURL(file);
+  const img = await loadImage(dataUrl);
+  const origW = img.naturalWidth || img.width;
+  const origH = img.naturalHeight || img.height;
+  let size = max;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { w, h } = fitSize(origW, origH, size);
+    const q = Math.max(0.55, quality - attempt * 0.08);
+    const url = await encodeCanvasUrl(img, w, h, q);
+    if (url.length <= limit) return { url, w, h };
+    size = Math.round(size * 0.75);
+  }
+  throw new Error('image_too_large');
+}
+
 /**
  * Lê uma imagem e preserva resolução original total sempre que couber no limite.
  * Se exceder `max` ou `limit`, comprime mantendo alta fidelidade (qualidade 0.92 inicial).
@@ -57,17 +136,8 @@ export async function compressImage(file, max = 3840, limit = IMAGE_MAX_CHARS) {
   let size = max;
   for (let attempt = 0; attempt < 5; attempt++) {
     const { w, h } = fitSize(origW, origH, size);
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    const ctx = c.getContext('2d');
-    if (ctx.imageSmoothingEnabled !== undefined) {
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-    }
-    ctx.drawImage(img, 0, 0, w, h);
-
     const quality = attempt === 0 ? 0.92 : (attempt === 1 ? 0.85 : 0.75);
-    const url = c.toDataURL('image/jpeg', quality);
+    const url = await encodeCanvasUrl(img, w, h, quality);
     if (url.length <= limit) return { url, w, h };
     size = Math.round(size * 0.75);
   }
@@ -82,19 +152,11 @@ export async function compressAvatar(file, px = AVATAR_PX) {
   const origH = img.naturalHeight || img.height;
   const side = Math.min(origW, origH);
   const out = Math.min(px, side);
+  const crop = { sx: (origW - side) / 2, sy: (origH - side) / 2, sw: side, sh: side };
 
-  const c = document.createElement('canvas');
-  c.width = out; c.height = out;
-  const ctx = c.getContext('2d');
-  if (ctx.imageSmoothingEnabled !== undefined) {
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-  }
-  ctx.drawImage(img, (origW - side) / 2, (origH - side) / 2, side, side, 0, 0, out, out);
-
-  let url = c.toDataURL('image/jpeg', 0.92);
-  if (url.length > IMAGE_MAX_CHARS) url = c.toDataURL('image/jpeg', 0.80);
-  if (url.length > IMAGE_MAX_CHARS) url = c.toDataURL('image/jpeg', 0.65);
+  let url = await encodeCanvasUrl(img, out, out, 0.92, crop);
+  if (url.length > IMAGE_MAX_CHARS) url = await encodeCanvasUrl(img, out, out, 0.80, crop);
+  if (url.length > IMAGE_MAX_CHARS) url = await encodeCanvasUrl(img, out, out, 0.65, crop);
   if (url.length > IMAGE_MAX_CHARS) throw new Error('image_too_large');
   return url;
 }

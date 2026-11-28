@@ -48,8 +48,9 @@ import {
   createSender, createSettleGate, getSheetRolls, maybeRecheck, noteFor, planSheetRoll, setSheetSecret, subscribeSheetRolls,
 } from '../src/dice/sheet-roll.js';
 import {
-  getAnimPref, setAnimPref, loadHistory, saveHistory, loadRecentFormulas, saveRecentFormulas,
+  getAnimPref, setAnimPref, getSoundPref, setSoundPref, loadHistory, saveHistory, loadRecentFormulas, saveRecentFormulas,
 } from '../src/dice/dice-prefs.js';
+import { playRollSting } from '../src/dice/dice-audio.js';
 import { setupGlobalDiceClickListener } from '../src/dice/dice-text.jsx';
 import { triggerHaptic } from '../src/utils/wake-lock.js';
 import '../src/dice/dice-styles.css';
@@ -220,6 +221,8 @@ const DiceRoller = ({ lang }) => {
   const [overlay, setOverlay] = useState(null);
   const [pop, setPop] = useState(null);
   const [animPref, setAnimPrefState] = useState(() => getAnimPref());
+  const [soundOn, setSoundOnState] = useState(() => getSoundPref());
+  const toggleSound = () => { const next = !soundOn; setSoundOnState(next); setSoundPref(next); };
   const [showHistory, setShowHistory] = useState(false);
   const [fabHidden, setFabHidden] = useState(false);
   const [drag, setDrag] = useState(0);
@@ -251,6 +254,7 @@ const DiceRoller = ({ lang }) => {
     if (!animated) {
       // Sem animação o resultado aparece na hora: o tremor do crítico vem junto.
       triggerHaptic(full.isCrit ? 'nat20' : full.isFumble ? 'nat1' : 'tap');
+      if (full.isCrit || full.isFumble) playRollSting(full.isCrit ? 'nat20' : 'nat1');
       setOverlay(null);
       setPop(full);
     } else {
@@ -676,6 +680,12 @@ const DiceRoller = ({ lang }) => {
 
           <header className="dice-sheet-head">
             <strong className="dice-sheet-title">{t('rollDice', lang)}</strong>
+            <button type="button" className={`dice-sheet-anim${soundOn ? ' is-on' : ''}`} onClick={toggleSound}
+              role="switch" aria-checked={soundOn}
+              aria-label={`${L(lang, 'Som', 'Sound')}: ${soundOn ? L(lang, 'ligado', 'on') : L(lang, 'desligado', 'off')}`}
+              title={L(lang, 'Efeito sonoro em 20 natural e 1 natural', 'Sound sting on natural 20 and natural 1')}>
+              <span aria-hidden="true">{soundOn ? '🔊' : '🔇'}</span> <span className="dice-sheet-anim-k">{L(lang, 'Som', 'Sound')}</span>
+            </button>
             <button type="button" className={`dice-sheet-anim${animOn ? ' is-on' : ''}`} onClick={toggleAnim}
               role="switch" aria-checked={animOn} disabled={animBySystem}
               aria-label={`${L(lang, 'Animação', 'Animation')}: ${animOn ? L(lang, 'ligada', 'on') : L(lang, 'desligada', 'off')}`}
@@ -896,7 +906,10 @@ const DiceRoller = ({ lang }) => {
               className="dice-overlay-stage"
               onSettled={() => {
                 sheetGate.settle(overlay.id);   // o dado parou: a rolagem da ficha vai à Tela (E2.1)
-                if ((overlay.isCrit || overlay.isFumble) && navigator.vibrate) navigator.vibrate([60, 40, 100]);
+                if (overlay.isCrit || overlay.isFumble) {
+                  triggerHaptic(overlay.isCrit ? 'nat20' : 'nat1');
+                  playRollSting(overlay.isCrit ? 'nat20' : 'nat1');
+                }
                 setOverlay(prev => (prev && prev.id === overlay.id ? { ...prev, settled: true } : prev));
               }}
             />

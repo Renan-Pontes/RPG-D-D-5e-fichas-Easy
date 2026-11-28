@@ -39,7 +39,7 @@ function useSceneRoom(campaignId, scene) {
 }
 
 /** `onGoNow`: "Ir para a Agora" (no Combate o mestre fica até escolher para onde ir; ✓ Pronto fica). */
-export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, onNavigate, onChange, onGoNow = null }) {
+export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, onNavigate, goTo = null, onChange, onGoNow = null }) {
   const steps = wizardSteps(campaign.state);
   const summary = useMemo(() => encounterSummary(combat), [combat]);
   const xp = useMemo(() => {
@@ -156,8 +156,8 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
                   </div>
                 )}
                 <div className="eoe-row">
-                  {onNavigate && (
-                    <button type="button" className="mesa-btn" onClick={() => onNavigate('items')}>
+                  {(goTo || onNavigate) && (
+                    <button type="button" className="mesa-btn" onClick={() => (goTo ? goTo('prepare', 'items') : onNavigate('items'))}>
                       {L(lang, 'Itens da campanha', 'Campaign items')} →
                     </button>
                   )}

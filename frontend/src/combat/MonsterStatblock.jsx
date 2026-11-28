@@ -40,9 +40,35 @@ const getLocalizedText = (val, lang) => {
  * `name`: nome de reserva quando o objeto não traz um (combatente: "Goblin Guerreiro #1").
  */
 export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, className = '', name: nameProp = '' }) {
-  if (!m) return null;
+  const keen = useMemo(() => (m ? hasKeenSenses(m) : false), [m]);
+  const abils = m?.abilities || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
 
-  const keen = useMemo(() => hasKeenSenses(m), [m]);
+  const explicitSkillMap = useMemo(() => {
+    const map = new Map();
+    if (m?.skills && typeof m.skills === 'object') {
+      for (const [k, v] of Object.entries(m.skills)) {
+        map.set(k.toLowerCase().replace(/[\s_\-]/g, ''), Number(v) || 0);
+      }
+    }
+    if (m?.skillText && typeof m.skillText === 'string') {
+      for (const part of m.skillText.split(',')) {
+        const match = part.trim().match(/^([A-Za-z\s]+)\s*([+-]\s*\d+)$/);
+        if (match) {
+          map.set(match[1].trim().toLowerCase().replace(/[\s_\-]/g, ''), parseInt(match[2].replace(/\s+/g, ''), 10));
+        }
+      }
+    }
+    return map;
+  }, [m?.skills, m?.skillText]);
+
+  const actionSkillData = useMemo(() => {
+    return ACTION_SKILL_GROUPS.map((grp) => ({
+      ...grp,
+      ...computeActionGroupData(grp, abils, explicitSkillMap, lang, { hasKeen: keen }),
+    }));
+  }, [abils, explicitSkillMap, lang, keen]);
+
+  if (!m) return null;
 
   const handleRoll = (opts, e) => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(35);
@@ -64,7 +90,6 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
   const hpText = m.hpText || (hpNum != null ? (m.hitDice ? `${hpNum} (${m.hitDice})` : String(hpNum)) : '');
   const speedText = m.speedText ? feetText(m.speedText, lang) : speedLabel(m.speed, lang);
 
-  const abils = m.abilities || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
   const dexScore = abils.dex ?? 10;
   const dexMod = Math.floor((dexScore - 10) / 2);
   const initBonus = m.initiative != null ? m.initiative : dexMod;
@@ -74,31 +99,6 @@ export default function MonsterStatblock({ monster: m, lang = 'pt', onRoll, clas
   const saveText = m.saveText || Object.entries(m.saves || {})
     .map(([k, v]) => `${k.toUpperCase()} ${Number(v) >= 0 ? '+' : ''}${v}`)
     .join(', ');
-
-  const explicitSkillMap = useMemo(() => {
-    const map = new Map();
-    if (m.skills && typeof m.skills === 'object') {
-      for (const [k, v] of Object.entries(m.skills)) {
-        map.set(k.toLowerCase().replace(/[\s_\-]/g, ''), Number(v) || 0);
-      }
-    }
-    if (m.skillText && typeof m.skillText === 'string') {
-      for (const part of m.skillText.split(',')) {
-        const match = part.trim().match(/^([A-Za-z\s]+)\s*([+-]\s*\d+)$/);
-        if (match) {
-          map.set(match[1].trim().toLowerCase().replace(/[\s_\-]/g, ''), parseInt(match[2].replace(/\s+/g, ''), 10));
-        }
-      }
-    }
-    return map;
-  }, [m.skills, m.skillText]);
-
-  const actionSkillData = useMemo(() => {
-    return ACTION_SKILL_GROUPS.map((grp) => ({
-      ...grp,
-      ...computeActionGroupData(grp, abils, explicitSkillMap, lang, { hasKeen: keen }),
-    }));
-  }, [abils, explicitSkillMap, lang, keen]);
 
   // Skills parsing for interactive chips
   const skillsObj = m.skills || {};

@@ -1,19 +1,16 @@
-import { useContext, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import SRD from '../../../data/srd.js';
 import Utils from '../../../utils.js';
 import { t, tName } from '../../../data/i18n.js';
 import Icon from '../../../components/Icons.jsx';
 import LanguagePicker, { chosenLanguages } from '../../../components/LanguagePicker.jsx';
 import { Modal } from '../../../components/Shared.jsx';
-import { RespecContext } from '../../progression/respec.js';
-import { TOOLS, toolName, classStart } from '../../creator/start-data.js';
+import { toolName, } from '../../creator/start-data.js';
 import { ACTION_SKILL_GROUPS, computeActionGroupData, hasKeenSenses } from '../../combat/monster-action-skills.js';
 import { trainingLines } from '../sheet-text.js';
 import FhTitle from '../FhTitle.jsx';
 import FhAdv3 from '../FhAdv3.jsx';
 import { FhHex, FhSkillRow, FhProfLegend, FhTapToRoll } from '../FhChecks.jsx';
-import { FhStanceHint, halfMark } from '../FhStatus.jsx';
-import { activeBites } from '../condition-rules.js';
 import FhFeatures from '../FhFeatures.jsx';
 
 export const LanguagesField = ({ char, lang, update }) => {

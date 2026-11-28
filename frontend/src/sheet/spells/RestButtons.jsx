@@ -1,13 +1,12 @@
-import { useContext, useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import Utils from '../../../utils.js';
-import { t } from '../../../data/i18n.js';
 import { confirmDialog } from '../../../components/ConfirmDialog.jsx';
 import { restResources } from '../../progression/resources.js';
-import { exhaustionLevel, hitDicePools, setExhaustion, usedByAfterRest } from '../hp-logic.js';
+import { exhaustionLevel, setExhaustion, usedByAfterRest } from '../hp-logic.js';
+import { buildRestSummary } from '../rest-summary.js';
 import { useRestMode } from '../rest-mode.jsx';
 import { useSheetToast } from '../sheet-toast.jsx';
-import { errorMessage } from '../../api/errors.js';
 import { api } from '../../api/client.js';
 export const RestButtons = ({ char, lang, update, seals = false }) => {
   const [busy, setBusy] = useState(false);
@@ -112,12 +111,15 @@ export const RestButtons = ({ char, lang, update, seals = false }) => {
     const pressSeal = async (type) => {
       if (!rest) return restore(type);
       if (type === 'long') {
-        const ok = await confirmDialog({
+        const skip = typeof localStorage !== 'undefined' && localStorage.getItem('forja.rest.skipConfirm') === '1';
+        const sum = buildRestSummary(char, 'long', lang);
+        const msg = sum.lines.length
+          ? sum.lines.map(l => `• ${l}`).join('\n')
+          : (pt ? 'Recupera os Pontos de Vida, os espaços de magia, Dados de Vida e os recursos de descanso longo.' : 'Restores hit points, spell slots, Hit Dice and long-rest resources.');
+        const ok = skip || await confirmDialog({
           lang,
           title: pt ? 'Fazer um descanso longo?' : 'Take a long rest?',
-          message: pt
-            ? 'Recupera os Pontos de Vida, os espaços de magia, Dados de Vida e os recursos de descanso longo.'
-            : 'Restores hit points, spell slots, Hit Dice and long-rest resources.',
+          message: msg,
           confirmLabel: pt ? 'Descansar' : 'Rest',
         });
         if (!ok) return undefined;
@@ -144,11 +146,15 @@ export const RestButtons = ({ char, lang, update, seals = false }) => {
         <span className="fh-seal-cap" aria-hidden="true">{cap}</span>
       </button>
     );
+    const shortSum = on === 'short' ? buildRestSummary(char, 'short', lang) : null;
     const strip = on === 'short' && rest?.slot ? createPortal(
       <div className="fh-rest-strip no-print" role="status">
         <span className="fh-rest-strip-t">
           <strong>☕ {pt ? 'Descanso curto em andamento' : 'Short rest in progress'}</strong>
-          <span>{pt ? 'Gaste Dados de Vida no painel Vitalidade (botão "Gastar 1 DV"). Os recursos voltam ao concluir.' : 'Spend Hit Dice in the Vitality panel ("Spend 1 HD" button). Resources come back when you finish.'}</span>
+          <span>
+            {pt ? 'Gaste Dados de Vida no painel Vitalidade (botão "Gastar 1 DV"). Os recursos voltam ao concluir.' : 'Spend Hit Dice in the Vitality panel ("Spend 1 HD" button). Resources come back when you finish.'}
+            {shortSum?.lines?.length ? ` (${shortSum.lines.join(' · ')})` : ''}
+          </span>
         </span>
         <span className="fh-rest-strip-acts">
           <button type="button" className="btn btn-primary btn-sm" onClick={finishShort} disabled={busy}>{pt ? 'Concluir descanso' : 'Finish rest'}</button>

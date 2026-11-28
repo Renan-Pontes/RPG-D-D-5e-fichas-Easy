@@ -8,6 +8,8 @@ import { api } from '../api/client.js';
 import Icon from '../../components/Icons.jsx';
 import { listWorld } from '../world/world-api.js';
 import { kindIcon, kindLabel } from '../world/world-model.js';
+import { getActiveChar } from '../dice/active-char.js';
+import { parseSlashQuery } from './quick-actions.js';
 import { navSearchItems, searchItems, t } from './shell-logic.js';
 
 // Ícones de traço por tipo de resultado (antes: um emoji colorido por linha, um estilo por tipo).
@@ -83,7 +85,8 @@ export default function QuickSearch({ campaign, lang, isDM, onClose, onPick, ini
     return out;
   }, [world, adventures, items, monsters, campaign.members, lang, isDM]);
 
-  const results = useMemo(() => searchItems(index, q, { limit: 30, kindOrder: KIND_ORDER }), [index, q]);
+  const slashResults = useMemo(() => (q.trim().startsWith('/') ? parseSlashQuery(q, { lang, activeChar: getActiveChar() }) : []), [q, lang]);
+  const results = useMemo(() => (q.trim().startsWith('/') ? slashResults : searchItems(index, q, { limit: 30, kindOrder: KIND_ORDER })), [index, q, slashResults]);
   useEffect(() => { setSel(0); }, [q]);
   useEffect(() => {
     listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView?.({ block: 'nearest' });

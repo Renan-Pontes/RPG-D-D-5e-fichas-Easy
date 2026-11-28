@@ -1,4 +1,4 @@
-import { useId, useState, useRef, useLayoutEffect } from 'react';
+import { useId, useState, useRef, } from 'react';
 import SRD from '../../../data/srd.js';
 import Utils from '../../../utils.js';
 import { t, tName } from '../../../data/i18n.js';

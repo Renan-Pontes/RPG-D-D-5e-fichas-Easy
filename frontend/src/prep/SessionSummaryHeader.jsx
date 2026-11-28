@@ -1,9 +1,7 @@
-import { useId } from 'react';
+
 import { tName } from '../../data/i18n.js';
 import { apiUrl } from '../api/client.js';
 import { nextStepId, stepLabel } from './next-session.js';
-import { nextStep, prepSession, reminderText } from '../shell/next-step.js';
-import MoreMenu from '../group/MoreMenu.jsx';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 

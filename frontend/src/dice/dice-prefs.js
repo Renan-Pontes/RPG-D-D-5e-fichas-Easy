@@ -2,6 +2,7 @@
 const KEY_ANIM = 'forja.dice.anim';
 const KEY_HISTORY = 'forja.dice.history';
 const KEY_RECENT = 'forja.dice.recentFormulas';
+const KEY_SOUND = 'forja.dice.sound';
 
 function read(key, fallback) {
   try {
@@ -35,3 +36,6 @@ export const saveRecentFormulas = (list) => write(KEY_RECENT, (list || []).slice
 export function prefersReducedMotion() {
   try { return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
 }
+
+export const getSoundPref = () => read(KEY_SOUND, true) !== false;
+export const setSoundPref = (v) => write(KEY_SOUND, !!v);

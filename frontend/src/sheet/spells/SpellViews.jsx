@@ -1,5 +1,4 @@
-import { useState, useMemo } from 'react';
-import SRD from '../../../data/srd.js';
+import { useState, } from 'react';
 import Utils from '../../../utils.js';
 import { t, tName } from '../../../data/i18n.js';
 import Icon from '../../../components/Icons.jsx';
@@ -9,7 +8,7 @@ import { schoolIcon, SCHOOL_EMOJI } from '../../art.js';
 import { slotCircleLabel } from '../gem-text.js';
 import { unknownSpells } from '../../progression/known.js';
 import * as Book from '../../progression/spellbook.js';
-import { SchoolBadge, SlotGems } from './SlotMatrix.jsx';
+import { SlotGems } from './SlotMatrix.jsx';
 import { isGrantEntry, SpellRow } from './SpellRow.jsx';
 export const groupByLevel = (list) => {
   const out = {};

@@ -3,7 +3,8 @@ import { join, resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
 const ROOT = resolve(import.meta.dirname, '..');
-const DIST = join(ROOT, 'frontend', 'dist', 'assets');
+const argPath = process.argv[2] ? resolve(process.argv[2]) : join(ROOT, 'frontend', 'dist');
+const DIST = argPath.endsWith('assets') ? argPath : join(argPath, 'assets');
 const ENTRY_GZIP_BUDGET_KB = 250;
 
 const files = readdirSync(DIST)

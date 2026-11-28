@@ -1,9 +1,6 @@
 import { useState } from 'react';
-import { tName } from '../../data/i18n.js';
-import { PLAN_LIMITS, readyChecklist, planHeading, realScene, sceneParts } from './next-session.js';
-import { kindIcon, kindLabel } from '../world/world-model.js';
-import MesaSheet, { SIDE_MQ } from '../shell/MesaSheet.jsx';
-import useMedia from '../play/useMedia.js';
+import { PLAN_LIMITS, readyChecklist, realScene, sceneParts } from './next-session.js';
+import MesaSheet from '../shell/MesaSheet.jsx';
 import { momentLine, planMoments } from '../group/moment-words.js';
 import { capFirst } from './SceneChecklistDrawer.jsx';
 

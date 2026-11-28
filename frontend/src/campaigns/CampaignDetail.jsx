@@ -507,7 +507,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
           <Suspense fallback={null}>
             <QuickSearch campaign={campaign} lang={lang} isDM={isDM} initialWorld={world?.entries}
               onClose={() => setSearch(false)}
-              onPick={(r) => { setSearch(false); if (r.guide != null) setGuide(r.guide); else goTo(r.go[0], r.go[1], r.go[2]); }} />
+              onPick={(r) => { setSearch(false); if (r.run) r.run(); else if (r.guide != null) setGuide(r.guide); else goTo(r.go[0], r.go[1], r.go[2]); }} />
           </Suspense>
         )}
         {more && isDM && (
@@ -541,7 +541,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
         )}
         {wrapUp && isDM && (
           <Suspense fallback={null}>
-            <EndOfEncounterPanel campaign={campaign} combat={wrapUp.combat} lang={lang} onNavigate={legacyNav}
+            <EndOfEncounterPanel campaign={campaign} combat={wrapUp.combat} lang={lang} goTo={goTo} onNavigate={legacyNav}
               onClose={() => { const then = wrapUp.then; setWrapUp(null); if (then) setRecapFor(then); }} onChange={load} />
           </Suspense>
         )}

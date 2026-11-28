@@ -113,3 +113,23 @@
   --fh-corner-bl: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'><g transform='translate(0 22) scale(1 -1)' fill='none' stroke='%23d9ad5a' stroke-width='1.1'><path d='M1.5 20 V7 Q1.5 1.5 7 1.5 H20'/><path d='M5 14 V8 Q5 5 8 5 H14' opacity='.6'/><rect x='7.2' y='7.2' width='3' height='3' transform='rotate(45 8.7 8.7)' fill='%23e8c070' stroke='none'/></g></svg>");
   --fh-corner-br: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'><g transform='translate(22 22) scale(-1 -1)' fill='none' stroke='%23d9ad5a' stroke-width='1.1'><path d='M1.5 20 V7 Q1.5 1.5 7 1.5 H20'/><path d='M5 14 V8 Q5 5 8 5 H14' opacity='.6'/><rect x='7.2' y='7.2' width='3' height='3' transform='rotate(45 8.7 8.7)' fill='%23e8c070' stroke='none'/></g></svg>");
 }
+
+/* High-contrast dark-room "Table" theme (ux-audit P11) */
+:root[data-theme="table"] {
+  --bg-deep: #090807;
+  --bg-base: #100e0c;
+  --bg-raised: #16130f;
+  --bg-card: #191612;
+  --bg-elevated: #231f1a;
+  --ink-primary: #fff8ea;
+  --ink-secondary: #ece0c8;
+  --ink-muted: #c9bc9f;
+  --gold: #f0c975;
+  --gold-bright: #ffe199;
+  --stroke: rgba(240, 201, 117, 0.36);
+  --stroke-strong: rgba(240, 201, 117, 0.68);
+  --fh-leather: #14110e;
+  --fh-leather-hi: #1d1813;
+  --fh-leather-lo: #0f0c0a;
+  --fh-noise: none;
+}

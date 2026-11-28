@@ -43,7 +43,7 @@
 - `ToneAccentFields.jsx`: Visual theme tone and accent color picker for the campaign header.
 
 ### 2.2 Character Sheet Subsystem (`frontend/src/sheet/` & `frontend/components/Sheet.jsx`)
-- `components/Sheet.jsx`: Character sheet orchestrator (`611` lines); coordinates `SheetHero`, Belt v2 hive, play/skills/features/companions tabs, undo history (`undo-history.js`), mobile sticky hero, concentration guard, and Wake Lock (`wake-lock.js`).
+- `components/Sheet.jsx`: Character sheet orchestrator (`474` lines); coordinates `SheetHero`, Belt v2 hive, play/skills/features/companions tabs, undo history (`undo-history.js`), scroll memory & HP/key hooks (`use-sheet-hooks.js`), mobile sticky hero, concentration guard, Table theme (`table-theme.js`), and Wake Lock (`wake-lock.js`).
 - `src/sheet/hero/`, `belt/`, `tabs/`: Modular sheet sections (`SheetHero.jsx`, `BeltHive.jsx`, `BeltHex.jsx`, `BeltQuickSlot.jsx`, `SheetPlay.jsx`, `SheetSkillsSection.jsx`, `SheetFeaturesSection.jsx`, `SheetCompanionsAndNotes.jsx`, `TimelineModals.jsx`).
 - `components/SheetTabs.jsx`: Barrel re-export (`8` lines) pointing to `src/sheet/spells/` (`UnifiedSpellsHUD.jsx`, `SlotMatrix.jsx`, `SpellRow.jsx`, `RestButtons.jsx`, `SpellViews.jsx`), `src/sheet/inventory/` (`SheetInventoryTab.jsx`, `InventoryList.jsx`), and `src/sheet/story/` (`SheetStoryTab.jsx`).
 - `ficha.css` (`15` lines manifest -> `src/sheet/css/*.css`), `ficha-tabs.css`, & `condition-fx.css`: Modular styling for the "Ficha Forjada" across 14 domain stylesheets in `frontend/src/sheet/css/`.
@@ -134,10 +134,13 @@
 
 ---
 
-## 4. Additions since 2026-11-07 (through v1.0.143)
+## 4. Additions since 2026-11-07 (through v1.0.145)
 
 | Path | Responsibility |
 |---|---|
+| `frontend/src/dice/dice-ast.js`, `dice-audio.js`, `frontend/data/dice-ast-vectors.json` | Zero-dep recursive-descent Dice AST parser/evaluator (`kh`/`kl`/`dh`/`dl`/`ro`/`r`/`min` + crit doubling), 20 shared vectors, and WebAudio nat 20/1 sound sting (`v1.0.145`). |
+| `frontend/src/shell/quick-actions.js`, `frontend/src/homebrew/bundle-io.js`, `frontend/src/utils/table-theme.js` | `QuickSearch` `/r`, `/cond`, `/cast` slash parser, Homebrew Bundle JSON schema validator/exporter/merger, and high-contrast `"Table"` theme toggle (`v1.0.145`). |
+| `frontend/src/sheet/rest-summary.js`, `use-sheet-hooks.js`, `frontend/src/prep/{NextSessionSteps,NextSessionOverlays,use-next-session-sync}` | Rest restoration preview builder, sheet scroll memory & extracted HP/observer hooks (`Sheet.jsx` `474L`), and extracted `NextSession` plan sync/step/overlay modules (`369L`) (`v1.0.145`). |
 | `frontend/src/sheet/undo-history.js`, `sheet-undo-helpers.js` | Immer `produceWithPatches`/`applyPatches` 20-step sheet Undo/Redo history + toast/keyboard bindings (`v1.0.143`). |
 | `frontend/src/sheet/MobileSheetNav.jsx`, `MyTurnView.jsx`, `HpDeltaPopover.jsx` | Mobile 5-tab thumb bar, combat action-economy `My Turn` view, and quick HP delta keypad (`v1.0.143`). |
 | `frontend/src/api/idb-store.js`, `char-card-summary.js`, `frontend/data/spell-id-aliases.js` | IndexedDB store + one-time `localStorage` migration (`idb`), and lightweight card summary avoiding eager `srd.js` import (`v1.0.143`). |

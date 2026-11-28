@@ -1,0 +1,22 @@
+[
+  { "expr": "1d20+5", "rolls": [14], "crit": false, "expectedTotal": 19 },
+  { "expr": "d20+3", "rolls": [18], "crit": false, "expectedTotal": 21 },
+  { "expr": "2d6+4", "rolls": [3, 5], "crit": false, "expectedTotal": 12 },
+  { "expr": "2d6+4", "rolls": [3, 5, 6, 2], "crit": true, "expectedTotal": 20 },
+  { "expr": "4d6kh3", "rolls": [2, 6, 4, 5], "crit": false, "expectedTotal": 15 },
+  { "expr": "4d6dl1", "rolls": [1, 6, 4, 5], "crit": false, "expectedTotal": 15 },
+  { "expr": "2d20kh1+7", "rolls": [4, 17], "crit": false, "expectedTotal": 24 },
+  { "expr": "2d20kl1+7", "rolls": [4, 17], "crit": false, "expectedTotal": 11 },
+  { "expr": "2d20dh1", "rolls": [19, 8], "crit": false, "expectedTotal": 8 },
+  { "expr": "2d8ro<2", "rolls": [1, 6, 4], "crit": false, "expectedTotal": 10 },
+  { "expr": "2d8ro<=2", "rolls": [2, 5, 1, 7], "crit": false, "expectedTotal": 12 },
+  { "expr": "1d10r=1", "rolls": [1, 1, 8], "crit": false, "expectedTotal": 8 },
+  { "expr": "2d6min3", "rolls": [1, 5], "crit": false, "expectedTotal": 8 },
+  { "expr": "8d6", "rolls": [1, 2, 3, 4, 5, 6, 2, 4], "crit": false, "expectedTotal": 27 },
+  { "expr": "2d4+1d6-2", "rolls": [3, 4, 5], "crit": false, "expectedTotal": 10 },
+  { "expr": "(1d8+2)*2", "rolls": [5], "crit": false, "expectedTotal": 14 },
+  { "expr": "-1d4+10", "rolls": [3], "crit": false, "expectedTotal": 7 },
+  { "expr": "1d12+1d8+5", "rolls": [10, 10, 6, 6], "crit": true, "expectedTotal": 37 },
+  { "expr": "4d6k3+2", "rolls": [1, 2, 3, 4], "crit": false, "expectedTotal": 11 },
+  { "expr": "1d100", "rolls": [73], "crit": false, "expectedTotal": 73 }
+]

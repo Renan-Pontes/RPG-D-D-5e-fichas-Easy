@@ -1,14 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useState } from 'react';
 import SRD from '../../../data/srd.js';
 import Utils from '../../../utils.js';
 import { t, tName } from '../../../data/i18n.js';
 import Icon from '../../../components/Icons.jsx';
-import { Filigree, Modal, NumStepper, AvatarUpload } from '../../../components/Shared.jsx';
-import ArtThumb from '../../components/ArtThumb.jsx';
+import { Filigree, Modal, } from '../../../components/Shared.jsx';
 import { confirmDialog } from '../../../components/ConfirmDialog.jsx';
-import { subclassesFor } from '../../progression/subclasses.js';
-import { subclassLock, sealHint, subclassLevelOf } from '../../progression/subclass-lock.js';
-import { applyAutosToCharacter } from '../../progression/engine.js';
 import { errorMessage } from '../../api/errors.js';
 import { api } from '../../api/client.js';
 import FhTitle from '../FhTitle.jsx';
@@ -18,8 +14,7 @@ import { gemLabel } from '../gem-text.js';
 import { useSheetToast } from '../sheet-toast.jsx';
 import { RichText } from '../rich-text.jsx';
 import SheetRollTarget from '../SheetRollTarget.jsx';
-import { AskDmNote, canLevelUp, saveLabel, stop, SUBCLASS_LABEL } from '../sheet-shared.jsx';
-import { LevelUpButton } from '../hero/SheetHero.jsx';
+import { AskDmNote, saveLabel, } from '../sheet-shared.jsx';
 
 export const SubclassModal = ({ char, lang, subs, label, update, onClose, landOnly = false, askDm = false }) => {
   const pt = lang === 'pt';

@@ -487,7 +487,7 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
         {strip}
         {showWrapUp && combat && (
           <div className="tn-wrapup">
-            <EndOfEncounterPanel campaign={campaign} combat={combat} lang={lang}
+            <EndOfEncounterPanel campaign={campaign} combat={combat} lang={lang} goTo={goToProp}
               onClose={() => setShowWrapUp(false)} onNavigate={onNavigate} onChange={() => { refresh(); reloadCombat(); }} />
           </div>
         )}

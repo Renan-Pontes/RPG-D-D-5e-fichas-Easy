@@ -85,8 +85,8 @@ export function normalizeArea(isDM, area, sub) {
 }
 
 /**
- * Abas antigas (onNavigate/onOpenTab dos componentes legados) → área nova.
- * Mantém TableNow/CombatTab/PrepTab funcionando dentro da casca.
+ * @deprecated Abas antigas (onNavigate/onOpenTab) — preferir goTo(area, sub).
+ * Mantido apenas para compatibilidade regressiva até o cutover do servidor (NANO-015).
  */
 export const LEGACY_TAB_TO_AREA = {
   now: ['play', 'scene'],

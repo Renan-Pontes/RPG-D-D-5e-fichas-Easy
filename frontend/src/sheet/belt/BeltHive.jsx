@@ -2,15 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import SRD from '../../../data/srd.js';
 import Utils from '../../../utils.js';
-import { t, tName } from '../../../data/i18n.js';
-import { Filigree } from '../../../components/Shared.jsx';
+import { t, } from '../../../data/i18n.js';
 import FhTitle from '../FhTitle.jsx';
 import FhAdv3 from '../FhAdv3.jsx';
 import { FhProfLegend, FhSkillRow, FhTap, FhTapToRoll } from '../FhChecks.jsx';
 import BeltMultiRoll, { pairBeltSlots, rollBeltPairs } from '../../dice/BeltMultiRoll.jsx';
 import { useSheetToast } from '../sheet-toast.jsx';
-import { stop } from '../sheet-shared.jsx';
-import { HONEY_DICE, HONEY_ABILITY_META, isActionKey, beltAbbr, BeltHex } from './BeltHex.jsx';
+import { HONEY_DICE, beltAbbr, BeltHex } from './BeltHex.jsx';
 import { BeltQuickSlot } from './BeltQuickSlot.jsx';
 import { AbilitySeals } from '../tabs/SheetSkillsSection.jsx';
 

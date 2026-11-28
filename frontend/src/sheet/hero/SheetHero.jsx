@@ -1,25 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Utils from '../../../utils.js';
 import { t, tName } from '../../../data/i18n.js';
 import Icon from '../../../components/Icons.jsx';
 import { AvatarUpload, FramedImg } from '../../../components/Shared.jsx';
 import { RestButtons } from '../spells/RestButtons.jsx';
-import { speciesChoiceSpecs, speciesGrants } from '../../progression/species.js';
-import { speciesSummary } from '../../progression/species-summary.js';
 import { SpeciesChoicesModal } from '../../progression/SpeciesChoices.jsx';
-import { featChoiceSpecs } from '../../progression/feat-rules.js';
-import { backgroundList, findBackground } from '../../creator/background-helpers.js';
 import { guardSealedPatch, subclassLock, sealHint } from '../../progression/subclass-lock.js';
 import { subclassesFor } from '../../progression/subclasses.js';
-import { applyAutosToCharacter } from '../../progression/engine.js';
-import { confirmDialog } from '../../../components/ConfirmDialog.jsx';
-import { api } from '../../api/client.js';
 import { classArt, speciesArt } from '../../art.js';
 import { FhConditionArt, FhInspBurst, useGainMoment } from '../FhConditions.jsx';
 import { useSheetToast } from '../sheet-toast.jsx';
 import SheetRollTarget from '../SheetRollTarget.jsx';
 import { statusList, statusLabel } from '../condition-rules.js';
-import { canLevelUp, stop, SUBCLASS_LABEL, SUBCLASS_LEVEL } from '../sheet-shared.jsx';
+import { canLevelUp, stop, SUBCLASS_LABEL, } from '../sheet-shared.jsx';
+import { getTableTheme, setTableTheme } from '../../utils/table-theme.js';
 import { SubclassModal } from '../tabs/SheetCompanionsAndNotes.jsx';
 import HpDeltaPopover from '../HpDeltaPopover.jsx';
 
@@ -327,6 +321,8 @@ export const SheetHero = ({
 }) => {
   const pt = lang === 'pt';
   const toast = useSheetToast();
+  const [tableTheme, setTableThemeState] = useState(() => getTableTheme());
+  const toggleTableTheme = () => { const next = setTableTheme(!tableTheme); setTableThemeState(next); };
   const letter = (char.name || '?').charAt(0).toUpperCase();
   const inspNow = useGainMoment(!!char.inspiration, char.id, 1000); // brilho que passa no nome ao ganhar Inspiração
   const portrait = char.avatar || speciesArt(char.race) || classArt(char.className);
@@ -460,6 +456,11 @@ export const SheetHero = ({
             <Icon name="download" size={15} aria-hidden="true"/>
           </button>
         </div>
+        <button type="button" className={`fh-hero-chip fh-corner-chip fh-theme-chip no-print${tableTheme ? ' is-cheat' : ''}`}
+          aria-pressed={tableTheme} onClick={toggleTableTheme}
+          title={pt ? 'Tema Mesa (alto contraste para pouca luz)' : 'Table theme (high contrast for dim rooms)'}>
+          <span aria-hidden="true">☀</span> {pt ? 'Mesa' : 'Table'}
+        </button>
       </div>
     </>
   );
